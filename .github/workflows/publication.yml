@@ -1,0 +1,169 @@
+# Publication France Transparence — https://koutakou.github.io/france-transparence/
+#
+# Trois déclencheurs :
+#   - cron quotidien 04:45 UTC (06:45 Paris l'été, 05:45 l'hiver) — après le lot
+#     nocturne du JO (~00h30 Paris) et les builds DECP quotidiens : ingestion
+#     complète (base NEUVE dans le runner éphémère) → tests → build → déploiement.
+#   - push sur main : rebuild du site en réutilisant la dernière base en cache
+#     (si aucune : ingestion complète). La fraîcheur affichée reste celle de la
+#     base réellement utilisée — honnête par construction.
+#   - déclenchement manuel (workflow_dispatch), ingestion forçable.
+#
+# Atomicité : le déploiement GitHub Pages remplace tout le site d'un coup.
+# Toute étape en échec = AUCUN déploiement : le site de la veille reste servi,
+# et une issue « publication-echec » est ouverte (ou commentée).
+
+name: publication
+
+on:
+  schedule:
+    - cron: "45 4 * * *"
+  workflow_dispatch:
+    inputs:
+      ingestion:
+        description: "Ingestion complète (base neuve) ; sinon réutilise la base en cache"
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  issues: write
+
+concurrency:
+  group: publication
+  cancel-in-progress: false
+
+jobs:
+  construire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Mode d'exécution
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] || { [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.ingestion }}" = "true" ]; }; then
+            echo "ingestion=oui" >> "$GITHUB_OUTPUT"
+          else
+            echo "ingestion=si-cache-vide" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Restaurer la dernière base en cache
+        if: steps.mode.outputs.ingestion != 'oui'
+        id: cache-db
+        uses: actions/cache/restore@v4
+        with:
+          path: data/france.db
+          # clé volontairement introuvable : on veut le restore-keys → la base la plus récente
+          key: france-db-introuvable
+          restore-keys: |
+            france-db-
+
+      - uses: actions/setup-python@v5
+        if: steps.mode.outputs.ingestion == 'oui' || steps.cache-db.outputs.cache-matched-key == ''
+        with:
+          python-version: "3.14"
+
+      - name: Ingestion complète (base neuve du jour)
+        id: ingestion
+        if: steps.mode.outputs.ingestion == 'oui' || steps.cache-db.outputs.cache-matched-key == ''
+        run: |
+          make venv PYTHON=python3
+          make ingest PYTHON=python3
+
+      - name: Tests pipelines (pytest)
+        if: steps.ingestion.outcome == 'success'
+        run: make test PYTHON=python3
+
+      - name: Consolider la base (checkpoint WAL → fichier unique)
+        if: steps.ingestion.outcome == 'success'
+        run: |
+          python3 - <<'EOF'
+          import sqlite3
+          c = sqlite3.connect("data/france.db")
+          c.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+          c.execute("PRAGMA journal_mode=DELETE")
+          c.close()
+          EOF
+          ls -lh data/france.db
+
+      - name: Mettre la base en cache
+        if: steps.ingestion.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: data/france.db
+          key: france-db-${{ github.run_id }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Dépendances app
+        run: npm ci
+        working-directory: app
+
+      - name: Build statique
+        run: npm run build
+        working-directory: app
+        env:
+          FT_EXPORT: "1"
+          NEXT_PUBLIC_BASE_PATH: /france-transparence
+          FRANCE_DB_PATH: ${{ github.workspace }}/data/france.db
+
+      - name: Contrôles de santé du site généré
+        run: |
+          set -eu
+          test -f app/out/index.html
+          grep -q "France Transparence" app/out/index.html
+          python3 - <<'EOF'
+          import json, pathlib, sys
+          meta = json.loads(pathlib.Path("app/out/api/meta.json").read_text())
+          brut = json.dumps(meta)
+          assert "genere_le" in brut, "meta.json sans champ genere_le"
+          print("meta.json OK :", str(meta)[:200])
+          EOF
+          nb_fiches=$(find app/out/elus -mindepth 1 -maxdepth 1 -type d | wc -l)
+          echo "Fiches élus générées : $nb_fiches"
+          test "$nb_fiches" -ge 900
+          taille=$(du -sm app/out | cut -f1)
+          echo "Taille du site : ${taille} Mo"
+          test "$taille" -lt 950
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app/out
+
+  deployer:
+    needs: construire
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  alerter:
+    needs: [construire, deployer]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ouvrir ou commenter l'issue d'échec
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          corps="Le run [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) du $(date -u +%F) a échoué (événement : ${{ github.event_name }}). Le site en ligne reste celui du dernier déploiement réussi — la fraîcheur affichée sur /donnees reste exacte d'elle-même."
+          existante=$(gh issue list --repo "${{ github.repository }}" --label publication-echec --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existante" ]; then
+            gh issue comment "$existante" --repo "${{ github.repository }}" --body "$corps"
+          else
+            gh issue create --repo "${{ github.repository }}" --title "Échec de la publication quotidienne" --label publication-echec --body "$corps" \
+              || gh issue create --repo "${{ github.repository }}" --title "Échec de la publication quotidienne" --body "$corps"
+          fi
