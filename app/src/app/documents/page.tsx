@@ -170,7 +170,9 @@ export default async function DocumentsPage() {
       />
 
       {/* --------------------- Parutions & répartition ------------------------- */}
-      <div className="grid items-start gap-4 lg:grid-cols-2">
+      {/* grid-cols-1 explicite : piste minmax(0,1fr) — sans elle, la piste
+          implicite « auto » s'élargit au min-content du graphe (débord mobile). */}
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <Card
           titre="Parutions par jour"
           sousTitre="Textes par JO paru — le JO ne paraît pas tous les jours : les jours sans parution comptent 0"

@@ -40,7 +40,9 @@ export function Card({ titre, sousTitre, droite, children, className }: CardProp
               <p className="mt-1 text-xs text-ink-secondary">{sousTitre}</p>
             )}
           </div>
-          {droite && <div className="shrink-0">{droite}</div>}
+          {/* min-w-0 + max-w-full (et non shrink-0) : sur écran étroit le badge
+              se replie/tronque au lieu de faire déborder le document. */}
+          {droite && <div className="min-w-0 max-w-full">{droite}</div>}
         </header>
       )}
       {children}

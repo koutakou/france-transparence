@@ -96,7 +96,11 @@ export function DataTable<T extends object>({
   // ces attributs par cellule pesaient plusieurs dizaines de Ko de HTML.
   return (
     <div
-      className={`overflow-x-auto ${hauteurMax ? "overflow-y-auto" : ""} [&_td]:border-b [&_td]:border-[var(--viz-grid)] [&_td]:h-9 [&_td]:px-3 [&_th]:border-b [&_th]:border-[var(--viz-grid)] ${className ?? ""}`}
+      // `relative` : le scroller devient containing block des descendants en
+      // position absolue (ex. <span class="sr-only">) — sinon leur position
+      // statique dans une table large s'ancre sur le document et crée un
+      // scroll horizontal fantôme de la page en mobile.
+      className={`relative overflow-x-auto ${hauteurMax ? "overflow-y-auto" : ""} [&_td]:border-b [&_td]:border-[var(--viz-grid)] [&_td]:h-9 [&_td]:px-3 [&_th]:border-b [&_th]:border-[var(--viz-grid)] ${className ?? ""}`}
       style={hauteurMax ? { maxHeight: hauteurMax } : undefined}
     >
       <table className="w-full border-collapse text-[13px]">

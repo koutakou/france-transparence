@@ -259,7 +259,9 @@ export default async function PageMarches() {
         sousTitre="Marchés notifiés sur 12 mois — montants écrêtés, acheteurs à département connu"
         droite={badgeS1}
       >
-        <div className="grid gap-6 lg:grid-cols-2">
+        {/* grid-cols-1 explicite : piste minmax(0,1fr) — sans elle, la piste
+            implicite « auto » s'élargit au min-content du tableau (débord mobile). */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div>
             <CarteDepartements
               valeurs={valeursCarte}
@@ -317,7 +319,9 @@ export default async function PageMarches() {
         sousTitre="12 derniers mois, classement par montant notifié écrêté"
         droite={badgeS1}
       >
-        <div className="grid gap-8 lg:grid-cols-2">
+        {/* grid-cols-1 explicite : piste minmax(0,1fr) — sans elle, la piste
+            implicite « auto » s'élargit au min-content des libellés (débord mobile). */}
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
           <div>
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-ink-secondary">
               Top acheteurs

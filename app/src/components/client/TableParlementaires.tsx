@@ -41,7 +41,11 @@ export interface TableParlementairesProps {
 }
 
 const STYLE_SELECT =
-  "rounded-lg border border-card-border bg-page px-3 py-1.5 text-[13px] text-ink focus:border-raised-border";
+  "max-w-full rounded-lg border border-card-border bg-page px-3 py-1.5 text-[13px] text-ink focus:border-raised-border";
+/* min-w-0 + max-w-full : un <select> aux options longues ne rétrécit pas de
+   lui-même — sans ceci le filtre déborde du document en 390 px. */
+const STYLE_LABEL_FILTRE =
+  "flex min-w-0 max-w-full flex-col gap-1 text-[11px] uppercase tracking-[0.04em] text-ink-muted";
 const STYLE_BOUTON =
   "rounded-lg border border-card-border bg-raised px-3 py-1.5 text-[13px] text-ink transition-colors hover:bg-hover";
 
@@ -214,7 +218,7 @@ export function TableParlementaires({
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-[11px] uppercase tracking-[0.04em] text-ink-muted">
+        <label className={STYLE_LABEL_FILTRE}>
           Groupe
           <select
             value={groupe}
@@ -229,7 +233,7 @@ export function TableParlementaires({
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-[11px] uppercase tracking-[0.04em] text-ink-muted">
+        <label className={STYLE_LABEL_FILTRE}>
           Département
           <select
             value={departement}

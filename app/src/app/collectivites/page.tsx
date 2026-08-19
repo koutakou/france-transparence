@@ -429,7 +429,9 @@ export default async function PageCollectivites() {
           )}
         </Card>
 
-        <div className="grid gap-6 xl:grid-cols-2">
+        {/* grid-cols-1 explicite : piste minmax(0,1fr) — sans elle, la piste
+            implicite « auto » s'élargit au min-content des tableaux (débord mobile). */}
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <Card
             titre="DGF par habitant — communes de 20 000 habitants ou plus"
             sousTitre={
