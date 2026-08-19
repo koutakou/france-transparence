@@ -98,6 +98,45 @@ export function getAlertesDomaines(): DomaineAlerte[] | null {
     .all() as DomaineAlerte[];
 }
 
+export type TypeAlerteExport = {
+  type: string;
+  nb: number;
+  /** Règle de calcul — une seule valeur distincte par type (vérifié en base). */
+  regle: string | null;
+  base_legale: string | null;
+};
+
+export type AlertesExport = {
+  types: TypeAlerteExport[];
+  alertes: Alerte[];
+};
+
+/**
+ * Export complet pour le fragment statique /data/alertes.json : toutes les
+ * alertes dans l'ORDRE de la liste (gravité, date décroissante, id — le même
+ * tri que `getAlertesPage`), plus la table des types avec règle/base légale
+ * (une seule valeur distincte par type en base — dédupliquée au transport).
+ */
+export function getAlertesExport(): AlertesExport | null {
+  const db = getDb();
+  if (!db) return null;
+  const types = db
+    .prepare(
+      `SELECT type, COUNT(*) AS nb, MAX(regle) AS regle, MAX(base_legale) AS base_legale
+       FROM alertes GROUP BY type ORDER BY nb DESC`,
+    )
+    .all() as TypeAlerteExport[];
+  const alertes = db
+    .prepare(
+      `SELECT id, type, gravite, titre, detail, regle, base_legale, source_url, date_calcul
+       FROM alertes
+       ORDER BY CASE gravite WHEN 'haute' THEN 0 WHEN 'moyenne' THEN 1 ELSE 2 END,
+                date_calcul DESC, id`,
+    )
+    .all() as Alerte[];
+  return { types, alertes };
+}
+
 export type FiltresAlertes = {
   /** Type exact (`lobbying_defaut_declaration`…) — undefined = tous. */
   type?: string;

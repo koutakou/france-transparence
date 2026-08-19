@@ -342,6 +342,58 @@ export function getDgfDepartements(): DgfDepartement[] | null {
 }
 
 /* ------------------------------------------------------------------ */
+/* Fragment statique /data/collectivites/series.json                   */
+/* ------------------------------------------------------------------ */
+
+export type ToutesSeries = {
+  /** Séries pluriannuelles par code région (17 clés). */
+  regions: Record<string, SerieAnnuelle[]>;
+  /** Séries pluriannuelles par code de conseil départemental (97 clés). */
+  departements: Record<string, SerieAnnuelle[]>;
+};
+
+/**
+ * Toutes les séries pluriannuelles (régions + conseils départementaux) en
+ * une passe — pré-générées dans un fragment statique que la page charge au
+ * premier clic sur une collectivité (aucune requête à l'affichage).
+ */
+export function getToutesSeries(): ToutesSeries | null {
+  const db = getDb();
+  if (!db) return null;
+  type LigneSerie = SerieAnnuelle & { code: string };
+  const regrouper = (lignes: LigneSerie[]): Record<string, SerieAnnuelle[]> => {
+    const par: Record<string, SerieAnnuelle[]> = {};
+    for (const { code, ...serie } of lignes) {
+      (par[code] ??= []).push(serie);
+    }
+    return par;
+  };
+  const regions = db
+    .prepare(
+      `SELECT code_region AS code, exercice,
+              MAX(CASE WHEN agregat = 'Dépenses de fonctionnement' THEN montant END) AS fonctionnement,
+              MAX(CASE WHEN agregat = 'Dépenses d''investissement' THEN montant END) AS investissement,
+              MAX(CASE WHEN agregat = 'Epargne brute' THEN montant END) AS epargne_brute
+       FROM collectivites_regions
+       GROUP BY code_region, exercice
+       ORDER BY code_region, exercice`,
+    )
+    .all() as LigneSerie[];
+  const departements = db
+    .prepare(
+      `SELECT code_dep AS code, exercice,
+              MAX(CASE WHEN agregat = 'Dépenses de fonctionnement' THEN montant END) AS fonctionnement,
+              MAX(CASE WHEN agregat = 'Dépenses d''investissement' THEN montant END) AS investissement,
+              MAX(CASE WHEN agregat = 'Epargne brute' THEN montant END) AS epargne_brute
+       FROM collectivites_conseils_departementaux
+       GROUP BY code_dep, exercice
+       ORDER BY code_dep, exercice`,
+    )
+    .all() as LigneSerie[];
+  return { regions: regrouper(regions), departements: regrouper(departements) };
+}
+
+/* ------------------------------------------------------------------ */
 /* Fond de carte (référentiel S27)                                     */
 /* ------------------------------------------------------------------ */
 

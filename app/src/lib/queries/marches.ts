@@ -377,6 +377,70 @@ export function chargerDonneesMarches(
 }
 
 /* ------------------------------------------------------------------ */
+/* Fragment statique /data/marches/ao.json (filtre famille côté client) */
+/* ------------------------------------------------------------------ */
+
+export type VueAoFamille = {
+  /** Total d'AO en cours pour ce filtre (au moment de la construction). */
+  total: number;
+  /** Dont montant non publié dans l'annonce. */
+  sansMontant: number;
+  /** Les 20 échéances les plus proches pour ce filtre. */
+  lignes: AoEnCours[];
+};
+
+export type AoParFamille = {
+  familles: FamilleAO[];
+  /** Vues par famille — clé `""` = toutes familles confondues. */
+  vues: Record<string, VueAoFamille>;
+};
+
+/**
+ * Pré-calcule, pour CHAQUE famille BOAMP (et « toutes »), la vue servie par
+ * le filtre client de /marches : total, part sans montant, 20 échéances les
+ * plus proches. Instantané re-filtré (annulations, échéances passées) à la
+ * construction du site — même SQL que `chargerDonneesMarches`.
+ */
+export function getAoParFamille(): AoParFamille | null {
+  const db = getDb();
+  if (!db) return null;
+  const familles = db
+    .prepare(
+      `SELECT famille, famille_libelle, COUNT(*) AS nb FROM ao_en_cours
+       WHERE annulee = 0 AND date_limite_reponse > datetime('now')
+         AND famille IS NOT NULL
+       GROUP BY famille, famille_libelle ORDER BY nb DESC`,
+    )
+    .all() as FamilleAO[];
+
+  const vuePour = (famille: string | null): VueAoFamille => {
+    const compte = db
+      .prepare(
+        `SELECT COUNT(*) AS nb, COALESCE(SUM(montant_estime IS NULL), 0) AS sans
+         FROM ao_en_cours
+         WHERE annulee = 0 AND date_limite_reponse > datetime('now')
+           AND (? IS NULL OR famille = ?)`,
+      )
+      .get(famille, famille) as { nb: number; sans: number };
+    const lignes = db
+      .prepare(
+        `SELECT idweb, objet, acheteur, montant_estime, date_limite_reponse,
+                url_avis
+         FROM ao_en_cours
+         WHERE annulee = 0 AND date_limite_reponse > datetime('now')
+           AND (? IS NULL OR famille = ?)
+         ORDER BY date_limite_reponse ASC LIMIT 20`,
+      )
+      .all(famille, famille) as AoEnCours[];
+    return { total: compte.nb, sansMontant: compte.sans, lignes };
+  };
+
+  const vues: Record<string, VueAoFamille> = { "": vuePour(null) };
+  for (const f of familles) vues[f.famille] = vuePour(f.famille);
+  return { familles, vues };
+}
+
+/* ------------------------------------------------------------------ */
 /* Fond de carte                                                       */
 /* ------------------------------------------------------------------ */
 

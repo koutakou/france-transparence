@@ -1,57 +1,38 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import Link from "next/link";
 import { AlertItem, type Gravite } from "@/components/ui/AlertItem";
-import { BarChart } from "@/components/ui/BarChart";
+import { AppelsOffres } from "@/components/client/AppelsOffres";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
+import { CarteDepartements } from "@/components/client/CarteDepartements";
 import { DataTable } from "@/components/ui/DataTable";
 import { Donut, type DonutPart } from "@/components/ui/Donut";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
-import { LineChart } from "@/components/ui/LineChart";
-import { MapFrance } from "@/components/ui/MapFrance";
 import { Money } from "@/components/ui/Money";
+import { SerieMensuelleMarches } from "@/components/client/SerieMensuelleMarches";
 import { Sparkline } from "@/components/ui/Sparkline";
 import { StatStrip } from "@/components/ui/StatStrip";
+import { TableTronquee } from "@/components/client/TableTronquee";
 import { formatDateFr, formatEuros, formatNombre, formatPct } from "@/lib/format";
-import {
-  chargerDonneesMarches,
-  chargerGeoDepartements,
-  type AlerteMarches,
-} from "@/lib/queries/marches";
+import { chargerDonneesMarches, type AlerteMarches } from "@/lib/queries/marches";
 
-// La base locale évolue à chaque ingestion et le tableau BOAMP se re-filtre
-// à l'heure de la requête : jamais figer cette page au build.
-export const dynamic = "force-dynamic";
+/**
+ * Page STATIQUE (site pré-rendu quotidiennement) : tout est calculé au
+ * build sur la base du jour ; le filtre BOAMP par famille et la carte
+ * vivent côté client sur fragments /data/* (docs/deploiement/DECISION.md).
+ * L'instantané BOAMP est re-filtré (annulations, échéances passées) à
+ * chaque construction du site — pas à chaque affichage.
+ */
 
 export const metadata: Metadata = {
-  title: "Marchés publics",
+  title: "Commande publique",
   description:
-    "Commande publique : marchés notifiés (DECP consolidées), appels d’offres en cours (BOAMP) et achats publics annoncés (APProch).",
+    "Marchés publics notifiés et appels d’offres en cours : montants, attributaires, répartition par département — DECP consolidées et BOAMP, données datées.",
 };
 
 /* ------------------------------------------------------------------ */
 /* Helpers d'affichage (purs, locaux à la page)                        */
 /* ------------------------------------------------------------------ */
-
-const MOIS_COURTS = [
-  "janv.", "févr.", "mars", "avr.", "mai", "juin",
-  "juil.", "août", "sept.", "oct.", "nov.", "déc.",
-];
-
-/** `'2023-09'` → `sept. 23` (étiquette d'axe compacte). */
-function moisCourt(mois: string): string {
-  const [annee, mm] = mois.split("-");
-  const i = Number(mm) - 1;
-  return MOIS_COURTS[i] ? `${MOIS_COURTS[i]} ${annee.slice(2)}` : mois;
-}
-
-/** `'2023-09'` → `sept. 2023` (vue tableau). */
-function moisLong(mois: string): string {
-  const [annee, mm] = mois.split("-");
-  const i = Number(mm) - 1;
-  return MOIS_COURTS[i] ? `${MOIS_COURTS[i]} ${annee}` : mois;
-}
 
 /** Tronque proprement un libellé long (le `title` porte le texte complet). */
 function tronque(s: string | null, max: number): string {
@@ -59,32 +40,9 @@ function tronque(s: string | null, max: number): string {
   return s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s;
 }
 
-/** ISO datetime UTC → `JJ/MM/AAAA HHhMM` en heure de Paris. */
-function formatDateHeureParis(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const date = new Intl.DateTimeFormat("fr-FR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    timeZone: "Europe/Paris",
-  }).format(d);
-  const heure = new Intl.DateTimeFormat("fr-FR", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Europe/Paris",
-  }).format(d);
-  return `${date} ${heure.replace(":", "h")}`;
-}
-
-/** La date de donnée est-elle celle d'aujourd'hui (heure de Paris) ? */
-function estAujourdHui(iso: string): boolean {
+/** La date de donnée est-elle celle du jour de construction du site ? */
+function estJourDeConstruction(iso: string): boolean {
   return formatDateFr(iso) === formatDateFr(new Date().toISOString());
-}
-
-/** Md€ pour axes/tooltips de la série mensuelle (1 décimale, 0 exact nu). */
-function formatMd(v: number): string {
-  return v === 0 ? "0 Md€" : `${formatNombre(v / 1e9, 1)} Md€`;
 }
 
 /** Gravités de la table `alertes` (haute/moyenne/info) → jeton AlertItem. */
@@ -149,16 +107,8 @@ function LienSortant({ href, libelle }: { href: string | null; libelle: string }
 /* Page                                                                */
 /* ------------------------------------------------------------------ */
 
-export default async function PageMarches({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
-  const params = await searchParams;
-  const familleDemandee =
-    typeof params.famille === "string" ? params.famille : null;
-
-  const donnees = chargerDonneesMarches(familleDemandee);
+export default async function PageMarches() {
+  const donnees = chargerDonneesMarches(null);
 
   if (donnees === null) {
     return (
@@ -175,8 +125,7 @@ export default async function PageMarches({
     );
   }
 
-  const { meta, kpis, serieMensuelle, familles, familleActive, alertes } = donnees;
-  const geojson = chargerGeoDepartements();
+  const { meta, kpis, serieMensuelle, familles, alertes } = donnees;
 
   /* ---- KPI : tendances 12 derniers mois de la série mensuelle ---- */
   const douzeDerniers = serieMensuelle.slice(-12);
@@ -188,7 +137,7 @@ export default async function PageMarches({
 
   /* ---- Carte : montants par département (NULL écarté, jamais 0).
      Codes à 2 caractères = métropole + Corse, le périmètre réellement
-     rendu par MapFrance (v1) : l'échelle de la légende ne doit décrire
+     rendu par la carte (v1) : l'échelle de la légende ne doit décrire
      que ce qui est affiché — l'outre-mer reste lisible dans le tableau. */
   const valeursCarte: Record<string, number> = {};
   for (const d of donnees.departements) {
@@ -220,10 +169,6 @@ export default async function PageMarches({
 
   /* ---- BOAMP : compteurs du bloc annonces ---- */
   const totalAnnonces31j = donnees.annoncesParJour.reduce((s, j) => s + j.nb, 0);
-  const pctSansMontant =
-    donnees.aoTotalFiltre > 0
-      ? (100 * donnees.aoSansMontantFiltre) / donnees.aoTotalFiltre
-      : null;
 
   const badgeS1 = meta.s1 && (
     <FreshnessBadge
@@ -316,21 +261,13 @@ export default async function PageMarches({
       >
         <div className="grid gap-6 lg:grid-cols-2">
           <div>
-            {geojson ? (
-              <MapFrance
-                geojson={geojson}
-                valeurs={valeursCarte}
-                formatValeur={(v) => formatEuros(v)}
-                legendeTitre="Montant notifié (12 mois)"
-                ariaLabel="Carte de France des montants de marchés publics notifiés par département sur 12 mois"
-              />
-            ) : (
-              <p className="rounded-lg border border-card-border bg-raised p-4 text-sm text-ink-muted">
-                Fond de carte indisponible (data/geo/departements.geojson
-                manquant) — les valeurs restent lisibles dans le tableau
-                ci-contre.
-              </p>
-            )}
+            <CarteDepartements
+              valeurs={valeursCarte}
+              format="euros"
+              legendeTitre="Montant notifié (12 mois)"
+              ariaLabel="Carte de France des montants de marchés publics notifiés par département sur 12 mois"
+              messageAbsent="Fond de carte indisponible (data/geo/departements.geojson manquant) — les valeurs restent lisibles dans le tableau ci-contre."
+            />
             <p className="mt-2 text-xs leading-relaxed text-ink-muted">
               « Donnée manquante » = aucun montant connu pour le département
               (jamais confondu avec 0&nbsp;€). Outre-mer hors rendu carte en
@@ -338,31 +275,24 @@ export default async function PageMarches({
               100&nbsp;M€ par marché.
             </p>
           </div>
-          <DataTable
-            hauteurMax="460px"
+          <TableTronquee
             colonnes={[
               { cle: "departement_code", entete: "Code", largeur: "4rem" },
-              {
-                cle: "departement_nom",
-                entete: "Département",
-                rendu: (d) => d.departement_nom ?? "—",
-              },
+              { cle: "departement_nom", entete: "Département" },
               { cle: "nb_marches", entete: "Marchés", type: "nombre" },
               {
                 cle: "montant_total",
                 entete: "Montant",
-                type: "montant",
-                rendu: (d) =>
-                  d.montant_total === null ? (
-                    <span title="Aucun montant connu">—</span>
-                  ) : (
-                    <Money valeur={d.montant_total} />
-                  ),
+                type: "money",
+                titreSiNull: "Aucun montant connu",
               },
               { cle: "nb_marches_ecretes", entete: "Écrêtés", type: "nombre" },
             ]}
             lignes={donnees.departements}
-            cleLigne={(d) => d.departement_code}
+            cleChamp="departement_code"
+            premierEcran={20}
+            libellePluriel="départements"
+            hauteurMax="460px"
             vide="Aucun agrégat départemental"
           />
         </div>
@@ -376,53 +306,7 @@ export default async function PageMarches({
         sousTitre="36 derniers mois civils — les 2 derniers mois sont incomplets (latence légale de publication ≤ 2 mois)"
         droite={badgeS1}
       >
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div>
-            <p className="mb-2 text-xs text-ink-secondary">Marchés notifiés par mois</p>
-            <LineChart
-              labels={serieMensuelle.map((m) => moisCourt(m.mois))}
-              series={[
-                {
-                  nom: "Marchés notifiés",
-                  valeurs: serieMensuelle.map((m) => m.nb_marches),
-                },
-              ]}
-              formatValeur={(v) => formatNombre(v)}
-              ariaLabel="Nombre de marchés notifiés par mois sur 36 mois"
-            />
-          </div>
-          <div>
-            <p className="mb-2 text-xs text-ink-secondary">
-              Montant notifié par mois (écrêté)
-            </p>
-            <BarChart
-              items={serieMensuelle.map((m) => ({
-                libelle: moisCourt(m.mois),
-                valeur: m.montant_total ?? 0,
-              }))}
-              formatValeur={formatMd}
-              ariaLabel="Montant notifié par mois sur 36 mois, en milliards d’euros écrêtés"
-            />
-          </div>
-        </div>
-        <VueTableau resume="Vue tableau — 36 mois">
-          <DataTable
-            hauteurMax="320px"
-            colonnes={[
-              { cle: "mois", entete: "Mois", rendu: (m) => moisLong(m.mois) },
-              { cle: "nb_marches", entete: "Marchés", type: "nombre" },
-              {
-                cle: "montant_total",
-                entete: "Montant",
-                type: "montant",
-                rendu: (m) =>
-                  m.montant_total === null ? "—" : <Money valeur={m.montant_total} />,
-              },
-            ]}
-            lignes={serieMensuelle}
-            cleLigne={(m) => m.mois}
-          />
-        </VueTableau>
+        <SerieMensuelleMarches serie={serieMensuelle} />
       </Card>
 
       {/* ---------------------------------------------------------- */}
@@ -641,7 +525,7 @@ export default async function PageMarches({
       <div id="appels-offres" className="scroll-mt-4">
         <Card
           titre="Appels d’offres en cours"
-          sousTitre="BOAMP — instantané quotidien re-filtré à l’affichage (annonces annulées et échéances passées écartées)"
+          sousTitre="BOAMP — instantané quotidien, re-filtré à chaque construction du site (annonces annulées et échéances passées écartées)"
           droite={
             meta.s2 && (
               <FreshnessBadge
@@ -649,7 +533,7 @@ export default async function PageMarches({
                 source="BOAMP"
                 frequence={meta.s2.frequence}
                 url={meta.s2.url}
-                mention={estAujourdHui(meta.s2.date_donnees) ? "jour même" : undefined}
+                mention={estJourDeConstruction(meta.s2.date_donnees) ? "jour même" : undefined}
               />
             )
           }
@@ -688,107 +572,16 @@ export default async function PageMarches({
             />
           </VueTableau>
 
-          {/* filtre par famille — server-side via searchParams */}
-          <nav
-            aria-label="Filtrer les appels d’offres par famille"
-            className="mb-3 mt-4 flex flex-wrap items-center gap-1.5 text-xs"
-          >
-            <Link
-              href="/marches#appels-offres"
-              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 transition-colors ${
-                familleActive === null
-                  ? "border-raised-border bg-hover text-ink"
-                  : "border-card-border text-ink-secondary hover:bg-hover"
-              }`}
-            >
-              {familleActive === null && (
-                <span aria-hidden="true" className="font-bold">✓</span>
-              )}
-              Toutes ({formatNombre(kpis.aoEnCours)})
-            </Link>
-            {familles.map((f) => (
-              <Link
-                key={f.famille}
-                href={`/marches?famille=${encodeURIComponent(f.famille)}#appels-offres`}
-                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 transition-colors ${
-                  familleActive === f.famille
-                    ? "border-raised-border bg-hover text-ink"
-                    : "border-card-border text-ink-secondary hover:bg-hover"
-                }`}
-              >
-                {familleActive === f.famille && (
-                  <span aria-hidden="true" className="font-bold">✓</span>
-                )}
-                {f.famille_libelle ?? f.famille} ({formatNombre(f.nb)})
-              </Link>
-            ))}
-          </nav>
-
-          <DataTable
-            colonnes={[
-              {
-                cle: "objet",
-                entete: "Objet",
-                rendu: (a) => <span title={a.objet ?? undefined}>{tronque(a.objet, 80)}</span>,
-              },
-              {
-                cle: "acheteur",
-                entete: "Acheteur",
-                rendu: (a) => (
-                  <span title={a.acheteur ?? undefined}>{tronque(a.acheteur, 44)}</span>
-                ),
-              },
-              {
-                cle: "montant_estime",
-                entete: "Montant estimé",
-                type: "montant",
-                rendu: (a) =>
-                  a.montant_estime === null ? (
-                    <span className="text-ink-muted">non publié</span>
-                  ) : (
-                    <span className="inline-flex items-baseline gap-1.5">
-                      <Money valeur={a.montant_estime} />
-                      {a.montant_estime >= 1e9 && (
-                        <span
-                          className="text-[11px] text-ink-muted"
-                          title="Montant tel que publié dans l’annonce — non retraité."
-                        >
-                          tel que publié
-                        </span>
-                      )}
-                    </span>
-                  ),
-              },
-              {
-                cle: "date_limite_reponse",
-                entete: "Date limite (Paris)",
-                largeur: "10rem",
-                rendu: (a) => formatDateHeureParis(a.date_limite_reponse),
-              },
-              {
-                cle: "url_avis",
-                entete: "Annonce",
-                rendu: (a) => <LienSortant href={a.url_avis} libelle="Annonce" />,
-              },
-            ]}
-            lignes={donnees.ao}
-            cleLigne={(a) => a.idweb}
-            vide="Aucun appel d’offres en cours pour ce filtre"
+          {/* filtre par famille — côté client, fragments /data/marches/ao.json */}
+          <AppelsOffres
+            familles={familles}
+            vueToutes={{
+              total: donnees.aoTotalFiltre,
+              sansMontant: donnees.aoSansMontantFiltre,
+              lignes: donnees.ao,
+            }}
+            aoEnCours={kpis.aoEnCours}
           />
-          <p className="mt-3 text-xs leading-relaxed text-ink-muted">
-            {formatNombre(donnees.ao.length)} échéances les plus proches
-            affichées sur {formatNombre(donnees.aoTotalFiltre)} appels
-            d’offres en cours pour ce filtre
-            {pctSansMontant !== null && (
-              <>
-                {" "}
-                — {formatPct(pctSansMontant)} d’entre eux ne publient pas de
-                montant dans l’annonce (« non publié »)
-              </>
-            )}
-            . Les montants publiés sont repris tels quels, y compris les
-            valeurs extrêmes réelles (étiquetées, jamais tronquées).
-          </p>
         </Card>
       </div>
 
