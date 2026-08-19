@@ -14,7 +14,7 @@ PIPELINES := referentiels budget_mensuel budget_structure decp boamp approch \
 
 # NB : ne PAS déclarer les cibles ingest-<x> en .PHONY — make saute la
 # recherche de règles implicites (ingest-%) pour les cibles phony.
-.PHONY: venv ingest test dev build app-install
+.PHONY: venv ingest test dev build build-static serve-static app-install
 
 venv: $(VENV)/bin/pip
 $(VENV)/bin/pip: requirements.txt
@@ -43,3 +43,14 @@ dev:
 
 build:
 	cd app && npm run build
+
+# Export statique (GitHub Pages) : génère app/out/ — nécessite la base
+# (FRANCE_DB_PATH ou data/france.db), tout est pré-rendu au build.
+build-static:
+	cd app && FT_EXPORT=1 npm run build
+
+# Sert app/out/ tel quel sur :3620. NB : en local le build se fait SANS
+# NEXT_PUBLIC_BASE_PATH → site à la racine (http://localhost:3620/), alors
+# que la prod GitHub Pages vit sous /france-transparence/.
+serve-static:
+	cd app && python3 -m http.server 3620 --directory out

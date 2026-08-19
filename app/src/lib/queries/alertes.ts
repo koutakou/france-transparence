@@ -98,6 +98,24 @@ export function getAlertesDomaines(): DomaineAlerte[] | null {
     .all() as DomaineAlerte[];
 }
 
+/**
+ * Dump complet des alertes (export statique /api/alertes.json) — même tri
+ * stable que la liste paginée : gravité (haute → info), date de calcul
+ * décroissante, id.
+ */
+export function getAlertesToutes(): Alerte[] | null {
+  const db = getDb();
+  if (!db) return null;
+  return db
+    .prepare(
+      `SELECT id, type, gravite, titre, detail, regle, base_legale, source_url, date_calcul
+       FROM alertes
+       ORDER BY CASE gravite WHEN 'haute' THEN 0 WHEN 'moyenne' THEN 1 ELSE 2 END,
+                date_calcul DESC, id`,
+    )
+    .all() as Alerte[];
+}
+
 export type FiltresAlertes = {
   /** Type exact (`lobbying_defaut_declaration`…) — undefined = tous. */
   type?: string;

@@ -19,8 +19,8 @@ import {
   type AlerteAccueil,
 } from "@/lib/queries/accueil";
 
-// La base locale évolue à chaque ingestion : jamais figer cet état au build.
-export const dynamic = "force-dynamic";
+// Rendu statique : la donnée ne change qu'à l'ingestion, le site est
+// reconstruit après chaque ingestion (docs/deploiement/DECISION.md).
 
 // Le title de l'accueil est le title par défaut du layout racine.
 export const metadata: Metadata = {

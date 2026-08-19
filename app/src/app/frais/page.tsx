@@ -12,8 +12,8 @@ import {
   type TrainvieFait,
 } from "@/lib/queries/frais";
 
-// La base locale évolue à chaque ingestion : jamais figer cet état au build.
-export const dynamic = "force-dynamic";
+// Rendu statique : la donnée ne change qu'à l'ingestion, le site est
+// reconstruit après chaque ingestion (docs/deploiement/DECISION.md).
 
 export const metadata: Metadata = {
   title: "Frais & train de vie",

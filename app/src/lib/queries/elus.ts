@@ -401,14 +401,25 @@ export type DeclarationHatvp = {
   url_fiche: string | null;
 };
 
+/**
+ * Nombre de scrutins affichés sur une fiche député — plafond d'allègement
+ * des fiches statiques (l'export génère ~1 000 fiches ; chaque ligne pèse
+ * ~1,8 Ko, HTML + payload RSC). 30 tient la pire fiche (11 déclarations
+ * HATVP) sous 150 Ko brut. Le total présent en base est retourné à côté
+ * (`nb_scrutins_base`) pour une mention honnête « N derniers sur X ».
+ */
+export const VOTES_FICHE_MAX = 30;
+
 export type FicheElu = {
   elu: EluRow;
   /** JSON `elus.mandats` parsé ([] si NULL ou invalide). */
   mandats: MandatJson[];
   depute: DeputeDetail | null;
   senateur: SenateurDetail | null;
-  /** Positions du député sur les 100 derniers scrutins présents (null hors député). */
+  /** Positions du député sur les VOTES_FICHE_MAX derniers scrutins présents (null hors député). */
   votes: VoteLigne[] | null;
+  /** Total de scrutins présents en base (null hors député). */
+  nb_scrutins_base: number | null;
   /** Déclarations HATVP appariées par fiche nominative (URL exacte). */
   declarations: DeclarationHatvp[];
 };
@@ -441,6 +452,7 @@ export function getFicheElu(id: string): FicheElu | null {
 
   let depute: DeputeDetail | null = null;
   let votes: VoteLigne[] | null = null;
+  let nbScrutinsBase: number | null = null;
   if (elu.uid_an) {
     depute =
       (db
@@ -456,8 +468,14 @@ export function getFicheElu(id: string): FicheElu | null {
         )
         .get(elu.uid_an) as DeputeDetail | undefined) ?? null;
     if (depute) {
-      // Les 100 derniers scrutins présents en base (votes_recents), avec la
-      // position du député — LEFT JOIN : NULL = aucune position enregistrée.
+      // Les VOTES_FICHE_MAX derniers scrutins présents en base
+      // (votes_recents), avec la position du député — LEFT JOIN : NULL =
+      // aucune position enregistrée. Le total sert à la mention honnête.
+      nbScrutinsBase = (
+        db
+          .prepare("SELECT COUNT(DISTINCT scrutin_uid) AS nb FROM votes_recents")
+          .get() as { nb: number }
+      ).nb;
       votes = db
         .prepare(
           `SELECT s.uid AS scrutin_uid, s.numero, s.date_scrutin, s.titre, s.sort,
@@ -465,9 +483,10 @@ export function getFicheElu(id: string): FicheElu | null {
            FROM (SELECT DISTINCT scrutin_uid FROM votes_recents) sc
            JOIN scrutins s ON s.uid = sc.scrutin_uid
            LEFT JOIN votes_recents v ON v.scrutin_uid = s.uid AND v.uid_an = ?
-           ORDER BY s.date_scrutin DESC, s.numero DESC`,
+           ORDER BY s.date_scrutin DESC, s.numero DESC
+           LIMIT ?`,
         )
-        .all(elu.uid_an) as VoteLigne[];
+        .all(elu.uid_an, VOTES_FICHE_MAX) as VoteLigne[];
     }
   }
 
@@ -501,7 +520,7 @@ export function getFicheElu(id: string): FicheElu | null {
       .all(...urls) as DeclarationHatvp[];
   }
 
-  return { elu, mandats, depute, senateur, votes, declarations };
+  return { elu, mandats, depute, senateur, votes, nb_scrutins_base: nbScrutinsBase, declarations };
 }
 
 /* ------------------------------------------------------------------ */

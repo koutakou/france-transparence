@@ -10,8 +10,8 @@ import {
   type SourceCataloguee,
 } from "@/lib/queries/donnees";
 
-// Le catalogue reflète la base locale à chaque ingestion : jamais figé au build.
-export const dynamic = "force-dynamic";
+// Rendu statique : le catalogue est figé au build, qui suit chaque
+// ingestion (docs/deploiement/DECISION.md) — il reste donc à jour.
 
 export const metadata: Metadata = {
   title: "Données & exports",
@@ -125,22 +125,22 @@ const EXPORTS: { chemin: string; description: string }[] = [
   {
     chemin: "/api/meta.json",
     description:
-      "Le catalogue meta_sources complet : chaque source tracée avec nom, URL amont, licence, fréquence, date des données, date d'ingestion, volumétrie et notes.",
+      "Le catalogue meta_sources complet : chaque source tracée avec nom, URL amont, licence, fréquence, date des données, date d'ingestion, volumétrie et notes — plus genere_le, la date du build (témoin de fraîcheur du déploiement).",
   },
   {
     chemin: "/api/alertes.json",
     description:
-      "Les alertes calculées à l'ingestion, chacune avec sa règle, sa base légale et son URL source.",
+      "Toutes les alertes calculées à l'ingestion (dump complet), chacune avec sa règle, sa base légale et son URL source.",
   },
   {
     chemin: "/api/elus.json",
     description:
-      "Le répertoire des élus — champs publics uniquement, mandats détaillés en JSON.",
+      "Le répertoire des élus, en champs publics compacts : identité, identifiants AN/Sénat, lien HATVP, types de mandats (le détail des mandats reste sur les fiches et dans le RNE amont).",
   },
   {
     chemin: "/api/budget-mensuel.json",
     description:
-      "Situations mensuelles budgétaires de l'État (montants = cumuls depuis le 1er janvier).",
+      "Situations mensuelles budgétaires de l'État, série complète 2013 → dernier mois publié (26 lignes par mois, montants = cumuls depuis le 1er janvier).",
   },
   {
     chemin: "/api/marches-agregats.json",
@@ -412,7 +412,7 @@ export default async function PageDonnees() {
       {/* 4. Exports JSON quotidiens */}
       <Card
         titre="Exports JSON (reconstruits chaque matin)"
-        sousTitre="Fichiers statiques publiés avec le site à chaque ingestion — téléchargeables et ré-exploitables"
+        sousTitre="Fichiers statiques publiés avec le site à chaque ingestion — des instantanés datés téléchargeables, pas une API paramétrable"
       >
         <p className="mb-4 max-w-3xl text-[13px] leading-relaxed text-ink-secondary">
           Chaque fichier est un <strong className="text-ink">instantané
@@ -420,15 +420,21 @@ export default async function PageDonnees() {
           <code className="rounded bg-raised px-1 py-0.5 text-xs">genere_le</code>{" "}
           de{" "}
           <code className="rounded bg-raised px-1 py-0.5 text-xs">meta.json</code>
-          ), et non plus une API interrogeable&nbsp;; la recherche du site
-          interroge l&apos;index côté navigateur.
+          ), et non plus une API interrogeable. Les exports{" "}
+          <code className="rounded bg-raised px-1 py-0.5 text-xs">/api/*.json</code>{" "}
+          portent un bloc <code className="rounded bg-raised px-1 py-0.5 text-xs">meta</code>{" "}
+          (source(s) amont, date des données, licence) et un bloc{" "}
+          <code className="rounded bg-raised px-1 py-0.5 text-xs">donnees</code> — un
+          dump complet, sans paramètre de filtrage&nbsp;: le tri et le filtrage
+          se font chez le réutilisateur. La recherche du site interroge son
+          index côté navigateur.
         </p>
         <ul className="flex flex-col gap-4">
           {EXPORTS.map((e) => (
             <li key={e.chemin} className="border-l pl-3.5" style={{ borderColor: "var(--viz-grid)" }}>
               <p className="text-[13px]">
                 <a
-                  href={e.chemin}
+                  href={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}${e.chemin}`}
                   className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
                 >
                   <code className="rounded bg-raised px-1.5 py-0.5 text-xs text-ink">
