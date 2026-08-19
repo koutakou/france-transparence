@@ -16,3 +16,5 @@ data/tmp/
 .env*
 !.env.example
 data/france.db
+
+.claude/
