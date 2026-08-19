@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { AlertItem, type Gravite } from "@/components/ui/AlertItem";
 import { BarChart } from "@/components/ui/BarChart";
@@ -20,6 +21,12 @@ import {
 
 // La base locale évolue à chaque ingestion : jamais figer cet état au build.
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Lobbying",
+  description:
+    "Le répertoire des représentants d'intérêts de la HATVP : activités déclarées, budgets, institutions visées et entités en défaut de déclaration — constats officiels repris tels quels, datés et sourcés.",
+};
 
 /** Toggle « Vue tableau » — la jumelle WCAG de chaque graphique (DATAVIZ §7/§9). */
 function VueTableau({ children }: { children: ReactNode }) {

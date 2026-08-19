@@ -1,0 +1,173 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { Card } from "@/components/ui/Card";
+import { CONTACT_ISSUES_URL, REPO_URL } from "@/lib/site";
+
+/**
+ * Page /mentions-legales — obligations d'identification de la LCEN
+ * (loi n° 2004-575 du 21 juin 2004, art. 1-1 dans sa rédaction issue de la
+ * loi SREN n° 2024-449 du 21 mai 2024).
+ *
+ * Régime retenu : ÉDITEUR NON PROFESSIONNEL ANONYME (art. 1-1, II LCEN) —
+ * seuls le nom et l'adresse de l'hébergeur sont publiés, l'identité complète
+ * de l'éditeur étant communiquée à l'hébergeur. Le nom du directeur de la
+ * publication n'a pas à être publié dans ce régime (art. 93-2 de la loi
+ * n° 82-652 du 29 juillet 1982 ; docs/deploiement/exigences-publiques.md §1.1).
+ *
+ * Adresse de l'hébergeur VÉRIFIÉE le 19/08/2026 :
+ *   « GitHub, Inc. 88 Colin P. Kelly Jr. St. San Francisco, CA 94107
+ *     United States » — GitHub General Privacy Statement, section
+ *     « Contact Us » : https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement
+ *   Même adresse au registre LEI (6354003LMZZAKOPXLX69).
+ *   Nom du service d'hébergement : GitHub Pages — https://pages.github.com/
+ *   (doc : https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages)
+ */
+
+export const metadata: Metadata = {
+  title: "Mentions légales",
+  description:
+    "Site édité à titre non professionnel par un particulier (art. 1-1, II LCEN), hébergé par GitHub, Inc. (GitHub Pages). Contact, droit de réponse et licences du site.",
+};
+
+/** Style commun des liens externes de la page. */
+const LIEN = "underline decoration-dotted underline-offset-2 hover:text-ink";
+
+export default function PageMentionsLegales() {
+  return (
+    <section className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+      <header className="flex flex-col gap-2">
+        <h1 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
+          Mentions légales
+        </h1>
+        <p className="text-sm text-ink-secondary">
+          Informations prévues par l&apos;article 1-1 de la loi n° 2004-575 du
+          21 juin 2004 pour la confiance dans l&apos;économie numérique (LCEN),
+          dans sa rédaction issue de la loi n° 2024-449 du 21 mai 2024.
+        </p>
+      </header>
+
+      <Card titre="Éditeur">
+        <div className="flex flex-col gap-3 text-sm leading-relaxed text-ink-secondary">
+          <p>
+            Ce site est édité <strong className="text-ink">à titre non
+            professionnel par un particulier</strong>, en application de
+            l&apos;article 1-1, II, de la LCEN. Conformément à ce texte,
+            l&apos;éditeur a communiqué ses éléments d&apos;identification
+            personnelle à l&apos;hébergeur, qui les tient à la disposition de
+            l&apos;autorité judiciaire et est tenu au secret professionnel à
+            leur égard.
+          </p>
+          <p>
+            En régime d&apos;édition non professionnelle, le nom du directeur
+            de la publication n&apos;est pas publié (art. 93-2 de la loi
+            n° 82-652 du 29 juillet 1982 ; art. 1-1, II et III LCEN).
+          </p>
+        </div>
+      </Card>
+
+      <Card titre="Hébergeur">
+        <div className="flex flex-col gap-3 text-sm leading-relaxed text-ink-secondary">
+          <p className="text-ink">
+            GitHub, Inc.
+            <br />
+            88 Colin P. Kelly Jr. Street
+            <br />
+            San Francisco, CA 94107
+            <br />
+            États-Unis
+          </p>
+          <p>
+            Service d&apos;hébergement :{" "}
+            <a
+              href="https://pages.github.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={LIEN}
+            >
+              GitHub Pages
+            </a>
+            . L&apos;hébergeur peut être contacté via son support :{" "}
+            <a
+              href="https://support.github.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={LIEN}
+            >
+              support.github.com
+            </a>
+            .
+          </p>
+          <p>
+            Les demandes de droit de réponse peuvent être adressées à
+            l&apos;hébergeur, qui les transmet sans délai au directeur de la
+            publication.
+          </p>
+        </div>
+      </Card>
+
+      <Card titre="Contact">
+        <div className="flex flex-col gap-3 text-sm leading-relaxed text-ink-secondary">
+          <p>
+            Toute demande concernant le site — signalement d&apos;erreur,
+            demande de rectification, question sur les données — peut être
+            déposée publiquement sur le canal de contact du projet :{" "}
+            <a
+              href={CONTACT_ISSUES_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={LIEN}
+            >
+              les issues GitHub du dépôt
+            </a>
+            . Une adresse e-mail dédiée sera ajoutée prochainement.
+          </p>
+          <p className="text-xs text-ink-muted">
+            Les demandes portant sur des données personnelles sont traitées
+            selon les modalités décrites sur la page{" "}
+            <Link href="/donnees-personnelles" className={LIEN}>
+              Données personnelles
+            </Link>
+            .
+          </p>
+        </div>
+      </Card>
+
+      <Card titre="Licences">
+        <div className="flex flex-col gap-3 text-sm leading-relaxed text-ink-secondary">
+          <p>
+            <strong className="text-ink">Code source du site</strong> — publié
+            dans le dépôt{" "}
+            <a
+              href={REPO_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={LIEN}
+            >
+              koutakou/france-transparence
+            </a>
+            , sous la licence indiquée dans ce dépôt.
+          </p>
+          <p>
+            <strong className="text-ink">Données</strong> — les données
+            republiées proviennent exclusivement de publications officielles
+            ouvertes, diffusées sous{" "}
+            <a
+              href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={LIEN}
+            >
+              Licence Ouverte 2.0
+            </a>{" "}
+            (Etalab). L&apos;attribution, source par source (producteur, URL
+            amont, licence, date des données), est publiée sur la page{" "}
+            <Link href="/donnees" className={LIEN}>
+              Données
+            </Link>
+            .
+          </p>
+        </div>
+      </Card>
+    </section>
+  );
+}
