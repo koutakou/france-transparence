@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { formatDateFr, formatEuros, formatNombre, formatPct } from "@/lib/format";
 
 /**
@@ -82,9 +82,6 @@ function formate<T extends object>(colonne: Colonne<T>, ligne: T, index: number)
   }
 }
 
-/** Filet horizontal 1px `--viz-grid` (jamais de filets verticaux, §7). */
-const FILET: CSSProperties = { borderBottom: "1px solid var(--viz-grid)" };
-
 export function DataTable<T extends object>({
   colonnes,
   lignes,
@@ -93,9 +90,13 @@ export function DataTable<T extends object>({
   hauteurMax,
   className,
 }: DataTableProps<T>) {
+  // Filet horizontal 1px `--viz-grid` (jamais de filets verticaux, §7) et
+  // gabarit de cellule posés UNE FOIS sur le conteneur (variantes [&_td])
+  // plutôt que répétés sur chaque cellule : sur un tableau de 100 lignes,
+  // ces attributs par cellule pesaient plusieurs dizaines de Ko de HTML.
   return (
     <div
-      className={`overflow-x-auto ${hauteurMax ? "overflow-y-auto" : ""} ${className ?? ""}`}
+      className={`overflow-x-auto ${hauteurMax ? "overflow-y-auto" : ""} [&_td]:border-b [&_td]:border-[var(--viz-grid)] [&_td]:h-9 [&_td]:px-3 [&_th]:border-b [&_th]:border-[var(--viz-grid)] ${className ?? ""}`}
       style={hauteurMax ? { maxHeight: hauteurMax } : undefined}
     >
       <table className="w-full border-collapse text-[13px]">
@@ -105,7 +106,7 @@ export function DataTable<T extends object>({
               <th
                 key={c.cle}
                 scope="col"
-                style={{ ...FILET, width: c.largeur }}
+                style={c.largeur ? { width: c.largeur } : undefined}
                 className={`px-3 pb-2 pt-1 text-[11px] font-medium uppercase tracking-[0.04em] text-ink-muted ${
                   estNumerique(c.type) ? "text-right" : "text-left"
                 } ${hauteurMax ? "sticky top-0 bg-card" : ""}`}
@@ -118,7 +119,7 @@ export function DataTable<T extends object>({
         <tbody>
           {lignes.length === 0 ? (
             <tr>
-              <td colSpan={colonnes.length} style={FILET} className="h-9 px-3 text-center text-ink-muted">
+              <td colSpan={colonnes.length} className="text-center text-ink-muted">
                 {vide}
               </td>
             </tr>
@@ -131,12 +132,11 @@ export function DataTable<T extends object>({
                 {colonnes.map((c) => (
                   <td
                     key={c.cle}
-                    style={FILET}
-                    className={`h-9 px-3 text-ink ${
+                    className={
                       estNumerique(c.type)
-                        ? "text-right [font-variant-numeric:tabular-nums]"
-                        : "text-left"
-                    }`}
+                        ? "text-right text-ink [font-variant-numeric:tabular-nums]"
+                        : "text-left text-ink"
+                    }
                   >
                     {formate(c, ligne, i)}
                   </td>

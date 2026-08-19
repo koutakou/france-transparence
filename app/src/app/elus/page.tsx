@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { getDb } from "@/lib/db";
+import { TableParlementaires } from "@/components/client/TableParlementaires";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
@@ -17,50 +17,25 @@ import {
   getSenateurs,
   getSourcesElus,
   getStatsElus,
-  type DeputeLigne,
   type ScrutinLigne,
-  type SenateurLigne,
 } from "@/lib/queries/elus";
 import type { MetaSource } from "@/lib/db";
 
-// La base locale évolue à chaque ingestion : jamais figer cette page au build.
-export const dynamic = "force-dynamic";
+/**
+ * Page STATIQUE (site pré-rendu quotidiennement) : agrégats et premiers
+ * écrans calculés au build ; les listes complètes de députés/sénateurs et
+ * leurs filtres vivent côté client sur fragments /data/elus/*.json
+ * (docs/deploiement/DECISION.md).
+ */
 
 export const metadata: Metadata = {
-  title: "Élus & institutions — France Transparence",
+  title: "Élus & institutions",
   description:
-    "Députés, sénateurs et élus locaux : composition réelle des assemblées, participation aux scrutins, scrutins récents, croisements HATVP.",
+    "Députés, sénateurs, maires et présidents d’exécutifs locaux : mandats, groupes, votes nominaux et déclarations HATVP, à partir des données officielles datées.",
 };
 
-/** searchParams (Next 16 : Promise) — filtres server-side des deux tables. */
-type ParamsRecherche = Promise<{ [cle: string]: string | string[] | undefined }>;
-
-function premier(v: string | string[] | undefined): string | undefined {
-  const brut = Array.isArray(v) ? v[0] : v;
-  const propre = brut?.trim();
-  return propre ? propre : undefined;
-}
-
-function hrefElus(params: Record<string, string | undefined>): string {
-  const usp = new URLSearchParams();
-  for (const [cle, valeur] of Object.entries(params)) {
-    if (valeur) usp.set(cle, valeur);
-  }
-  const qs = usp.toString();
-  return qs ? `/elus?${qs}` : "/elus";
-}
-
-/** Lien vers une fiche élu (id = `elus.id`). */
-function LienFiche({ id, texte }: { id: string; texte: string }) {
-  return (
-    <Link
-      href={`/elus/${encodeURIComponent(id)}`}
-      className="text-ink underline decoration-dotted underline-offset-2 transition-colors hover:text-accent"
-    >
-      {texte}
-    </Link>
-  );
-}
+/** Premier écran des tableaux : le reste se charge au geste (fragments). */
+const PREMIER_ECRAN = 25;
 
 function Badge({ source, mention }: { source: MetaSource | undefined; mention?: string }) {
   if (!source) return null;
@@ -75,14 +50,7 @@ function Badge({ source, mention }: { source: MetaSource | undefined; mention?: 
   );
 }
 
-const STYLE_SELECT =
-  "rounded-lg border border-card-border bg-page px-3 py-1.5 text-[13px] text-ink focus:border-raised-border";
-const STYLE_BOUTON =
-  "rounded-lg border border-card-border bg-raised px-3 py-1.5 text-[13px] text-ink transition-colors hover:bg-hover";
-
-export default async function PageElus({ searchParams }: { searchParams: ParamsRecherche }) {
-  const sp = await searchParams;
-
+export default async function PageElus() {
   if (!getDb()) {
     return (
       <section className="flex flex-col gap-6">
@@ -107,74 +75,10 @@ export default async function PageElus({ searchParams }: { searchParams: ParamsR
   const departementsDeputes = getDepartementsDeputes() ?? [];
   const departementsSenat = getDepartementsSenat() ?? [];
 
-  // Filtres validés contre les valeurs réelles (sinon ignorés).
-  const gdBrut = premier(sp.gd);
-  const ddBrut = premier(sp.dd);
-  const gsBrut = premier(sp.gs);
-  const dsBrut = premier(sp.ds);
-  const gd = groupesAn.some((g) => g.sigle === gdBrut) ? gdBrut : undefined;
-  const dd = departementsDeputes.includes(ddBrut ?? "") ? ddBrut : undefined;
-  const gs = groupesSenat.some((g) => g.groupe === gsBrut) ? gsBrut : undefined;
-  const ds = departementsSenat.includes(dsBrut ?? "") ? dsBrut : undefined;
-
-  const deputes = getDeputes({ groupe: gd, departement: dd }) ?? [];
-  const senateurs = getSenateurs({ groupe: gs, departement: ds }) ?? [];
+  const deputes = getDeputes() ?? [];
+  const senateurs = getSenateurs() ?? [];
   const scrutins = getDerniersScrutins(10) ?? [];
   const legislature = groupesAn[0]?.legislature;
-
-  const colonnesDeputes: Colonne<DeputeLigne>[] = [
-    {
-      cle: "nom",
-      entete: "Député·e",
-      rendu: (l) => <LienFiche id={l.elu_id} texte={`${l.prenom ?? ""} ${l.nom}`.trim()} />,
-    },
-    {
-      cle: "groupe_sigle",
-      entete: "Groupe",
-      rendu: (l) =>
-        l.groupe_sigle ? <span title={l.groupe_nom ?? undefined}>{l.groupe_sigle}</span> : "—",
-    },
-    { cle: "departement", entete: "Département" },
-    {
-      cle: "taux_participation_12m",
-      entete: "Participation 12 mois ¹",
-      type: "pourcent",
-      decimales: 1,
-    },
-    {
-      cle: "datan_score_participation",
-      entete: "Score Datan (0–1) ²",
-      type: "nombre",
-      decimales: 2,
-    },
-  ];
-
-  const colonnesSenateurs: Colonne<SenateurLigne>[] = [
-    {
-      cle: "nom",
-      entete: "Sénateur·rice",
-      rendu: (l) => <LienFiche id={l.elu_id} texte={`${l.prenom ?? ""} ${l.nom}`.trim()} />,
-    },
-    {
-      cle: "groupe",
-      entete: "Groupe",
-      rendu: (l) =>
-        l.groupe ? <span title={l.groupe_appartenance || undefined}>{l.groupe}</span> : "—",
-    },
-    { cle: "circonscription", entete: "Département" },
-    {
-      cle: "commission",
-      entete: "Commission",
-      rendu: (l) =>
-        l.commission ? (
-          <span className="block max-w-[18rem] truncate" title={l.commission}>
-            {l.commission}
-          </span>
-        ) : (
-          "—"
-        ),
-    },
-  ];
 
   const colonnesScrutins: Colonne<ScrutinLigne>[] = [
     { cle: "date_scrutin", entete: "Date", type: "date" },
@@ -220,6 +124,10 @@ export default async function PageElus({ searchParams }: { searchParams: ParamsR
           Composition réelle des assemblées, participation des députés aux scrutins publics et
           répertoire national des élus — données officielles AN, Sénat, ministère de l’Intérieur
           (RNE), croisées avec les déclarations HATVP.
+        </p>
+        <p className="max-w-3xl text-xs text-ink-muted">
+          Fiches détaillées&nbsp;: parlementaires et présidences d’exécutifs
+          départementaux/régionaux. Les autres élus figurent dans les listes et agrégats.
         </p>
       </section>
 
@@ -296,55 +204,12 @@ export default async function PageElus({ searchParams }: { searchParams: ParamsR
             </div>
           }
         >
-          <form method="get" action="/elus" className="mb-4 flex flex-wrap items-end gap-3">
-            {gs && <input type="hidden" name="gs" value={gs} />}
-            {ds && <input type="hidden" name="ds" value={ds} />}
-            <label className="flex flex-col gap-1 text-[11px] uppercase tracking-[0.04em] text-ink-muted">
-              Groupe
-              <select name="gd" defaultValue={gd ?? ""} className={STYLE_SELECT}>
-                <option value="">Tous les groupes</option>
-                {groupesAn.map((g) => (
-                  <option key={g.organe_ref} value={g.sigle}>
-                    {g.sigle} — {g.nom}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-[11px] uppercase tracking-[0.04em] text-ink-muted">
-              Département
-              <select name="dd" defaultValue={dd ?? ""} className={STYLE_SELECT}>
-                <option value="">Tous les départements</option>
-                {departementsDeputes.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button type="submit" className={STYLE_BOUTON}>
-              Filtrer
-            </button>
-            {(gd || dd) && (
-              <Link
-                href={hrefElus({ gs, ds })}
-                className="text-xs text-ink-muted underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
-              >
-                Réinitialiser
-              </Link>
-            )}
-          </form>
-          <p className="mb-2 text-xs text-ink-muted">
-            {formatNombre(deputes.length)} député·e{deputes.length > 1 ? "s" : ""} affiché·e
-            {deputes.length > 1 ? "s" : ""}
-            {gd ? ` · groupe ${gd}` : ""}
-            {dd ? ` · ${dd}` : ""}
-          </p>
-          <DataTable
-            colonnes={colonnesDeputes}
-            lignes={deputes}
-            cleLigne={(l) => l.uid_an}
-            hauteurMax="30rem"
-            vide="Aucun député pour ces filtres"
+          <TableParlementaires
+            variante="deputes"
+            initiaux={deputes.slice(0, PREMIER_ECRAN)}
+            total={deputes.length}
+            groupes={groupesAn.map((g) => ({ valeur: g.sigle, libelle: `${g.sigle} — ${g.nom}` }))}
+            departements={departementsDeputes}
           />
           <div className="mt-3 flex flex-col gap-1 text-[11px] leading-relaxed text-ink-muted">
             <p>
@@ -408,55 +273,12 @@ export default async function PageElus({ searchParams }: { searchParams: ParamsR
               cleLigne={(g) => g.groupe}
             />
           </details>
-          <form method="get" action="/elus" className="mb-4 flex flex-wrap items-end gap-3">
-            {gd && <input type="hidden" name="gd" value={gd} />}
-            {dd && <input type="hidden" name="dd" value={dd} />}
-            <label className="flex flex-col gap-1 text-[11px] uppercase tracking-[0.04em] text-ink-muted">
-              Groupe
-              <select name="gs" defaultValue={gs ?? ""} className={STYLE_SELECT}>
-                <option value="">Tous les groupes</option>
-                {groupesSenat.map((g) => (
-                  <option key={g.groupe} value={g.groupe}>
-                    {g.groupe}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-[11px] uppercase tracking-[0.04em] text-ink-muted">
-              Département
-              <select name="ds" defaultValue={ds ?? ""} className={STYLE_SELECT}>
-                <option value="">Tous les départements</option>
-                {departementsSenat.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button type="submit" className={STYLE_BOUTON}>
-              Filtrer
-            </button>
-            {(gs || ds) && (
-              <Link
-                href={hrefElus({ gd, dd })}
-                className="text-xs text-ink-muted underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
-              >
-                Réinitialiser
-              </Link>
-            )}
-          </form>
-          <p className="mb-2 text-xs text-ink-muted">
-            {formatNombre(senateurs.length)} sénateur·rice{senateurs.length > 1 ? "s" : ""} affiché·e
-            {senateurs.length > 1 ? "s" : ""}
-            {gs ? ` · groupe ${gs}` : ""}
-            {ds ? ` · ${ds}` : ""}
-          </p>
-          <DataTable
-            colonnes={colonnesSenateurs}
-            lignes={senateurs}
-            cleLigne={(l) => l.matricule}
-            hauteurMax="30rem"
-            vide="Aucun sénateur pour ces filtres"
+          <TableParlementaires
+            variante="senateurs"
+            initiaux={senateurs.slice(0, PREMIER_ECRAN)}
+            total={senateurs.length}
+            groupes={groupesSenat.map((g) => ({ valeur: g.groupe, libelle: g.groupe }))}
+            departements={departementsSenat}
           />
           <p className="mt-3 text-[11px] leading-relaxed text-ink-muted">
             Les scrutins publics du Sénat ne sont pas encore ingérés : aucun taux de participation

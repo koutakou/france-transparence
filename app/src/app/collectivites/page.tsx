@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Card } from "@/components/ui/Card";
+import { CarteDepartements } from "@/components/client/CarteDepartements";
 import { DataTable } from "@/components/ui/DataTable";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import type { KpiTileProps } from "@/components/ui/KpiTile";
 import { LineChart } from "@/components/ui/LineChart";
-import { MapFrance } from "@/components/ui/MapFrance";
 import { Money } from "@/components/ui/Money";
+import { SeriesCollectivites } from "@/components/client/SeriesCollectivites";
 import { StatStrip } from "@/components/ui/StatStrip";
+import { TableTronquee } from "@/components/client/TableTronquee";
 import { formatEuros, formatNombre } from "@/lib/format";
 import {
   getConseilsDepartementaux,
@@ -15,30 +16,24 @@ import {
   getDgfCommunesTopFlop,
   getDgfDepartements,
   getDgfNationale,
-  getGeojsonDepartements,
   getGrandesCommunes,
   getKpisCommunes,
   getMetaFinancesLocales,
   getRegions,
-  getSerieConseilDepartemental,
-  getSerieRegion,
-  type SerieAnnuelle,
 } from "@/lib/queries/collectivites";
 
-// La base locale évolue à chaque ingestion : jamais figer cette page au build.
-export const dynamic = "force-dynamic";
+/**
+ * Page STATIQUE (site pré-rendu quotidiennement) : tous les agrégats sont
+ * calculés au build ; les cartes (fond GeoJSON ~700 Ko) et les séries
+ * pluriannuelles des collectivités sélectionnées vivent côté client sur
+ * fragments /data/* (docs/deploiement/DECISION.md).
+ */
 
 export const metadata: Metadata = {
   title: "Finances locales",
   description:
-    "Comptes des collectivités locales (communes, départements, régions) et dotations DGF — données OFGL / DGFiP réelles, fraîcheur affichée.",
+    "Comptes des communes, départements et régions : dépenses par habitant, dotations de l’État — données OFGL datées.",
 };
-
-/** Premier élément d'un searchParam (string | string[] | undefined). */
-function premier(v: string | string[] | undefined): string | null {
-  if (Array.isArray(v)) return v[0] ?? null;
-  return v ?? null;
-}
 
 /** Titre de sous-bloc (dans une Card). */
 function SousTitreBloc({ children }: { children: React.ReactNode }) {
@@ -61,81 +56,7 @@ function VueTableau({ resume, children }: { resume: string; children: React.Reac
   );
 }
 
-/**
- * Série pluriannuelle d'une collectivité sélectionnée : LineChart 3 agrégats
- * (fonctionnement, investissement, épargne brute — couleurs stables slots
- * 1-3) + vue tableau jumelle. L'épargne brute peut être négative : elle est
- * affichée signée, sans couleur de jugement (consigne §3.5).
- */
-function BlocSerie({
-  titre,
-  retourHref,
-  retourLabel,
-  serie,
-}: {
-  titre: string;
-  retourHref: string;
-  retourLabel: string;
-  serie: SerieAnnuelle[];
-}) {
-  if (serie.length === 0) return null;
-  const labels = serie.map((s) => String(s.exercice));
-  const epargneNegative = serie.some((s) => s.epargne_brute !== null && s.epargne_brute < 0);
-  const lignes = serie.map((s) => ({
-    exercice: String(s.exercice),
-    fonctionnement_meur: s.fonctionnement === null ? null : s.fonctionnement / 1e6,
-    investissement_meur: s.investissement === null ? null : s.investissement / 1e6,
-    epargne_meur: s.epargne_brute === null ? null : s.epargne_brute / 1e6,
-  }));
-  return (
-    <div className="mb-5 border-b border-card-border pb-5">
-      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h3 className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
-          {titre} — série {labels[0]}-{labels[labels.length - 1]}
-        </h3>
-        <Link
-          href={retourHref}
-          className="text-xs text-ink-muted underline decoration-dotted underline-offset-2 transition-colors hover:text-ink-secondary"
-        >
-          {retourLabel}
-        </Link>
-      </div>
-      <LineChart
-        labels={labels}
-        series={[
-          { nom: "Fonctionnement", valeurs: serie.map((s) => s.fonctionnement) },
-          { nom: "Investissement", valeurs: serie.map((s) => s.investissement) },
-          { nom: "Épargne brute", valeurs: serie.map((s) => s.epargne_brute) },
-        ]}
-        formatValeur={(v) => formatEuros(v)}
-        ariaLabel={`${titre} : fonctionnement, investissement et épargne brute par exercice`}
-      />
-      {epargneNegative && (
-        <p className="mt-1 text-[11px] text-ink-muted">
-          Épargne brute négative sur certains exercices : donnée réelle, affichée signée.
-        </p>
-      )}
-      <VueTableau resume="Vue tableau">
-        <DataTable
-          colonnes={[
-            { cle: "exercice", entete: "Exercice" },
-            { cle: "fonctionnement_meur", entete: "Fonctionnement (M€)", type: "montant", decimales: 1 },
-            { cle: "investissement_meur", entete: "Investissement (M€)", type: "montant", decimales: 1 },
-            { cle: "epargne_meur", entete: "Épargne brute (M€)", type: "montant", decimales: 1 },
-          ]}
-          lignes={lignes}
-          cleLigne={(l) => l.exercice}
-        />
-      </VueTableau>
-    </div>
-  );
-}
-
-export default async function PageCollectivites({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
+export default async function PageCollectivites() {
   const meta = getMetaFinancesLocales();
 
   // Base absente ou source non ingérée : message honnête, aucun chiffre.
@@ -155,10 +76,6 @@ export default async function PageCollectivites({
     );
   }
 
-  const sp = await searchParams;
-  const regionParam = premier(sp.region);
-  const depParam = premier(sp.dep);
-
   const departements = getDepartementsDepenses() ?? [];
   const kpis = getKpisCommunes();
   const dgfNationale = getDgfNationale() ?? [];
@@ -167,24 +84,6 @@ export default async function PageCollectivites({
   const grandesCommunes = getGrandesCommunes() ?? [];
   const dgfTopFlop = getDgfCommunesTopFlop();
   const dgfDepartements = getDgfDepartements() ?? [];
-  const geojson = getGeojsonDepartements();
-
-  // Sélections (searchParams validés contre les listes réelles avant requête).
-  const regionSelection = regionParam
-    ? (regions.find((r) => r.code === regionParam) ?? null)
-    : null;
-  const depSelection = depParam ? (conseilsDep.find((d) => d.code === depParam) ?? null) : null;
-  const serieRegion = regionSelection ? (getSerieRegion(regionSelection.code) ?? []) : [];
-  const serieDep = depSelection ? (getSerieConseilDepartemental(depSelection.code) ?? []) : [];
-
-  /** Liens de sélection — conservent l'autre paramètre, ancrent la section. */
-  const lien = (region: string | null, dep: string | null, ancre: string) => {
-    const q = new URLSearchParams();
-    if (region) q.set("region", region);
-    if (dep) q.set("dep", dep);
-    const s = q.toString();
-    return `/collectivites${s ? `?${s}` : ""}${ancre}`;
-  };
 
   // Badge de fraîcheur S16 (un par bloc) — fréquence réelle abrégée au 1er mot.
   const frequenceCourte = meta.frequence.split(" ")[0];
@@ -380,20 +279,13 @@ export default async function PageCollectivites({
         >
           <div className="grid gap-6 lg:grid-cols-2">
             <div>
-              {geojson ? (
-                <MapFrance
-                  geojson={geojson}
-                  valeurs={valeursCarte}
-                  formatValeur={(v) => `${formatNombre(v)} €/hab`}
-                  legendeTitre={`€ par habitant (${exerciceComptes})`}
-                  ariaLabel="Carte de France : dépenses communales par habitant et par département"
-                />
-              ) : (
-                <p className="text-sm text-ink-muted">
-                  Fond de carte absent (data/geo/departements.geojson non trouvé) — les
-                  tableaux ci-contre restent complets.
-                </p>
-              )}
+              <CarteDepartements
+                valeurs={valeursCarte}
+                format="euros-par-hab"
+                legendeTitre={`€ par habitant (${exerciceComptes})`}
+                ariaLabel="Carte de France : dépenses communales par habitant et par département"
+                messageAbsent="Fond de carte absent (data/geo/departements.geojson non trouvé) — les tableaux ci-contre restent complets."
+              />
               {minDep && maxDep && (
                 <p className="mt-2 text-xs text-ink-secondary">
                   De {formatEuros(minDep.euros_par_hab ?? 0)} par habitant ({minDep.nom}) à{" "}
@@ -441,48 +333,7 @@ export default async function PageCollectivites({
           }
           droite={badge(mentionComptes)}
         >
-          {regionSelection && (
-            <BlocSerie
-              titre={`${regionSelection.nom} (${regionSelection.code})`}
-              retourHref={lien(null, depParam && depSelection ? depParam : null, "#regions")}
-              retourLabel="← Toutes les régions"
-              serie={serieRegion}
-            />
-          )}
-          <DataTable
-            colonnes={[
-              {
-                cle: "nom",
-                entete: "Région",
-                rendu: (l: (typeof lignesRegions)[number]) => (
-                  <>
-                    <Link
-                      href={lien(l.code, depParam && depSelection ? depParam : null, "#regions")}
-                      aria-current={regionSelection?.code === l.code ? "true" : undefined}
-                      className={`underline decoration-dotted underline-offset-2 transition-colors hover:text-accent ${
-                        regionSelection?.code === l.code ? "font-medium text-accent" : ""
-                      }`}
-                    >
-                      {l.nom}
-                    </Link>
-                    {l.est_ctu === 1 && <span className="text-ink-muted"> · CTU</span>}
-                  </>
-                ),
-              },
-              { cle: "population", entete: "Population", type: "nombre" },
-              { cle: "fonctionnement_meur", entete: "Fonctionnement (M€)", type: "montant", decimales: 1 },
-              { cle: "investissement_meur", entete: "Investissement (M€)", type: "montant", decimales: 1 },
-              { cle: "epargne_meur", entete: "Épargne brute (M€)", type: "montant", decimales: 1 },
-              { cle: "total_euros_par_hab", entete: "Total (€/hab)", type: "montant" },
-            ]}
-            lignes={lignesRegions}
-            cleLigne={(l) => l.code}
-          />
-          <p className="mt-2 text-[11px] text-ink-muted">
-            Sélectionner une région pour afficher sa série pluriannuelle (fonctionnement,
-            investissement, épargne brute). Total (€/hab) = (fonctionnement + investissement) /
-            population.
-          </p>
+          <SeriesCollectivites niveau="regions" lignes={lignesRegions} />
         </Card>
       </section>
 
@@ -497,47 +348,9 @@ export default async function PageCollectivites({
           }
           droite={badge(mentionComptes)}
         >
-          {depSelection && (
-            <BlocSerie
-              titre={`${depSelection.nom} (${depSelection.code})`}
-              retourHref={lien(
-                regionParam && regionSelection ? regionParam : null,
-                null,
-                "#departements",
-              )}
-              retourLabel="← Tous les départements"
-              serie={serieDep}
-            />
-          )}
-          <DataTable
-            colonnes={[
-              {
-                cle: "nom",
-                entete: "Collectivité",
-                rendu: (l: (typeof lignesConseilsDep)[number]) => (
-                  <Link
-                    href={lien(
-                      regionParam && regionSelection ? regionParam : null,
-                      l.code,
-                      "#departements",
-                    )}
-                    aria-current={depSelection?.code === l.code ? "true" : undefined}
-                    className={`underline decoration-dotted underline-offset-2 transition-colors hover:text-accent ${
-                      depSelection?.code === l.code ? "font-medium text-accent" : ""
-                    }`}
-                  >
-                    {l.nom}
-                  </Link>
-                ),
-              },
-              { cle: "population", entete: "Population", type: "nombre" },
-              { cle: "fonctionnement_meur", entete: "Fonctionnement (M€)", type: "montant", decimales: 1 },
-              { cle: "investissement_meur", entete: "Investissement (M€)", type: "montant", decimales: 1 },
-              { cle: "epargne_meur", entete: "Épargne brute (M€)", type: "montant", decimales: 1 },
-              { cle: "total_euros_par_hab", entete: "Total (€/hab)", type: "montant" },
-            ]}
+          <SeriesCollectivites
+            niveau="departements"
             lignes={lignesConseilsDep}
-            cleLigne={(l) => l.code}
             hauteurMax="420px"
           />
           <p className="mt-2 text-[11px] text-ink-muted">
@@ -560,7 +373,7 @@ export default async function PageCollectivites({
           }
           droite={badge(mentionComptes)}
         >
-          <DataTable
+          <TableTronquee
             colonnes={[
               { cle: "nom", entete: "Commune" },
               { cle: "departement", entete: "Dép." },
@@ -571,7 +384,10 @@ export default async function PageCollectivites({
               { cle: "inv_euros_par_hab", entete: "Inv. (€/hab)", type: "montant" },
             ]}
             lignes={lignesGrandesCommunes}
-            cleLigne={(l) => l.code}
+            cleChamp="code"
+            premierEcran={20}
+            libellePluriel="communes"
+            feminin
             hauteurMax="420px"
           />
         </Card>
@@ -664,30 +480,24 @@ export default async function PageCollectivites({
           >
             {dgfDepartements.length > 0 ? (
               <>
-                {geojson ? (
-                  <div className="max-w-md">
-                    <MapFrance
-                      geojson={geojson}
-                      valeurs={valeursDgfDep}
-                      formatValeur={(v) => `${formatNombre(v)} €/hab`}
-                      legendeTitre={`DGF par habitant (${dgfDepartements[0].exercice})`}
-                      largeur={460}
-                      hauteur={440}
-                      ariaLabel="Carte de France : DGF par habitant et par département"
-                    />
-                  </div>
-                ) : (
-                  <p className="text-sm text-ink-muted">
-                    Fond de carte absent — la vue tableau ci-dessous reste complète.
-                  </p>
-                )}
+                <div className="max-w-md">
+                  <CarteDepartements
+                    valeurs={valeursDgfDep}
+                    format="euros-par-hab"
+                    legendeTitre={`DGF par habitant (${dgfDepartements[0].exercice})`}
+                    largeur={460}
+                    hauteur={440}
+                    ariaLabel="Carte de France : DGF par habitant et par département"
+                    messageAbsent="Fond de carte absent — la vue tableau ci-dessous reste complète."
+                  />
+                </div>
                 <p className="mt-1 text-[11px] text-ink-muted">
                   Outre-mer hors rendu cartographique (v1) — présent dans la vue tableau.
                 </p>
                 <VueTableau
                   resume={`Vue tableau (${dgfDepartements.length} départements et collectivités)`}
                 >
-                  <DataTable
+                  <TableTronquee
                     colonnes={[
                       { cle: "nom", entete: "Département" },
                       { cle: "dgf_par_hab", entete: "DGF (€/hab)", type: "montant" },
@@ -696,7 +506,9 @@ export default async function PageCollectivites({
                       { cle: "nb_communes", entete: "Communes", type: "nombre" },
                     ]}
                     lignes={lignesDgfDep}
-                    cleLigne={(l) => l.code}
+                    cleChamp="code"
+                    premierEcran={20}
+                    libellePluriel="départements"
                     hauteurMax="320px"
                   />
                 </VueTableau>

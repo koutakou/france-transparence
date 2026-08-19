@@ -1,7 +1,8 @@
 /**
- * Requêtes SQL du module « Élus & institutions » — /elus, /elus/[id] et
- * /api/recherche. Fichier PROPRE au module (NOTES-FRONT, design system) :
- * aucune autre page ne doit l'importer.
+ * Requêtes SQL du module « Élus & institutions » — /elus, /elus/[id], les
+ * fragments statiques /data/elus/*.json et l'index de recherche. Fichier
+ * PROPRE au module (NOTES-FRONT, design system) : aucune autre page ne doit
+ * l'importer.
  *
  * Jointures exactes (NOTES-FRONT § Élus & intégrité) :
  * - `elus.uid_an ↔ deputes.uid_an ↔ votes_recents.uid_an` ;
@@ -524,7 +525,7 @@ export function getFicheElu(id: string): FicheElu | null {
 }
 
 /* ------------------------------------------------------------------ */
-/* Recherche (API /api/recherche)                                      */
+/* Recherche (héritage de l'ancienne route serveur)                    */
 /* ------------------------------------------------------------------ */
 
 /** Échappe `\`, `%` et `_` pour un motif LIKE … ESCAPE '\'. */

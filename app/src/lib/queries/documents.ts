@@ -228,6 +228,30 @@ export function getRepartitionNatures(): RepartitionNature[] | null {
     .all() as RepartitionNature[];
 }
 
+/** Une ligne brute de l'export du flux (fragment /data/documents/textes.json). */
+export interface JorfTexteExport extends JorfTexteLigne {
+  is_nomination: number;
+}
+
+/**
+ * Export COMPLET du flux (2 778 textes au 19/08/2026), même tri que le flux
+ * paginé — sert au fragment statique sur lequel les filtres/pagination
+ * s'appliquent côté client. `lien_legifrance` n'est pas exporté : vérifié en
+ * base, il vaut toujours `https://www.legifrance.gouv.fr/jorf/id/<texte_id>`.
+ */
+export function getTextesExport(): JorfTexteExport[] | null {
+  const db = getDb();
+  if (!db) return null;
+  return db
+    .prepare(
+      `SELECT texte_id, date_publi, nature, titre, ministere, lien_legifrance,
+              is_nomination
+       FROM jorf_textes
+       ORDER BY date_publi DESC, num_sequence ASC`,
+    )
+    .all() as JorfTexteExport[];
+}
+
 /**
  * Flux paginé des textes, du plus récent au plus ancien (dans un même JO :
  * ordre de séquence du sommaire). Filtres optionnels : nature exacte,

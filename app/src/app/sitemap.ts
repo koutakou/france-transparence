@@ -2,6 +2,9 @@ import type { MetadataRoute } from "next";
 import { getDb } from "@/lib/db";
 import { SITE_URL } from "@/lib/site";
 
+// Exigé par `output: "export"` (route metadata générée au build).
+export const dynamic = "force-static";
+
 /**
  * Sitemap statique, généré au build (convention Next `app/sitemap.ts`) :
  * - les pages du site + les deux pages légales ;
