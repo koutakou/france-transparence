@@ -15,3 +15,4 @@ data/tmp/
 *.log
 .env*
 !.env.example
+data/france.db

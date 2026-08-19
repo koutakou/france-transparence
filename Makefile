@@ -12,7 +12,9 @@ PY     := $(VENV)/bin/python
 PIPELINES := referentiels budget_mensuel budget_structure decp boamp approch \
              jorf parlement integrite lobbying financement collectivites trainvie
 
-.PHONY: venv ingest test dev build app-install $(addprefix ingest-,$(PIPELINES))
+# NB : ne PAS déclarer les cibles ingest-<x> en .PHONY — make saute la
+# recherche de règles implicites (ingest-%) pour les cibles phony.
+.PHONY: venv ingest test dev build app-install
 
 venv: $(VENV)/bin/pip
 $(VENV)/bin/pip: requirements.txt
