@@ -120,4 +120,49 @@ Documentées dans docs/SOURCES.md §5, aucune ne conditionne un module v1 :
 
 ---
 
-*Rapport établi le 19/08/2026. Toute reprise du projet commence par JOURNAL.md + STATUS.md, puis docs/SOURCES.md et docs/ARCHITECTURE.md.*
+## 9. Déploiement public (reprise du 19/08/2026, décisions 20-22)
+
+**URL : https://koutakou.github.io/france-transparence/** — statique pré-rendu sur GitHub Pages, reconstruit chaque matin par GitHub Actions. Premier run de publication lancé le 19/08/2026, en cours au moment de la rédaction de cette section (voir dernière ligne).
+
+### Pourquoi GitHub Pages (docs/deploiement/DECISION.md)
+
+- **Fait décisif : la seule voie exécutable sans action humaine** (docs/deploiement/machine-locale.md et plateformes.md). Seul GitHub est authentifié sur la machine (`koutakou`) ; toutes les plateformes à disque persistant exigent compte + CB en 2026 (tier gratuit Fly mort, Railway « post-paid », Render crons sans disque, Koyeb volumes « testing only », Clever FS incompatible better-sqlite3) ; le VPS OVH 51.83.96.83 est injoignable (ping OK, ports 24533/22/80/443 fermés) et koutakou.fr a expiré (AFNIC : NOT FOUND).
+- **Cohérence produit statique-quotidien** : les données ne changent qu'à l'ingestion — le HTML pré-rendu est le cache parfait, servi par le CDN Fastly de Pages (HTTPS, HSTS préchargé sur \*.github.io) ; les `force-dynamic` posés partout en v1 étaient déjà un contresens relevé par l'audit (audit-app.md).
+- **Atomicité structurelle** : un déploiement Pages remplace tout le site d'un coup — pas de bascule de base à orchestrer, pas d'état intermédiaire possible.
+- Alternatives écartées sur preuve (plateformes.md) : Hetzner CX33 (8,49 € HT/mois, meilleur VPS mais compte + CB = humain requis — documenté comme montée en gamme), OVHcloud VPS-2 (commande panier manuelle), serverless (bundle Vercel 250 Mo vs base 447 Mo, crons ≤ 30 min vs ingestion 25-60 min).
+
+### Durcissement statique (chantiers R2A/R2B/R2C, mesures réelles)
+
+Budget tenu : < 500 Ko de HTML brut par page au premier chargement. Mesures `curl` non compressées (avant = audit R1, après = mesure finale R2, correctif accueil/lobbying inclus) :
+
+| Page | Avant | Après |
+|---|---:|---:|
+| `/elus` | 2 276 Ko | **176 Ko** |
+| `/collectivites` | 1 848 Ko | **223 Ko** |
+| `/marches` | 1 290 Ko | **371 Ko** |
+| `/lobbying` | 950 Ko | **276 Ko** (après correctif) |
+| `/` (accueil) | 744 Ko | **174 Ko** |
+
+Méthode : tables et dataviz converties en composants client alimentés par des fragments statiques `/data/*.json` (le payload RSC ne duplique plus l'arbre serveur), premières lignes dans le HTML, chaque troncature annoncée à l'écran (« Affichage des N premiers … sur X »), filtres et pagination côté client avec URLs historiques restaurées (`replaceState`).
+
+- **Fiches élus : 1 053 fiches statiques** (`generateStaticParams` — députés 593, sénateurs 352, présidents de conseil départemental 94 et régional 14, les seules fiches riches) ; fiche témoin PA719930 : 323 → **128 Ko** (votes plafonnés aux 30 derniers avec mention « sur 8 434 en base » ; pire fiche du parc 141 Ko). Les ~35 000 autres élus restent dans les listes et agrégats — expliqué sur /elus.
+- **Recherche côté client** : l'API `/api/recherche` (non statifiable) est remplacée par un index JSON pré-généré de ~1 Mo (1 038 402 o : 36 018 élus + 1 059 entités routables), chargé à la première frappe, recherche locale insensible aux accents et à la casse. Les 5 autres routes API deviennent des exports statiques `.json` datés (`meta.json` porte `genere_le`) qui jettent au build si la base manque — jamais de snapshot vide déployé.
+- **Façade publique** : mentions légales (LCEN/SREN, éditeur non professionnel anonyme, hébergeur GitHub vérifié), page données personnelles (art. 14 RGPD, zéro collecte visiteurs), robots.txt, sitemap **1 066 URLs** (100 % en trailing slash), favicons + image OG réellement rasterisés, 404 française.
+- **CSP portée par `<meta http-equiv>`** (Pages n'autorise aucun header custom), limites documentées : `unsafe-inline` exigé par l'hydratation Next en export, `frame-ancestors` ignoré en meta — risque clickjacking résiduel faible, assumé dans DECISION.md.
+- **Footer corrigé : Licence Ouverte 2.0 seule** — la mention ODbL du footer v1 était inexacte et a été retirée : les 25 sources tracées sont toutes sous Licence Ouverte.
+
+Build export intégral vert (décision 22) : zéro route dynamique, 1 053 fiches SSG, site 232 Mo, 12 pages < 500 Ko, 150/150 pytest.
+
+### Exploitation quotidienne
+
+Workflow `publication.yml` : cron **04:45 UTC** (~06h45 Paris, après le lot JO ~00h30 et les builds DECP nocturnes) — `make ingest` (base neuve dans le runner éphémère) → `make test` → build export → déploiement Pages atomique. **Toute étape en échec = aucun déploiement** : le site de la veille reste servi tel quel et une issue « publication-echec » s'ouvre automatiquement ; la fraîcheur affichée (meta_sources) reste vraie par construction. Déclenchement manuel : `gh workflow run publication.yml`. Détail d'exploitation : docs/deploiement/RUNBOOK.md. **Coût : 0 €/mois** (repo public — audité sans secret —, Pages et minutes Actions gratuites).
+
+### Actions humaines restantes (optionnelles — docs/ACTIONS-HUMAINES.md)
+
+Rien n'est bloqué sans elles : rachat d'un domaine (koutakou.fr expiré, redevenu libre ; DNS et procédure prêts), adresse e-mail de contact dédiée (les issues GitHub servent de canal RGPD en attendant), vérification au manager OVH du VPS 51.83.96.83 (peut-être facturé sans servir), montée en gamme VPS si la bande passante Pages (~100 Go/mois, souple) devenait limitante.
+
+_Vérifications externes du site public : [[EN COURS — à confirmer par l'orchestrateur]]_
+
+---
+
+*Rapport établi le 19/08/2026. Toute reprise du projet commence par JOURNAL.md + STATUS.md, puis docs/SOURCES.md, docs/ARCHITECTURE.md, docs/deploiement/DECISION.md et docs/deploiement/RUNBOOK.md.*

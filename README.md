@@ -4,6 +4,20 @@ Dashboard web sur la transparence de la vie politique française : dépenses de 
 
 ![Page d'accueil de France Transparence](docs/screenshots/accueil.png)
 
+## Site public
+
+**https://koutakou.github.io/france-transparence/**
+
+Version statique pré-rendue du dashboard, hébergée sur GitHub Pages et reconstruite chaque matin à 04:45 UTC (~06h45 Paris) par GitHub Actions : ingestion complète dans un runner éphémère → tests → export statique → déploiement atomique. Si une étape échoue, rien n'est déployé : le site de la veille reste servi tel quel et une issue GitHub s'ouvre automatiquement. La fraîcheur affichée reste donc toujours celle de la base réellement construite. Coût : 0 €/mois.
+
+```bash
+gh workflow run publication.yml   # déclencher une publication manuellement
+make build-static                 # export statique local (FT_EXPORT=1 → app/out/)
+make serve-static                 # sert app/out/ sur http://localhost:3620
+```
+
+Choix d'hébergement et limites : [docs/deploiement/DECISION.md](docs/deploiement/DECISION.md) · exploitation quotidienne : [docs/deploiement/RUNBOOK.md](docs/deploiement/RUNBOOK.md) · actions humaines optionnelles (domaine, e-mail de contact) : [docs/ACTIONS-HUMAINES.md](docs/ACTIONS-HUMAINES.md).
+
 ## Démarrage rapide
 
 Prérequis : `python3.14`, Node.js ≥ 24, `make`.
@@ -47,6 +61,8 @@ Les tests de transformation tournent hors ligne sur des extraits réels figés d
 5. chaque page affiche son badge « Données au JJ/MM/AAAA · source · fréquence » depuis `meta_sources` ;
 6. base absente = message « base non construite, lancer make ingest » — jamais de placeholder chiffré.
 
+Le site public est l'export statique de cette même app (`make build-static`, `FT_EXPORT=1`) : toutes les pages sont pré-rendues au build, les filtres et la recherche tournent côté navigateur (index JSON pré-généré, fragments `/data/*.json`), et les anciennes routes API paramétriques sont remplacées par des exports `.json` quotidiens datés.
+
 Détails : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Modules du dashboard
@@ -57,14 +73,14 @@ Détails : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | `/depenses` | Dépenses de l'État | Exécution mensuelle DGFiP (données au 30/06/2026, ~6 semaines de décalage), structure PLF 2026 (mention « PLF » : la LFI 2026 n'existe pas en données), 112 722 subventions aux associations (versements 2023). |
 | `/marches` | Commande publique | 586 229 marchés consolidés (quotidien, notifications J-1, consolidation légale ≤ 2 mois), 9 011 appels d'offres en cours (BOAMP, jour même), 4 060 achats à venir (APProch). |
 | `/elus` | Élus & institutions | 36 018 élus (RNE du 11/08/2026, trimestriel) dont 577 députés et 348 sénateurs (open data AN/Sénat/Datan, quotidien). |
-| `/elus/[id]` | Fiche élu | Mandats, votes sur les 8 434 scrutins AN (dernier : 21/07/2026, vacances parlementaires), scores Datan crédités, lien HATVP. |
+| `/elus/[id]` | Fiche élu | 1 053 fiches statiques (parlementaires et présidences d'exécutifs départementaux/régionaux — les autres élus restent dans les listes et agrégats) : mandats, 30 derniers votes sur les 8 434 scrutins AN (dernier : 21/07/2026, vacances parlementaires), scores Datan crédités, lien HATVP. |
 | `/lobbying` | Lobbying | 4 067 entités inscrites au répertoire HATVP (quotidien, données au 18/08/2026) ; dépenses déclarées par exercice annuel, en fourchettes. |
 | `/financement` | Financement politique | Comptes des partis, exercice 2024 (publié le 10/02/2026 — le dernier possible) ; comptes de campagne des législatives 2024, 4 010 candidats (municipales 2026 : publication attendue fin 2026/2027). |
 | `/frais` | Frais & train de vie | 56 faits chiffrés sourcés (barèmes au 01/01/2026, contrôles exercice 2024, Élysée audité 2024) + 8 opacités documentées — pas de notes de frais : elles ne sont ni publiées ni communicables. |
 | `/collectivites` | Finances locales | Comptes OFGL 2025 (provisoires, chargés en juillet 2026), dotations DGF 2018-2026, carte en €/habitant. |
 | `/documents` | Journal officiel | 2 778 textes des 30 derniers JO (quotidien, JO du jour disponible vers 00h30), filtres lois/décrets/nominations. |
 | `/alertes` | Alertes transparence | 1 590 alertes sur 8 types, chacune avec sa règle de calcul et sa base légale, recalculées à chaque ingestion. |
-| `/donnees` | API & Données | Catalogue des 25 sources avec fraîcheur mesurée (le moniteur de santé des sources), licences, règles des alertes, 6 routes API JSON. |
+| `/donnees` | Données & exports | Catalogue des 25 sources avec fraîcheur mesurée (le moniteur de santé des sources), licences, règles des alertes, 6 exports JSON statiques (méta, alertes, élus, budget mensuel, agrégats marchés, index de recherche) reconstruits à chaque publication. |
 
 ## Sources & licences
 
