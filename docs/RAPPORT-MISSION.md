@@ -161,7 +161,20 @@ Workflow `publication.yml` : cron **04:45 UTC** (~06h45 Paris, après le lot JO 
 
 Rien n'est bloqué sans elles : rachat d'un domaine (koutakou.fr expiré, redevenu libre ; DNS et procédure prêts), adresse e-mail de contact dédiée (les issues GitHub servent de canal RGPD en attendant), vérification au manager OVH du VPS 51.83.96.83 (peut-être facturé sans servir), montée en gamme VPS si la bande passante Pages (~100 Go/mois, souple) devenait limitante.
 
-_Vérifications externes du site public : [[EN COURS — à confirmer par l'orchestrateur]]_
+### Vérifications externes du site public (faites le 19/08/2026, 22 h 00-22 h 35 Paris)
+
+Toutes les vérifications ont été faites **depuis l'extérieur, sur https://koutakou.github.io/france-transparence/ en production** :
+
+- **23 routes en HTTP 200** (12 pages + fiche élu + 2 pages légales + 5 exports `/api/*.json` + index de recherche + robots.txt + sitemap.xml + og.png), TTFB 0,16-0,30 s, chaque page < 500 Ko brut ; URL inexistante → 404. Compression réelle servie par le CDN (ex. `/elus/` : 184 423 → 24 064 octets).
+- **Zéro cookie** (aucun `Set-Cookie` constaté — la conformité « zéro traceur » est vérifiée en production, pas seulement promise), CSP présente dans le HTML, redirection 301 HTTP→HTTPS systématique. Limites de plateforme constatées et assumées : Pages ne sert ni HSTS ni `X-Content-Type-Options` (et `github.io` ne figure plus dans la liste de préchargement HSTS de Chromium — vérifié dans le fichier amont) ; détail et mitigations dans docs/deploiement/DECISION.md.
+- **Vérité des données servies** : compteur 240,54 Md€ au 30/06/2026 sur l'accueil public, `genere_le` du build dans meta.json, 37 champs de dates au 18-19/08 dans le catalogue des sources, page /documents au JO du 19/08/2026 ; volumes d'ingestion du runner identiques au local (586 229 marchés DECP, notification max J-1).
+- **Screenshots Playwright du site public** (desktop 1440 px et mobile 390 px, docs/screenshots/public/) revus : ADN maquette conforme. La passe mobile a révélé des débordements horizontaux sur 6 pages (jusqu'à 831 px sur /elus) → correctif `195cc20` (causes racines : slot `droite` non rétrécissable des Cards, grilles `lg:` sans piste mobile explicite, `sr-only` absolu ancré hors scroller) → **re-mesure publique : 14/14 pages à 0 px de débordement en 390 px**, desktop inchangé.
+- **Recherche côté client testée en production** : « vallaud » → lien direct vers la fiche `/elus/PA719930/`, zéro erreur console sur l'ensemble des pages capturées.
+- **Cron testé par déclenchement manuel réel** (run 32298466718, `workflow_dispatch`, ingestion forcée — le chemin exact du cron de 04:45 UTC) : ingestion complète → 150 pytest → build → contrôles de santé → déploiement, **verts en 4 min 59** ; le site public servait la nouvelle base (`genere_le` 20:30:08Z) à la fin du run. Un push de code (run 32298231075) rebuild en 72 s sur la base en cache sans ré-ingérer.
+- **Atomicité du déploiement observée** : sondes curl toutes les 8 s pendant un déploiement réel — 10/10 réponses 200, bascule du `genere_le` sans aucune interruption ni page mixte.
+- **Chemin d'échec** : non provoqué artificiellement — il est garanti structurellement (le job `deployer` exige le succès de `construire` ; en échec, le site de la veille reste servi et une issue étiquetée `publication-echec` s'ouvre — label en place, logique testable à la première panne réelle).
+
+L'ingestion sur le runner GitHub prend ~3 min (contre 25-30 min en local : les téléchargements dominaient, le réseau du runner est massivement plus rapide) ; le cycle quotidien complet, de l'ingestion au site déployé, tient en ~5 min.
 
 ---
 
