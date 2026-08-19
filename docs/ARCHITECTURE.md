@@ -148,9 +148,9 @@ Un module par pipeline : `pipelines/ingest_<source>.py`, exécutable par `python
 
 | Cible make | Module | Pipeline (sources) |
 |---|---|---|
-| `ingest-budget_etat` | `ingest_budget_etat.py` | P1 — SMB mensuelles (S13) |
+| `ingest-budget_mensuel` | `ingest_budget_mensuel.py` | P1 — SMB mensuelles (S13) |
 | `ingest-budget_structure` | `ingest_budget_structure.py` | P2 — PLF/jaunes annuels (S20, S21, S23) |
-| `ingest-marches` | `ingest_marches.py` | P3 — DECP consolidées (S1) |
+| `ingest-decp` | `ingest_decp.py` | P3 — DECP consolidées (S1) |
 | `ingest-boamp` | `ingest_boamp.py` | P4 — AO en cours (S2) |
 | `ingest-approch` | `ingest_approch.py` | P5 — projets d'achats (S9) |
 | `ingest-jorf` | `ingest_jorf.py` | P6 — Journal officiel (S3) |
@@ -158,9 +158,9 @@ Un module par pipeline : `pipelines/ingest_<source>.py`, exécutable par `python
 | `ingest-lobbying` | `ingest_lobbying.py` | P8 — HATVP AGORA (S4) |
 | `ingest-parlement` | `ingest_parlement.py` | P9 — AN + Sénat + Datan (S5, S6, S7) |
 | `ingest-financement` | `ingest_financement.py` | P10 — CNCCFP (S25, S29) |
-| `ingest-finances_locales` | `ingest_finances_locales.py` | P11 — OFGL (S16) |
+| `ingest-collectivites` | `ingest_collectivites.py` | P11 — OFGL (S16) |
 | `ingest-referentiels` | `ingest_referentiels.py` | P12 — géo, populations, entreprises (S27, S10) |
-| `ingest-train_de_vie` | `ingest_train_de_vie.py` | P13 — constantes sourcées (S31) |
+| `ingest-trainvie` | `ingest_trainvie.py` | P13 — constantes sourcées (S31) |
 
 Contrat d'un pipeline :
 1. importe `common` (session, `telecharger`, log) et `db` (`connexion`, `init_db`, `upsert_meta`) ;

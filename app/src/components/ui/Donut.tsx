@@ -12,7 +12,10 @@ import { formatNombre, formatPct } from "@/lib/format";
  * Légende À DROITE obligatoire : pastille + libellé + valeur + % — jamais
  * la couleur seule (§9). Le texte reste en encres, l'identité vient de la
  * pastille (§3.1). `totalMontant` peint le total central en `--montant`
- * (montant vedette, §3.5).
+ * (montant vedette, §3.5). La légende garde une largeur minimale lisible :
+ * si la place à droite manque, elle passe SOUS le donut (flex-wrap) plutôt
+ * que de tronquer les libellés à quelques caractères ; le libellé complet
+ * reste accessible au survol (`title`).
  *
  * @example
  * <Donut parts={[
@@ -159,8 +162,10 @@ export function Donut({
           {libelleTotal}
         </text>
       </svg>
-      {/* légende : pastille + libellé + valeur + % (jamais la couleur seule) */}
-      <ul className="flex min-w-0 flex-1 flex-col gap-1.5 text-[13px]">
+      {/* légende : pastille + libellé + valeur + % (jamais la couleur seule).
+          min-width lisible : plutôt que d'écraser les libellés, la légende
+          descend sous le donut quand la place à droite manque (flex-wrap). */}
+      <ul className="flex min-w-[min(15rem,100%)] flex-1 flex-col gap-1.5 text-[13px]">
         {segments.map((s) => (
           <li key={s.libelle} className="flex items-baseline gap-2">
             <span
@@ -168,7 +173,9 @@ export function Donut({
               className="inline-block size-3 shrink-0 translate-y-px rounded-[3px]"
               style={{ background: s.couleur }}
             />
-            <span className="min-w-0 truncate text-ink-secondary">{s.libelle}</span>
+            <span className="min-w-0 truncate text-ink-secondary" title={s.libelle}>
+              {s.libelle}
+            </span>
             <span className="ml-auto shrink-0 font-medium text-ink [font-variant-numeric:tabular-nums]">
               {formatValeur(s.valeur)}
             </span>

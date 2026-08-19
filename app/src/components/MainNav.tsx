@@ -30,6 +30,11 @@ function Icone({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Libellés volontairement COURTS (« Financement », « Frais », « Données ») :
+ * les 10 onglets doivent tenir dans le conteneur max-w-7xl dès 1440px sans
+ * couper le dernier. Les intitulés complets restent portés par les pages.
+ */
 const ITEMS: ItemNav[] = [
   {
     href: "/",
@@ -87,7 +92,7 @@ const ITEMS: ItemNav[] = [
   },
   {
     href: "/financement",
-    label: "Financement politique",
+    label: "Financement",
     icone: (
       <Icone>
         <path d="M3.5 9.5 12 4l8.5 5.5" />
@@ -97,7 +102,7 @@ const ITEMS: ItemNav[] = [
   },
   {
     href: "/frais",
-    label: "Frais & train de vie",
+    label: "Frais",
     icone: (
       <Icone>
         <path d="M6 3.5h12V19l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5-2 1.5Z" />
@@ -127,7 +132,7 @@ const ITEMS: ItemNav[] = [
   },
   {
     href: "/donnees",
-    label: "Données & API",
+    label: "Données",
     icone: (
       <Icone>
         <ellipse cx="12" cy="6" rx="7" ry="2.8" />

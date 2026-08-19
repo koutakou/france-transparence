@@ -68,6 +68,22 @@ function BadgeSource({ source, mention }: { source?: MetaSource; mention?: strin
   );
 }
 
+/**
+ * Libellés courts des titres de dépense pour la légende du donut — les
+ * libellés DGFiP complets (« Dépenses de personnel »…) débordent la colonne
+ * gauche. Mapping d'AFFICHAGE uniquement : données et requêtes inchangées,
+ * libellé inconnu → rendu tel quel.
+ */
+const LIBELLES_TITRES: Record<string, string> = {
+  "Dépenses de personnel": "Personnel",
+  "Dépenses d'intervention": "Intervention",
+  "Dépenses de fonctionnement": "Fonctionnement",
+  "Charges de la dette de l'Etat": "Charge de la dette",
+  "Dépenses d'investissement": "Investissement",
+  "Dotation des pouvoirs publics": "Pouvoirs publics",
+  "Dépenses d'opérations financières": "Opérations financières",
+};
+
 /** Lien « Voir tout » vers le module concerné (convention footer du site). */
 function LienModule({ href, libelle }: { href: string; libelle: string }) {
   return (
@@ -285,7 +301,10 @@ export default async function Accueil() {
           >
             {partsTitres.length > 0 ? (
               <Donut
-                parts={partsTitres.map((p) => ({ libelle: p.ligne, valeur: p.montant }))}
+                parts={partsTitres.map((p) => ({
+                  libelle: LIBELLES_TITRES[p.ligne] ?? p.ligne,
+                  valeur: p.montant,
+                }))}
                 formatValeur={(v) => mdE(v, 1)}
                 libelleTotal="Cumul 2026"
                 taille={180}

@@ -1,6 +1,8 @@
 # STATUS — France Transparence
 
-- **Phase courante** : Phase 2 — ingestion : 11 sous-agents pipelines lancés en parallèle le 19/08/2026 (dév + épreuve sur base jetable via FT_DB_PATH).
-- **Fait** : Phase 0 close (9 rapports + critique appliquée → docs/SOURCES.md révisé, 39 sources, 13 pipelines v1) ; Phase 1 close (docs/ARCHITECTURE.md + socle vert : Next 16.3.1/Tailwind 4/better-sqlite3 port 3620, Python 3.14 + duckdb, make test 5/5, build vert).
-- **Prochaine étape** : câbler PIPELINES dans le Makefile, `make ingest` réel séquentiel, vérifier les stats de la base, committer ; puis Phase 3 (frontend par vagues, guide docs/DATAVIZ.md).
-- **Reprise** : lire JOURNAL.md + docs/SOURCES.md (§5 périmètre v1) + docs/ARCHITECTURE.md ; pipelines dans `pipelines/ingest_<nom>.py`, app dans `app/`.
+- **Phase courante** : MISSION ACCOMPLIE (19/08/2026) — les 4 phases sont closes et vérifiées.
+- **État final** : `make ingest` vert (data/france.db 447 Mo, 51 tables, 25 sources tracées) ; `make test` 150/150 ; `npm run build` vert (19 routes) ; 15 routes HTTP 200 ; 12 pages revues par screenshots (docs/screenshots/) ; correctifs de finition appliqués (légende donut, nav, BarList).
+- **Lancer l'app** : `make dev` (ou `cd app && npm run build && npm run start`) → http://localhost:3620 ; ré-ingérer : `make ingest` (voir README.md).
+- **Livrables** : README.md, docs/RAPPORT-MISSION.md (rapport de fin de mission), docs/SOURCES.md (catalogue), docs/ARCHITECTURE.md, docs/SCHEMA-DB.md, docs/NOTES-FRONT.md, docs/recherche/ (10 rapports).
+- **Pistes v2** : voir docs/RAPPORT-MISSION.md § Pistes v2 (CADA, scrutins Sénat, encarts outre-mer, municipales 2026 à parution, rapport Élysée 2025…).
+- **Reprise éventuelle** : lire JOURNAL.md (19 décisions) + docs/RAPPORT-MISSION.md — le projet est livré, toute suite = v2.
