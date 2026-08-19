@@ -6,9 +6,11 @@ VENV   := .venv
 PIP    := $(VENV)/bin/pip
 PY     := $(VENV)/bin/python
 
-# Pipelines câblés au fur et à mesure (make ingest-<source> par pipeline).
-# Vide tant qu'aucun pipeline n'est écrit — `make ingest` les jouera tous.
-PIPELINES :=
+# Ordre d'ingestion : référentiels d'abord (entites), parlement AVANT integrite
+# (les élus AN/Sénat sont créés avec leurs uid, integrite les complète par
+# nom+prénom+date de naissance puis ajoute maires/exécutifs).
+PIPELINES := referentiels budget_mensuel budget_structure decp boamp approch \
+             jorf parlement integrite lobbying financement collectivites trainvie
 
 .PHONY: venv ingest test dev build app-install $(addprefix ingest-,$(PIPELINES))
 

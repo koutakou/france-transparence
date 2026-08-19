@@ -62,6 +62,16 @@
 
   /* Typographie */
   --font-ui: system-ui, -apple-system, "Segoe UI", sans-serif; /* partout, héros compris */
+
+  /* Carte de France (valeurs fixées par DATAVIZ §8) */
+  --map-contour:  #22375a;   /* contours des départements, 1px */
+  --map-manquant: #0d1930;   /* donnée manquante — plus sombre que --seq-1, HORS rampe */
+
+  /* Chrome de marque tricolore (header UNIQUEMENT — jamais des couleurs
+     de données : ni série, ni statut, ni rampe) */
+  --tricolore-bleu:  #4a7dd6;
+  --tricolore-blanc: #e8eef8;
+  --tricolore-rouge: #e0564f;
 }
 
 /* Jetons exposés à Tailwind v4 (classes bg-page, bg-card, text-ink…) */
