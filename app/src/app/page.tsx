@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { AlertItem, type Gravite } from "@/components/ui/AlertItem";
 import { BarList } from "@/components/ui/BarList";
@@ -20,6 +21,12 @@ import {
 
 // La base locale évolue à chaque ingestion : jamais figer cet état au build.
 export const dynamic = "force-dynamic";
+
+// Le title de l'accueil est le title par défaut du layout racine.
+export const metadata: Metadata = {
+  description:
+    "Le tableau de bord de l'argent public : budget de l'État, marchés publics, élus, lobbying, financement de la vie politique et alertes d'intégrité — données publiques officielles, datées et sourcées.",
+};
 
 /* ------------------------------------------------------------------ */
 /* Aides d'affichage (module accueil uniquement)                       */
