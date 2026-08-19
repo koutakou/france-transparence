@@ -1,6 +1,7 @@
 # SOURCES.md — Référentiel unique des sources de données
 
 **Projet France Transparence · Document de référence de la suite du projet · Établi le 19 août 2026.**
+**Révisé le 19/08/2026 après critique de complétude (docs/recherche/10-critique-completude.md)** — corrections C1-C2, I1-I10 et mineures (M1, M3, M4, M6-M9) intégrées ; périmètre v1 inchangé (13 pipelines).
 
 Ce document synthétise les 9 rapports de la Phase 0 (`docs/recherche/01` à `09`), tous fondés sur des **appels réels effectués le 19/08/2026** (curl/API, codes HTTP constatés). Chaque affirmation de fraîcheur ou de volumétrie cite son rapport source entre parenthèses. Règle du projet : **données réelles uniquement, fraîcheur affichée et mesurée** — pas de promesse que les sources ne peuvent pas tenir.
 
@@ -29,7 +30,8 @@ Contexte 2026 à garder en tête : LFI 2026 promulguée tardivement le 19/02/202
 - **Accès/format** : Parquet **243 Mo** (ou CSV 2,54 Go) + API REST. **Granularité** : 1 ligne = marché × titulaire × modification, avec noms, SIRET, **lat/lng, commune/département/région, catégorie PME/ETI/GE pour l'acheteur ET le titulaire**, `montant_rationalise`, `montant_anomalie`, `donneesActuelles`, CPV, procédure, `offresRecues`, durée (02).
 - **Période/fraîcheur** : consolidation de ~53 sources officielles ; **mise à jour quotidienne**, marché le plus récent notifié la veille (2026-08-18 vu le 19/08) (02).
 - **Licence** : Licence Ouverte v2.0. **Volumétrie** : **3 238 492 lignes** au build du 19/08 (02).
-- **Pièges** : 1 marché = n lignes → **dédoublonner par `uid` + `donneesActuelles=true`** ; montants d'accords-cadres = maximum, pas dépensé → utiliser `montant_rationalise`/`montant_anomalie` ou écrêter p99 ; consolidation communautaire (code public `decp-processing`) à créditer ; latence légale de publication jusqu'à 2 mois (02).
+- **Pièges** : 1 marché = n lignes → **dédoublonner par `uid` + `donneesActuelles=true`** ; montants d'accords-cadres = maximum, pas dépensé → utiliser `montant_rationalise`/`montant_anomalie` ou écrêter p99 ; consolidation communautaire (code public `decp-processing`) à créditer ; latence légale de publication jusqu'à 2 mois (02) ; ⚠ **l'API tabulaire data.gouv est en bêta** (08 §2.1) : contrat susceptible de changer sans préavis — simple raccourci, substituable par des requêtes DuckDB sur le parquet local (mode nominal de P3).
+- **Plan B (point de défaillance unique)** : consolidation maintenue par une personne — profil exact des morts recensées par 08 (`decp_augmente` [Obsolète], `decp.info` 301 vers offre commerciale). (a) **Mode dégradé documenté** = S8 + fichiers consolidés DAJ bruts, résolution des noms via S18 Sirene, géolocalisation par `lieuexecution` + annuaire S11 — carte en **agrégats départementaux** au lieu de points ; (b) le build quotidien S1 **et** l'activité du dépôt `decp-processing` sont inscrits au moniteur A11 ; (c) **archivage local du dernier parquet sain avant chaque remplacement** (le fichier EST l'état : un build cassé écraserait tout) (10-critique C1).
 - **Modules** : Commande publique (carte, attributions, fiches acheteurs/titulaires), Accueil (flux + carte), Alertes.
 
 #### S2. BOAMP — annonces de marchés (API DILA/Opendatasoft) ★ le module « appels d'offres en cours » est réellement alimentable
@@ -68,7 +70,8 @@ Contexte 2026 à garder en tête : LFI 2026 promulguée tardivement le 19/02/202
 
 #### S7. Datan — statistiques de votes des députés (CSV data.gouv.fr)
 - **URL testée** : dataset « Députés actifs de l'Assemblée nationale — Informations et statistiques » (data.gouv.fr, org. Datan), ressource `deputes-active.csv` — **mise à jour du jour même** (`dateMaj=2026-08-19`) ; colonnes `scoreParticipation, scoreLoyaute, scoreMajorite`, id `PA…` joignable avec l'open data AN (03, 08-ecosysteme.md).
-- **Licence** : fr-lo. **Pièges** : AN seulement ; scores calculés par Datan → **créditer et lier la méthodologie** (03).
+- **Licence** : fr-lo. **Pièges** : AN seulement ; scores calculés par Datan → **créditer et lier la méthodologie** (03) ; projet communautaire fragile (leçon n° 1 de 08) → **CSV inscrit au moniteur A11**.
+- **Fallback écrit (si Datan s'arrête)** : recalculer le taux de participation/loyauté depuis **S5 Scrutins.json** (votes nominaux, déjà ingérés en P9 ; dénominateur = scrutins de la période de mandat de chaque député) (10-critique I6).
 - **Modules** : Élus & Institutions (participation/loyauté sans recalcul).
 
 #### S8. DECP officielles data.economie.gouv.fr (DAJ) — chiffres « officiels » + agrégats serveur
@@ -200,7 +203,9 @@ Tous téléchargés/dépouillés le 19/08/2026 (05-frais-indemnites.md) :
 - **Jaune PLF 2026 « cabinets ministériels »** (curl 200, 11 p.) : 521 membres + 2 220 support = 2 741 personnes, ISP totale 27 361 062 € ; **les rémunérations par cabinet ont disparu depuis le jaune PLF 2024** (dernières données : 2022, moyenne 8 495 €/mois) — recul documenté.
 - **Barème DGCL indemnités élus locaux au 01/01/2026** (PDF collectivites-locales.gouv.fr, curl 200) : maire < 500 hab 1 155,06 €, ≥ 100 000 hab 5 960,26 €, IB 1027 = 4 110,52 €.
 - **Barèmes parlementaires et gouvernement** (fiches AN/Sénat WebFetch OK ; décret 2012-983 en 403 anti-bot, montants recalculés par la presse — à marquer « calculé ») : indemnité parlementaire brute 7 637,39 € ; **DFP députés 7 238,04 €/mois (créée au 01/01/2026)** ; AFM sénateurs 6 600 € ; mission « Pouvoirs publics » LFI 2026 = 1 140 179 221 € (AN 607,6 M€, Sénat 353,5 M€, Élysée 122,6 M€).
-- **Format** : PDF/HTML → intégrer comme **bloc de constantes sourcées** (le bloc YAML prêt à l'emploi figure au §9 de 05-frais-indemnites.md). **Modules** : Frais & train de vie.
+- **Rapport annuel HATVP 2025 (pantouflage)** : **641 avis de mobilité public-privé** rendus (contrôle des reconversions, art. 23 loi 2013-907) — chiffres agrégés à intégrer aux constantes sourcées ; **aucun export en masse des avis** (publication individuelle sur hatvp.fr, à confirmer en Phase 1) → volet documentaire du module Élus & Institutions + veille « export open data » au même rythme que la veille RIE (08 §3.2 ; 10-critique I7).
+- **SIREN « sommet de l'État » à documenter en constantes** (Présidence de la République, Assemblée nationale, Sénat) : leurs marchés sont couverts de fait par S1/S2 via filtre SIREN acheteur — requête différenciante à coût nul pour Frais & train de vie (10-critique M9).
+- **Format** : PDF/HTML → intégrer comme **bloc de constantes sourcées** (bloc YAML au §9 de 05-frais-indemnites.md — ⚠ **à corriger avant usage** : la ligne `mission_pouvoirs_publics_lfi_2026: total: … ; an: …` n'est pas du YAML valide, les `;` en font une chaîne unique → passer en clés/valeurs, 10-critique M2). **Modules** : Frais & train de vie (+ volet pantouflage d'Élus & Institutions).
 
 #### S32. Subventions versées par les collectivités (schéma SCDL — panel seulement)
 - **URL testée** : `https://www.data.gouv.fr/api/1/datasets/?schema=scdl%2Fsubventions&page_size=200` (200, **53 datasets**, ~45 organisations ; ⚠ slug `scdl/subventions`, pas `scdl-subventions`) ; **aucune consolidation nationale officielle** (`consolidation_dataset_id: None`) (06).
@@ -223,6 +228,18 @@ Tous téléchargés/dépouillés le 19/08/2026 (05-frais-indemnites.md) :
 
 #### S37. Décret annuel d'aide publique aux partis
 - Décret n° 2026-149 du 03/03/2026 : **64 262 871,05 €** répartis en 2 fractions ; **Légifrance en 403 curl** (anti-bot), tableau dans le corps du décret, pas de CSV ; l'essentiel du besoin est couvert par les colonnes 103-104 de S25 (04). **Modules** : Financement de la vie politique — v2.
+
+*Ajouts du 19/08/2026 issus du contre-audit `10-critique-completude.md` (placés en fin de groupe pour ne pas renuméroter le catalogue) :*
+
+#### S38. Avis et conseils de la CADA (ajout post-critique I1)
+- **URL testée** (10-critique, appels n° 1 et 6, HTTP 200) : `https://www.data.gouv.fr/api/1/datasets/avis-et-conseils-de-la-cada/` — dataset « Avis et conseils de la CADA » (org. CADA) ; ressource « Ensemble consolidé des avis et conseils de la CADA » = **CSV 198,4 Mo (198 398 592 o), dernière modification 14/08/2026**, plus lots mensuels/trimestriels 2022-2024.
+- **Licence** : fr-lo. **Intérêt** : sens des avis **par administration mise en cause** (qui refuse quoi) — alimente directement la « carte des verrous juridiques » du module Frais & train de vie et le lien avec Ma Dada (08 §1.2).
+- **Pièges** : volumétrie à **échantillonner avant toute promesse** (CSV de 198 Mo). **Modules** : Frais & train de vie (boîte noire, carte des verrous) — **v2** (aucun module v1 n'en dépend).
+
+#### S39. Jaune « opérateurs de l'État » PLF 2026 (ajout post-critique I4)
+- **Vérifié le 19/08/2026** (10-critique, appels n° 2 et 3) : dataset « PLF 2026, jaune opérateurs de l'État, liste des opérateurs et catégories » (data.gouv.fr, id `69665c766034b48d897c47be`), maj **13/01/2026** — **seule photographie 2026 du paysage des agences/opérateurs** (liste et catégories ; **pas les crédits par opérateur**). Retenu plutôt qu'écarté : le débat public 2026 sur les agences de l'État en fait un référentiel naturel.
+- **Licence** : à confirmer à l'ingestion (non relevée par le contre-audit). **Exploitable directement** (annuel), classé ici pour préserver la numérotation.
+- **Modules** : Dépenses de l'État (référentiel des opérateurs, complète l'encart de périmètre) — **v2**.
 
 ### Groupe E — Sources écartées (raison prouvée le 19/08/2026)
 
@@ -254,6 +271,7 @@ Tous téléchargés/dépouillés le 19/08/2026 (05-frais-indemnites.md) :
 curl --compressed "https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/situations-mensuelles-budgetaires-series-longues/exports/csv"
 
 # Marchés notifiés ces 30 jours, géolocalisés pour la carte — 24 554 lignes [S1] (02)
+# ⚠ API tabulaire en bêta (08 §2.1) : raccourci seulement — le mode nominal est le parquet local + DuckDB (P3)
 curl "https://tabular-api.data.gouv.fr/api/resources/22847056-61df-452d-837d-8b8ceadbfc52/data/?dateNotification__greater=2026-07-20&donneesActuelles__exact=true&page_size=200"
 
 # Bulk quotidien recommandé — decp.parquet 243 Mo, build du jour [S1] (02)
@@ -287,6 +305,7 @@ curl -O "https://data.senat.fr/data/senateurs/ODSEN_GENERAL.csv"
 curl "https://data.ofgl.fr/api/explore/v2.1/catalog/datasets/ofgl-base-communes/exports/csv?where=year(exer)%3D2025%20and%20agregat%3D%22D%C3%A9penses%20de%20fonctionnement%22%20and%20type_de_budget%3D%22Budget%20principal%22&select=com_code,com_name,dep_code,montant,euros_par_habitant,ptot"
 
 # CNCCFP : comptes des partis, exercice 2024 [S25] (04)
+# ⚠ URL de millésime static.data.gouv.fr : re-résoudre via l'API data.gouv avant chaque ingestion (convention §0.3)
 curl -O "https://static.data.gouv.fr/resources/comptes-des-partis-et-groupements-politiques/20260210-110641/comptes-partis-exercice-2024.csv"
 
 # Référentiels : communes + population + centroïdes (4,7 Mo) ; résolution SIRET [S27, S10] (09)
@@ -298,13 +317,15 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 
 ## 2. Mapping module → sources
 
+> **Encart de périmètre « argent public » (obligatoire, affiché sur l'Accueil et dans API & Données)** : le dashboard couvre le **budget général de l'État**, le **Parlement et la vie politique** (élus, lobbying, financement), la **commande publique** et les **finances locales**. Hors champ, et dit tel quel dans l'UI : les **administrations de sécurité sociale (~600 Md€, premier poste de la dépense publique)**, la dépense propre des **opérateurs de l'État** (seuls leurs crédits budgétaires apparaissent via S20/S21 ; référentiel S39 en v2) et les **entreprises publiques**. Tout compteur global porte la mention « budget général de l'État » — jamais « la dépense publique » (10-critique I8).
+
 ### Accueil synthétique
 - **Sources** : S13 (compteur dépenses État), S1 (flux marchés + carte 30 j), S2 (nb d'AO en cours), S3 (derniers textes JO), S14 (compteur d'alertes HATVP), S17/S4 (bandeau de stats), S20 (top missions).
-- **Fraîcheur affichable** : « Dépenses de l'État : données au 30/06/2026 (publication mensuelle DGFiP) » (01) · « Marchés publics : mise à jour quotidienne, notifications jusqu'à la veille » (02) · « Journal officiel du 19/08/2026 » (07) · « Déclarations HATVP : mise à jour hebdomadaire » (04).
+- **Fraîcheur affichable** : « Dépenses de l'État : données au 30/06/2026 (publication mensuelle DGFiP) » (01) · « Marchés publics : mise à jour quotidienne, notifications jusqu'à la veille — **en cours de consolidation** (latence légale de publication jusqu'à 2 mois) » (02) · « Journal officiel du 19/08/2026 » (07) · « Déclarations HATVP : mise à jour hebdomadaire » (04). La mention « en cours de consolidation » accompagne le flux marchés **partout où il apparaît** (10-critique M3).
 - **Contenu concret** : compteur « dépenses de l'État depuis le 1er janvier » (cumul mensuel, ex. réel : 195,0 Md€ de dépenses nettes du BG au 31/05/2026, 01) avec variation vs même période 2025 ; donut par grands postes (titres, S13) ; top missions (S20, annuel, mention PLF) ; carte de France des marchés notifiés sur 30 jours (S1, lat/lng natives) ; flux « derniers marchés notifiés » (J-1) et « derniers textes au JO » (jour même) ; « X appels d'offres en cours » ; bandeau : marchés notifiés/12 mois, ~500 000 mandats d'élus (S17), 6 829 lobbyistes enregistrés (S4), 12 930 dossiers déclaratifs HATVP (S14).
 
 ### Dépenses de l'État
-- **Sources** : S13 (mensuel), S20 + S21 (structure mission→action), S23 (subventions aux associations), S24 (performance, v2), S22 (patrimonial, v2), S30 (missions mensuelles PDF, v2).
+- **Sources** : S13 (mensuel), S20 + S21 (structure mission→action), S23 (subventions aux associations), S24 (performance, v2), S22 (patrimonial, v2), S30 (missions mensuelles PDF, v2), S39 (référentiel des opérateurs, v2).
 - **Fraîcheur affichable** : « Exécution mensuelle : données au 30/06/2026, ~6 semaines de décalage » (01) · « Structure du budget : PLF 2026 (déposé oct. 2025) et exécution 2024 » (01) · « Subventions aux associations : versements 2023 (dernier millésime publié) » (01).
 - **Contenu concret** : courbes 2013-2026 dépenses/recettes/solde, N vs N-1 par titre ; treemap mission → programme → action (comparateur exéc. 2024 / LFI 2025 / PLF 2026 + cotation budget vert) ; recherche parmi 112 722 subventions (SIREN, programme, commune). **Avertissements obligatoires** : PLF ≠ LFI 2026 (jamais publiée en données) ; aucune donnée de paiement en temps réel n'existe (01).
 
@@ -316,11 +337,11 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 ### Élus & Institutions
 - **Sources** : S5 (députés, votes nominaux, questions), S6 (sénateurs), S7 (scores Datan, crédités), S17 (RNE : tous les élus locaux), S14/S15 (déclarations HATVP), S10/S11 (fiches institutions), S26/S19 (élections, Europe, v2).
 - **Fraîcheur affichable** : « Données parlementaires : mises à jour quotidiennes (open data AN/Sénat) » (03) · « Répertoire des élus : 11/08/2026, post-municipales 2026 » (04) · « Dernier scrutin AN : n° 8434 du 21/07/2026 (vacances parlementaires) » (03).
-- **Contenu concret** : fiches députés (mandats, groupe, commission, déports, lien direct `uri_hatvp`, scores de participation/loyauté Datan) ; votes nominaux des 8 434 scrutins ; sénateurs et scrutins Sénat (v2 via Dosleg) ; annuaire des ~500 000 mandats locaux avec démographie (âge, sexe, CSP) ; questions au gouvernement et délais de réponse par ministère. **Architecture** : paramètre `legislature`, renouvellement Sénat 27/09/2026, table des intitulés ministériels par période (03).
+- **Contenu concret** : fiches députés (mandats, groupe, commission, déports, lien direct `uri_hatvp`, scores de participation/loyauté Datan) ; votes nominaux des 8 434 scrutins ; sénateurs et scrutins Sénat (v2 via Dosleg) ; annuaire des ~500 000 mandats locaux avec démographie (âge, sexe, CSP) ; questions au gouvernement et questions écrites — **les délais de réponse par ministère ne se mesurent que sur les questions écrites** (les QAG ont réponse immédiate, 03 §2.4 ; 10-critique M4) ; **volet documentaire pantouflage** : chiffres agrégés du rapport annuel HATVP (641 avis de mobilité public-privé en 2025, constantes cf. S31), pas d'export open data des avis — veille active (10-critique I7). **Architecture** : paramètre `legislature`, renouvellement Sénat 27/09/2026, table des intitulés ministériels par période (03).
 
 ### Lobbying
 - **Sources** : S4 (AGORA quotidien) ; à surveiller : RIE (aucun open data au 19/08/2026, 04).
-- **Fraîcheur affichable** : « Répertoire des représentants d'intérêts : mise à jour quotidienne (19/08/2026) » (04).
+- **Fraîcheur affichable** : « Répertoire des représentants d'intérêts : mise à jour quotidienne (19/08/2026) ; **dépenses et activités déclarées par exercice annuel** » (04) — la « pression par ministère » repose sur des données à maille annuelle, à dire dans l'UI (10-critique M3).
 - **Contenu concret** : 6 829 entités, 118 516 activités ; pression par ministère/AAI ciblé (table 13 × exercices) ; top budgets de lobbying (fourchettes) ; activités par type de décision ; croisement différenciant à terme : calendrier d'un texte × entrées au répertoire (08, créneau n° 1).
 
 ### Financement de la vie politique
@@ -329,9 +350,10 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 - **Contenu concret** : recettes des 575 partis (dons, cotisations, aide publique 64,26 M€, flux inter-partis) ; dépendance à l'aide publique ; coût par voix et remboursements des 4 010 candidats aux législatives 2024 ; comptes rejetés/réformés.
 
 ### Frais & train de vie
-- **Sources** : S31 (constantes sourcées + rapports annuels) ; volet « boîte noire » documentaire (05).
+- **Sources** : S31 (constantes sourcées + rapports annuels) ; volet « boîte noire » documentaire (05) ; S38 (avis CADA — carte des verrous, v2).
 - **Fraîcheur affichable** : « Barèmes en vigueur au 01/01/2026 » · « Contrôles des frais de mandat : exercice 2024 (rapports mai 2026) » · « Élysée : exercice 2024 audité (Cour des comptes, juillet 2025) — exercice 2025 non paru » (05).
-- **Contenu concret** : « combien gagnent-ils » (indemnité parlementaire 7 637,39 € brut, DFP 7 238,04 €, AFM Sénat 6 600 €, PM ≈ 16 038 € « calculé ») ; résultats agrégés des contrôles (84 députés / 276 335 € reversés ; 29,9 M€ de frais déclarés au Sénat) ; sous-module Élysée (coût par déplacement : 94 déplacements = 20,1 M€) ; coût des institutions (mission Pouvoirs publics 1,14 Md€) ; chronologie IRFM → DFP ; **carte des verrous juridiques** (Parlement non communicable vs élus locaux communicables — CE 08/02/2023) et compteur des demandes citoyennes refusées (05).
+- **Contenu concret** : « combien gagnent-ils » (indemnité parlementaire 7 637,39 € brut, DFP 7 238,04 €, AFM Sénat 6 600 €, PM ≈ 16 038 € « calculé ») ; résultats agrégés des contrôles (84 députés / 276 335 € reversés ; 29,9 M€ de frais déclarés au Sénat) ; sous-module Élysée (coût par déplacement : 94 déplacements = 20,1 M€) ; **marchés du sommet de l'État** (Élysée/AN/Sénat via filtre SIREN acheteur sur S1/S2 — requête à coût nul, SIREN documentés en constantes S31, 10-critique M9) ; coût des institutions (mission Pouvoirs publics 1,14 Md€) ; chronologie IRFM → DFP ; **carte des verrous juridiques** (Parlement non communicable vs élus locaux communicables — CE 08/02/2023 ; enrichie en v2 par les avis CADA S38) et compteur des demandes citoyennes refusées (05).
+- **Boîte noire — arbitrages post-critique (documentaire assumé, aucun pipeline)** : **aides publiques aux entreprises** : ~211 Md€/an « ni lisibles, ni conditionnées, ni évaluées » (rapport Sénat 08/07/2025) et **aucune donnée consolidée** (vérifié le 19/08 : 0 dataset) → alerte documentaire + veille active ; micro-module v2 possible sur les briques partielles (CIR via jaune, exonérations) (I2). **Hautes rémunérations de la fonction publique** : obligation « 10 plus hautes rémunérations » (art. 37, loi TFP du 06/08/2019) éclatée en **25 datasets épars sans consolidation nationale** (vérifié) → patron S32 : panel assumé en v2, **jamais « national »**, + ligne documentaire « obligation légale massivement inappliquée/éclatée » (I3). **Collaborateurs parlementaires et emplois familiaux** (loi 2017) : **0 dataset** (vérifié) ; listes HTML par élu sur les sites AN/Sénat → extraction coûteuse, v2 ou documentaire (I10). **Comptes des groupes politiques des assemblées** : **0 dataset** (vérifié) ; PDF probables sur les sites AN/Sénat à vérifier en Phase 1 → intégrer aux constantes S31, sinon manque assumé ici (I10).
 
 ### Finances locales
 - **Sources** : S16 (OFGL : comptes + dotations), S27 (fonds de carte + population), S28 (balances, drill-down v2), S33 (strates, v2), S32 (subventions locales, panel v2).
@@ -349,7 +371,7 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 
 ### API & Données
 - **Sources** : les métadonnées de toutes les autres + ce document.
-- **Contenu concret** : catalogue public des sources avec **fraîcheur mesurée** (dernière donnée réellement ingérée, testée automatiquement — le « moniteur de santé des sources » qui n'existe nulle part, 08 leçon n° 3 et créneau n° 2) ; licences et attributions (LO 2.0, ODbL HowTheyVote, crédit Datan/consolidation DECP) ; ré-export des agrégats calculés en Licence Ouverte ; documentation des règles d'alerte et de leurs bases légales.
+- **Contenu concret** : catalogue public des sources avec **fraîcheur mesurée** (dernière donnée réellement ingérée, testée automatiquement — le « moniteur de santé des sources » qui n'existe nulle part, 08 leçon n° 3 et créneau n° 2) ; licences et attributions (LO 2.0, ODbL HowTheyVote, crédit Datan/consolidation DECP) ; ré-export des agrégats calculés en Licence Ouverte ; documentation des règles d'alerte et de leurs bases légales ; reprise de l'**encart de périmètre « argent public »** (en tête du § 2, 10-critique I8).
 
 ---
 
@@ -380,19 +402,19 @@ Chaque alerte ci-dessous est calculable avec les données réellement testées. 
 
 | Alerte | Règle de calcul | Source(s) | Base légale | Rapport |
 |---|---|---|---|---|
-| **A1. Déclaration HATVP manquante ou en retard** | `date de début de la fonction` (RNE) + 60 jours dépassée ET `statut_publication` = « En cours » ; « Déclaration non déposée » = constat officiel HATVP à afficher tel quel. État au 19/08/2026 : **1 241 « En cours », 4 « non déposées »** | S14 (liste.csv) × S17 (RNE) | Loi n° 2013-907 du 11/10/2013 (art. 4 et 11) et art. LO 135-1 du code électoral : dépôt sous 2 mois ; sanctions art. 26 : 3 ans, 45 000 €, inéligibilité | 04 |
+| **A1. Déclaration HATVP présumée manquante ou en retard** | Retard **présumé** (libellé UI obligatoire) : `date de début de la fonction` (RNE) + 60 jours dépassée ET `statut_publication` = « En cours ». **Garde-fous** : (1) **mandats EPCI exclus ou classés à part** — pour les VP d'EPCI élus en 2026, le délai court à la transmission de la délégation de fonction à la préfecture, date absente de tout open data (2 248 dossiers `epci`) → faux positifs mécaniques sinon ; (2) jointure nom+prénom+département **sans date de naissance côté HATVP** → règle de matching documentée (normalisation accents/casse), **homonyme non tranché = non-alerte** ; (3) RNE **trimestriel** (dernier : 11/08/2026) → dates de fonction périmées jusqu'à ~3 mois. **Affichage nominatif en « constat » réservé aux 4 « Déclaration non déposée »** (constat officiel HATVP, affiché tel quel) ; le reste en **agrégats**, fiches individuelles portant toutes les réserves. État au 19/08/2026 : **1 241 « En cours », 4 « non déposées »** | S14 (liste.csv) × S17 (RNE) | Loi n° 2013-907 du 11/10/2013 (art. 4 et 11) et art. LO 135-1 du code électoral : dépôt sous 2 mois ; sanctions art. 26 : 3 ans, 45 000 €, inéligibilité | 04, 10-critique C2 |
 | **A2. Défaut de déclaration lobbying** | Flags natifs `defautDeclaration=true` ou `declaration_incomplete=true` par exercice (constaté sur données réelles) | S4 (AGORA, `15_exercices.csv`) | Loi n° 2016-1691 « Sapin II » (répertoire des représentants d'intérêts) | 04 |
 | **A3. Pression de lobbying sur une décision/institution** | Nb d'actions × fourchettes de dépenses agrégés par ministère/AAI visé et par type de décision | S4 (tables `13_ministeres_aai_api` × `15_exercices` × `12_decisions_concernees`) | Sapin II (publicité des activités) | 04 |
-| **A4. Parti privé d'aide publique / sur-dépendant** | Partis n'ayant pas respecté leurs obligations comptables (avis CNCCFP annuel) ; ratio aide publique (col. 103-105) / total recettes | S25 (CSV) + avis CNCCFP (PDF JO) | Loi n° 88-227 du 11/03/1988 (financement des partis) | 04 |
+| **A4. Parti privé d'aide publique / sur-dépendant** | Partis n'ayant pas respecté leurs obligations comptables (avis CNCCFP annuel) ; ratio aide publique (col. 103-105) / total recettes. L'avis CNCCFP n'existe qu'en **PDF au JO** → **P6/S3 le détecte par NOR/titre** et déclenche un traitement manuel annuel (mitigation gratuite) | S25 (CSV) + avis CNCCFP (PDF JO, détecté via S3) | Loi n° 88-227 du 11/03/1988 (financement des partis) | 04, 10-critique M7 |
 | **A5. Compte de campagne rejeté ou réformé** | Colonne décision ∈ {R, AR} par candidat ; montants réformés = écart déclaré/retenu | S29 | Contrôle CNCCFP (code électoral) | 04 |
-| **A6. Marché juste sous le seuil de publicité** | Concentration anormale de marchés d'un acheteur dans la bande sous seuil : < 40 k€ avant le 01/04/2026, < 60 k€ ensuite (fournitures/services) | S1 (dédupliqué `uid`) | Décret n° 2025-1386 du 29/12/2025 (seuil 60 k€) ; arrêté DECP du 22/12/2022 | 02, 08 |
+| **A6. Marché juste sous le seuil de publicité** | Concentration anormale de marchés **fournitures/services d'un acheteur dans la bande 40-60 k€, notifiés après le 01/04/2026** (publiés en DECP mais dispensés de publicité préalable). La bande « juste sous 40 k€ » est un **angle mort structurel de la donnée** (l'obligation DECP démarre à ≥ 40 k€ HT : ces marchés ne sont pas publiés, hors sous-ensemble volontaire biaisé) — à dire en méthodo | S1 (dédupliqué `uid`) | Décret n° 2025-1386 du 29/12/2025 (seuil 60 k€) ; arrêté DECP du 22/12/2022 (obligation ≥ 40 k€) | 02, 08, 10-critique I5 |
 | **A7. Attributaire récurrent** | Part d'un même titulaire dans les marchés d'un acheteur sur 12-24 mois (indicateur de vigilance, pas d'infraction — à libeller ainsi) | S1 | — (signal d'attention recommandé par l'état de l'art) | 08 |
 | **A8. Avenant/modification tardive ou gonflante** | `modification_id` : modifications augmentant le montant ou la durée peu après notification | S1 (lignes de modification) | Obligation de publier les modifications (arrêté du 22/12/2022) | 02, 08 |
 | **A9. Montant aberrant** | Champ natif `montant_anomalie` (+ raisons) ; écrêtage p99 pour les agrégats | S1 | — (qualité de données, à afficher en méthodo) | 02 |
 | **A10. Publication DECP hors délai légal** | `datePublicationDonnees − dateNotification > 2 mois` par acheteur | S1/S8 | Arrêté du 22/12/2022 : publication sous 2 mois après notification | 02 |
-| **A11. Moniteur de fraîcheur des sources (méta-alerte)** | Dernière donnée réellement ingérée vs fréquence promise par source ; alerte si dérive (leçon : les sites morts répondent 200) | toutes | — (engagement méthodologique du projet) | 08 |
+| **A11. Moniteur de fraîcheur des sources (méta-alerte)** | Dernière donnée réellement ingérée vs fréquence promise par source ; alerte si dérive (leçon : les sites morts répondent 200). **Surveillance nominative des maillons communautaires** : build quotidien S1 **et** activité du dépôt `decp-processing` (plan B C1) ; CSV Datan S7 (fallback I6) | toutes | — (engagement méthodologique du projet) | 08, 10-critique C1/I6 |
 
-Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication des justificatifs parlementaires (11/06/2026) ; disparition des rémunérations des cabinets des jaunes budgétaires depuis PLF 2024 ; absence de LFI 2026 en open data ; RIE sans open data (04, 05, 01, 08).
+Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication des justificatifs parlementaires (11/06/2026) ; disparition des rémunérations des cabinets des jaunes budgétaires depuis PLF 2024 ; absence de LFI 2026 en open data ; RIE sans open data (04, 05, 01, 08) ; **aides publiques aux entreprises : ~211 Md€/an sans donnée consolidée** (rapport Sénat 08/07/2025 ; vérifié le 19/08 : 0 dataset) ; **« 10 plus hautes rémunérations » : obligation légale (art. 37, loi TFP 2019) éclatée en 25 datasets sans consolidation nationale** ; **collaborateurs parlementaires et comptes des groupes politiques : 0 dataset** (listes/PDF sur les sites des assemblées) ; **pantouflage : 641 avis de mobilité HATVP 2025 sans export open data** ; **périmètre : sécurité sociale (~600 Md€) et dépense propre des opérateurs hors champ du dashboard** (10-critique I2, I3, I7, I8, I10).
 
 ---
 
@@ -404,19 +426,19 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 |---|---|---|---|---|
 | P1 | Budget État mensuel | S13 | mensuelle (poll hebdo) | Export CSV complet à chaque publication ; série 2013→courant ; **26 lignes, < 100 Ko** (01) |
 | P2 | Structure budgétaire annuelle | S20, S21, S23 | annuelle (one-shot + veille) | Exports complets : 1 816 + 2 404 + 112 722 lignes ; qq dizaines de Mo, une fois par an (01) |
-| P3 | Marchés publics | S1 | quotidienne | `decp.parquet` **243 Mo/jour**, remplacement complet (le fichier EST l'état) ; base locale filtrée `donneesActuelles=true` + dédup `uid` ; affichage fenêtres 30 j / 12 mois ; agrégats pré-calculés au build (02) |
+| P3 | Marchés publics | S1 | quotidienne | `decp.parquet` **243 Mo/jour**, remplacement complet (le fichier EST l'état) — **archiver le dernier parquet sain avant chaque remplacement** ; **mode nominal = parquet local + DuckDB** (l'API tabulaire, en bêta, n'est qu'un raccourci substituable) ; base locale filtrée `donneesActuelles=true` + dédup `uid` ; affichage fenêtres 30 j / 12 mois ; agrégats pré-calculés au build ; mode dégradé documenté dans la fiche S1 (plan B) (02, 10-critique C1/I9) |
 | P4 | Appels d'offres en cours | S2 | 2-4×/jour | **Aucun stock** : requêtes API filtrées (`datelimitereponse > now`, ~9 000 lignes) + exports filtrés pour les attributions du jour ; quota 50 000/j très au-dessus du besoin (02) |
 | P5 | Marchés à venir | S9 | hebdomadaire | Dataset complet : 11 388 lignes (02) |
 | P6 | Journal officiel | S3 | quotidienne (cron ~06h) | Delta nocturne **~100-500 Ko/jour** ; démarrage au premier delta (pas de Freemium 1 Go) ; lister l'index, ignorer la livraison du soir ; stock cumulé de l'ordre de 15 Mo/mois (07) |
 | P7 | Intégrité des élus | S14 + S17 | hebdo / trimestrielle | `liste.csv` 3,3 Mo remplacement complet ; RNE : 12 CSV **~81 Mo** remplacement complet trimestriel (04) |
 | P8 | Lobbying | S4 | quotidienne | `Vues_Separees_CSV.zip` **14,2 Mo/jour**, remplacement complet ; **ne pas prendre le JSON 137 Mo en v1** (04) |
-| P9 | Parlement | S5 (AMO10 + Scrutins), S6 (ODSEN + questions), S7 (Datan) | quotidienne (nocturne) | 4,9 + 26,3 + ~0,5 Mo/jour + CSV Datan ; périmètre = législature 17 paramétrée ; prévoir renouvellement Sénat 27/09/2026 (03) |
+| P9 | Parlement | S5 (AMO10 + Scrutins), S6 (ODSEN + questions), S7 (Datan) | quotidienne (nocturne) | 4,9 + 26,3 + ~0,5 Mo/jour + CSV Datan ; **Scrutins en incrémental** : le zip (172,7 Mo décompressés, 8 434 fichiers) est re-livré entier chaque nuit → ne re-parser que les nouveaux numéros de scrutin (diff) ; périmètre = législature 17 paramétrée ; prévoir renouvellement Sénat 27/09/2026 (03, 10-critique M6) |
 | P10 | Financement politique | S25 + S29 | annuelle / par scrutin | One-shot : 4 CSV partis 2021-2024 (~300 Ko chacun) + législatives 2024 (1,14 Mo, `cp1252, skiprows=6`) ; veille municipales 2026 (attendues fin 2026/2027) (04) |
 | P11 | Finances locales | S16 | au build + à la demande | **Jamais d'aspiration des bases 22 M lignes** : exports filtrés pré-calculés par indicateur × exercice (34 778 lignes / 1,9 Mo chacun ; ~6 indicateurs ≈ 12 Mo) + `group_by=dep_code` à la volée (cache) + dotations par requêtes ciblées (06) |
 | P12 | Référentiels | S27, S10 | annuelle / à la volée | geo.api.gouv 4,7 Mo one-shot ; france-geojson 569 Ko statique ; populations INSEE 1 Mo/an ; recherche-entreprises au fil de l'eau (≤ 7 req/s) (09) |
-| P13 | Train de vie (constantes) | S31 | à parution (annuelle) | **Zéro pipeline** : bloc de constantes sourcées (bloc YAML prêt au §9 de 05-frais-indemnites.md) ; revue à chaque rapport annuel (Élysée 2025 à surveiller) |
+| P13 | Train de vie (constantes) | S31 | à parution (annuelle) | **Zéro pipeline** : bloc de constantes sourcées (bloc YAML du §9 de 05-frais-indemnites.md, **à corriger avant usage** : ligne `mission_pouvoirs_publics_lfi_2026` invalide, `;` → clés/valeurs, 10-critique M2) ; revue à chaque rapport annuel (Élysée 2025 à surveiller) |
 
-**Bilan v1** : ~290 Mo/jour téléchargés (dominés par le parquet DECP), stockage vif < 2 Go, aucune authentification, tous les modules de la navigation alimentés honnêtement, alertes A1-A11 calculables.
+**Bilan v1** : ~290 Mo/jour téléchargés (dominés par le parquet DECP), stockage vif < 2 Go, aucune authentification, tous les modules de la navigation alimentés honnêtement, alertes A1-A11 calculables. **Périmètre v1 confirmé après la critique de complétude : 13 pipelines, inchangé** — les ajouts (S38 avis CADA, S39 jaune opérateurs, panels rémunérations/collaborateurs) sont classés v2 ou documentaires : aucun ne conditionne un module v1, et chacun exige échantillonnage ou extraction avant toute promesse.
 
 ### v2 — le reste, documenté et priorisé
 
@@ -428,7 +450,8 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 6. **S26 élections Parquet** (71 + 161 Mo) + **S19 HowTheyVote** (68,6 Mo hebdo, ODbL) + Europarl (09).
 7. **S18 stock Sirene Parquet** (705 Mo/mois, DuckDB) si les trous de résolution le justifient (09).
 8. **S22 CGE** (517 k lignes) + **S24 RAP** ; **S34 TED** ; **S12 BODACC/associations** ; **S35 LEGI/DOLE/Debats/RefOrgaAdminEtat** ; **S36 PISTE** (one-shot humain) ; **S37 décret d'aide publique** (01, 02, 07, 04).
-9. **Veilles actives** (re-tester périodiquement) : open data du RIE (trimestriel) ; comptes de campagne municipales 2026 ; rapport Cour des comptes Élysée exercice 2025 ; jaune cabinets PLF 2027 ; jaune associations PLF 2026 ; publication éventuelle de la LFI en données (04, 05, 01).
+9. **Ajouts post-critique (19/08)** : **S38 avis CADA** (CSV consolidé 198,4 Mo, échantillonner avant promesse → carte des verrous) ; **S39 jaune opérateurs PLF 2026** (référentiel des opérateurs) ; **panel « 10 plus hautes rémunérations »** (25 datasets épars, patron S32 : jamais « national ») ; **collaborateurs parlementaires** (extraction HTML des fiches AN/Sénat, coûteuse) ; **comptes des groupes politiques** (PDF AN/Sénat à vérifier en Phase 1 → constantes S31 ou boîte noire) (10-critique I1, I3, I4, I10).
+10. **Veilles actives** (re-tester périodiquement) : open data du RIE (trimestriel) ; **export open data des avis de mobilité HATVP (pantouflage), au même rythme que la veille RIE** ; comptes de campagne municipales 2026 ; rapport Cour des comptes Élysée exercice 2025 ; jaune cabinets PLF 2027 ; jaune associations PLF 2026 ; publication éventuelle de la LFI en données ; **datasets PLF 2027** (famille destination/nature + budget vert, attendus oct.-nov. 2026 — ils remplaceront S20/S21 quelques semaines après le lancement) ; **donnée consolidée « aides aux entreprises »** (0 dataset au 19/08) ; **réserve parlementaire historique** (7 datasets figés, vérifiés — chronologie IRFM → DFP / boîte noire ; successeur FDVA jamais traité) (04, 05, 01, 10-critique M8/I2/I7).
 
 ---
 
@@ -473,7 +496,9 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 | S35 Autres fonds DILA (LEGI/DOLE/Debats/RefOrga) | Quotidienne à J-1 (07) | fr-lo | Documents/JO | v2 |
 | S36 API Légifrance (PISTE) | Temps réel (one-shot humain requis) (07) | CGU PISTE + fr-lo | Documents (recherche) | v2 (optionnel) |
 | S37 Décret aide publique partis | Annuel (décret 03/03/2026, 403 curl) (04) | — | Financement politique | v2 |
+| S38 Avis CADA (ensemble consolidé) | Consolidé maj 14/08/2026 + lots mensuels/trimestriels (10-critique) | fr-lo | Frais & train de vie (carte des verrous, boîte noire) | v2 |
+| S39 Jaune opérateurs PLF 2026 | Annuelle (13/01/2026) (10-critique) | à confirmer | Dépenses de l'État (référentiel opérateurs) | v2 |
 
 ---
 
-*Document établi à partir des rapports 01 à 09 de `docs/recherche/` (tous appels réels du 19/08/2026). Toute évolution (RIE, municipales 2026 CNCCFP, rapport Élysée 2025, LFI en données) passe par la mise à jour de ce fichier.*
+*Document établi à partir des rapports 01 à 09 de `docs/recherche/`, révisé après le contre-audit `10-critique-completude.md` (tous appels réels du 19/08/2026). Toute évolution (RIE, municipales 2026 CNCCFP, rapport Élysée 2025, LFI en données, PLF 2027, export des avis de mobilité HATVP) passe par la mise à jour de ce fichier.*
