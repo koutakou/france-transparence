@@ -1,0 +1,17 @@
+node_modules/
+.next/
+dist/
+build/
+__pycache__/
+*.pyc
+.venv/
+venv/
+data/raw/
+data/tmp/
+*.db-journal
+*.db-wal
+*.db-shm
+.DS_Store
+*.log
+.env*
+!.env.example
