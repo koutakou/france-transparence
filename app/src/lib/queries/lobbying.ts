@@ -114,6 +114,25 @@ export type DonneesLobbying = {
 };
 
 /**
+ * Liste COMPLÈTE des entités en défaut de déclaration (316 au 19/08/2026),
+ * tri alphabétique — consommée par le fragment statique
+ * /data/lobbying/defauts.json (la page n'embarque que les 50 premières).
+ * `null` si la base n'existe pas encore.
+ */
+export function getEntitesEnDefaut(): EntiteEnDefaut[] | null {
+  const db = getDb();
+  if (!db) return null;
+  return db
+    .prepare(
+      `SELECT id, denomination, categorie, ville, url_fiche
+       FROM lobby_entites
+       WHERE defaut_declaration = 1
+       ORDER BY denomination`,
+    )
+    .all() as EntiteEnDefaut[];
+}
+
+/**
  * Charge toutes les données de la page Lobbying en une passe.
  * `null` si la base n'existe pas encore (ou si la source S4 n'est pas
  * ingérée) — état « données en cours d'ingestion ».
@@ -220,14 +239,7 @@ export function getDonneesLobbying(): DonneesLobbying | null {
       .get() as { nb: number }
   ).nb;
 
-  const entitesEnDefaut = db
-    .prepare(
-      `SELECT id, denomination, categorie, ville, url_fiche
-       FROM lobby_entites
-       WHERE defaut_declaration = 1
-       ORDER BY denomination`,
-    )
-    .all() as EntiteEnDefaut[];
+  const entitesEnDefaut = getEntitesEnDefaut() ?? [];
 
   return {
     meta,

@@ -8,10 +8,10 @@ import { DataTable } from "@/components/ui/DataTable";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { LineChart } from "@/components/ui/LineChart";
 import { StatStrip } from "@/components/ui/StatStrip";
+import { DefautsLobbying } from "@/components/client/DefautsLobbying";
 import { formatDateFr, formatNombre } from "@/lib/format";
 import {
   getDonneesLobbying,
-  type EntiteEnDefaut,
   type FourchetteBudget,
   type InstitutionDetail,
   type MinistereVise,
@@ -342,20 +342,12 @@ export default async function LobbyingPage() {
               }}
             />
           )}
-          <DataTable<EntiteEnDefaut>
-            colonnes={[
-              { cle: "denomination", entete: "Entité en défaut de déclaration" },
-              { cle: "categorie", entete: "Catégorie" },
-              { cle: "ville", entete: "Ville" },
-              {
-                cle: "url_fiche",
-                entete: "Registre",
-                rendu: (l) => <LienFiche url={l.url_fiche} />,
-              },
-            ]}
-            lignes={entitesEnDefaut}
-            cleLigne={(l) => l.id}
-            hauteurMax="24rem"
+          {/* 50 premières lignes dans le HTML, liste complète (316) chargée
+              d'un clic depuis /data/lobbying/defauts.json — rendue côté
+              serveur, la table complète dépassait le budget < 500 Ko. */}
+          <DefautsLobbying
+            premieres={entitesEnDefaut.slice(0, 50)}
+            total={entitesEnDefaut.length}
           />
         </div>
       </Card>

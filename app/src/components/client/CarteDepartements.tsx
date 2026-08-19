@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MapFrance } from "@/components/ui/MapFrance";
+import { MapFrance, type PointCarte } from "@/components/ui/MapFrance";
 import type { GeojsonDepartements } from "@/lib/queries/collectivites";
 import { formatEuros, formatNombre } from "@/lib/format";
 import { urlSite } from "@/lib/basePath";
@@ -44,6 +44,8 @@ export interface CarteDepartementsProps {
   format: FormatCarte;
   legendeTitre: string;
   ariaLabel: string;
+  /** Points « villes lumineuses » optionnels (données sérialisables). */
+  points?: PointCarte[];
   largeur?: number;
   hauteur?: number;
   /** Message affiché si le fond de carte est indisponible. */
@@ -56,6 +58,7 @@ export function CarteDepartements({
   format,
   legendeTitre,
   ariaLabel,
+  points,
   largeur = 520,
   hauteur = 500,
   messageAbsent = "Fond de carte indisponible — les valeurs restent lisibles dans le tableau.",
@@ -100,6 +103,7 @@ export function CarteDepartements({
     <MapFrance
       geojson={geojson}
       valeurs={valeurs}
+      points={points}
       formatValeur={FORMATS[format]}
       legendeTitre={legendeTitre}
       largeur={largeur}

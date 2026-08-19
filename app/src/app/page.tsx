@@ -8,11 +8,12 @@ import { DeltaPct } from "@/components/ui/DeltaPct";
 import { Donut } from "@/components/ui/Donut";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { KpiTile } from "@/components/ui/KpiTile";
-import { MapFrance, type PointCarte } from "@/components/ui/MapFrance";
+import type { PointCarte } from "@/components/ui/MapFrance";
+import { CarteDepartements } from "@/components/client/CarteDepartements";
 import { Money } from "@/components/ui/Money";
 import { StatStrip } from "@/components/ui/StatStrip";
 import type { MetaSource } from "@/lib/db";
-import { ESPACE_FINE, formatDateFr, formatEuros, formatNombre } from "@/lib/format";
+import { ESPACE_FINE, formatDateFr, formatNombre } from "@/lib/format";
 import {
   getDonneesAccueil,
   lireDepartementsGeojson,
@@ -179,7 +180,10 @@ export default async function Accueil() {
   } = donnees;
 
   /* --- Carte : valeurs par département limitées au fond métropole
-         (l'outre-mer est hors rendu v1 — codes 97x/98x écartés) --- */
+         (l'outre-mer est hors rendu v1 — codes 97x/98x écartés).
+         Le GeoJSON n'est lu ici QUE pour filtrer les codes : le fond
+         (~700 Ko) est chargé côté client depuis /data/geo-departements.json
+         (CarteDepartements) pour ne pas peser dans le HTML statique. --- */
   const geojson = lireDepartementsGeojson();
   const codesCarte = new Set(
     (geojson?.features ?? [])
@@ -350,21 +354,14 @@ export default async function Accueil() {
             sousTitre="Marchés notifiés, 12 derniers mois — montants écrêtés (plafond 100 M€ par marché) · points : préfectures · outre-mer hors carte (v1)"
             droite={<BadgeSource source={sources.S1} mention="J-1" />}
           >
-            {geojson ? (
-              <MapFrance
-                geojson={geojson}
-                valeurs={valeursCarte}
-                points={pointsPrefectures}
-                formatValeur={(v) => formatEuros(v)}
-                legendeTitre="Montant notifié (12 mois)"
-                ariaLabel="Carte de France des montants de marchés publics notifiés par département sur 12 mois"
-              />
-            ) : (
-              <p className="text-sm text-ink-muted">
-                Fond de carte non disponible (data/geo/departements.geojson
-                manquant).
-              </p>
-            )}
+            <CarteDepartements
+              valeurs={valeursCarte}
+              points={pointsPrefectures}
+              format="euros"
+              legendeTitre="Montant notifié (12 mois)"
+              ariaLabel="Carte de France des montants de marchés publics notifiés par département sur 12 mois"
+              messageAbsent="Fond de carte non disponible (data/geo/departements.geojson manquant)."
+            />
             <p className="mt-2 text-[11px] leading-relaxed text-ink-muted">
               Consolidation DECP&nbsp;: decp-processing (C.&nbsp;Maudry) —
               latence légale de publication ≤&nbsp;2&nbsp;mois.
