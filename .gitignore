@@ -1,5 +1,6 @@
 node_modules/
 .next/
+app/out/
 dist/
 build/
 __pycache__/

@@ -6,18 +6,17 @@ import {
   getCatalogueSources,
   getDerniereIngestion,
   getLicences,
-  TYPES_MANDAT,
   type NiveauFraicheur,
   type SourceCataloguee,
 } from "@/lib/queries/donnees";
 
-// Le catalogue reflète la base locale à chaque ingestion : jamais figé au build.
-export const dynamic = "force-dynamic";
+// Rendu statique : le catalogue est figé au build, qui suit chaque
+// ingestion (docs/deploiement/DECISION.md) — il reste donc à jour.
 
 export const metadata: Metadata = {
   title: "Données & API",
   description:
-    "Le manifeste de méthode du dashboard : catalogue des 25 sources avec fraîcheur mesurée, périmètre et limites assumées, licences et crédits, API JSON locale, reproduction.",
+    "Le manifeste de méthode du dashboard : catalogue des 25 sources avec fraîcheur mesurée, périmètre et limites assumées, licences et crédits, exports JSON quotidiens, reproduction.",
 };
 
 /**
@@ -27,7 +26,7 @@ export const metadata: Metadata = {
  * 2. périmètre « argent public » et promesses marketing NON tenables avec la
  *    donnée réelle (docs/SOURCES.md §2 encart + §3) ;
  * 3. licences réellement présentes en base et crédits obligatoires ;
- * 4. documentation des routes JSON locales ;
+ * 4. documentation des exports JSON quotidiens (fichiers statiques) ;
  * 5. reproduction (make ingest).
  */
 
@@ -119,60 +118,34 @@ const PROMESSES: { promesse: string; reel: string }[] = [
 ];
 
 /* ---------------------------------------------------------------- */
-/* Documentation des routes JSON locales                             */
+/* Documentation des exports JSON quotidiens (fichiers statiques)    */
 /* ---------------------------------------------------------------- */
 
-const ENDPOINTS: {
-  chemin: string;
-  description: string;
-  params: { nom: string; detail: string }[];
-  exemple: string;
-}[] = [
+const ENDPOINTS: { chemin: string; description: string }[] = [
   {
-    chemin: "/api/meta",
+    chemin: "/api/meta.json",
     description:
-      "Le catalogue meta_sources complet : les 25 sources tracées avec nom, URL amont, licence, fréquence, date des données, date d'ingestion, volumétrie et notes.",
-    params: [],
-    exemple: "/api/meta",
+      "Le catalogue meta_sources complet : les 25 sources tracées avec nom, URL amont, licence, fréquence, date des données, date d'ingestion, volumétrie et notes — plus genere_le, la date du build (témoin de fraîcheur du déploiement).",
   },
   {
-    chemin: "/api/alertes",
+    chemin: "/api/alertes.json",
     description:
-      "Les alertes calculées à l'ingestion, chacune avec sa règle, sa base légale et son URL source.",
-    params: [
-      { nom: "type", detail: "type exact (ex. lobbying_defaut_declaration)" },
-      { nom: "gravite", detail: "haute | moyenne | info" },
-      { nom: "limit", detail: "1 à 500 (défaut 100)" },
-    ],
-    exemple: "/api/alertes?gravite=haute&limit=50",
+      "Toutes les alertes calculées à l'ingestion (dump complet), chacune avec sa règle, sa base légale et son URL source.",
   },
   {
-    chemin: "/api/elus",
+    chemin: "/api/elus.json",
     description:
-      "Recherche dans le répertoire des élus (36 018 lignes) — champs publics uniquement, mandats détaillés en JSON.",
-    params: [
-      { nom: "q", detail: "sous-chaîne du nom ou du prénom (2 à 80 caractères)" },
-      { nom: "mandat", detail: TYPES_MANDAT.join(" | ") },
-      { nom: "limit", detail: "1 à 500 (défaut 50)" },
-    ],
-    exemple: "/api/elus?q=martin&mandat=maire&limit=20",
+      "Le répertoire des élus, en champs publics compacts : identité, identifiants AN/Sénat, lien HATVP, types de mandats (le détail des mandats reste sur les fiches et dans le RNE amont).",
   },
   {
-    chemin: "/api/marches/agregats",
+    chemin: "/api/marches-agregats.json",
     description:
       "Agrégats de marchés publics pré-calculés à l'ingestion : par département (12 mois, montants écrêtés à 100 M€/marché) et par mois (36 mois).",
-    params: [],
-    exemple: "/api/marches/agregats",
   },
   {
-    chemin: "/api/budget/mensuel",
+    chemin: "/api/budget-mensuel.json",
     description:
-      "Situations mensuelles budgétaires de l'État (26 lignes par mois, montants = cumuls depuis le 1er janvier). Sans paramètre : photographie du dernier mois publié.",
-    params: [
-      { nom: "annee", detail: "année à quatre chiffres (série 2013 → courant)" },
-      { nom: "ligne", detail: "ligne_id exact (ex. depenses/budget-general/depenses-de-personnel)" },
-    ],
-    exemple: "/api/budget/mensuel?annee=2026",
+      "Situations mensuelles budgétaires de l'État, série complète 2013 → dernier mois publié (26 lignes par mois, montants = cumuls depuis le 1er janvier).",
   },
 ];
 
@@ -421,8 +394,8 @@ export default async function PageDonnees() {
             (contours IGN/Etalab).
           </p>
           <p className="text-xs text-ink-muted">
-            Les agrégats calculés par France Transparence (dont l’API locale
-            ci-dessous) sont ré-exploitables en Licence Ouverte 2.0, avec
+            Les agrégats calculés par France Transparence (dont les exports
+            JSON ci-dessous) sont ré-exploitables en Licence Ouverte 2.0, avec
             mention de la source amont de chaque donnée. Les constantes
             «&nbsp;train de vie&nbsp;» (S31) et le décret d’aide publique (S37)
             proviennent de publications officielles hors open data, citées avec
@@ -431,56 +404,38 @@ export default async function PageDonnees() {
         </div>
       </Card>
 
-      {/* 4. API locale */}
+      {/* 4. Exports JSON quotidiens */}
       <Card
-        titre="API locale"
-        sousTitre="Routes JSON en lecture seule, servies par cette application depuis la base locale — pas un service distant"
+        titre="Exports JSON quotidiens"
+        sousTitre="Fichiers statiques régénérés à chaque build à partir de la base locale — des snapshots datés, pas une API paramétrable"
       >
         <p className="mb-4 max-w-3xl text-[13px] leading-relaxed text-ink-secondary">
-          Chaque réponse porte un bloc <code className="rounded bg-raised px-1 py-0.5 text-xs">meta</code>{" "}
-          (source(s) amont, date des données, licence, date d’ingestion) et un
-          bloc <code className="rounded bg-raised px-1 py-0.5 text-xs">donnees</code>. SQL
-          paramétré, plafond 500 lignes par réponse, erreurs explicites
-          (400&nbsp;: paramètre invalide ; 503&nbsp;: base non construite),
-          cache HTTP 5 minutes.
+          Chaque fichier porte un bloc <code className="rounded bg-raised px-1 py-0.5 text-xs">meta</code>{" "}
+          (source(s) amont, date des données, licence) et un bloc{" "}
+          <code className="rounded bg-raised px-1 py-0.5 text-xs">donnees</code> — un
+          dump complet, sans paramètre de filtrage&nbsp;: le tri et le filtrage
+          se font chez le réutilisateur.
         </p>
         <ul className="flex flex-col gap-4">
           {ENDPOINTS.map((e) => (
             <li key={e.chemin} className="border-l pl-3.5" style={{ borderColor: "var(--viz-grid)" }}>
               <p className="text-[13px]">
-                <code className="rounded bg-raised px-1.5 py-0.5 text-xs text-ink">
-                  GET {e.chemin}
-                </code>
-              </p>
-              <p className="mt-1 text-[13px] leading-snug text-ink-secondary">{e.description}</p>
-              {e.params.length > 0 && (
-                <ul className="mt-1.5 flex flex-col gap-0.5 text-xs text-ink-muted">
-                  {e.params.map((p) => (
-                    <li key={p.nom}>
-                      <code className="rounded bg-raised px-1 py-0.5 text-[11px] text-ink-secondary">
-                        {p.nom}
-                      </code>{" "}
-                      — {p.detail}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <p className="mt-1.5 text-xs text-ink-muted">
-                Exemple&nbsp;:{" "}
                 <a
-                  href={e.exemple}
+                  href={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}${e.chemin}`}
                   className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
                 >
-                  <code className="text-[11px]">{e.exemple}</code>
+                  <code className="rounded bg-raised px-1.5 py-0.5 text-xs text-ink">
+                    GET {e.chemin}
+                  </code>
                 </a>
               </p>
+              <p className="mt-1 text-[13px] leading-snug text-ink-secondary">{e.description}</p>
             </li>
           ))}
         </ul>
         <p className="mt-4 text-xs text-ink-muted">
-          La recherche globale du bandeau dispose de sa propre route (voir la
-          barre de recherche) ; les routes ci-dessus sont celles du socle
-          «&nbsp;Données &amp; API&nbsp;».
+          La recherche globale du bandeau fonctionne côté client&nbsp;; les
+          exports ci-dessus sont ceux du socle «&nbsp;Données &amp; API&nbsp;».
         </p>
       </Card>
 

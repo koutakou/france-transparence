@@ -18,8 +18,8 @@ import {
   getSubventionsAssociations,
 } from "@/lib/queries/depenses";
 
-// La base locale évolue à chaque ingestion : jamais figer cette page au build.
-export const dynamic = "force-dynamic";
+// Rendu statique : la donnée ne change qu'à l'ingestion, le site est
+// reconstruit après chaque ingestion (docs/deploiement/DECISION.md).
 
 export const metadata: Metadata = {
   title: "Dépenses de l'État",

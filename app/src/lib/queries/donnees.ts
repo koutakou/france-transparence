@@ -1,6 +1,7 @@
 /**
- * Requêtes de la page /donnees (« Données & API ») et des routes JSON
- * locales (/api/meta, /api/elus, /api/marches/agregats, /api/budget/mensuel).
+ * Requêtes de la page /donnees (« Données & API ») et des exports JSON
+ * statiques (/api/meta.json, /api/elus.json, /api/marches-agregats.json,
+ * /api/budget-mensuel.json) — générés au build, servis en fichiers.
  *
  * La table pivot est `meta_sources` (25 sources tracées) : chaque source y
  * porte sa date de données réelle, sa date d'ingestion, sa fréquence promise,
@@ -201,8 +202,71 @@ export function rechercheElus(options: {
     .all(...params, options.limite) as EluPublic[];
 }
 
+/** Ligne compacte de l'export /api/elus.json (clés absentes = non renseigné). */
+export type EluExport = {
+  id: string;
+  nom: string;
+  prenom?: string;
+  uid_an?: string;
+  matricule_senat?: string;
+  hatvp_url?: string;
+  /** Types de mandat distincts portés par le JSON `mandats`. */
+  types_mandats?: string[];
+};
+
+/**
+ * Dump complet du répertoire des élus pour l'export statique, en champs
+ * COMPACTS : le dump intégral (mandats détaillés + profession) pèse ~14 Mo,
+ * intenable en fichier statique — on garde l'identité, les identifiants
+ * publics, le lien HATVP et les types de mandat (~3,9 Mo), en omettant les
+ * clés vides. Le détail des mandats reste sur les fiches et dans le RNE.
+ */
+export function getElusExport(): EluExport[] | null {
+  const db = getDb();
+  if (!db) return null;
+  const lignes = db
+    .prepare(
+      `SELECT id, nom, prenom, uid_an, matricule_senat, hatvp_url, mandats
+       FROM elus ORDER BY nom, prenom`,
+    )
+    .all() as {
+    id: string;
+    nom: string;
+    prenom: string | null;
+    uid_an: string | null;
+    matricule_senat: string | null;
+    hatvp_url: string | null;
+    mandats: string | null;
+  }[];
+  return lignes.map((l) => {
+    const e: EluExport = { id: l.id, nom: l.nom };
+    if (l.prenom) e.prenom = l.prenom;
+    if (l.uid_an) e.uid_an = l.uid_an;
+    if (l.matricule_senat) e.matricule_senat = l.matricule_senat;
+    if (l.hatvp_url) e.hatvp_url = l.hatvp_url;
+    if (l.mandats) {
+      try {
+        const brut: unknown = JSON.parse(l.mandats);
+        if (Array.isArray(brut)) {
+          const types = [
+            ...new Set(
+              brut
+                .map((m) => (m as { type?: unknown }).type)
+                .filter((t): t is string => typeof t === "string"),
+            ),
+          ].sort();
+          if (types.length > 0) e.types_mandats = types;
+        }
+      } catch {
+        /* JSON invalide : clé omise */
+      }
+    }
+    return e;
+  });
+}
+
 /* ------------------------------------------------------------------ */
-/* /api/marches/agregats — agrégats DECP pré-calculés à l'ingestion    */
+/* /api/marches-agregats.json — agrégats DECP pré-calculés             */
 /* ------------------------------------------------------------------ */
 
 export type DecpAggDepartement = {
@@ -239,7 +303,7 @@ export function getMarchesAgregats():
 }
 
 /* ------------------------------------------------------------------ */
-/* /api/budget/mensuel — situations mensuelles budgétaires (S13)       */
+/* /api/budget-mensuel.json — situations mensuelles budgétaires (S13)  */
 /* ------------------------------------------------------------------ */
 
 export type BudgetMensuelLigne = {
@@ -272,6 +336,21 @@ export function getBudgetDernierMois(): string | null {
     .prepare("SELECT MAX(date_fin_mois) AS d FROM budget_mensuel")
     .get() as { d: string | null };
   return r.d;
+}
+
+/**
+ * Série budgétaire COMPLÈTE (2013 → dernier mois publié, ~4 200 lignes),
+ * tri chronologique puis ordre de tableau — dump de l'export statique.
+ */
+export function getBudgetMensuelComplet(): BudgetMensuelLigne[] | null {
+  const db = getDb();
+  if (!db) return null;
+  return db
+    .prepare(
+      `SELECT ${COLONNES_BUDGET} FROM budget_mensuel
+       ORDER BY date_fin_mois, ordre`,
+    )
+    .all() as BudgetMensuelLigne[];
 }
 
 /**

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getDb } from "@/lib/db";
@@ -15,8 +16,62 @@ import {
 } from "@/lib/queries/elus";
 import type { MetaSource } from "@/lib/db";
 
-// Fiche servie dynamiquement (pas de generateStaticParams : 36 018 élus).
-export const dynamic = "force-dynamic";
+/**
+ * Fiches PRÉ-GÉNÉRÉES au build, limitées aux mandats nationaux et exécutifs
+ * (docs/deploiement/DECISION.md) : députés, sénateurs, présidents de conseil
+ * départemental et régional (≈ 1 053 fiches — les seules riches : votes
+ * nominaux, groupes, HATVP). Les 35 000 autres élus du répertoire (maires,
+ * présidents d'EPCI…) n'ont PAS de page dédiée : 404 assumé
+ * (`dynamicParams = false`), expliqué sur /elus.
+ */
+export const dynamicParams = false;
+
+/** Types de mandat (JSON `elus.mandats`) ouvrant droit à une fiche statique. */
+const TYPES_FICHE_STATIQUE = [
+  "depute",
+  "senateur",
+  "president_conseil_departemental",
+  "president_conseil_regional",
+] as const;
+
+export function generateStaticParams(): { id: string }[] {
+  const db = getDb();
+  // Base absente (dev sans ingestion) : aucune fiche générée, pas de crash.
+  if (!db) return [];
+  const marques = TYPES_FICHE_STATIQUE.map(() => "?").join(", ");
+  const lignes = db
+    .prepare(
+      `SELECT DISTINCT e.id
+       FROM elus e, json_each(e.mandats) je
+       WHERE json_extract(je.value, '$.type') IN (${marques})
+       ORDER BY e.id`,
+    )
+    .all(...TYPES_FICHE_STATIQUE) as { id: string }[];
+  return lignes.map((l) => ({ id: l.id }));
+}
+
+/** Title « Prénom Nom — Élus » + description factuelle (requête légère). */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const db = getDb();
+  if (!db) return {};
+  const elu = db
+    .prepare("SELECT nom, prenom, uid_an, matricule_senat FROM elus WHERE id = ?")
+    .get(decodeIdSur(id)) as
+    | { nom: string; prenom: string | null; uid_an: string | null; matricule_senat: string | null }
+    | undefined;
+  if (!elu) return {};
+  const nomComplet = `${elu.prenom ?? ""} ${elu.nom}`.trim();
+  const description =
+    elu.uid_an || elu.matricule_senat
+      ? `Mandats, activité parlementaire et déclarations HATVP de ${nomComplet}, à partir des données publiques officielles (AN, Sénat, HATVP, RNE).`
+      : `Mandats et déclarations HATVP de ${nomComplet}, à partir des données publiques officielles (RNE, HATVP).`;
+  return { title: `${nomComplet} — Élus`, description };
+}
 
 /* ------------------------------------------------------------------ */
 /* Libellés                                                            */
@@ -148,7 +203,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
   if (!fiche) notFound();
 
   const sources = getSourcesElus() ?? {};
-  const { elu, mandats, depute, senateur, votes, declarations } = fiche;
+  const { elu, mandats, depute, senateur, votes, nb_scrutins_base, declarations } = fiche;
 
   const nomComplet = `${elu.prenom ?? ""} ${elu.nom}`.trim();
   const age = calculeAge(elu.date_naissance);
@@ -197,7 +252,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
   const urlHatvp = elu.hatvp_url ?? depute?.url_hatvp ?? null;
   if (urlHatvp) liens.push({ href: urlHatvp, texte: "Fiche HATVP" });
 
-  // Décompte des positions sur les 100 scrutins présents.
+  // Décompte des positions sur les scrutins AFFICHÉS (les N derniers).
   const decomptes = { pour: 0, contre: 0, abstention: 0, nonVotant: 0, sans: 0 };
   if (votes) {
     for (const v of votes) {
@@ -215,14 +270,11 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
     {
       cle: "titre",
       entete: "Scrutin",
+      // Pas d'attribut title : il doublerait le titre complet dans le HTML
+      // ET le payload RSC (~13 Ko/fiche) — le texte intégral reste dans le
+      // nœud texte, seul l'affichage est tronqué (ellipse CSS).
       rendu: (l) =>
-        l.titre ? (
-          <span className="block max-w-[34rem] truncate" title={l.titre}>
-            {l.titre}
-          </span>
-        ) : (
-          "—"
-        ),
+        l.titre ? <span className="block max-w-[34rem] truncate">{l.titre}</span> : "—",
     },
     {
       cle: "position",
@@ -360,11 +412,15 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
           {votes && votes.length > 0 && (
             <div className="mt-5">
               <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-secondary">
-                Positions sur les {formatNombre(votes.length)} derniers scrutins présents en base
+                Positions sur les {formatNombre(votes.length)} derniers scrutins
               </h3>
               <p className="mt-1 mb-2 text-xs text-ink-muted">
-                Pour {formatNombre(decomptes.pour)} · Contre {formatNombre(decomptes.contre)} ·
-                Abstention {formatNombre(decomptes.abstention)} · Non-votant{" "}
+                {nb_scrutins_base !== null && nb_scrutins_base > votes.length
+                  ? `Affichage des ${formatNombre(votes.length)} derniers scrutins sur ${formatNombre(nb_scrutins_base)} présents en base. `
+                  : ""}
+                Sur ces scrutins&nbsp;: Pour {formatNombre(decomptes.pour)} · Contre{" "}
+                {formatNombre(decomptes.contre)} · Abstention{" "}
+                {formatNombre(decomptes.abstention)} · Non-votant{" "}
                 {formatNombre(decomptes.nonVotant)} · Sans position enregistrée{" "}
                 {formatNombre(decomptes.sans)}
               </p>
