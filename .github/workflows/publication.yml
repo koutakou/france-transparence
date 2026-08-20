@@ -195,8 +195,12 @@ jobs:
   deployer:
     needs: construire
     # Une proposition de fusion vérifie, elle ne publie pas : rien ne part sur
-    # GitHub Pages tant que le code n'est pas sur main.
-    if: github.event_name != 'pull_request'
+    # GitHub Pages tant que le code n'est pas sur main. Et la condition porte
+    # sur la RÉFÉRENCE, pas seulement sur l'événement : un `workflow_dispatch`
+    # lancé à la main sur une branche de chantier — c'est la façon normale de
+    # jouer la chaîne complète, ingestion comprise, avant de fusionner — ne
+    # doit rien publier non plus.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
