@@ -165,6 +165,25 @@ jobs:
           test "$sans_canonique" -eq 0
           grep -q 'application/ld+json' app/out/index.html
           grep -q 'application/ld+json' app/out/donnees/index.html
+          # Identité de déploiement — le site est servi à la racine de
+          # francetransparence.fr. L'ancienne adresse GitHub Pages ne doit plus
+          # apparaître NULLE PART dans l'export : une canonique, un lien de
+          # sitemap ou une carte de partage qui la porte encore renvoie les
+          # moteurs vers un site qui n'existe plus. (La page de redirection de
+          # pages-redirection/ la cite légitimement, mais elle n'est pas dans
+          # l'export : elle est envoyée telle quelle sur GitHub Pages.)
+          echo "Références résiduelles à l'ancienne adresse GitHub Pages :"
+          if grep -rl 'koutakou\.github\.io' app/out; then
+            echo "ÉCHEC : l'export contient encore koutakou.github.io" >&2
+            exit 1
+          fi
+          echo "  aucune"
+          # robots.txt est GÉNÉRÉ (app/src/app/robots.ts) à partir de SITE_URL :
+          # s'il disparaît de l'export, ou s'il annonce un sitemap qui n'est pas
+          # celui du site, l'indexation part de travers en silence.
+          test -f app/out/robots.txt
+          cat app/out/robots.txt
+          grep -qx 'Sitemap: https://francetransparence\.fr/sitemap\.xml' app/out/robots.txt
 
       # Le site construit ci-dessus n'est PAS déployé : il n'a servi qu'à
       # prouver que la chaîne complète tient. Seule la page de redirection

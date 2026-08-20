@@ -1,11 +1,24 @@
 /**
  * Identité publique du site — l'unique endroit où l'URL de production est
- * écrite. GitHub Pages « project page » : le site vit sous le sous-chemin
- * /france-transparence (basePath Next), l'URL canonique l'inclut donc.
+ * écrite. Le site est servi à la RACINE d'un domaine propre
+ * (https://francetransparence.fr) : export statique publié par nginx sur un
+ * serveur dédié, sans basePath, l'URL canonique ne comporte donc aucun
+ * sous-chemin. GitHub Pages ne reçoit plus qu'une page de redirection
+ * (pages-redirection/), et non le site.
  *
- * SANS slash final : les consommateurs concatènent `${SITE_URL}/chemin/`.
+ * L'URL est une donnée de DÉPLOIEMENT, pas une constante de code : elle se
+ * règle par `NEXT_PUBLIC_SITE_URL` au build (un miroir, une préproduction ou
+ * un fork changent d'adresse sans changer une ligne de source). La valeur par
+ * défaut est celle du déploiement de référence.
+ *
+ * SANS slash final : les consommateurs concatènent `${SITE_URL}/chemin/`. La
+ * normalisation ci-dessous retire un éventuel slash final de la variable
+ * d'environnement, pour qu'une valeur mal terminée ne produise pas d'URL à
+ * double slash.
  */
-export const SITE_URL = "https://koutakou.github.io/france-transparence";
+export const SITE_URL = (
+  process.env.NEXT_PUBLIC_SITE_URL || "https://francetransparence.fr"
+).replace(/\/+$/, "");
 
 /** Dépôt public — code source du site et canal de contact (issues). */
 export const REPO_URL = "https://github.com/koutakou/france-transparence";

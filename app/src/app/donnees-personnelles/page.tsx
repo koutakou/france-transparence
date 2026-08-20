@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
+import {
+  HEBERGEUR,
+  HEBERGEUR_NATURE_SERVICE,
+} from "@/lib/hebergeur";
 import { CONTACT_EMAIL, CONTACT_ISSUES_URL } from "@/lib/site";
 
 /**
@@ -27,6 +31,9 @@ import { CONTACT_EMAIL, CONTACT_ISSUES_URL } from "@/lib/site";
  * - /etc/logrotate.d/nginx-audience : audience.log, `rotate 400` (jours).
  * Toute modification de ces fichiers doit être répercutée ici : une durée de
  * conservation publiée qui ne correspond plus à la réalité est un manquement.
+ *
+ * L'identité de l'hébergeur citée ici vient de src/lib/hebergeur.ts : c'est
+ * une donnée de déploiement, et les mentions légales en publient la même.
  */
 
 export const metadata: Metadata = {
@@ -87,10 +94,11 @@ export default function PageDonneesPersonnelles() {
             <Link href="/mentions-legales" className={LIEN}>
               mentions légales
             </Link>
-            ). Le site n&apos;est pas hébergé sur une plateforme tierce : il est
-            servi par un serveur dédié, situé en France, que l&apos;éditeur
-            administre lui-même. C&apos;est donc lui, et non l&apos;hébergeur,
-            qui répond des journaux décrits ci-dessous.
+            ). Le site n&apos;est pas hébergé sur une plateforme tierce : il
+            est servi par un {HEBERGEUR_NATURE_SERVICE}, loué chez{" "}
+            {HEBERGEUR.raisonSociale} et situé en {HEBERGEUR.pays}, que
+            l&apos;éditeur administre lui-même. C&apos;est donc lui, et non
+            l&apos;hébergeur, qui répond des journaux décrits ci-dessous.
           </p>
           <p>
             Il est joignable par e-mail à {contactEmail} — une demande qui
