@@ -280,6 +280,55 @@ export default function PageDonneesPersonnelles() {
             adresse postale personnelle, ni téléphone, ni adresse
             électronique, ni donnée relevant de l&apos;article 9 du RGPD.
           </p>
+          {/*
+            Même faute que celle décrite plus haut, re-commise le 20/08/2026 au
+            soir : deux sources ont été ajoutées (avis de la CADA, registre de
+            transparence de l'UE) sans que cette page dise ce qu'elles font
+            paraître. Elle le dit maintenant. La CADA n'apporte AUCUNE donnée
+            nominative — seuls des dénombrements sont ingérés, jamais le texte
+            des avis, qui nomme des responsables publics. Le registre de l'UE,
+            lui, publie des organisations, et l'ingestion écarte la catégorie
+            « Self-employed individuals » : mais ce filtre est CELUI DE L'UE,
+            et il laisse passer des consultants individuels que le registre a
+            rangés ailleurs (« Professional consultancies »). Le dire vaut
+            mieux que prétendre qu'aucune personne physique ne subsiste, et
+            mieux qu'un filtre sur la forme des noms : sur 1 638 inscrits
+            français, un critère « deux mots sans marqueur de personne morale »
+            en capte 266, presque tous de vraies organisations. On ne devine
+            pas la nature juridique d'une entité d'après son nom.
+          */}
+          <p>
+            <strong className="text-ink">
+              Représentants d&apos;intérêts inscrits au registre de l&apos;Union
+              européenne
+            </strong>{" "}
+            — depuis le 20/08/2026, le site republie les organisations inscrites
+            au registre de transparence commun au Parlement européen et à la
+            Commission : raison sociale, acronyme, catégorie, ville du siège,
+            fourchette de coûts déclarée. Les personnes accréditées auprès du
+            Parlement ne sont jamais reprises, et la catégorie « travailleurs
+            indépendants » du registre est exclue de toute liste nominative —
+            ses membres ne sont que dénombrés. Cette exclusion suit la
+            classification établie par l&apos;Union : quelques consultants
+            exerçant en nom propre peuvent donc y échapper si le registre les a
+            classés parmi les cabinets de conseil.{" "}
+            <strong className="text-ink">
+              Si vous êtes dans ce cas, écrivez à {contactEmail} : votre
+              inscription sera retirée des listes nominatives du site
+            </strong>{" "}
+            — sans que cela change quoi que ce soit au registre officiel, qui
+            reste seul maître de ce qu&apos;il publie. Le site republie toujours
+            moins que lui : ni code postal, ni effectifs, ni dates
+            d&apos;inscription, ni accréditations.
+          </p>
+          <p>
+            <strong className="text-ink">Avis et conseils de la CADA</strong>{" "}
+            — cette source, ajoutée le même jour, n&apos;apporte{" "}
+            <strong className="text-ink">aucune donnée nominative</strong> :
+            seuls des dénombrements par administration, année et sens de
+            l&apos;avis sont conservés. Le texte des décisions, qui nomme des
+            responsables publics dans ses motifs, n&apos;est jamais ingéré.
+          </p>
           <p>
             <strong className="text-ink">
               Ce que la source contient et que le site ne publie pas
