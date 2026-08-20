@@ -16,7 +16,11 @@ import {
   type MandatJson,
   type VoteLigne,
 } from "@/lib/queries/elus";
-import { getInteretsElu, getSourceDeclarations } from "@/lib/queries/declarations";
+import {
+  getInteretsElu,
+  getSourceDeclarations,
+  tronquerInterets,
+} from "@/lib/queries/declarations";
 import type { MetaSource } from "@/lib/db";
 import { jsonLdFicheElu, metadonneesPage, type RoleElu } from "@/lib/seo";
 
@@ -702,7 +706,16 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
                 </>
               ) : null}
             </p>
-            <InteretsDeclares declarations={interets.declarations} />
+            {/* Payload réduit à ce que l'écran affiche (8 lignes par
+                rubrique, première déclaration seule) : la queue vit dans le
+                fragment /data/elus/interets/<id>.json, qui n'existe que pour
+                les élus appariés — d'où fragmentDisponible, qui autorise le
+                chargement au clic. */}
+            <InteretsDeclares
+              declarations={tronquerInterets(interets).declarations}
+              eluId={elu.id}
+              fragmentDisponible={interets.apparie}
+            />
           </>
         ) : (
           <p className="text-sm leading-relaxed text-ink-muted">

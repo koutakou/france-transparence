@@ -182,6 +182,14 @@ export type RubriqueDeclaree = {
    */
   neant: number | null;
   lignes: LigneInteret[];
+  /**
+   * Présent UNIQUEMENT quand `lignes` a été tronqué par `tronquerInterets` :
+   * nombre réel de lignes de la rubrique, dont seules les premières sont
+   * servies dans la page. Son absence signifie « rien n'a été retranché » —
+   * jamais l'inverse : une rubrique réellement vide n'a pas ce champ et ne
+   * doit déclencher ni chargement ni mention de troncature.
+   */
+  nb_lignes_total?: number;
 };
 
 /** Une déclaration d'intérêts publiée, avec son contenu. */
@@ -199,6 +207,15 @@ export type DeclarationInterets = {
   type_mandat: string | null;
   nb_lignes: number;
   rubriques: RubriqueDeclaree[];
+  /**
+   * `false` UNIQUEMENT quand `tronquerInterets` a remplacé `rubriques` par un
+   * tableau vide (déclarations repliées par défaut) : le contenu existe mais
+   * n'est pas dans la page, il vit dans le fragment
+   * `/data/elus/interets/<id>.json`. Champ EXPLICITE, jamais inféré d'un
+   * tableau vide : une déclaration sans rubrique dans la source resterait
+   * `complet` absent, et l'écran ne doit pas lui inventer un chargement.
+   */
+  complet?: boolean;
 };
 
 /** Ce que l'on sait — et ce que l'on ne sait pas — des intérêts d'un élu. */
@@ -235,6 +252,24 @@ type LigneSql = Omit<LigneInteret, "montants"> & {
   rubrique: string;
   rubrique_ordre: number;
 };
+
+/**
+ * Ids d'élus APPARIÉS : ceux qui ont au moins une déclaration d'intérêts
+ * rattachée en base — les seuls pour lesquels un fragment statique
+ * `/data/elus/interets/<id>.json` est généré (cf. le route handler éponyme).
+ * Liste vide tant que la base ou les tables P15 manquent : aucun fragment
+ * n'est alors produit, et la fiche ne propose aucun chargement.
+ */
+export function getIdsElusApparies(): string[] {
+  const db = getDb();
+  if (!db || !tablesPresentes()) return [];
+  const lignes = db
+    .prepare(
+      `SELECT DISTINCT elu_id FROM hatvp_decl_interets ORDER BY elu_id`,
+    )
+    .all() as { elu_id: string }[];
+  return lignes.map((l) => l.elu_id);
+}
 
 /**
  * Contenu des déclarations d'intérêts rattachées à une fiche d'élu.
@@ -362,5 +397,64 @@ export function getInteretsElu(eluId: string): InteretsElu | null {
       ...d,
       rubriques: rubriquesParDeclaration.get(d.uuid) ?? [],
     })),
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Troncature serveur (payload de la fiche)                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Lignes de la première déclaration servies dans la page, par rubrique.
+ *
+ * POINT DE SYNCHRONISATION : cette constante est la COPIE de
+ * `LIGNES_PAR_ECRAN` dans `components/client/InteretsDeclares.tsx` (qui ne
+ * peut pas l'importer d'ici : ce module tire better-sqlite3, un module natif
+ * interdit de bundle navigateur — même précédent que `DATES_SCRUTINS` dans
+ * `queries/elections.ts`). Modifier l'une impose de modifier l'autre : si la
+ * page servait moins de lignes que l'écran n'en affiche, la troncature
+ * visuelle mordrait sur du contenu réellement absent.
+ */
+const LIGNES_SERVIES_PAR_RUBRIQUE = 8;
+
+/**
+ * Réduit `InteretsElu` à ce que la fiche AFFICHE réellement au premier rendu,
+ * pour que le payload RSC inliné dans le HTML ne porte plus la queue
+ * invisible (jusqu'à 93 % du poids des déclarations sur les fiches les plus
+ * chargées) :
+ *
+ * - déclaration la plus récente (la seule dépliée d'emblée) : au plus
+ *   `LIGNES_SERVIES_PAR_RUBRIQUE` lignes par rubrique, et, quand il y a eu
+ *   retranchement, `nb_lignes_total` porte le vrai compte ;
+ * - déclarations suivantes (repliées d'emblée) : `rubriques: []` et
+ *   `complet: false`.
+ *
+ * Les deux marqueurs sont EXPLICITES et posés ici seulement : rien n'est
+ * inféré d'un tableau vide, et un objet non tronqué ressort à l'identique.
+ * Le contenu retranché reste servi, complet, par le fragment statique
+ * `/data/elus/interets/<id>.json`, chargé par l'écran au premier
+ * « Tout afficher » / « Déplier ».
+ *
+ * Fonction PURE : l'objet reçu n'est pas modifié (les fragments réutilisent
+ * `getInteretsElu` et doivent rester complets quoi qu'il arrive).
+ */
+export function tronquerInterets(interets: InteretsElu): InteretsElu {
+  return {
+    ...interets,
+    declarations: interets.declarations.map((d, i) => {
+      if (i > 0) return { ...d, rubriques: [], complet: false };
+      return {
+        ...d,
+        rubriques: d.rubriques.map((r) =>
+          r.lignes.length > LIGNES_SERVIES_PAR_RUBRIQUE
+            ? {
+                ...r,
+                lignes: r.lignes.slice(0, LIGNES_SERVIES_PAR_RUBRIQUE),
+                nb_lignes_total: r.lignes.length,
+              }
+            : r,
+        ),
+      };
+    }),
   };
 }

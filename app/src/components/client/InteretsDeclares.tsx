@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { formatDateFr } from "@/lib/format";
+import { urlSite } from "@/lib/basePath";
 // Import de TYPES uniquement : `@/lib/queries/declarations` tire `@/lib/db`,
 // donc better-sqlite3 — un module natif qui n'a rien à faire dans un bundle
 // navigateur. Un `import type` est effacé à la compilation, la frontière
 // client/serveur tient.
 import type {
   DeclarationInterets,
+  InteretsElu,
   LigneInteret,
   MontantDeclare,
   RubriqueDeclaree,
@@ -48,8 +50,19 @@ const LIBELLES_TYPE_DECLARATION: Record<string, string> = {
  * 1 805 montants. Rendues côté serveur, elles coûteraient deux fois leur poids
  * (HTML + arbre d'éléments dupliqué dans le payload RSC). Ici l'arbre ne
  * traverse pas la frontière : seules les données brutes passent, et seul ce
- * qui est visible est rendu. La troncature est TOUJOURS annoncée, et rien
- * n'est chargé en plus au clic — tout est déjà là.
+ * qui est visible est rendu. La troncature est TOUJOURS annoncée.
+ *
+ * Depuis la troncature SERVEUR (`tronquerInterets`), la page n'inline même
+ * plus la queue invisible : la première déclaration arrive limitée à
+ * `LIGNES_PAR_ECRAN` lignes par rubrique (`nb_lignes_total` dit alors le
+ * vrai compte), les suivantes arrivent vides avec `complet: false`. Le
+ * premier « Tout afficher » / « Déplier » qui touche du contenu retranché
+ * charge le fragment statique `/data/elus/interets/<eluId>.json` — complet,
+ * autoportant — et il REMPLACE l'état : un seul fetch par fiche, mémoïsé
+ * par élu (jamais un singleton : la navigation client entre fiches servirait
+ * sinon les déclarations d'un autre élu). Les deux marqueurs sont EXPLICITES :
+ * un tableau vide sans marqueur reste une donnée de la source (rubrique
+ * réellement vide), qui ne déclenche aucun chargement.
  *
  * Toutes les déclarations sont montrées, chacune datée, la plus récente
  * dépliée. On n'affiche jamais la seule dernière : une déclaration
@@ -58,8 +71,60 @@ const LIBELLES_TYPE_DECLARATION: Record<string, string> = {
  * pas.
  */
 
-/** Lignes rendues par rubrique avant « Tout afficher ». */
+/**
+ * Lignes rendues par rubrique avant « Tout afficher ».
+ *
+ * POINT DE SYNCHRONISATION : cette constante est la COPIE de
+ * `LIGNES_SERVIES_PAR_RUBRIQUE` dans `lib/queries/declarations.ts`, qui ne
+ * peut pas être importée ici (le module tire better-sqlite3, un module natif
+ * interdit de bundle navigateur — même précédent que `DATES_SCRUTINS` dans
+ * `queries/elections.ts`). Modifier l'une impose de modifier l'autre : si la
+ * page servait moins de lignes que l'écran n'en affiche, la troncature
+ * visuelle mordrait sur du contenu réellement absent.
+ */
 const LIGNES_PAR_ECRAN = 8;
+
+/**
+ * Fragments déjà demandés, PAR ÉLU. La clé est indispensable : ce cache est
+ * un état de module, il survit à la navigation client d'une fiche à l'autre —
+ * un singleton servirait les déclarations du précédent élu visité. Seul un
+ * chargement RÉUSSI reste mémoïsé : un échec est retiré du cache pour que le
+ * clic suivant retente réellement.
+ */
+const fragmentsParElu = new Map<string, Promise<InteretsElu | null>>();
+
+function chargerFragment(eluId: string): Promise<InteretsElu | null> {
+  const enCours = fragmentsParElu.get(eluId);
+  if (enCours) return enCours;
+  const promesse = fetch(urlSite(`/data/elus/interets/${encodeURIComponent(eluId)}.json`))
+    .then((rep) => (rep.ok ? (rep.json() as Promise<InteretsElu | null>) : null))
+    .catch(() => null)
+    .then((interets) => {
+      if (!interets || !Array.isArray(interets.declarations)) {
+        fragmentsParElu.delete(eluId);
+        return null;
+      }
+      return interets;
+    });
+  fragmentsParElu.set(eluId, promesse);
+  return promesse;
+}
+
+/**
+ * Échec de chargement : une PHRASE, jamais un état qui ressemble à « néant »
+ * — ne rien afficher là où l'on sait qu'il y a du contenu serait un mensonge
+ * pire que l'échec lui-même.
+ */
+const MESSAGE_ECHEC =
+  "Le détail complet n\u2019a pas pu être chargé \u2014 les documents d\u2019origine restent consultables sur la fiche HATVP.";
+
+/** État du chargement du fragment, partagé par toute la fiche. */
+type Chargeur = {
+  chargement: boolean;
+  echec: boolean;
+  /** Lance (ou rejoint) le chargement ; résout vrai si le contenu est là. */
+  demander: () => Promise<boolean>;
+};
 
 /** Valeur absente : jamais « 0 », jamais rien. */
 function NonRenseigne({ quoi }: { quoi: string }) {
@@ -137,10 +202,25 @@ function Ligne({ ligne }: { ligne: LigneInteret }) {
   );
 }
 
-function Rubrique({ rubrique }: { rubrique: RubriqueDeclaree }) {
+function Rubrique({ rubrique, chargeur }: { rubrique: RubriqueDeclaree; chargeur: Chargeur }) {
   const [tout, setTout] = useState(false);
-  const tronque = !tout && rubrique.lignes.length > LIGNES_PAR_ECRAN;
+  // `nb_lignes_total` présent = la PAGE ne porte pas tout (troncature
+  // serveur) : « Tout afficher » doit d'abord charger le fragment. Absent,
+  // la troncature n'est que visuelle et le clic est purement local.
+  const aCharger = rubrique.nb_lignes_total !== undefined;
+  const nbTotal = rubrique.nb_lignes_total ?? rubrique.lignes.length;
+  const tronque = !tout && (aCharger || rubrique.lignes.length > LIGNES_PAR_ECRAN);
   const affichees = tronque ? rubrique.lignes.slice(0, LIGNES_PAR_ECRAN) : rubrique.lignes;
+
+  async function toutAfficher() {
+    if (!aCharger) {
+      setTout(true);
+      return;
+    }
+    // Le fragment remplace les déclarations chez le parent : cette rubrique
+    // reviendra complète (sans `nb_lignes_total`), et `tout` la déplie.
+    if (await chargeur.demander()) setTout(true);
+  }
 
   return (
     <div className="mt-4 first:mt-0">
@@ -169,15 +249,22 @@ function Rubrique({ rubrique }: { rubrique: RubriqueDeclaree }) {
           {tronque && (
             <p className="mt-2 flex flex-wrap items-center gap-3 text-xs text-ink-muted" aria-live="polite">
               <span>
-                Affichage des {LIGNES_PAR_ECRAN} premières lignes sur {rubrique.lignes.length}.
+                Affichage des {LIGNES_PAR_ECRAN} premières lignes sur {nbTotal}.
               </span>
-              <button
-                type="button"
-                onClick={() => setTout(true)}
-                className="rounded-lg border border-card-border bg-raised px-2.5 py-1 text-ink transition-colors hover:bg-hover"
-              >
-                Tout afficher ({rubrique.lignes.length})
-              </button>
+              {aCharger && chargeur.chargement ? (
+                <span role="status">Chargement…</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={toutAfficher}
+                  className="rounded-lg border border-card-border bg-raised px-2.5 py-1 text-ink transition-colors hover:bg-hover"
+                >
+                  Tout afficher ({nbTotal})
+                </button>
+              )}
+              {aCharger && chargeur.echec && !chargeur.chargement && (
+                <span className="text-ink-secondary">{MESSAGE_ECHEC}</span>
+              )}
             </p>
           )}
         </>
@@ -189,11 +276,23 @@ function Rubrique({ rubrique }: { rubrique: RubriqueDeclaree }) {
 function Declaration({
   declaration,
   ouverteParDefaut,
+  chargeur,
 }: {
   declaration: DeclarationInterets;
   ouverteParDefaut: boolean;
+  chargeur: Chargeur;
 }) {
   const [ouverte, setOuverte] = useState(ouverteParDefaut);
+  // `complet === false` (marqueur EXPLICITE posé par `tronquerInterets`) :
+  // le contenu de cette déclaration n'est pas dans la page, « Déplier » doit
+  // le charger. Une déclaration sans rubrique DANS LA SOURCE n'a pas ce
+  // marqueur et se déplie à vide, comme avant, sans aucun fetch.
+  const aCharger = declaration.complet === false;
+
+  function basculer() {
+    if (!ouverte && aCharger) void chargeur.demander();
+    setOuverte((o) => !o);
+  }
   const type =
     declaration.type_declaration_libelle ??
     LIBELLES_TYPE_DECLARATION[declaration.type_declaration] ??
@@ -219,41 +318,103 @@ function Declaration({
         </div>
         <button
           type="button"
-          onClick={() => setOuverte((o) => !o)}
+          onClick={basculer}
           aria-expanded={ouverte}
           className="rounded-lg border border-card-border bg-raised px-2.5 py-1 text-xs text-ink transition-colors hover:bg-hover"
         >
           {ouverte ? "Replier" : `Déplier (${declaration.nb_lignes} ligne${declaration.nb_lignes > 1 ? "s" : ""})`}
         </button>
       </div>
-      {ouverte && (
-        <div className="mt-3">
-          {declaration.rubriques.map((r) => (
-            <Rubrique key={r.rubrique} rubrique={r} />
-          ))}
-        </div>
-      )}
+      {ouverte &&
+        (aCharger ? (
+          // Contenu retranché pas encore arrivé : dire l'attente ou l'échec,
+          // JAMAIS un vide qui ressemblerait à « rien à déclarer ».
+          <p className="mt-3 text-sm text-ink-muted" aria-live="polite">
+            {chargeur.chargement ? (
+              <span role="status">Chargement…</span>
+            ) : (
+              <span className="text-ink-secondary">{MESSAGE_ECHEC}</span>
+            )}
+          </p>
+        ) : (
+          <div className="mt-3">
+            {declaration.rubriques.map((r) => (
+              <Rubrique key={r.rubrique} rubrique={r} chargeur={chargeur} />
+            ))}
+          </div>
+        ))}
     </div>
   );
 }
 
 export interface InteretsDeclaresProps {
-  /** Déclarations de la plus récente à la plus ancienne (cf. getInteretsElu). */
+  /**
+   * Déclarations de la plus récente à la plus ancienne (cf. getInteretsElu),
+   * TRONQUÉES par le serveur (cf. tronquerInterets) : la page n'inline que ce
+   * que le premier écran affiche.
+   */
   declarations: DeclarationInterets[];
+  /** Id de l'élu de CETTE fiche — clé du cache et nom du fragment. */
+  eluId: string;
+  /**
+   * Vrai si le fragment `/data/elus/interets/<eluId>.json` a été généré au
+   * build (élu apparié). Faux, aucun clic ne déclenche de requête — un fetch
+   * voué au 404 serait un bug, pas une dégradation.
+   */
+  fragmentDisponible: boolean;
 }
 
-export function InteretsDeclares({ declarations }: InteretsDeclaresProps) {
-  if (declarations.length === 0) return null;
+export function InteretsDeclares({
+  declarations,
+  eluId,
+  fragmentDisponible,
+}: InteretsDeclaresProps) {
+  // Une fois le fragment chargé, il REMPLACE les déclarations tronquées :
+  // même forme, mêmes uuid (l'état local des sous-composants survit), plus
+  // aucun marqueur de troncature — l'écran redevient exactement celui
+  // d'avant la troncature serveur, tout étant local.
+  const [completes, setCompletes] = useState<DeclarationInterets[] | null>(null);
+  const [chargement, setChargement] = useState(false);
+  const [echec, setEchec] = useState(false);
+
+  async function demander(): Promise<boolean> {
+    if (completes) return true;
+    if (!fragmentDisponible) {
+      setEchec(true);
+      return false;
+    }
+    setChargement(true);
+    setEchec(false);
+    const interets = await chargerFragment(eluId);
+    setChargement(false);
+    if (!interets) {
+      setEchec(true);
+      return false;
+    }
+    setCompletes(interets.declarations);
+    return true;
+  }
+
+  const chargeur: Chargeur = { chargement, echec, demander };
+  const affichees = completes ?? declarations;
+
+  if (affichees.length === 0) return null;
   return (
     <div>
-      {declarations.map((d, i) => (
+      {affichees.map((d, i) => (
         // Seule la plus récente est dépliée d'emblée : les autres restent
-        // accessibles d'un clic, sans rien télécharger de plus.
-        <Declaration key={d.uuid} declaration={d} ouverteParDefaut={i === 0} />
+        // accessibles d'un clic — un seul téléchargement, au premier clic
+        // qui touche du contenu retranché.
+        <Declaration
+          key={d.uuid}
+          declaration={d}
+          ouverteParDefaut={i === 0}
+          chargeur={chargeur}
+        />
       ))}
-      {declarations.length > 1 && (
+      {affichees.length > 1 && (
         <p className="mt-3 text-[11px] leading-relaxed text-ink-muted">
-          {declarations.length} déclarations publiées sont rattachées à cette fiche, de la plus
+          {affichees.length} déclarations publiées sont rattachées à cette fiche, de la plus
           récente à la plus ancienne. Une déclaration modificative ne remplace pas les
           précédentes : elle en corrige une partie. Elles ne se lisent donc pas l’une à la place
           de l’autre.
