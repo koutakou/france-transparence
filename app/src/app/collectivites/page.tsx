@@ -529,8 +529,6 @@ export default async function PageCollectivites() {
                     valeurs={valeursDgfDep}
                     format="euros-par-hab"
                     legendeTitre={`DGF par habitant (${dgfDepartements[0].exercice})`}
-                    largeur={460}
-                    hauteur={440}
                     ariaLabel="Carte de France : DGF par habitant et par département"
                     messageAbsent="Fond de carte absent — la vue tableau ci-dessous reste complète."
                   />

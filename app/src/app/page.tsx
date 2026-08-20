@@ -184,9 +184,10 @@ export default async function Accueil() {
 
   /* --- Carte : valeurs par département limitées au fond métropole
          (l'outre-mer est hors rendu v1 — codes 97x/98x écartés).
-         Le GeoJSON n'est lu ici QUE pour filtrer les codes : le fond
-         (~700 Ko) est chargé côté client depuis /data/geo-departements.json
-         (CarteDepartements) pour ne pas peser dans le HTML statique. --- */
+         Le GeoJSON n'est lu ici QUE pour filtrer les codes : le fond est
+         chargé côté client depuis /data/carte-departements.json
+         (CarteDepartements), où les contours sont déjà projetés au build,
+         pour ne pas peser dans le HTML statique. --- */
   const geojson = lireDepartementsGeojson();
   const codesCarte = new Set(
     (geojson?.features ?? [])

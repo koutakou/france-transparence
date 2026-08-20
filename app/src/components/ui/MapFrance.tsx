@@ -1,20 +1,31 @@
-import { geoConicConformal, geoPath } from "d3-geo";
-import type { Feature, FeatureCollection, Geometry } from "geojson";
 import { formatNombre } from "@/lib/format";
+import {
+  projectionFrance,
+  type CarteFrancePrecalculee,
+  type TraceDepartement,
+} from "@/components/ui/projection-france";
 
 /**
- * Carte de France des départements — SVG responsive, d3-geo uniquement.
+ * Carte de France des départements — SVG responsive.
+ *
+ * Les CONTOURS ne sont plus projetés ici : ils arrivent déjà tracés, dans le
+ * repère du viewBox, par le fragment /data/carte-departements.json calculé
+ * au build (voir components/ui/projection-france.ts). Ce composant n'a donc
+ * plus qu'à peindre — la choroplèthe, la légende et les tooltips.
  *
  * Projection : conique conforme France métropolitaine (paramètres
  * Lambert-93 : parallèles 44°/49°, méridien 3°E, latitude 46,5°N), calée
- * sur le viewBox par `fitExtent` — aucune constante d'échelle magique.
+ * sur le viewBox par `fitExtent` — aucune constante d'échelle magique. Son
+ * échelle et sa translation voyagent dans le fragment : elles ne servent
+ * plus qu'à placer les points « villes lumineuses », dont les coordonnées
+ * (lon, lat) viennent, elles, des données de la page.
  *
- * OUTRE-MER : ignoré en v1 — ce composant suppose un GeoJSON
- * métropole + Corse (96 départements). Si des DOM (971…976) étaient
- * présents dans le fichier, le `fitExtent` écraserait la métropole pour
- * cadrer l'Atlantique/l'océan Indien : les features dont le code commence
- * par « 97 » sont donc écartées du cadrage ET du rendu. Une v2 leur devra
- * des encarts dédiés.
+ * OUTRE-MER : ignoré en v1 — le fragment ne contient que la métropole et la
+ * Corse (96 départements). Si des DOM (971…976) y figuraient, le `fitExtent`
+ * écraserait la métropole pour cadrer l'Atlantique/l'océan Indien : les
+ * features dont le code commence par « 97 » sont donc écartées du cadrage ET
+ * du rendu, à la fabrication du fragment. Une v2 leur devra des encarts
+ * dédiés.
  *
  * Choroplèthe (DATAVIZ §8) : rampe séquentielle ORDINALE, 5 classes max
  * (`--seq-3` → `--seq-7`), seuils par quantiles, légende d'échelle
@@ -33,7 +44,7 @@ import { formatNombre } from "@/lib/format";
  * reste à la charge de la page.
  *
  * @example
- * <MapFrance geojson={departements}
+ * <MapFrance carte={carte}
  *   valeurs={{ "75": 1284, "13": 890, "69": 745 }}
  *   formatValeur={(v) => formatNombre(v)}
  *   legendeTitre="Marchés notifiés (30 j)"
@@ -47,8 +58,8 @@ export interface PointCarte {
 }
 
 export interface MapFranceProps {
-  /** FeatureCollection des départements ; `properties.code` (« 01 »…« 2B », « 75 »), `properties.nom` optionnel. */
-  geojson: FeatureCollection<Geometry, { code?: string; nom?: string } & Record<string, unknown>>;
+  /** Fond de carte précalculé (fragment /data/carte-departements.json). */
+  carte: CarteFrancePrecalculee;
   /** Valeurs par code département → choroplèthe (absent = carte neutre). */
   valeurs?: Record<string, number>;
   /** Points optionnels (villes lumineuses). */
@@ -57,8 +68,6 @@ export interface MapFranceProps {
   formatValeur?: (v: number) => string;
   /** Titre court de la légende (ex. « Marchés notifiés (30 j) »). */
   legendeTitre?: string;
-  largeur?: number;
-  hauteur?: number;
   ariaLabel?: string;
   className?: string;
 }
@@ -77,36 +86,17 @@ function seuilsQuantiles(valeurs: number[], k: number): number[] {
 }
 
 export function MapFrance({
-  geojson,
+  carte,
   valeurs,
   points,
   formatValeur = (v) => formatNombre(v),
   legendeTitre,
-  largeur = 520,
-  hauteur = 500,
   ariaLabel = "Carte de France par département",
   className,
 }: MapFranceProps) {
-  // v1 : métropole + Corse seulement (voir note outre-mer en tête de fichier)
-  const metropole: FeatureCollection<Geometry, MapFranceProps["geojson"]["features"][number]["properties"]> = {
-    type: "FeatureCollection",
-    features: geojson.features.filter((f) => !(f.properties?.code ?? "").startsWith("97")),
-  };
-  if (metropole.features.length === 0) return null;
-
-  const pad = 8;
-  const projection = geoConicConformal()
-    .parallels([44, 49])
-    .rotate([-3, 0])
-    .center([0, 46.5])
-    .fitExtent(
-      [
-        [pad, pad],
-        [largeur - pad, hauteur - pad],
-      ],
-      metropole,
-    );
-  const trace = geoPath(projection);
+  const departements = carte.departements;
+  if (departements.length === 0) return null;
+  const { largeur, hauteur } = carte;
 
   // Classes de la choroplèthe (quantiles, 5 max)
   const valeursPresentes = valeurs
@@ -126,20 +116,19 @@ export function MapFrance({
   const max = choroplethe ? Math.max(...valeursPresentes) : 0;
   const bornes = [min, ...seuils, max];
   const manquants = choroplethe
-    ? metropole.features.some((f) => {
-        const code = f.properties?.code;
-        return !code || !Number.isFinite(valeurs?.[code]);
-      })
+    ? departements.some((d) => !Number.isFinite(valeurs?.[d.code]))
     : false;
 
-  // Points : aire ∝ poids (r = 3 → 14px)
+  // Points : aire ∝ poids (r = 3 → 14px). La projection n'est reconstruite
+  // que s'il y a des points à placer — les contours, eux, arrivent tracés.
+  const projection =
+    points && points.length > 0 ? projectionFrance(carte.echelle, carte.translation) : null;
   const poidsMax = points && points.length > 0 ? Math.max(...points.map((p) => p.poids), 0) || 1 : 1;
   const rayon = (poids: number) => 3 + 11 * Math.sqrt(Math.max(poids, 0) / poidsMax);
 
-  const remplissage = (f: Feature<Geometry, MapFranceProps["geojson"]["features"][number]["properties"]>) => {
+  const remplissage = (dep: TraceDepartement) => {
     if (!choroplethe) return "var(--surface-raised)"; // carte neutre (pas d'encodage)
-    const code = f.properties?.code;
-    const v = code ? valeurs?.[code] : undefined;
+    const v = valeurs?.[dep.code];
     if (v === undefined || !Number.isFinite(v)) return "var(--map-manquant)";
     return pasRampe[classeDe(v)];
   };
@@ -161,12 +150,9 @@ export function MapFrance({
           </radialGradient>
         </defs>
         {/* départements */}
-        {metropole.features.map((f, i) => {
-          const d = trace(f);
-          if (!d) return null;
-          const code = f.properties?.code ?? "";
-          const nom = f.properties?.nom ?? code;
-          const v = code ? valeurs?.[code] : undefined;
+        {departements.map((dep, i) => {
+          const { code, nom, d } = dep;
+          const v = valeurs?.[code];
           const releve =
             choroplethe && (v === undefined || !Number.isFinite(v))
               ? "donnée manquante"
@@ -178,7 +164,7 @@ export function MapFrance({
               key={code || i}
               className="ft-map-dep"
               d={d}
-              fill={remplissage(f)}
+              fill={remplissage(dep)}
               stroke="var(--map-contour)"
               strokeWidth={1}
               vectorEffect="non-scaling-stroke"
@@ -189,7 +175,7 @@ export function MapFrance({
         })}
         {/* villes lumineuses */}
         {points?.map((p, i) => {
-          const projete = projection([p.lon, p.lat]);
+          const projete = projection?.([p.lon, p.lat]);
           if (!projete) return null;
           const [x, y] = projete;
           const r = rayon(p.poids);
