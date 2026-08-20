@@ -16,6 +16,7 @@ import {
 // reconstruit après chaque ingestion (docs/deploiement/DECISION.md).
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/frais/" },
   title: "Frais & train de vie",
   description:
     "Indemnités, frais de mandat et train de vie des responsables publics : les barèmes publics, les agrégats de contrôle — et ce que la loi ne publie pas.",

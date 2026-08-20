@@ -10,6 +10,7 @@ import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { KpiTile } from "@/components/ui/KpiTile";
 import type { PointCarte } from "@/components/ui/MapFrance";
 import { CarteDepartements } from "@/components/client/CarteDepartements";
+import { JsonLd } from "@/components/JsonLd";
 import { Money } from "@/components/ui/Money";
 import { StatStrip } from "@/components/ui/StatStrip";
 import type { MetaSource } from "@/lib/db";
@@ -19,12 +20,14 @@ import {
   lireDepartementsGeojson,
   type AlerteAccueil,
 } from "@/lib/queries/accueil";
+import { jsonLdIdentiteSite } from "@/lib/seo";
 
 // Rendu statique : la donnée ne change qu'à l'ingestion, le site est
 // reconstruit après chaque ingestion (docs/deploiement/DECISION.md).
 
 // Le title de l'accueil est le title par défaut du layout racine.
 export const metadata: Metadata = {
+  alternates: { canonical: "/" },
   description:
     "Le tableau de bord de l'argent public : budget de l'État, marchés publics, élus, lobbying, financement de la vie politique et alertes d'intégrité — données publiques officielles, datées et sourcées.",
 };
@@ -233,6 +236,9 @@ export default async function Accueil() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Identité du site (WebSite + Project) — portée par la seule page
+          d'accueil : la répéter sur chaque page n'apporte rien. */}
+      <JsonLd donnees={jsonLdIdentiteSite()} />
       {/* ---------- En-tête de page + encart périmètre ---------- */}
       <header className="flex flex-col gap-3">
         <h1 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">

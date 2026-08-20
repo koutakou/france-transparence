@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Page déplacée — francetransparence.fr</title>
+
+    <!--
+      GitHub Pages sert ce fichier, avec un vrai statut HTTP 404, pour toute
+      URL inconnue sous /france-transparence/ — c'est-à-dire pour toutes les
+      anciennes URL du site désormais publié sur son domaine propre.
+
+      Le chemin est CONSERVÉ lors de la redirection : /france-transparence/
+      elus/PA1008/ mène à https://francetransparence.fr/elus/PA1008/. Le
+      script ne fait que réécrire un préfixe d'URL ; sans JavaScript, le lien
+      vers l'accueil reste cliquable.
+    -->
+    <script>
+      (function () {
+        var prefixe = "/france-transparence/";
+        var chemin = location.pathname;
+        var reste = chemin.indexOf(prefixe) === 0 ? chemin.slice(prefixe.length) : "";
+        location.replace("https://francetransparence.fr/" + reste + location.search + location.hash);
+      })();
+    </script>
+
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0; min-height: 100vh; display: grid; place-items: center;
+        padding: 2rem 1.25rem;
+        font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        background: #0f1115; color: #e7e9ee;
+      }
+      main { max-width: 34rem; text-align: center; }
+      h1 { font-size: 1.25rem; letter-spacing: 0.14em; text-transform: uppercase; margin: 0 0 1rem; }
+      p { color: #a9b0bd; margin: 0 0 1.25rem; }
+      a { color: #e7e9ee; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>France Transparence</h1>
+      <p>
+        Cette page a été déplacée sur
+        <a href="https://francetransparence.fr/">francetransparence.fr</a>.
+      </p>
+    </main>
+  </body>
+</html>

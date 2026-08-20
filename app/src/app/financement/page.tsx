@@ -21,6 +21,7 @@ import {
 // reconstruit après chaque ingestion (docs/deploiement/DECISION.md).
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/financement/" },
   title: "Financement de la vie politique",
   description:
     "Comptes des partis politiques, dons et cotisations, aide publique et comptes de campagne (CNCCFP) : les flux d'argent de la vie politique, sourcés et datés.",

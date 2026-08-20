@@ -30,6 +30,7 @@ import {
  */
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/documents/" },
   title: "Journal officiel",
   description:
     "Lois, décrets et nominations du Journal officiel, à parution — source DILA.",

@@ -29,6 +29,7 @@ import type { MetaSource } from "@/lib/db";
  */
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/elus/" },
   title: "Élus & institutions",
   description:
     "Députés, sénateurs, maires et présidents d’exécutifs locaux : mandats, groupes, votes nominaux et déclarations HATVP, à partir des données officielles datées.",

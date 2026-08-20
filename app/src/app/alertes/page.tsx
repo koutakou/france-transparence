@@ -20,6 +20,7 @@ import {
  */
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/alertes/" },
   title: "Alertes transparence",
   description:
     "Constats sourcés : déclarations HATVP non déposées, comptes de campagne rejetés, lobbying non déclaré — chaque alerte avec sa règle et sa base légale.",

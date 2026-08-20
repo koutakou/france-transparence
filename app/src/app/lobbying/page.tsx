@@ -23,6 +23,7 @@ import {
 // reconstruit après chaque ingestion (docs/deploiement/DECISION.md).
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/lobbying/" },
   title: "Lobbying",
   description:
     "Le répertoire des représentants d'intérêts de la HATVP : activités déclarées, budgets, institutions visées et entités en défaut de déclaration — constats officiels repris tels quels, datés et sourcés.",

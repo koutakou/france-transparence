@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
-import { CONTACT_ISSUES_URL, REPO_URL } from "@/lib/site";
+import { CONTACT_EMAIL, CONTACT_ISSUES_URL, REPO_URL } from "@/lib/site";
 
 /**
  * Page /mentions-legales — obligations d'identification de la LCEN
@@ -24,6 +24,7 @@ import { CONTACT_ISSUES_URL, REPO_URL } from "@/lib/site";
  */
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/mentions-legales/" },
   title: "Mentions légales",
   description:
     "Site édité à titre non professionnel par un particulier (art. 1-1, II LCEN), hébergé par GitHub, Inc. (GitHub Pages). Contact, droit de réponse et licences du site.",
@@ -108,9 +109,18 @@ export default function PageMentionsLegales() {
       <Card titre="Contact">
         <div className="flex flex-col gap-3 text-sm leading-relaxed text-ink-secondary">
           <p>
-            Toute demande concernant le site — signalement d&apos;erreur,
-            demande de rectification, question sur les données — peut être
-            déposée publiquement sur le canal de contact du projet :{" "}
+            Le site dispose d&apos;une adresse de contact :{" "}
+            <a href={`mailto:${CONTACT_EMAIL}`} className={LIEN}>
+              {CONTACT_EMAIL}
+            </a>
+            . C&apos;est par elle que passent les demandes qui concernent une
+            personne — rectification, opposition, exercice des droits prévus
+            par le RGPD : elles n&apos;ont pas à être rendues publiques.
+          </p>
+          <p>
+            Les signalements d&apos;erreur qui ne portent sur aucune donnée
+            personnelle (chiffre faux, lien mort, source mal citée) peuvent
+            aussi être déposés publiquement sur{" "}
             <a
               href={CONTACT_ISSUES_URL}
               target="_blank"
@@ -119,7 +129,7 @@ export default function PageMentionsLegales() {
             >
               les issues GitHub du dépôt
             </a>
-            . Une adresse e-mail dédiée sera ajoutée prochainement.
+            , où ils profitent à tout le monde.
           </p>
           <p className="text-xs text-ink-muted">
             Les demandes portant sur des données personnelles sont traitées

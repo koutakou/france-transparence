@@ -22,6 +22,7 @@ import {
 // reconstruit après chaque ingestion (docs/deploiement/DECISION.md).
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/depenses/" },
   title: "Dépenses de l'État",
   description:
     "Exécution budgétaire mensuelle de l'État (DGFiP), budget voté par mission, dépenses par ministère et subventions aux associations — données publiques réelles.",

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getDb } from "@/lib/db";
 import { Card } from "@/components/ui/Card";
+import { JsonLd } from "@/components/JsonLd";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { StatStrip } from "@/components/ui/StatStrip";
@@ -15,6 +16,7 @@ import {
   type VoteLigne,
 } from "@/lib/queries/elus";
 import type { MetaSource } from "@/lib/db";
+import { jsonLdFicheElu, type RoleElu } from "@/lib/seo";
 
 /**
  * Fiches PRÉ-GÉNÉRÉES au build, limitées aux mandats nationaux et exécutifs
@@ -57,20 +59,24 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
+  // Canonique de la FICHE (jamais celle de l'accueil) : chemin relatif, que
+  // Next compose avec metadataBase — basePath compris. Slash final imposé
+  // par `trailingSlash: true`.
+  const alternates = { canonical: `/elus/${encodeURIComponent(decodeIdSur(id))}/` };
   const db = getDb();
-  if (!db) return {};
+  if (!db) return { alternates };
   const elu = db
     .prepare("SELECT nom, prenom, uid_an, matricule_senat FROM elus WHERE id = ?")
     .get(decodeIdSur(id)) as
     | { nom: string; prenom: string | null; uid_an: string | null; matricule_senat: string | null }
     | undefined;
-  if (!elu) return {};
+  if (!elu) return { alternates };
   const nomComplet = `${elu.prenom ?? ""} ${elu.nom}`.trim();
   const description =
     elu.uid_an || elu.matricule_senat
       ? `Mandats, activité parlementaire et déclarations HATVP de ${nomComplet}, à partir des données publiques officielles (AN, Sénat, HATVP, RNE).`
       : `Mandats et déclarations HATVP de ${nomComplet}, à partir des données publiques officielles (RNE, HATVP).`;
-  return { title: `${nomComplet} — Élus`, description };
+  return { title: `${nomComplet} — Élus`, description, alternates };
 }
 
 /* ------------------------------------------------------------------ */
@@ -85,6 +91,56 @@ const TYPES_MANDAT: Record<string, string> = {
   president_conseil_departemental: "Président·e de conseil départemental",
   president_conseil_regional: "Président·e de conseil régional",
 };
+
+/**
+ * Institution d'exercice par type de mandat — pour le seul balisage
+ * schema.org (`OrganizationRole.memberOf`). `lieu: true` = le nom de
+ * l'organisme n'est pas identifiant sans sa collectivité (« Conseil
+ * départemental — Nord ») ; l'Assemblée nationale et le Sénat, eux, sont
+ * uniques : y accoler un département produirait un nom d'organisation faux.
+ */
+const ORGANISMES_MANDAT: Record<string, { nom: string; lieu: boolean }> = {
+  depute: { nom: "Assemblée nationale", lieu: false },
+  senateur: { nom: "Sénat", lieu: false },
+  maire: { nom: "Commune", lieu: true },
+  president_epci: {
+    nom: "Établissement public de coopération intercommunale",
+    lieu: true,
+  },
+  president_conseil_departemental: { nom: "Conseil départemental", lieu: true },
+  president_conseil_regional: { nom: "Conseil régional", lieu: true },
+};
+
+/**
+ * Intitulé de mandat pour le balisage, accordé comme il l'est à l'écran.
+ * Le point médian de TYPES_MANDAT est un libellé d'interface : dans un
+ * `roleName`/`jobTitle` lu par une machine, il dégrade la valeur — on
+ * préfère la forme accordée quand le sexe est publié par la source.
+ */
+function titreMandatBalisage(type: string, sexe: string | null): string {
+  const accords: Record<string, [string, string]> = {
+    depute: ["Députée", "Député"],
+    senateur: ["Sénatrice", "Sénateur"],
+    maire: ["Maire", "Maire"],
+    president_epci: [
+      "Présidente d\u2019intercommunalité (EPCI)",
+      "Président d\u2019intercommunalité (EPCI)",
+    ],
+    president_conseil_departemental: [
+      "Présidente de conseil départemental",
+      "Président de conseil départemental",
+    ],
+    president_conseil_regional: [
+      "Présidente de conseil régional",
+      "Président de conseil régional",
+    ],
+  };
+  const accord = accords[type];
+  if (!accord) return TYPES_MANDAT[type] ?? type;
+  if (sexe === "F") return accord[0];
+  if (sexe === "M") return accord[1];
+  return TYPES_MANDAT[type] ?? accord[1];
+}
 
 const POSITIONS: Record<string, string> = {
   pour: "Pour",
@@ -313,8 +369,68 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
     { cle: "statut_publication", entete: "Statut (source HATVP)" },
   ];
 
+  /* Données structurées — STRICTEMENT ce qui est déjà affiché sur la fiche,
+     lui-même issu des open data officiels (AN, Sénat, RNE, HATVP). */
+  const roles: RoleElu[] = [];
+  const vus = new Set<string>();
+  for (const m of mandats) {
+    const type = m.type ?? "";
+    const organisme = ORGANISMES_MANDAT[type];
+    const lieu = lieuMandat(m);
+    const organisation =
+      organisme && !organisme.lieu
+        ? organisme.nom
+        : [organisme?.nom ?? "Institution publique", lieu].filter(Boolean).join(" — ");
+    const roleName = m.fonction ?? titreMandatBalisage(type, elu.sexe);
+    // Le même mandat est souvent décrit par DEUX sources (AN/Sénat et RNE) :
+    // une seule entrée par (rôle, organisation), la plus ancienne date de
+    // début faisant foi.
+    const cle = `${roleName}|${organisation}`;
+    const debut = m.date_debut ?? m.date_debut_mandat ?? m.date_debut_fonction ?? null;
+    if (vus.has(cle)) {
+      const existant = roles.find((r) => `${r.roleName}|${r.organisation}` === cle);
+      if (existant && debut && (!existant.debut || debut < existant.debut)) existant.debut = debut;
+      continue;
+    }
+    vus.add(cle);
+    roles.push({ roleName, organisation, debut });
+  }
+  if (roles.length === 0 && depute) {
+    roles.push({
+      roleName: titreMandatBalisage("depute", elu.sexe),
+      organisation: ORGANISMES_MANDAT.depute.nom,
+      debut: depute.date_debut_mandat,
+    });
+  }
+  if (roles.length === 0 && senateur) {
+    roles.push({
+      roleName: titreMandatBalisage("senateur", elu.sexe),
+      organisation: ORGANISMES_MANDAT.senateur.nom,
+      debut: senateur.date_debut_mandat,
+    });
+  }
+  const balisage = jsonLdFicheElu({
+    chemin: `/elus/${encodeURIComponent(elu.id)}/`,
+    nomComplet,
+    prenom: elu.prenom,
+    nom: elu.nom,
+    naissance: elu.date_naissance,
+    fonction: depute
+      ? titreMandatBalisage("depute", elu.sexe)
+      : senateur
+        ? titreMandatBalisage("senateur", elu.sexe)
+        : (roles[0]?.roleName ?? null),
+    roles,
+    groupes: [depute?.groupe_nom, senateur?.groupe].filter(
+      (g): g is string => typeof g === "string" && g.length > 0,
+    ),
+    sameAs: liens.map((l) => l.href),
+    description: [nomComplet, mandatPrincipal].filter(Boolean).join(" — "),
+  });
+
   return (
     <div className="flex flex-col gap-6">
+      <JsonLd donnees={balisage} />
       <nav aria-label="Fil d’Ariane">
         <Link
           href="/elus"
