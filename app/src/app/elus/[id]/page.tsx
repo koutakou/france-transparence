@@ -57,20 +57,24 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
+  // Canonique de la FICHE (jamais celle de l'accueil) : chemin relatif, que
+  // Next compose avec metadataBase — basePath compris. Slash final imposé
+  // par `trailingSlash: true`.
+  const alternates = { canonical: `/elus/${encodeURIComponent(decodeIdSur(id))}/` };
   const db = getDb();
-  if (!db) return {};
+  if (!db) return { alternates };
   const elu = db
     .prepare("SELECT nom, prenom, uid_an, matricule_senat FROM elus WHERE id = ?")
     .get(decodeIdSur(id)) as
     | { nom: string; prenom: string | null; uid_an: string | null; matricule_senat: string | null }
     | undefined;
-  if (!elu) return {};
+  if (!elu) return { alternates };
   const nomComplet = `${elu.prenom ?? ""} ${elu.nom}`.trim();
   const description =
     elu.uid_an || elu.matricule_senat
       ? `Mandats, activité parlementaire et déclarations HATVP de ${nomComplet}, à partir des données publiques officielles (AN, Sénat, HATVP, RNE).`
       : `Mandats et déclarations HATVP de ${nomComplet}, à partir des données publiques officielles (RNE, HATVP).`;
-  return { title: `${nomComplet} — Élus`, description };
+  return { title: `${nomComplet} — Élus`, description, alternates };
 }
 
 /* ------------------------------------------------------------------ */

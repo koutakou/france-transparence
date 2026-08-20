@@ -25,6 +25,7 @@ import { chargerDonneesMarches, type AlerteMarches } from "@/lib/queries/marches
  */
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/marches/" },
   title: "Commande publique",
   description:
     "Marchés publics notifiés et appels d’offres en cours : montants, attributaires, répartition par département — DECP consolidées et BOAMP, données datées.",

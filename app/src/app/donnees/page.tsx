@@ -14,6 +14,7 @@ import {
 // ingestion (docs/deploiement/DECISION.md) — il reste donc à jour.
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/donnees/" },
   title: "Données & exports",
   description:
     "Le manifeste de méthode du site : catalogue des sources avec fraîcheur mesurée, périmètre et limites assumées, licences et crédits, exports JSON quotidiens, reproduction locale.",

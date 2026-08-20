@@ -24,6 +24,7 @@ import { CONTACT_ISSUES_URL, REPO_URL } from "@/lib/site";
  */
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/mentions-legales/" },
   title: "Mentions légales",
   description:
     "Site édité à titre non professionnel par un particulier (art. 1-1, II LCEN), hébergé par GitHub, Inc. (GitHub Pages). Contact, droit de réponse et licences du site.",

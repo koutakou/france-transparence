@@ -25,6 +25,7 @@ import {
 
 // Le title de l'accueil est le title par défaut du layout racine.
 export const metadata: Metadata = {
+  alternates: { canonical: "/" },
   description:
     "Le tableau de bord de l'argent public : budget de l'État, marchés publics, élus, lobbying, financement de la vie politique et alertes d'intégrité — données publiques officielles, datées et sourcées.",
 };

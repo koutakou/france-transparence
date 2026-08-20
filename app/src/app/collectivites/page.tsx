@@ -30,6 +30,7 @@ import {
  */
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/collectivites/" },
   title: "Finances locales",
   description:
     "Comptes des communes, départements et régions : dépenses par habitant, dotations de l’État — données OFGL datées.",

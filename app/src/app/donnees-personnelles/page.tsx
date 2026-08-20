@@ -20,6 +20,7 @@ import { CONTACT_ISSUES_URL } from "@/lib/site";
  */
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/donnees-personnelles/" },
   title: "Données personnelles",
   description:
     "Information prévue par l'article 14 du RGPD : finalité, base légale, catégories de données de responsables publics republiées, droits des personnes — et zéro collecte sur les visiteurs.",
