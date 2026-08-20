@@ -146,6 +146,23 @@ export function SearchBox({
   const listeId = useId();
   const router = useRouter();
   const racine = useRef<HTMLDivElement>(null);
+  // Routes de résultats déjà demandées au préchargement (une seule fois chacune).
+  const dejaPrechargees = useRef<Set<string>>(new Set());
+
+  /**
+   * Préchargement d'un résultat, à l'intention de clic SEULEMENT.
+   *
+   * Les liens du dropdown portent `prefetch={false}` : ils apparaissent tous
+   * dans le viewport dès l'ouverture de la liste, et le préchargement par
+   * défaut tirerait donc jusqu'à 12 payloads RSC de fiches à chaque frappe
+   * suffisamment sélective — pour un seul clic au bout. En Next 16.3.1,
+   * `false` coupe aussi le survol (cf. MainNav), on le réarme ici à la main.
+   */
+  const precharger = (href: string) => {
+    if (dejaPrechargees.current.has(href)) return;
+    dejaPrechargees.current.add(href);
+    router.prefetch(href);
+  };
 
   useEffect(() => {
     const terme = q.trim();
@@ -186,9 +203,15 @@ export function SearchBox({
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setActif((a) => (a + 1) % resultats.length);
+      // Même intention de clic qu'un survol : le déplacement au clavier réarme
+      // le préchargement, sinon Entrée déclencherait une navigation froide.
+      // (L'index est celui du rendu courant : en cas de répétition rapide de
+      // touche, on précharge au pire un voisin — l'état, lui, reste exact.)
+      precharger(resultats[(actif + 1) % resultats.length].href);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActif((a) => (a - 1 + resultats.length) % resultats.length);
+      precharger(resultats[(actif - 1 + resultats.length) % resultats.length].href);
     } else if (e.key === "Enter" && actif >= 0) {
       e.preventDefault();
       fermer();
@@ -256,8 +279,14 @@ export function SearchBox({
               <Link
                 href={r.href}
                 tabIndex={-1}
+                prefetch={false}
                 onClick={fermer}
-                onMouseEnter={() => setActif(i)}
+                onMouseEnter={() => {
+                  setActif(i);
+                  precharger(r.href);
+                }}
+                onFocus={() => precharger(r.href)}
+                onTouchStart={() => precharger(r.href)}
                 className={`flex items-baseline gap-2 px-3 py-2 text-[13px] ${
                   i === actif ? "bg-hover" : ""
                 }`}

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useRef, type ReactNode } from "react";
 
 /**
  * Navigation principale — horizontale, icônes discrètes, état actif
@@ -143,8 +143,40 @@ const ITEMS: ItemNav[] = [
   },
 ];
 
+/**
+ * POURQUOI `prefetch={false}` + réarmement manuel au survol.
+ *
+ * Cette nav est rendue par le layout RACINE : ses 10 onglets sont donc dans
+ * le viewport des 1 067 pages du site, dès le premier rendu. En préchargement
+ * par défaut (viewport), CHAQUE vue de page tire les 10 payloads RSC des
+ * onglets — ~152 Ko compressés (1,05 Mo bruts) que personne n'a demandés, soit
+ * six fois le poids du HTML réellement lu. Sur le trafic réel mesuré, le
+ * préchargement représente 26,6 % des octets servis, et le rapport
+ * octets préchargés / octets lus va de 8,3× à 46,9× par visiteur.
+ *
+ * PIÈGE DE VERSION (Next 16.3.1) : contrairement à Next 13/14, `prefetch={false}`
+ * désactive le préchargement au viewport ET au survol
+ * (`node_modules/next/dist/client/app-dir/link.d.ts` : « `false`: Disable
+ * prefetching on both viewport and hover »). Le laisser nu rendrait chaque
+ * navigation froide. On réarme donc le survol à la main via
+ * `useRouter().prefetch()` sur `onMouseEnter`, `onFocus` (clavier) et
+ * `onTouchStart` (le tactile n'a pas de survol) : l'intention de clic devient
+ * la condition du téléchargement, au lieu de la simple présence à l'écran.
+ */
 export function MainNav() {
   const pathname = usePathname();
+  const router = useRouter();
+  // Un survol émet l'événement plusieurs fois (entrée/sortie) : on ne demande
+  // le préchargement qu'une fois par route et par session de page.
+  const dejaDemandees = useRef<Set<string>>(new Set());
+  const precharger = useCallback(
+    (href: string) => {
+      if (dejaDemandees.current.has(href)) return;
+      dejaDemandees.current.add(href);
+      router.prefetch(href);
+    },
+    [router],
+  );
   return (
     <nav aria-label="Navigation principale" className="overflow-x-auto">
       <ul className="flex whitespace-nowrap text-[12.5px]">
@@ -155,6 +187,10 @@ export function MainNav() {
               <Link
                 href={item.href}
                 aria-current={actif ? "page" : undefined}
+                prefetch={false}
+                onMouseEnter={() => precharger(item.href)}
+                onFocus={() => precharger(item.href)}
+                onTouchStart={() => precharger(item.href)}
                 className={`flex items-center gap-1.5 border-b-2 px-3 py-2.5 transition-colors ${
                   actif
                     ? "border-accent font-medium text-ink"

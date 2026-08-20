@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MapFrance, type PointCarte } from "@/components/ui/MapFrance";
 import type { GeojsonDepartements } from "@/lib/queries/collectivites";
 import { formatEuros, formatNombre } from "@/lib/format";
@@ -19,6 +19,26 @@ import { urlSite } from "@/lib/basePath";
  * Honnêteté : pendant le chargement, un cadre neutre aux mêmes proportions
  * (aucun saut de layout) ; si le fond est indisponible, le même message
  * qu'avant — les valeurs restent lisibles dans les tableaux.
+ *
+ * DÉCLENCHEMENT À L'APPROCHE DU VIEWPORT (IntersectionObserver, marge 600 px).
+ *
+ * Pourquoi : la séquence qui suit l'hydratation est chère et se fait sur le
+ * thread principal — fetch de 692 Ko bruts (225 Ko compressés), `JSON.parse`
+ * de ces 692 Ko, puis projection `geoConicConformal().fitExtent()` et
+ * `geoPath()` sur 96 features multipolygones avant de rendre ~96 <path>.
+ * C'est le delta de TBT de l'accueil (330 ms) face à une fiche d'élu (50 ms),
+ * qui charge pourtant les MÊMES gros chunks JS — ce n'étaient donc pas eux.
+ *
+ * En mobile la mise en page passe en une colonne : la carte est très loin
+ * sous la ligne de flottaison, et tout ce travail est aujourd'hui fait
+ * pendant que le visiteur lit un contenu situé bien au-dessus. En desktop la
+ * marge de 600 px fait qu'elle entre en observation immédiatement : le
+ * comportement y est inchangé (et le TBT y était déjà de 20 ms).
+ *
+ * Le rendu n'est pas modifié, et le cadre de chargement — celui qui porte
+ * l'`aspectRatio` garantissant un CLS à 0 — est exactement le même avant et
+ * après. Si `IntersectionObserver` est absent, on retombe sur le chemin
+ * historique : chargement immédiat au montage.
  */
 
 /** Formats sérialisables (une fonction ne traverse pas la frontière RSC). */
@@ -66,8 +86,33 @@ export function CarteDepartements({
 }: CarteDepartementsProps) {
   // undefined = chargement en cours ; null = fond indisponible.
   const [geojson, setGeojson] = useState<GeojsonDepartements | null | undefined>(undefined);
+  // false tant que la carte n'approche pas du viewport (aucun travail engagé).
+  const [approche, setApproche] = useState(false);
+  const cadre = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Pas d'IntersectionObserver (ou plus de cadre à observer) : chemin
+    // historique, on charge tout de suite.
+    if (typeof IntersectionObserver === "undefined" || cadre.current === null) {
+      setApproche(true);
+      return;
+    }
+    const observateur = new IntersectionObserver(
+      (entrees) => {
+        if (entrees.some((e) => e.isIntersecting)) {
+          setApproche(true);
+          observateur.disconnect();
+        }
+      },
+      // 600 px d'avance : le fond est prêt avant que la carte soit lue.
+      { rootMargin: "600px" },
+    );
+    observateur.observe(cadre.current);
+    return () => observateur.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!approche) return;
     let monte = true;
     chargerGeo().then((geo) => {
       if (monte) setGeojson(geo);
@@ -75,11 +120,12 @@ export function CarteDepartements({
     return () => {
       monte = false;
     };
-  }, []);
+  }, [approche]);
 
   if (geojson === undefined) {
     return (
       <div
+        ref={cadre}
         className={`flex items-center justify-center rounded-lg border border-card-border bg-raised text-sm text-ink-muted ${className ?? ""}`}
         style={{ aspectRatio: `${largeur} / ${hauteur}` }}
         role="status"
