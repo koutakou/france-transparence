@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+/* ============================================================
+   France Transparence — thème sombre UNIQUE (docs/DATAVIZ.md §0)
+   Pas de mode clair, pas de prefers-color-scheme : toutes les
+   valeurs sont validées pour ces fonds et n'ont pas de jumelle.
+   Jetons repris tels quels — jamais un hex en dur dans le JSX.
+   ============================================================ */
+
+:root {
+  color-scheme: dark; /* thème sombre unique */
+
+  /* Surfaces */
+  --surface-page:   #0a1628;   /* fond de page */
+  --surface-card:   #0f1d33;   /* cartes — le fond sur lequel les marques se dessinent */
+  --surface-raised: #16263f;   /* tooltips, popovers, menus */
+  --surface-hover:  #1a2b47;   /* survol de ligne de tableau, ghost wash */
+  --border-card:    rgba(148, 178, 224, 0.12);  /* bordure subtile des cartes */
+  --border-raised:  rgba(148, 178, 224, 0.18);  /* bordure des tooltips */
+
+  /* Encres (texte) — contraste mesuré sur la carte #0f1d33 */
+  --ink-primary:   #e8eef8;    /* 14,5:1 — valeurs, titres */
+  --ink-secondary: #a9b7cc;    /* 8,3:1 — libellés, légendes */
+  --ink-muted:     #7286a3;    /* 4,55:1 — axes, ticks. MINIMUM pour du texte */
+
+  /* Chrome graphique (non-donnée : discret par construction) */
+  --viz-grid:      #1e2f4d;    /* lignes de grille, filet 1px plein */
+  --viz-axis:      #2c405f;    /* ligne de base / axe */
+  --viz-crosshair: #44597e;    /* réticule vertical au survol */
+  --focus-ring:    #5eb0ff;    /* anneau de focus clavier, 7,3:1 */
+
+  /* Palette catégorielle — ORDRE FIXE, attribution 1→N, jamais recyclée */
+  --viz-serie-1: #2f96f7;   /* bleu électrique (accent de marque) — 5,49:1 */
+  --viz-serie-2: #d95926;   /* orange   — 4,35:1 */
+  --viz-serie-3: #199e70;   /* turquoise — 4,96:1 */
+  --viz-serie-4: #c98500;   /* ocre     — 5,50:1 */
+  --viz-serie-5: #d55181;   /* magenta  — 4,28:1 */
+  --viz-serie-6: #008300;   /* vert     — 3,41:1 */
+  --viz-serie-7: #9085e9;   /* violet   — 5,40:1 */
+  --viz-serie-8: #e66767;   /* rouge    — 5,23:1 — voir règle rouge, DATAVIZ §3.5 */
+  --viz-autre:   #4c5f80;   /* « Autre » + séries de contexte (dé-emphase) */
+
+  /* Rampe séquentielle (magnitude) — bleu électrique, sombre → lumineux */
+  --seq-1: #132a4d;  --seq-2: #1a3d74;  --seq-3: #22539c;  --seq-4: #2c6cc4;
+  --seq-5: #3f8ae8;  --seq-6: #6bacf5;  --seq-7: #a3d1ff;
+
+  /* Divergente (polarité : baisse ↔ hausse) — extrêmes lumineux, milieu neutre */
+  --div-baisse-3: #7cc0ff;  --div-baisse-2: #4b93e8;  --div-baisse-1: #2c5f9e;
+  --div-zero:     #3a4a63;   /* gris-bleu neutre : « rien » */
+  --div-hausse-1: #9e4352;  --div-hausse-2: #e05a55;  --div-hausse-3: #ff8b7e;
+
+  /* Statuts (réservés : jamais utilisés comme couleur de série) */
+  --status-good:     #0ca30c;   /* 5,03:1 */
+  --status-warning:  #fab219;   /* 9,20:1 */
+  --status-serious:  #ec835a;   /* 6,40:1 */
+  --status-critical: #d03b3b;   /* 3,51:1 */
+
+  /* Sémantique deltas & montants — lire IMPÉRATIVEMENT DATAVIZ §3.5 */
+  --delta-bon:     #0ca30c;   /* évolution POSITIVE (jugement explicite) */
+  --delta-mauvais: #f26b6b;   /* évolution NÉGATIVE (jugement explicite) — 5,7:1 */
+  --montant:       #f26b6b;   /* montants vedettes : KPI, héros, totaux */
+
+  /* Typographie */
+  --font-ui: system-ui, -apple-system, "Segoe UI", sans-serif; /* partout, héros compris */
+
+  /* Carte de France (valeurs fixées par DATAVIZ §8) */
+  --map-contour:  #22375a;   /* contours des départements, 1px */
+  --map-manquant: #0d1930;   /* donnée manquante — plus sombre que --seq-1, HORS rampe */
+
+  /* Chrome de marque tricolore (header UNIQUEMENT — jamais des couleurs
+     de données : ni série, ni statut, ni rampe) */
+  --tricolore-bleu:  #4a7dd6;
+  --tricolore-blanc: #e8eef8;
+  --tricolore-rouge: #e0564f;
+}
+
+/* Jetons exposés à Tailwind v4 (classes bg-page, bg-card, text-ink…) */
+@theme inline {
+  --color-page: var(--surface-page);
+  --color-card: var(--surface-card);
+  --color-raised: var(--surface-raised);
+  --color-hover: var(--surface-hover);
+  --color-card-border: var(--border-card);
+  --color-raised-border: var(--border-raised);
+  --color-ink: var(--ink-primary);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-muted: var(--ink-muted);
+  --color-accent: var(--viz-serie-1);
+  --color-montant: var(--montant);
+  --color-focus: var(--focus-ring);
+  --font-sans: var(--font-ui);
+}
+
+body {
+  background: var(--surface-page);
+  color: var(--ink-primary);
+  font-family: var(--font-ui);
+}
+
+/* Focus clavier visible partout (DATAVIZ §9) */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}

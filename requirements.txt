@@ -1,0 +1,3 @@
+requests>=2.32
+duckdb>=1.3
+pytest>=8.3

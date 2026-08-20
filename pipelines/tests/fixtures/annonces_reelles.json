@@ -1,0 +1,212 @@
+{
+ "_note": "Enregistrements REELS captés le 2026-08-19 — BOAMP records API (boamp-datadila.opendatasoft.com) et export APProch (data.economie.gouv.fr). Aucune valeur modifiée.",
+ "boamp_ao_joue": {
+  "idweb": "26-81222",
+  "id": "26_81222",
+  "contractfolderid": "1df957aa-8e96-4afb-b9e4-1e091559d1ac",
+  "objet": "Prestations d'entretien des locaux de la Blanchisserie Inter-Hospitalière Bourges - Vierzon",
+  "filename": "26-81222",
+  "famille": "JOUE",
+  "code_departement": [
+   "18"
+  ],
+  "code_departement_prestation": null,
+  "famille_libelle": "Marchés européens",
+  "dateparution": "2026-08-19",
+  "datefindiffusion": "2026-09-30",
+  "datelimitereponse": "2026-09-30T09:00:00+00:00",
+  "nomacheteur": "GHT DU CHER",
+  "titulaire": null,
+  "perimetre": "DIRECTIVE-24",
+  "type_procedure": "OUVERT",
+  "soustype_procedure": null,
+  "procedure_libelle": "Procédure Ouverte",
+  "procedure_categorise": "OUVERT/",
+  "nature": "APPEL_OFFRE",
+  "sousnature": "STANDARD",
+  "nature_libelle": "Avis de marché",
+  "sousnature_libelle": null,
+  "nature_categorise": "appeloffre/standard",
+  "nature_categorise_libelle": "Avis de marché/",
+  "criteres": [
+   "sociaux",
+   "environnementaux"
+  ],
+  "marche_public_simplifie": null,
+  "marche_public_simplifie_label": null,
+  "etat": "INITIAL",
+  "descripteur_code": [
+   "239"
+  ],
+  "dc": [
+   "239"
+  ],
+  "descripteur_libelle": [
+   "Nettoyage de locaux"
+  ],
+  "type_marche": [
+   "SERVICES"
+  ],
+  "type_marche_facette": [
+   "Services"
+  ],
+  "type_avis": [
+   "5",
+   "1"
+  ],
+  "annonce_lie": null,
+  "annonces_anterieures": null,
+  "source_schema": "3.2.5",
+  "gestion": "{\"REFERENCE\": {\"IDWEB\": \"26-81222\", \"TYPE_AVIS\": {\"FAMILLE\": {\"JOUE\": \"\"}, \"PERIMETRE\": {\"DIRECTIVE-24\": \"\"}, \"NATURE\": {\"APPEL_OFFRE\": {\"STANDARD\": \"\"}}, \"STATUT\": {\"INITIAL\": \"\"}}}, \"INDEXATION\": {\"SCHEMA\": \"3.2.5\", \"NOMORGANISME\": \"GHT DU CHER\", \"TYPE_PROCEDURE\": {\"OUVERT\": \"\"}, \"DATE_PUBLICATION\": \"2026-08-19\", \"DATE_LIMITE_REPONSE\": \"2026-09-30T11:00:00+02:00\", \"DATE_FIN_DIFFUSION\": \"2026-09-30\", \"DESCRIPTEURS\": {\"DESCRIPTEUR\": {\"CODE\": \"239\", \"LIBELLE\": \"Nettoyage de locaux\"}}, \"NATURE_MARCHE\": {\"SERVICES\": \"\"}, \"CRITERES_SOCIAUX_ENV\": {\"SOCIAUX\": \"\", \"ENVIRONNEMENTAUX\": \"\"}, \"DEP_PUBLICATION\": \"18\", \"RESUME_OBJET\": \"Prestations d'entretien des locaux de la Blanchisserie Inter-Hospitalière Bourges - Vierzon\"}}",
+  "donnees": "{\"EFORMS\": {\"ContractNotice\": {\"ext:UBLExtensions\": {\"ext:UBLExtension\": {\"ext:ExtensionContent\": {\"efext:EformsExtension\": {\"efac:NoticeSubType\": {\"cbc:SubTypeCode\": {\"@listName\": \"notice-subtype\", \"#text\": \"16\"}}, \"efac:Organizations\": {\"efac:Organization\": [{\"efac:Company\": {\"cbc:WebsiteURI\": \"https://www.ch-bourges.fr/\", \"cbc:EndpointID\": \"https://www.achatpublic.com/sdm/ent/gen/ent_detail.do?PCSLID=CSL_2026_Ld5OM4FNCX\", \"cac:PartyIdentification\": {\"cbc:ID\": {\"@schemeName\": \"organization\", \"#text\": \"ORG-0001\"}}, \"cac:PartyName\": {\"cbc:Name\": {\"@languageID\": \"FRA\", \"#text\": \"GHT DU CHER\"}}, \"cac:PostalAddress\": {\"cbc:StreetName\": \"123 , avenue  François Mitterrand - Parc des GADEAUX\", \"cbc:CityName\": \"Bourges\", \"cbc:PostalZone\": \"18000\", \"cbc:CountrySubentityCode\": {\"@listName\": \"nuts\", \"#text\": \"FRB01\"}, \"cac:Country\": {\"cbc:IdentificationCode\": {\"@listName\": \"country\", \"#text\": \"FRA\"}}}, \"cac:PartyLegalEntity\": {\"cbc:CompanyID\": \"26180007200124\"}, \"cac:Contact\": {\"cbc:Name\": \"X\", \"cbc:Telephone\": \"+33 48484228\", \"cbc:ElectronicMail\": \"cellule_marches@ght18.fr\"}}}, {\"efac:Company\": {\"cbc:WebsiteURI\": \"https://orleans.tribunal-administratif.fr/\", \"cac:PartyIdentification\": {\"cbc:ID\": {\"@schemeName\": \"organization\", \"#text\": \"ORG-0003\"}}, \"cac:PartyName\": {\"cbc:Name\": {\"@languageID\": \"FRA\", \"#text\": \"Tribunal Administratif d'Orléans\"}}, \"cac:PostalAddress\": {\"cbc:StreetName\": \"28 , rue de la Bretonnerie\", \"cbc:CityName\": \"Orleans cedex 1\", \"cbc:PostalZone\": \"45057\", \"cbc:CountrySubentityCode\": {\"@listName\": \"nuts\", \"#text\": \"FRB06\"}, \"cac:Country\": {\"cbc:IdentificationCode\": {\"@listName\": \"country\", \"#text\": \"FRA\"}}}, \"cac:PartyLegalEntity\": {\"cbc:CompanyID\": \"1745000580022\"}, \"cac:Contact\": {\"cbc:Telephone\": \"+33 38775900\", \"cbc:Telefax\": \"+3338538516\", \"cbc:ElectronicMail\": \"greffe.ta-orleans@juradm.fr\"}}}]}}}}}, \"cbc:UBLVersionID\": \"2.3\", \"cbc:CustomizationID\": \"eforms-sdk-1.13\", \"cbc:ID\": {\"@schemeName\": \"notice-id\", \"#text\": \"a918db00-1c74-4edd-9904-e263af61561a\"}, \"cbc:ContractFolderID\": \"1df957aa-8e96-4afb-b9e4-1e091559d1ac\", \"cbc:IssueDate\": \"2026-08-18+02:00\", \"cbc:IssueTime\": \"09:38:00+02:00\", \"cbc:VersionID\": \"01\", \"cbc:RegulatoryDomain\": \"32014L0024\", \"cbc:NoticeTypeCode\": {\"@listName\": \"competition\", \"#text\": \"cn-standard\"}, \"cbc:NoticeLanguageCode\": {\"@listName\": \"language\", \"#text\": \"FRA\"}, \"cac:ContractingParty\": {\"cbc:BuyerProfileURI\": \"https://www.achatpublic.com/sdm/ent2/gen/index.jsp\", \"cac:ContractingPartyType\": {\"cbc:PartyTypeCode\": {\"@listName\": \"buyer-legal-type\", \"#text\": \"body-pl\"}}, \"cac:ContractingActivity\": {\"cbc:ActivityTypeCode\": {\"@listName\": \"authority-activity\", \"#text\": \"health\"}}, \"cac:Party\": {\"cac:PartyIdentification\": {\"cbc:ID\": \"ORG-0001\"}}}, \"cac:TenderingTerms\": {\"cac:TendererQualificationRequest\": [{\"cac:SpecificTendererRequirement\": {\"cbc:TendererRequirementTypeCode\": {\"@listName\": \"exclusion-grounds-source\", \"#text\": \"epo-notice\"}}}, {\"cac:SpecificTendererRequirement\": {\"cbc:TendererRequirementTypeCode\": {\"@listName\": \"exclusion-ground\", \"#text\": \"exg-natl\"}}}]}, \"cac:TenderingProcess\": {\"cbc:ProcedureCode\": {\"@listName\": \"procurement-procedure-type\", \"#text\": \"open\"}, \"cac:ProcessJustification\": {\"cbc:ProcessReasonCode\": {\"@listName\": \"accelerated-procedure\", \"#text\": \"false\"}}}, \"cac:ProcurementProject\": {\"cbc:ID\": \"26BIH03\", \"cbc:Name\": {\"@languageID\": \"FRA\", \"#text\": \"Prestations d'entretien des locaux de la Blanchisserie Inter-Hospitalière Bourges - Vierzon\"}, \"cbc:Description\": {\"@languageID\": \"FRA\", \"#text\": \"Prestations de nettoyage des locaux et d'entretien des vitres, ainsi qu'à titre secondaire diverses prestations d'entretien  (nettoyage des plafonds et aspiration des charpentes), dans les bâtiments de la Blanchisserie Inter Hospitalière BOURGES-VIERZON.\"}, \"cbc:ProcurementTypeCode\": {\"@listName\": \"contract-nature\", \"#text\": \"services\"}, \"cac:RequestedTenderTotal\": {\"cbc:EstimatedOverallContractAmount\": {\"@currencyID\": \"EUR\", \"#text\": \"168000.00\"}}, \"cac:MainCommodityClassification\": {\"cbc:ItemClassificationCode\": {\"@listName\": \"cpv\", \"#text\": \"90910000\"}}, \"cac:RealizedLocation\": {\"cac:Address\": {\"cbc:CityName\": \"Bourges\", \"cbc:PostalZone\": \"18000\", \"cbc:CountrySubentityCode\": {\"@listName\": \"nuts\", \"#text\": \"FRB01\"}, \"cac:Country\": {\"cbc:IdentificationCode\": {\"@listName\": \"country\", \"#text\": \"FRA\"}}}}}, \"cac:ProcurementProjectLot\": {\"cbc:ID\": {\"@schemeName\": \"Lot\", \"#text\": \"LOT-0001\"}, \"cac:TenderingTerms\": {\"cbc:VariantConstraintCode\": {\"@listName\": \"permission\", \"#text\": \"not-allowed\"}, \"cbc:FundingProgramCode\": {\"@listName\": \"eu-funded\", \"#text\": \"no-eu-funds\"}, \"cac:CallForTendersDocumentReference\": {\"cbc:ID\": \"Lot 1\", \"cbc:DocumentType\": \"non-restricted-document\", \"cac:Attachment\": {\"cac:ExternalReference\": {\"cbc:URI\": \"https://www.achatpublic.com\"}}}, \"cac:TendererQualificationRequest\": [{\"cac:SpecificTendererRequirement\": {\"cbc:TendererRequirementTypeCode\": {\"@listName\": \"reserved-procurement\", \"#text\": \"none\"}}}, {\"cac:SpecificTendererRequirement\": {\"cbc:TendererRequirementTypeCode\": {\"@listName\": \"selection-criteria-source\", \"#text\": \"epo-procurement-document\"}}}], \"cac:ContractExecutionRequirement\": [{\"cbc:ExecutionRequirementCode\": {\"@listName\": \"conditions\", \"#text\": \"performance\"}}, {\"cbc:ExecutionRequirementCode\": {\"@listName\": \"reserved-execution\", \"#text\": \"no\"}}, {\"cbc:ExecutionRequirementCode\": {\"@listName\": \"einvoicing\", \"#text\": \"allowed\"}}, {\"cbc:ExecutionRequirementCode\": {\"@listName\": \"ecatalog-submission\", \"#text\": \"not-allowed\"}}], \"cac:TenderRecipientParty\": {\"cbc:EndpointID\": \"https://www.achatpublic.com\"}, \"cac:TenderValidityPeriod\": {\"cbc:DurationMeasure\": {\"@unitCode\": \"DAY\", \"#text\": \"90\"}}, \"cac:AppealTerms\": {\"cac:AppealInformationParty\": {\"cac:PartyIdentification\": {\"cbc:ID\": \"ORG-0003\"}}, \"cac:AppealReceiverParty\": {\"cac:PartyIdentification\": {\"cbc:ID\": \"ORG-0001\"}}, \"cac:MediationParty\": {\"cac:PartyIdentification\": {\"cbc:ID\": \"ORG-0001\"}}}, \"cac:Language\": {\"cbc:ID\": \"FRA\"}, \"cac:PostAwardProcess\": {\"cbc:ElectronicOrderUsageIndicator\": \"false\", \"cbc:ElectronicPaymentUsageIndicator\": \"true\"}}, \"cac:TenderingProcess\": {\"cbc:SubmissionMethodCode\": {\"@listName\": \"esubmission\", \"#text\": \"required\"}, \"cbc:GovernmentAgreementConstraintIndicator\": \"true\", \"cac:TenderSubmissionDeadlinePeriod\": {\"cbc:EndDate\": \"2026-09-30+02:00\", \"cbc:EndTime\": \"11:00:00+02:00\"}, \"cac:AuctionTerms\": {\"cbc:AuctionConstraintIndicator\": \"false\"}, \"cac:ContractingSystem\": [{\"cbc:ContractingSystemTypeCode\": {\"@listName\": \"framework-agreement\", \"#text\": \"none\"}}, {\"cbc:ContractingSystemTypeCode\": {\"@listName\": \"dps-usage\", \"#text\": \"none\"}}]}, \"cac:ProcurementProject\": {\"cbc:ID\": \"1\", \"cbc:Name\": {\"@languageID\": \"FRA\", \"#text\": \"Prestations d'entretien des locaux de la Blanchisserie Inter-Hospitalière Bourges - Vierzon\"}, \"cbc:Description\": {\"@languageID\": \"FRA\", \"#text\": \"Prestations de nettoyage des locaux et d'entretien des vitres, ainsi qu'à titre secondaire diverses prestations d'entretien (nettoyage des plafonds et aspiration des charpentes), dans les bâtiments de la Blanchisserie Inter Hospitalière BOURGES-VIERZON.\"}, \"cbc:ProcurementTypeCode\": {\"@listName\": \"contract-nature\", \"#text\": \"services\"}, \"cac:RequestedTenderTotal\": {\"cbc:EstimatedOverallContractAmount\": {\"@currencyID\": \"EUR\", \"#text\": \"0.00\"}}, \"cac:MainCommodityClassification\": {\"cbc:ItemClassificationCode\": {\"@listName\": \"cpv\", \"#text\": \"90910000\"}}, \"cac:RealizedLocation\": {\"cac:Address\": {\"cbc:CityName\": \"Bourges\", \"cbc:PostalZone\": \"18000\", \"cbc:CountrySubentityCode\": {\"@listName\": \"nuts\", \"#text\": \"FRB01\"}, \"cac:Country\": {\"cbc:IdentificationCode\": {\"@listName\": \"country\", \"#text\": \"FRA\"}}}}, \"cac:PlannedPeriod\": {\"cbc:DurationMeasure\": {\"@unitCode\": \"MONTH\", \"#text\": \"48\"}}}}}}}",
+  "url_avis": "https://www.boamp.fr/pages/avis/?q=idweb:26-81222"
+ },
+ "boamp_ao_fns": {
+  "idweb": "26-81510",
+  "id": "26_81510",
+  "contractfolderid": null,
+  "objet": "TRAVAUX DE RÉFECTION DE TROIS COURTS DE TENNIS AU TENNIS MUNICIPAL DU ROSAIRE DE LA COMMUNE DE SANARY-SUR-MER",
+  "filename": "26-81510",
+  "famille": "FNS",
+  "code_departement": [
+   "83"
+  ],
+  "code_departement_prestation": null,
+  "famille_libelle": "Marchés entre 90 k€ et seuils européens",
+  "dateparution": "2026-08-19",
+  "datefindiffusion": "2026-09-23",
+  "datelimitereponse": "2026-09-22T16:00:00+00:00",
+  "nomacheteur": "Ville de Sanary sur Mer (83)",
+  "titulaire": null,
+  "perimetre": "FNSimple",
+  "type_procedure": "OUVERT",
+  "soustype_procedure": null,
+  "procedure_libelle": "Procédure Ouverte",
+  "procedure_categorise": "OUVERT/",
+  "nature": "APPEL_OFFRE",
+  "sousnature": null,
+  "nature_libelle": "Avis de marché",
+  "sousnature_libelle": null,
+  "nature_categorise": "appeloffre/standard",
+  "nature_categorise_libelle": "Avis de marché/",
+  "criteres": [
+   "environnementaux"
+  ],
+  "marche_public_simplifie": null,
+  "marche_public_simplifie_label": null,
+  "etat": "INITIAL",
+  "descripteur_code": [
+   "113"
+  ],
+  "dc": [
+   "113"
+  ],
+  "descripteur_libelle": [
+   "Equipement sportif"
+  ],
+  "type_marche": [
+   "TRAVAUX"
+  ],
+  "type_marche_facette": [
+   "Travaux"
+  ],
+  "type_avis": [
+   "5",
+   "1"
+  ],
+  "annonce_lie": null,
+  "annonces_anterieures": null,
+  "source_schema": "3.2.5",
+  "gestion": "{\"REFERENCE\": {\"IDWEB\": \"26-81510\", \"TYPE_AVIS\": {\"FAMILLE\": {\"FNS\": \"\"}, \"PERIMETRE\": {\"FNSimple\": \"\"}, \"NATURE\": {\"APPEL_OFFRE\": \"\"}, \"STATUT\": {\"INITIAL\": \"\"}}}, \"INDEXATION\": {\"SCHEMA\": \"3.2.5\", \"NOMORGANISME\": \"Ville de Sanary sur Mer (83)\", \"TYPE_PROCEDURE\": {\"OUVERT\": \"\"}, \"DATE_PUBLICATION\": \"2026-08-19\", \"DATE_LIMITE_REPONSE\": \"2026-09-22T16:00:00\", \"DATE_FIN_DIFFUSION\": \"2026-09-23\", \"DESCRIPTEURS\": {\"DESCRIPTEUR\": {\"CODE\": \"113\", \"LIBELLE\": \"Equipement sportif\"}}, \"NATURE_MARCHE\": {\"TRAVAUX\": \"\"}, \"CRITERES_SOCIAUX_ENV\": {\"ENVIRONNEMENTAUX\": \"\"}, \"DEP_PUBLICATION\": \"83\", \"RESUME_OBJET\": \"TRAVAUX DE RÉFECTION DE TROIS COURTS DE TENNIS AU TENNIS MUNICIPAL DU ROSAIRE DE LA COMMUNE DE SANARY-SUR-MER\"}}",
+  "donnees": "{\"FNSimple\": {\"organisme\": {\"nomOfficiel\": \"Ville de Sanary sur Mer (83)\", \"typeIdentificationNational\": {\"siret\": \"\"}, \"codeIdentificationNational\": \"21830123200011\", \"ville\": \"Sanary sur Mer\", \"cp\": \"83112\", \"grpCommandes\": {\"non\": \"\"}}, \"initial\": {\"communication\": {\"urlProfilAch\": \"https://www.marches-securises.fr\", \"identifiantInterne\": \"26/3015\", \"docSecurite\": {\"oui\": \"\"}, \"urlSecurite\": {\"non\": \"\"}, \"nomContact\": \"Service commande publique\", \"telContact\": \"+33 494329766\"}, \"procedure\": {\"procedureAdapteeO\": \"\", \"capaciteExercice\": \"Lettre de candidature précisant si le candidat se présente seul ou en groupement, la nature du groupement ainsi que l’identité du mandataire (DC1, DUME ou forme libre- le cas échéant une attestation sur l’honneur que la candidat ne se trouve pas dans un cas d’interdiction de soumissionner) ; En cas de cotraitance, l’habilitation du mandataire à engager la(les) société(s) cotraitante(s) ; Les documents relatifs aux pouvoirs de la personne habilitée pour engager le candidat.\", \"capaciteEcoFin\": \"Déclaration concernant le chiffre d'affaires global et le chiffre d'affaires concernant les prestations objet du contrat, réalisées au cours des trois derniers exercices disponibles ; Assurance pour risques Professionnels.\", \"capaciteTech\": \"Déclaration indiquant les effectifs moyens annuels du candidat au titre de la dernière année ; Liste des principales prestations effectuées au cours des cinq dernières années, indiquant le montant, la date et le destinataire. Elles sont prouvées par des attestations du destinataire ou, à défaut, par une déclaration du candidat ; Déclaration indiquant l'outillage, le matériel et l'équipement technique dont le candidat dispose pour la réalisation du contrat ; Certificat de qualification professionnelle : Le candidat devra justifier de la détention d'un certificat Qualisport en cours de validité pour la pose de Gazon synthétique de tennis et la réalisation de Béton poreux de tennis, ou de tout autre certificat ou moyen de preuve équivalent attestant de sa capacité technique et professionnelle à exercer l'activité objet de la présente consultation. Les certificats équivalents ou autres moyens de preuve seront appréciés au regard des garanties qu'ils apportent quant au respect d'exigences comparables en matière de compétence, de qualité et de professionnalisme.\", \"techAchat\": {\"autres\": \"\"}, \"dateReceptionOffres\": \"2026-09-22T16:00:00\", \"presOffres\": {\"interdite\": \"\"}, \"nbCandidatReduit\": {\"non\": \"\"}, \"attributionSansNegociation\": {\"oui\": \"\"}, \"variantes\": {\"non\": \"\"}, \"criteresAttrib\": \"Critère 1 - Qualité technique       50 % - dont Adéquation des moyens humains et matériels dédiés (15%), Pertinence de la méthodologie proposée et de l'organisation du chantier et la pose des ouvrages pour le respect du calendrier (40%), Qualité des matériaux et équipements et techniques de mise en oeuvre (45%)\\nCritère 2 - Prix             40 %\\nCritère 3 - Qualité environnementale - 10 %\\n\\nNote globale /20 = (Critère 1 - note sur 20 x 50%) + (Critère 2 - note sur 20 x 40%) + (Critère 3 - note sur 20 x 10%)\"}, \"natureMarche\": {\"intitule\": \"TRAVAUX DE RÉFECTION DE TROIS COURTS DE TENNIS AU TENNIS MUNICIPAL DU ROSAIRE DE LA COMMUNE DE SANARY-SUR-MER\", \"codeCPV\": {\"objetPrincipal\": {\"classPrincipale\": \"45236119\"}}, \"natureMarche\": {\"travaux\": \"\"}, \"description\": \"Les prestations, objets de la présente consultation, concernent des travaux de réfection de trois courts de tennis au tennis municipal du Rosaire de la commune de Sanary-sur-Mer.\\nLe marché est décomposé en une tranche ferme et deux tranches optionnelles.\\nLa tranche optionnelle 1 (TO1) porte sur la réalisation des travaux définis dans le CCTP et relatifs à la réfection du court n°3.\\nLa tranche optionnelle 2 (TO 2) porte sur la reconstruction de la dalle du court n°2, définie au CCTP. Elle est destinée à couvrir l'hypothèse, établie par le diagnostic réalisé après dépose du revêtement, dans laquelle l'état du support du court n°2 ne permettrait pas d'atteindre les objectifs de résultat du CCTP par les seules prestations de reprise.\\nLes candidats chiffrent obligatoirement la tranche ferme et les deux tranches optionnelles. À défaut de chiffrage de l'une d'elles, l'offre est déclarée irrégulière.\", \"lieuExecution\": \"Sanary-sur-Mer\", \"dureeMois\": \"4\", \"valeurEstimee\": {\"@devise\": \"EUR\", \"valeur\": \"220000\"}, \"tranches\": {\"oui\": \"\"}, \"reservationMarche\": {\"non\": \"\"}, \"lotsMarche\": {\"non\": \"\"}}, \"informComplementaire\": {\"oui\": {\"visiteDetail\": \"Chemin du Rosaire, 83110, Sanary-sur-Mer - La demande de rendez-vous doit être formulée au plus tard huit (8) jours avant la date limite de remise des offres au numéro indiqué dans le règlement de consultation.\"}, \"autresInformComplementaire\": \"Le pouvoir adjudicateur peut décider d'engager des négociations avec un ou plusieurs candidats. Les modalités pratiques des négociations sont données aux candidats invités à négocier.\\nLa durée du marché de 4 mois s'entend comme la durée d'exécution des travaux - La tranche optionnelle 1 relative au court n°3 pourra être affermie dans un délai maximum de 12 mois à compter de la notification de la tranche ferme.\"}}}}",
+  "url_avis": "https://www.boamp.fr/pages/avis/?q=idweb:26-81510"
+ },
+ "boamp_attribution": {
+  "idweb": "26-81306",
+  "id": "26_81306",
+  "contractfolderid": "0db82227-53a5-4155-b171-491b8b04b006",
+  "objet": "nettoyage des locaux Trélazé",
+  "filename": "26-81306",
+  "famille": "JOUE",
+  "code_departement": [
+   "49"
+  ],
+  "code_departement_prestation": null,
+  "famille_libelle": "Marchés européens",
+  "dateparution": "2026-08-19",
+  "datefindiffusion": "2026-09-17",
+  "datelimitereponse": null,
+  "nomacheteur": "Ville de Trélazé (49)",
+  "titulaire": [
+   "ATMOS"
+  ],
+  "perimetre": "DIRECTIVE-24",
+  "type_procedure": "OUVERT",
+  "soustype_procedure": null,
+  "procedure_libelle": "Procédure Ouverte",
+  "procedure_categorise": "OUVERT/",
+  "nature": "ATTRIBUTION",
+  "sousnature": "STANDARD",
+  "nature_libelle": "Résultat de marché",
+  "sousnature_libelle": null,
+  "nature_categorise": "attribution/standard",
+  "nature_categorise_libelle": "Résultat de marché/",
+  "criteres": [
+   "sociaux",
+   "environnementaux"
+  ],
+  "marche_public_simplifie": null,
+  "marche_public_simplifie_label": null,
+  "etat": "INITIAL",
+  "descripteur_code": [
+   "239"
+  ],
+  "dc": [
+   "239"
+  ],
+  "descripteur_libelle": [
+   "Nettoyage de locaux"
+  ],
+  "type_marche": [
+   "SERVICES"
+  ],
+  "type_marche_facette": [
+   "Services"
+  ],
+  "type_avis": [
+   "10",
+   "6"
+  ],
+  "annonce_lie": [
+   "26-55241"
+  ],
+  "annonces_anterieures": null,
+  "source_schema": "3.2.5",
+  "gestion": "{\"REFERENCE\": {\"IDWEB\": \"26-81306\", \"TYPE_AVIS\": {\"FAMILLE\": {\"JOUE\": \"\"}, \"PERIMETRE\": {\"DIRECTIVE-24\": \"\"}, \"NATURE\": {\"ATTRIBUTION\": {\"STANDARD\": \"\"}}, \"STATUT\": {\"INITIAL\": \"\"}}, \"ANNONCE_ANTERIEUR\": {\"IDWEB\": \"26-55241\"}}, \"INDEXATION\": {\"SCHEMA\": \"3.2.5\", \"NOMORGANISME\": \"Ville de Trélazé (49)\", \"TITULAIRES\": {\"DENOMINATION\": \"ATMOS\"}, \"TYPE_PROCEDURE\": {\"OUVERT\": \"\"}, \"DATE_PUBLICATION\": \"2026-08-19\", \"DATE_FIN_DIFFUSION\": \"2026-09-17\", \"DESCRIPTEURS\": {\"DESCRIPTEUR\": {\"CODE\": \"239\", \"LIBELLE\": \"Nettoyage de locaux\"}}, \"NATURE_MARCHE\": {\"SERVICES\": \"\"}, \"CRITERES_SOCIAUX_ENV\": {\"SOCIAUX\": \"\", \"ENVIRONNEMENTAUX\": \"\"}, \"DEP_PUBLICATION\": \"49\", \"RESUME_OBJET\": \"nettoyage des locaux Trélazé\"}}",
+  "donnees": "{\"EFORMS\": {\"ContractAwardNotice\": {\"ext:UBLExtensions\": {\"ext:UBLExtension\": {\"ext:ExtensionContent\": {\"efext:EformsExtension\": {\"efac:NoticeResult\": {\"cbc:TotalAmount\": {\"@currencyID\": \"EUR\", \"#text\": \"96055\"}, \"efac:LotResult\": {\"cbc:ID\": {\"@schemeName\": \"result\", \"#text\": \"RES-0001\"}, \"cbc:TenderResultCode\": {\"@listName\": \"winner-selection-status\", \"#text\": \"selec-w\"}, \"efac:LotTender\": {\"cbc:ID\": \"TEN-0001\"}, \"efac:ReceivedSubmissionsStatistics\": {\"efbc:StatisticsCode\": {\"@listName\": \"received-submission-type\", \"#text\": \"t-esubm\"}, \"efbc:StatisticsNumeric\": \"6\"}, \"efac:SettledContract\": {\"cbc:ID\": \"CON-0001\"}, \"efac:TenderLot\": {\"cbc:ID\": \"LOT-0001\"}}, \"efac:LotTender\": {\"cbc:ID\": {\"@schemeName\": \"tender\", \"#text\": \"TEN-0001\"}, \"cac:LegalMonetaryTotal\": {\"cbc:PayableAmount\": {\"@currencyID\": \"EUR\", \"#text\": \"96055\"}}, \"efac:SubcontractingTerm\": {\"efbc:TermCode\": {\"@listName\": \"applicability\", \"#text\": \"no\"}}, \"efac:TenderingParty\": {\"cbc:ID\": \"TPA-0001\"}, \"efac:TenderLot\": {\"cbc:ID\": \"LOT-0001\"}, \"efac:TenderReference\": {\"cbc:ID\": \"lot unique nettoyage bâtiments\"}}, \"efac:SettledContract\": {\"cbc:ID\": \"CON-0001\", \"cbc:AwardDate\": \"2026-07-21+02:00\", \"cbc:IssueDate\": \"2026-08-17+02:00\", \"cac:SignatoryParty\": {\"cac:PartyIdentification\": {\"cbc:ID\": \"ORG-0001\"}}, \"efac:ContractReference\": {\"cbc:ID\": \"lot unique nettoyage bâtiments\"}, \"efac:LotTender\": {\"cbc:ID\": \"TEN-0001\"}}, \"efac:TenderingParty\": {\"cbc:ID\": {\"@schemeName\": \"tendering-party\", \"#text\": \"TPA-0001\"}, \"efac:Tenderer\": {\"cbc:ID\": \"ORG-0004\"}}}, \"efac:NoticeSubType\": {\"cbc:SubTypeCode\": {\"@listName\": \"notice-subtype\", \"#text\": \"29\"}}, \"efac:Organizations\": {\"efac:Organization\": [{\"efac:Company\": {\"cbc:WebsiteURI\": \"https://www.marches-securises.fr\", \"cbc:EndpointID\": \"http://www.trelaze.fr\", \"cac:PartyIdentification\": {\"cbc:ID\": \"ORG-0001\"}, \"cac:PartyName\": {\"cbc:Name\": {\"@languageID\": \"FRA\", \"#text\": \"Ville de Trélazé (49)\"}}, \"cac:PostalAddress\": {\"cbc:StreetName\": \"Hôtel de Ville\\nPlace Olivier Thuau\", \"cbc:CityName\": \"Trélazé\", \"cbc:PostalZone\": \"49800\", \"cbc:CountrySubentityCode\": {\"@listName\": \"nuts\", \"#text\": \"FRG02\"}, \"cac:Country\": {\"cbc:IdentificationCode\": {\"@listName\": \"country\", \"#text\": \"FRA\"}}}, \"cac:PartyLegalEntity\": {\"cbc:CompanyID\": \"21490353600016\"}, \"cac:Contact\": {\"cbc:Telephone\": \"+33 241337487\", \"cbc:ElectronicMail\": \"marches.publics@mairie-trelaze.fr\"}}}, {\"efac:Company\": {\"cac:PartyIdentification\": {\"cbc:ID\": \"ORG-0003\"}, \"cac:PartyName\": {\"cbc:Name\": {\"@languageID\": \"FRA\", \"#text\": \"Tribunal de Nantes\"}}, \"cac:PostalAddress\": {\"cbc:CityName\": \"Nantes\", \"cbc:PostalZone\": \"44000\", \"cbc:CountrySubentityCode\": {\"@listName\": \"nuts\", \"#text\": \"FRG01\"}, \"cac:Country\": {\"cbc:IdentificationCode\": {\"@listName\": \"country\", \"#text\": \"FRA\"}}}, \"cac:PartyLegalEntity\": {\"cbc:CompanyID\": \"40090903200114\"}, \"cac:Contact\": {\"cbc:Telephone\": \"+33 023005560\", \"cbc:ElectronicMail\": \"greffe.ta-nantes@juradm.fr\"}}}, {\"efac:Company\": {\"cac:PartyIdentification\": {\"cbc:ID\": \"ORG-0004\"}, \"cac:PartyName\": {\"cbc:Name\": {\"@languageID\": \"FRA\", \"#text\": \"ATMOS\"}}, \"cac:PostalAddress\": {\"cbc:CityName\": \"Angers\", \"cbc:PostalZone\": \"49100\", \"cbc:CountrySubentityCode\": {\"@listName\": \"nuts\", \"#text\": \"FRG02\"}, \"cac:Country\": {\"cbc:IdentificationCode\": {\"@listName\": \"country\", \"#text\": \"FRA\"}}}, \"cac:PartyLegalEntity\": {\"cbc:CompanyID\": \"50180302700017\"}, \"cac:Contact\": {\"cbc:Telephone\": \"+33 024134850\", \"cbc:ElectronicMail\": \"ao49-apsa@atmos.fr\"}}}]}}}}}, \"cbc:UBLVersionID\": \"2.3\", \"cbc:CustomizationID\": \"eforms-sdk-1.12\", \"cbc:ID\": {\"@schemeName\": \"notice-id\", \"#text\": \"0f4dffc6-666d-4c82-b842-21e2deff3628\"}, \"cbc:ContractFolderID\": \"0db82227-53a5-4155-b171-491b8b04b006\", \"cbc:IssueDate\": \"2026-08-18Z\", \"cbc:IssueTime\": \"12:04:59Z\", \"cbc:VersionID\": \"01\", \"cbc:RegulatoryDomain\": \"32014L0024\", \"cbc:NoticeTypeCode\": {\"@listName\": \"result\", \"#text\": \"can-standard\"}, \"cbc:NoticeLanguageCode\": {\"@listName\": \"language\", \"#text\": \"FRA\"}, \"cac:ContractingParty\": {\"cbc:BuyerProfileURI\": \"https://www.marches-securises.fr\", \"cac:ContractingPartyType\": {\"cbc:PartyTypeCode\": {\"@listName\": \"buyer-legal-type\", \"#text\": \"body-pl\"}}, \"cac:ContractingActivity\": {\"cbc:ActivityTypeCode\": {\"@listName\": \"authority-activity\", \"#text\": \"gen-pub\"}}, \"cac:Party\": {\"cac:PartyIdentification\": {\"cbc:ID\": \"ORG-0001\"}}}, \"cac:TenderingProcess\": {\"ext:UBLExtensions\": {\"ext:UBLExtension\": {\"ext:ExtensionContent\": {\"efext:EformsExtension\": {\"efbc:ProcedureRelaunchIndicator\": \"false\"}}}}, \"cbc:ProcedureCode\": {\"@listName\": \"procurement-procedure-type\", \"#text\": \"open\"}}, \"cac:ProcurementProject\": {\"cbc:Name\": {\"@languageID\": \"FRA\", \"#text\": \"Nettoyage des locaux de l’école élémentaire la Maraichère, du multi-accueil et de la mairie de Trélazé\"}, \"cbc:Description\": {\"@languageID\": \"FRA\", \"#text\": \"Nettoyage des locaux de l'école élémentaire la Maraichère, du multi-accueil et de la mairie de Trélazé\"}, \"cbc:ProcurementTypeCode\": {\"@listName\": \"contract-nature\", \"#text\": \"services\"}, \"cac:MainCommodityClassification\": {\"cbc:ItemClassificationCode\": {\"@listName\": \"cpv\", \"#text\": \"90919200\"}}, \"cac:AdditionalCommodityClassification\": {\"cbc:ItemClassificationCode\": {\"@listName\": \"cpv\", \"#text\": \"90919300\"}}}, \"cac:ProcurementProjectLot\": {\"cbc:ID\": {\"@schemeName\": \"Lot\", \"#text\": \"LOT-0001\"}, \"cac:TenderingTerms\": {\"cbc:FundingProgramCode\": {\"@listName\": \"eu-funded\", \"#text\": \"no-eu-funds\"}, \"cac:AwardingTerms\": {\"cac:AwardingCriterion\": {\"cbc:CalculationExpression\": {\"@languageID\": \"FRA\", \"#text\": \"Pondération de critères\"}, \"cac:SubordinateAwardingCriterion\": {\"cbc:AwardingCriterionTypeCode\": {\"@listName\": \"award-criterion-type\", \"#text\": \"cost\"}, \"cbc:Description\": {\"@languageID\": \"FRA\", \"#text\": \"cf réglement de consultation\"}}}}, \"cac:AppealTerms\": {\"cac:PresentationPeriod\": {\"cbc:Description\": {\"@languageID\": \"FRA\", \"#text\": \"11 jours\"}}, \"cac:AppealInformationParty\": {\"cac:PartyIdentification\": {\"cbc:ID\": \"ORG-0001\"}}, \"cac:AppealReceiverParty\": {\"cac:PartyIdentification\": {\"cbc:ID\": \"ORG-0003\"}}}}, \"cac:TenderingProcess\": {\"cbc:GovernmentAgreementConstraintIndicator\": \"false\", \"cac:AuctionTerms\": {\"cbc:AuctionConstraintIndicator\": \"false\"}, \"cac:ContractingSystem\": [{\"cbc:ContractingSystemTypeCode\": {\"@listName\": \"framework-agreement\", \"#text\": \"none\"}}, {\"cbc:ContractingSystemTypeCode\": {\"@listName\": \"dps-usage\", \"#text\": \"none\"}}]}, \"cac:ProcurementProject\": {\"cbc:Name\": {\"@languageID\": \"FRA\", \"#text\": \"Nettoyage des locaux de l’école élémentaire la Maraichère, du multi-accueil et de la mairie de Trélazé\"}, \"cbc:Description\": {\"@languageID\": \"FRA\", \"#text\": \"Nettoyage des locaux de l’école élémentaire la Maraichère, du multi-accueil et de la mairie de Trélazé\"}, \"cbc:ProcurementTypeCode\": {\"@listName\": \"contract-nature\", \"#text\": \"services\"}, \"cac:MainCommodityClassification\": {\"cbc:ItemClassificationCode\": {\"@listName\": \"cpv\", \"#text\": \"90919200\"}}, \"cac:AdditionalCommodityClassification\": {\"cbc:ItemClassificationCode\": {\"@listName\": \"cpv\", \"#text\": \"90919300\"}}, \"cac:RealizedLocation\": {\"cac:Address\": {\"cbc:CityName\": \"Trélazé\", \"cbc:PostalZone\": \"49800\", \"cbc:CountrySubentityCode\": {\"@listName\": \"nuts\", \"#text\": \"FRG02\"}, \"cac:Country\": {\"cbc:IdentificationCode\": {\"@listName\": \"country\", \"#text\": \"FRA\"}}}}, \"cac:PlannedPeriod\": {\"cbc:DurationMeasure\": {\"@unitCode\": \"MONTH\", \"#text\": \"36\"}}}}, \"cac:TenderResult\": {\"cbc:AwardDate\": \"2000-01-01Z\"}}}}",
+  "url_avis": "https://www.boamp.fr/pages/avis/?q=idweb:26-81306"
+ },
+ "approch_projet": {
+  "code": 64516,
+  "libelle": "06 – MENTON – PAF – ST LOUIS – Restructuration",
+  "statut": "Ouvert",
+  "description": "06 – MENTON – PAF – ST LOUIS – Restructuration",
+  "siren_de_l_entite_acheteuse": 110014016,
+  "categorie_d_achat": "Travaux",
+  "code_s_cpv": "45259900",
+  "responsable": null,
+  "date_previsionnelle_de_publication": "2027-01-09",
+  "date_cible_de_remise_des_offres": null,
+  "type_de_procedure": null,
+  "lien_vers_la_consultation": null,
+  "montant_estime_du_marche": "1M - 5M€",
+  "duree_previsionnelle_du_marche": 24,
+  "departement_s_d_execution_du_marche": "01|03|02|04|05|06|07|08|09|10|11|13|12|14|15|16|17|18|19|22|21|23|25|24|26|27|28|29|2A|2B|30|31|32|33|34|36|35|37|38|39|40|41|42|43|44|45|46|48|47|49|50|51|52|56|54|59|63|53|67|66|70|69|73|68|74|65|75|62|57|77|79|80|81|82|83|88|84|92|85|86|89|58|64|90|94|61|87|60|93|55|76|91|71|72|78|95",
+  "marche_reserve": null,
+  "considerations_sociales": "Non",
+  "considerations_environnementales": "Non",
+  "etat_de_l_espace_d_echanges": "Fermé",
+  "a_publier_sur_le_site_du_marche_de_l_inclusion": "Oui",
+  "nomenclature_hospitalier": null
+ }
+}
