@@ -197,8 +197,14 @@ export default async function Accueil() {
   const nomsDepartements = new Map<string, string | null>();
   for (const d of departementsCarte) {
     nomsDepartements.set(d.code, d.nom);
-    // NULL = aucun montant connu → laissé « donnée manquante », jamais 0
-    if (d.montant !== null && codesCarte.has(d.code)) valeursCarte[d.code] = d.montant;
+    // NULL = aucun montant connu → laissé « donnée manquante », jamais 0.
+    // Arrondi à l'euro : ces montants sont sérialisés tels quels dans le
+    // payload RSC de l'accueil, où SQLite les livre en flottants à 7 décimales
+    // (« 902703865.3733331 »). Ils sont affichés au million près par la carte
+    // et son échelle : les décimales sont du bruit qui ne sert qu'à gonfler le
+    // payload (406 flottants à ≥ 3 décimales sur la seule page d'accueil).
+    if (d.montant !== null && codesCarte.has(d.code))
+      valeursCarte[d.code] = Math.round(d.montant);
   }
   // Préfectures (chefs-lieux) : poids = montant 12 mois de LEUR département,
   // même unité que l'aplat → un seul format, tooltips honnêtes.
@@ -218,10 +224,14 @@ export default async function Accueil() {
       ? `${anneeExecution - 1}${execution.dateFinMois.slice(4)}`
       : null;
 
+  // Même raison : ces deux valeurs partent dans le payload RSC et sont
+  // affichées à 2 et 1 décimale (colonnes ci-dessous). On les arrondit à
+  // 2 décimales, soit la précision réellement rendue — pas une de plus.
+  const arrondi2 = (v: number) => Math.round(v * 100) / 100;
   const lignesMinisteres = ministeres2025.map((m) => ({
     ministere: m.ministere,
-    cpMd: m.cp / 1e9,
-    partPct: m.partPct,
+    cpMd: arrondi2(m.cp / 1e9),
+    partPct: arrondi2(m.partPct),
   }));
   const colonnesMinisteres: Colonne<(typeof lignesMinisteres)[number]>[] = [
     { cle: "ministere", entete: "Ministère" },

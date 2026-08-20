@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { formatNombre } from "@/lib/format";
 import { urlSite } from "@/lib/basePath";
@@ -49,11 +50,35 @@ const STYLE_LABEL_FILTRE =
 const STYLE_BOUTON =
   "rounded-lg border border-card-border bg-raised px-3 py-1.5 text-[13px] text-ink transition-colors hover:bg-hover";
 
-/** Lien vers une fiche élu (id = `elus.id`). */
+/**
+ * Lien vers une fiche élu (id = `elus.id`), SANS préchargement au viewport.
+ *
+ * POURQUOI : « Tout afficher » rend 577 lignes (députés) ou 348 (sénateurs).
+ * En préchargement par défaut, un simple défilement de la liste déclenche
+ * autant de requêtes RSC de fiches — jusqu'à ~6,7 Mo compressés pour un
+ * visiteur qui n'ouvrira qu'une fiche ou deux. Mesuré sur le trafic réel :
+ * 382 fiches préchargées (2,16 Mo) pour 43 fiches réellement ouvertes.
+ *
+ * En Next 16.3.1, `prefetch={false}` coupe aussi le survol (cf. MainNav) : on
+ * réarme donc à la main sur survol / focus / premier contact tactile, ce qui
+ * conserve une navigation tiède sur la ligne que le visiteur vise vraiment.
+ */
 function LienFiche({ id, texte }: { id: string; texte: string }) {
+  const router = useRouter();
+  const demandee = useRef(false);
+  const href = `/elus/${encodeURIComponent(id)}`;
+  const precharger = useCallback(() => {
+    if (demandee.current) return;
+    demandee.current = true;
+    router.prefetch(href);
+  }, [router, href]);
   return (
     <Link
-      href={`/elus/${encodeURIComponent(id)}`}
+      href={href}
+      prefetch={false}
+      onMouseEnter={precharger}
+      onFocus={precharger}
+      onTouchStart={precharger}
       className="text-ink underline decoration-dotted underline-offset-2 transition-colors hover:text-accent"
     >
       {texte}
