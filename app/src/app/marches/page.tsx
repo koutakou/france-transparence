@@ -4,6 +4,7 @@ import { AlertItem, type Gravite } from "@/components/ui/AlertItem";
 import { AppelsOffres } from "@/components/client/AppelsOffres";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
+import { JsonLd } from "@/components/JsonLd";
 import { CarteDepartements } from "@/components/client/CarteDepartements";
 import { DataTable } from "@/components/ui/DataTable";
 import { Donut, type DonutPart } from "@/components/ui/Donut";
@@ -15,7 +16,7 @@ import { StatStrip } from "@/components/ui/StatStrip";
 import { TableTronquee } from "@/components/client/TableTronquee";
 import { formatDateFr, formatEuros, formatNombre, formatPct } from "@/lib/format";
 import { chargerDonneesMarches, type AlerteMarches } from "@/lib/queries/marches";
-import { metadonneesPage } from "@/lib/seo";
+import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
 /**
  * Page STATIQUE (site pré-rendu quotidiennement) : tout est calculé au
@@ -25,11 +26,25 @@ import { metadonneesPage } from "@/lib/seo";
  * chaque construction du site — pas à chaque affichage.
  */
 
+// Chemin, titre et description nommés UNE FOIS : les métadonnées et le
+// balisage JSON-LD décrivent la même page, ils ne peuvent donc pas la
+// décrire différemment le jour où l'un des deux est retouché.
+const CHEMIN = "/marches/";
+const TITRE = "Commande publique";
+const DESCRIPTION =
+  "Marchés publics notifiés et appels d’offres en cours : montants, attributaires, répartition par département — DECP consolidées et BOAMP, données datées.";
+
 export const metadata: Metadata = metadonneesPage({
-  chemin: "/marches/",
-  titre: "Commande publique",
-  description:
-    "Marchés publics notifiés et appels d’offres en cours : montants, attributaires, répartition par département — DECP consolidées et BOAMP, données datées.",
+  chemin: CHEMIN,
+  titre: TITRE,
+  description: DESCRIPTION,
+});
+
+const BALISAGE = jsonLdPage({
+  chemin: CHEMIN,
+  nom: TITRE,
+  description: DESCRIPTION,
+  ariane: [{ nom: "Accueil", chemin: "/" }, { nom: TITRE }],
 });
 
 /* ------------------------------------------------------------------ */
@@ -201,6 +216,7 @@ export default async function PageMarches() {
 
   return (
     <div className="flex flex-col gap-6">
+      <JsonLd donnees={BALISAGE} />
       {/* ---------------------------------------------------------- */}
       {/* En-tête honnête                                            */}
       {/* ---------------------------------------------------------- */}

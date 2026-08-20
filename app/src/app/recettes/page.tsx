@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
+import { JsonLd } from "@/components/JsonLd";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { DeltaPct } from "@/components/ui/DeltaPct";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
@@ -16,16 +17,30 @@ import {
   getSourceRecettes,
   LIGNE_ID_TVA,
 } from "@/lib/queries/recettes";
-import { metadonneesPage } from "@/lib/seo";
+import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
 // Rendu statique : la donnée ne change qu'à l'ingestion, le site est
 // reconstruit après chaque ingestion (docs/deploiement/DECISION.md).
 
+// Chemin, titre et description nommés UNE FOIS : les métadonnées et le
+// balisage JSON-LD décrivent la même page, ils ne peuvent donc pas la
+// décrire différemment le jour où l'un des deux est retouché.
+const CHEMIN = "/recettes/";
+const TITRE = "Recettes de l'État";
+const DESCRIPTION =
+  "Recettes nettes du budget général de l'État (DGFiP, situations mensuelles) : recettes fiscales par grand impôt, recettes non fiscales, fonds de concours — séries depuis 2013.";
+
 export const metadata: Metadata = metadonneesPage({
-  chemin: "/recettes/",
-  titre: "Recettes de l'État",
-  description:
-    "Recettes nettes du budget général de l'État (DGFiP, situations mensuelles) : recettes fiscales par grand impôt, recettes non fiscales, fonds de concours — séries depuis 2013.",
+  chemin: CHEMIN,
+  titre: TITRE,
+  description: DESCRIPTION,
+});
+
+const BALISAGE = jsonLdPage({
+  chemin: CHEMIN,
+  nom: TITRE,
+  description: DESCRIPTION,
+  ariane: [{ nom: "Accueil", chemin: "/" }, { nom: TITRE }],
 });
 
 const MOIS_COURTS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
@@ -140,6 +155,7 @@ export default async function PageRecettes() {
 
   return (
     <div className="flex flex-col gap-6">
+      <JsonLd donnees={BALISAGE} />
       {/* En-tête de module */}
       <section className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="max-w-2xl">

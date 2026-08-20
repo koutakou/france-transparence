@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { AlertItem, type Gravite } from "@/components/ui/AlertItem";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
+import { JsonLd } from "@/components/JsonLd";
 import { DataTable } from "@/components/ui/DataTable";
 import { Donut } from "@/components/ui/Donut";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
@@ -17,16 +18,30 @@ import {
   type DecretAidePublique,
   type PartiTopProduits,
 } from "@/lib/queries/financement";
-import { metadonneesPage } from "@/lib/seo";
+import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
 // Rendu statique : la donnée ne change qu'à l'ingestion, le site est
 // reconstruit après chaque ingestion (docs/deploiement/DECISION.md).
 
+// Chemin, titre et description nommés UNE FOIS : les métadonnées et le
+// balisage JSON-LD décrivent la même page, ils ne peuvent donc pas la
+// décrire différemment le jour où l'un des deux est retouché.
+const CHEMIN = "/financement/";
+const TITRE = "Financement de la vie politique";
+const DESCRIPTION =
+  "Comptes des partis politiques, dons et cotisations, aide publique et comptes de campagne (CNCCFP) : les flux d'argent de la vie politique, sourcés et datés.";
+
 export const metadata: Metadata = metadonneesPage({
-  chemin: "/financement/",
-  titre: "Financement de la vie politique",
-  description:
-    "Comptes des partis politiques, dons et cotisations, aide publique et comptes de campagne (CNCCFP) : les flux d'argent de la vie politique, sourcés et datés.",
+  chemin: CHEMIN,
+  titre: TITRE,
+  description: DESCRIPTION,
+});
+
+const BALISAGE = jsonLdPage({
+  chemin: CHEMIN,
+  nom: TITRE,
+  description: DESCRIPTION,
+  ariane: [{ nom: "Accueil", chemin: "/" }, { nom: TITRE }],
 });
 
 /** Toggle « Vue tableau » — la jumelle WCAG de chaque graphique (DATAVIZ §7/§9). */
@@ -206,6 +221,7 @@ export default async function FinancementPage() {
 
   return (
     <section className="flex flex-col gap-6">
+      <JsonLd donnees={BALISAGE} />
       {/* ── En-tête ─────────────────────────────────────────────────── */}
       <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="max-w-2xl">

@@ -313,6 +313,67 @@ export function filAriane(
   };
 }
 
+/**
+ * `WebPage` + `BreadcrumbList` — le balisage de base d'une page de tableau
+ * de bord.
+ *
+ * CE QU'IL DIT, ET RIEN DE PLUS : ce que la page est (`WebPage`), comment
+ * elle s'appelle et se résume, de quel site elle fait partie, en quelle
+ * langue, qu'elle est librement accessible, et où elle se situe dans
+ * l'arborescence. Le `nom` est le titre de la page DANS SA FORME ENTIÈRE :
+ * le JSON-LD n'a aucune contrainte de largeur de carte de partage, un titre
+ * raccourci pour tenir dans un aperçu social n'a pas à l'être ici.
+ *
+ * CE QU'IL NE DIT PAS, DÉLIBÉRÉMENT :
+ * - pas de `Dataset` : les exports JSON du site sont DÉJÀ décrits, au
+ *   complet (licence, `distribution`, `dateModified`, couverture
+ *   temporelle), par `jsonLdCatalogueDonnees()` sur /donnees. Les
+ *   redéclarer ici sous le même `@id` avec un sous-ensemble de propriétés,
+ *   c'est organiser leur divergence ; en déclarer de nouveaux pour des
+ *   pages qui n'offrent AUCUN téléchargement, c'est annoncer un jeu de
+ *   données que personne ne peut obtenir ;
+ * - pas de `dateModified` : la date du build n'est pas une date de donnée,
+ *   et la fraîcheur RÉELLE de chaque page est celle de plusieurs sources
+ *   aux rythmes différents — un seul champ ne peut pas la dire sans mentir.
+ *   Elle est affichée à l'écran, source par source, par les badges de
+ *   fraîcheur ;
+ * - pas de `license` : la Licence Ouverte porte sur les DONNÉES publiques
+ *   agrégées (c'est ce que dit le pied de page, et ce que porte le nœud
+ *   `WebSite`), pas sur la page qui les met en scène.
+ *
+ * Le fil d'Ariane est le seul de ces balisages que Google restitue
+ * visiblement (chemin affiché sous le lien de résultat) : c'est lui qui
+ * justifie l'ajout, le reste est de la désambiguïsation d'entité.
+ */
+export function jsonLdPage(page: {
+  /** Chemin de la page, slash final compris — le MÊME que la canonique. */
+  chemin: string;
+  /** Nom de la page : le titre des métadonnées, sans suffixe de gabarit. */
+  nom: string;
+  /** Résumé de la page : la description des métadonnées. */
+  description: string;
+  /**
+   * Fil d'Ariane COMPLET, accueil inclus, la page courante en dernier et
+   * SANS chemin (elle ne se lie pas à elle-même).
+   */
+  ariane: { nom: string; chemin?: string }[];
+}): NoeudJsonLd {
+  const url = urlAbsolue(page.chemin);
+  return graphe([
+    {
+      "@type": "WebPage",
+      "@id": `${url}#page`,
+      url,
+      name: page.nom,
+      description: page.description,
+      inLanguage: "fr-FR",
+      isAccessibleForFree: true,
+      isPartOf: { "@id": ID_SITE },
+      breadcrumb: filAriane(page.ariane),
+    },
+  ]);
+}
+
 /* ------------------------------------------------------------------ */
 /* Jeux de données (/donnees)                                          */
 /* ------------------------------------------------------------------ */

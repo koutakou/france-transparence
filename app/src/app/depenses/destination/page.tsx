@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BarList } from "@/components/ui/BarList";
+import { JsonLd } from "@/components/JsonLd";
 import { Card } from "@/components/ui/Card";
 import { DataTable } from "@/components/ui/DataTable";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
@@ -11,16 +12,34 @@ import {
   getTitresDestination2025,
   type MissionDestination2025,
 } from "@/lib/queries/depenses";
-import { metadonneesPage } from "@/lib/seo";
+import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
 // Rendu statique : la donnée ne change qu'à l'ingestion, le site est
 // reconstruit après chaque ingestion (docs/deploiement/DECISION.md).
 
+// Titre, description et fil d'Ariane sont nommés une fois : les métadonnées
+// et le balisage JSON-LD décrivent la même page, ils ne peuvent donc pas la
+// décrire différemment.
+const CHEMIN = "/depenses/destination/";
+const TITRE = "Budget 2025 par destination";
+const DESCRIPTION =
+  "Les 46 missions du budget de l'État (PLF 2025) et leur ventilation par titre : chaque mission se déplie en programmes, actions et sous-actions — crédits de paiement et autorisations d'engagement.";
+
 export const metadata: Metadata = metadonneesPage({
-  chemin: "/depenses/destination/",
-  titre: "Budget 2025 par destination",
-  description:
-    "Les 46 missions du budget de l'État (PLF 2025) et leur ventilation par titre : chaque mission se déplie en programmes, actions et sous-actions — crédits de paiement et autorisations d'engagement.",
+  chemin: CHEMIN,
+  titre: TITRE,
+  description: DESCRIPTION,
+});
+
+const BALISAGE = jsonLdPage({
+  chemin: CHEMIN,
+  nom: TITRE,
+  description: DESCRIPTION,
+  ariane: [
+    { nom: "Accueil", chemin: "/" },
+    { nom: "Dépenses de l'État", chemin: "/depenses/" },
+    { nom: TITRE },
+  ],
 });
 
 /** `823041234567` → `823,0 Md€` (précision maîtrisée). */
@@ -90,6 +109,7 @@ export default async function PageDestination() {
 
   return (
     <div className="flex flex-col gap-6">
+      <JsonLd donnees={BALISAGE} />
       {/* En-tête de module */}
       <section className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="max-w-2xl">

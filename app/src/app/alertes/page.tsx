@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AlertesListe } from "@/components/client/AlertesListe";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
+import { JsonLd } from "@/components/JsonLd";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { formatDateFr, formatNombre } from "@/lib/format";
 import {
@@ -10,7 +11,7 @@ import {
   getAlertesStats,
   getAlertesTypes,
 } from "@/lib/queries/alertes";
-import { metadonneesPage } from "@/lib/seo";
+import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
 /**
  * Page STATIQUE (site pré-rendu quotidiennement) : agrégats et première
@@ -20,11 +21,28 @@ import { metadonneesPage } from "@/lib/seo";
  * déplie règle + base légale (docs/NOTES-FRONT.md §Alertes).
  */
 
+// Chemin, titre et description nommés UNE FOIS : les métadonnées et le
+// balisage JSON-LD décrivent la même page, ils ne peuvent donc pas la
+// décrire différemment le jour où l'un des deux est retouché.
+const CHEMIN = "/alertes/";
+const TITRE = "Alertes transparence";
+const DESCRIPTION =
+  "Constats sourcés : déclarations HATVP non déposées, comptes de campagne rejetés, lobbying non déclaré — chaque alerte avec sa règle et sa base légale.";
+
 export const metadata: Metadata = metadonneesPage({
-  chemin: "/alertes/",
-  titre: "Alertes transparence",
-  description:
-    "Constats sourcés : déclarations HATVP non déposées, comptes de campagne rejetés, lobbying non déclaré — chaque alerte avec sa règle et sa base légale.",
+  chemin: CHEMIN,
+  titre: TITRE,
+  description: DESCRIPTION,
+});
+
+// Fil d'Ariane à deux niveaux : la page est hors navigation principale, on
+// n'invente donc pas de rubrique parente qui n'existe pas — elle s'atteint
+// depuis l'accueil.
+const BALISAGE = jsonLdPage({
+  chemin: CHEMIN,
+  nom: TITRE,
+  description: DESCRIPTION,
+  ariane: [{ nom: "Accueil", chemin: "/" }, { nom: TITRE }],
 });
 
 export default async function PageAlertes() {
@@ -54,6 +72,7 @@ export default async function PageAlertes() {
 
   return (
     <section className="flex flex-col gap-6">
+      <JsonLd donnees={BALISAGE} />
       {/* En-tête factuel */}
       <header className="flex flex-col gap-2">
         <h1 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BarList } from "@/components/ui/BarList";
+import { JsonLd } from "@/components/JsonLd";
 import { Card } from "@/components/ui/Card";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { StatStrip } from "@/components/ui/StatStrip";
@@ -13,7 +14,7 @@ import {
   LIBELLES_TYPEBUDGET,
   type ActionDestination,
 } from "@/lib/queries/depenses";
-import { metadonneesPage } from "@/lib/seo";
+import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
 /**
  * Page statique d'une mission (S21) : programme → action → sous-action en
@@ -31,6 +32,22 @@ interface Props {
   params: Promise<{ mission: string }>;
 }
 
+/** Fil d'Ariane commun aux métadonnées et au balisage : Accueil → Dépenses →
+ *  Budget par destination → la mission (libellé COMPLET, jamais tronqué). */
+function ariane(libelle: string): { nom: string; chemin?: string }[] {
+  return [
+    { nom: "Accueil", chemin: "/" },
+    { nom: "Dépenses de l'État", chemin: "/depenses/" },
+    { nom: "Budget 2025 par destination", chemin: "/depenses/destination/" },
+    { nom: `Mission « ${libelle} »` },
+  ];
+}
+
+/** Description de la page — le libellé y figure ENTIER, elle n'est pas coupée. */
+function descriptionMission(libelle: string): string {
+  return `Mission « ${libelle} » du PLF 2025 : programmes, actions et sous-actions, crédits de paiement et autorisations d'engagement, ventilation par titre.`;
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { mission } = await params;
   const arbre = getArbreMission(mission);
@@ -38,7 +55,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     chemin: `/depenses/destination/${mission}/`,
     ...(arbre && {
       titre: `Mission « ${arbre.libelle} » — budget 2025`,
-      description: `Mission « ${arbre.libelle} » du PLF 2025 : programmes, actions et sous-actions, crédits de paiement et autorisations d'engagement, ventilation par titre.`,
+      description: descriptionMission(arbre.libelle),
     }),
   });
 }
@@ -124,6 +141,15 @@ export default async function PageMission({ params }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Le `name` du balisage porte le libellé ENTIER, comme le <h1>. */}
+      <JsonLd
+        donnees={jsonLdPage({
+          chemin: `/depenses/destination/${mission}/`,
+          nom: `Mission « ${arbre.libelle} »`,
+          description: descriptionMission(arbre.libelle),
+          ariane: ariane(arbre.libelle),
+        })}
+      />
       {/* En-tête de module */}
       <section className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="max-w-2xl">

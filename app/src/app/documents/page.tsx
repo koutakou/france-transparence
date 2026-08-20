@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
+import { JsonLd } from "@/components/JsonLd";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { Donut } from "@/components/ui/Donut";
 import { FluxTextes } from "@/components/client/FluxTextes";
@@ -18,7 +19,7 @@ import {
   getRepartitionNatures,
   type ParutionJour,
 } from "@/lib/queries/documents";
-import { metadonneesPage } from "@/lib/seo";
+import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
 /**
  * Documents — Journal officiel. Page STATIQUE (site pré-rendu
@@ -30,11 +31,25 @@ import { metadonneesPage } from "@/lib/seo";
  * uniquement — jamais de fetch de contenu externe.
  */
 
+// Chemin, titre et description nommés UNE FOIS : les métadonnées et le
+// balisage JSON-LD décrivent la même page, ils ne peuvent donc pas la
+// décrire différemment le jour où l'un des deux est retouché.
+const CHEMIN = "/documents/";
+const TITRE = "Journal officiel";
+const DESCRIPTION =
+  "Lois, décrets et nominations du Journal officiel, à parution — source DILA.";
+
 export const metadata: Metadata = metadonneesPage({
-  chemin: "/documents/",
-  titre: "Journal officiel",
-  description:
-    "Lois, décrets et nominations du Journal officiel, à parution — source DILA.",
+  chemin: CHEMIN,
+  titre: TITRE,
+  description: DESCRIPTION,
+});
+
+const BALISAGE = jsonLdPage({
+  chemin: CHEMIN,
+  nom: TITRE,
+  description: DESCRIPTION,
+  ariane: [{ nom: "Accueil", chemin: "/" }, { nom: TITRE }],
 });
 
 /* ------------------------------------------------------------------ */
@@ -127,6 +142,7 @@ export default async function DocumentsPage() {
 
   return (
     <section className="flex flex-col gap-6">
+      <JsonLd donnees={BALISAGE} />
       {/* ------------------------------- En-tête ------------------------------- */}
       <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="max-w-3xl">
