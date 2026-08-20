@@ -22,7 +22,12 @@ import {
   tronquerInterets,
 } from "@/lib/queries/declarations";
 import type { MetaSource } from "@/lib/db";
-import { jsonLdFicheElu, metadonneesPage, type RoleElu } from "@/lib/seo";
+import {
+  jsonLdFicheElu,
+  metadonneesFicheProfil,
+  metadonneesPage,
+  type RoleElu,
+} from "@/lib/seo";
 
 /**
  * Fiches PRÉ-GÉNÉRÉES au build, limitées aux mandats nationaux et exécutifs
@@ -85,7 +90,19 @@ export async function generateMetadata({
     elu.uid_an || elu.matricule_senat
       ? `Mandats, activité parlementaire et déclarations HATVP de ${nomComplet}, à partir des données publiques officielles (AN, Sénat, HATVP, RNE).`
       : `Mandats et déclarations HATVP de ${nomComplet}, à partir des données publiques officielles (RNE, HATVP).`;
-  return metadonneesPage({ chemin, titre: `${nomComplet} — Élus`, description });
+  // `metadonneesFicheProfil` et non `metadonneesPage` : cette page décrit une
+  // PERSONNE, son `og:type` vaut donc « profile » — ce que son JSON-LD dit
+  // déjà (`ProfilePage` + `Person`), et que la carte de partage taisait.
+  // `prenom` et `nom` sont pris TELS QU'EN BASE, jamais reconstitués en
+  // découpant `nomComplet` : un prénom composé ou une particule y
+  // produiraient une civilité fausse sur une personne réelle.
+  return metadonneesFicheProfil({
+    chemin,
+    titre: `${nomComplet} — Élus`,
+    description,
+    prenom: elu.prenom,
+    nom: elu.nom,
+  });
 }
 
 /* ------------------------------------------------------------------ */

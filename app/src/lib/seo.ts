@@ -111,6 +111,14 @@ export const IMAGE_PARTAGE = {
 };
 
 /**
+ * Les seuls `og:type` que le site sait décrire honnêtement : des pages, et
+ * des fiches de personnes. Volontairement fermé — ajouter « article » ou
+ * « video » exigerait les propriétés obligatoires qui vont avec, qu'aucune
+ * page ne possède aujourd'hui.
+ */
+export type TypeOpenGraph = "website" | "profile";
+
+/**
  * Bloc `openGraph` COMPLET d'une page — à n'appeler que d'ici et du layout.
  *
  * POURQUOI il recopie tout (type, siteName, locale, image) au lieu de ne
@@ -135,15 +143,39 @@ export const IMAGE_PARTAGE = {
  * Omis (layout racine, page 404), aucun `og:url` n'est émis : une page
  * d'erreur servie sous n'importe quelle adresse n'a pas d'URL canonique à
  * revendiquer, et en annoncer une serait un mensonge.
+ *
+ * `type` reste « website » par défaut — c'est ce qu'est chaque tableau de
+ * bord du site. Une fiche d'élu, elle, décrit UNE PERSONNE : `og:type` y vaut
+ * « profile », comme le JSON-LD de la même page le dit déjà (`ProfilePage` +
+ * `Person`). Les deux descriptions de la page doivent raconter la même chose.
+ *
+ * `profil` n'est lu que pour « profile », et seuls les champs RÉELLEMENT
+ * disponibles séparément en base (`elus.prenom`, `elus.nom`) sont émis :
+ * `profile:first_name` et `profile:last_name` ne sont JAMAIS reconstitués en
+ * découpant un nom complet, faute de règle sûre (particules, prénoms
+ * composés, noms d'usage) — une civilité fausse sur une personne réelle est
+ * un dommage, pas une imprécision.
  */
-export function openGraphPage(chemin?: string): NonNullable<Metadata["openGraph"]> {
-  return {
-    type: "website",
+export function openGraphPage(
+  chemin?: string,
+  type: TypeOpenGraph = "website",
+  profil?: { prenom?: string | null; nom?: string | null },
+): NonNullable<Metadata["openGraph"]> {
+  const commun = {
     siteName: NOM_SITE,
     locale: "fr_FR",
     images: [IMAGE_PARTAGE],
     url: chemin,
   };
+  if (type === "profile") {
+    return {
+      ...commun,
+      type: "profile",
+      ...(profil?.prenom ? { firstName: profil.prenom } : {}),
+      ...(profil?.nom ? { lastName: profil.nom } : {}),
+    };
+  }
+  return { ...commun, type: "website" };
 }
 
 /**
@@ -179,6 +211,37 @@ export function metadonneesPage(page: {
     ...(page.description !== undefined && { description: page.description }),
     alternates: { canonical: page.chemin },
     openGraph: openGraphPage(page.chemin),
+  };
+}
+
+/**
+ * Métadonnées d'une fiche de PERSONNE — `metadonneesPage()` au mot près,
+ * `og:type=profile` en plus.
+ *
+ * POURQUOI une fabrique séparée plutôt qu'un paramètre de plus sur
+ * `metadonneesPage()` : `prenom` et `nom` n'ont de sens que pour une
+ * personne, et treize pages sur quatorze n'en décrivent aucune. Le bloc
+ * `openGraph` est reconstruit À PARTIR DU MÊME `page.chemin` que la
+ * canonique posée par `metadonneesPage()` : la garantie « canonique ==
+ * og:url » tient donc ici exactement comme ailleurs, elle ne dépend pas de
+ * l'ordre des clés.
+ */
+export function metadonneesFicheProfil(page: {
+  /** Chemin de la fiche, slash final compris. */
+  chemin: string;
+  titre?: string;
+  description?: string;
+  /** Prénom TEL QU'EN BASE (`elus.prenom`) — jamais découpé d'un nom complet. */
+  prenom?: string | null;
+  /** Nom TEL QU'EN BASE (`elus.nom`). */
+  nom?: string | null;
+}): Metadata {
+  return {
+    ...metadonneesPage(page),
+    openGraph: openGraphPage(page.chemin, "profile", {
+      prenom: page.prenom,
+      nom: page.nom,
+    }),
   };
 }
 
