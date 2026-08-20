@@ -3,7 +3,7 @@ import Link from "next/link";
 import { LogoBouclier } from "@/components/LogoBouclier";
 import { MainNav } from "@/components/MainNav";
 import { SearchBox } from "@/components/ui/SearchBox";
-import { openGraphPage } from "@/lib/seo";
+import { IMAGE_PARTAGE, openGraphPage } from "@/lib/seo";
 import { REPO_URL, SITE_URL } from "@/lib/site";
 import "./globals.css";
 
@@ -27,9 +27,17 @@ export const metadata: Metadata = {
   // Sans `url` : la 404 est servie sous n'importe quelle adresse, elle n'a
   // aucune URL propre à revendiquer.
   openGraph: openGraphPage(),
+  // La carte X, elle, est bien HÉRITÉE par toutes les pages : aucune n'en
+  // déclare, la clé `twitter` du layout n'est donc jamais remplacée.
+  // L'image est donnée en OBJET `{ url, alt }` et non en chaîne nue : une
+  // chaîne ne produit que `twitter:image`, et X ne retombe PAS
+  // systématiquement sur `og:image:alt` — la carte perdait son texte
+  // alternatif, c'est-à-dire toute description pour qui ne voit pas l'image.
+  // L'URL et l'alternative viennent de la constante partagée de seo.ts, pour
+  // qu'une image de partage changée un jour le soit à un seul endroit.
   twitter: {
     card: "summary_large_image",
-    images: [`${SITE_URL}/og.png`],
+    images: [{ url: IMAGE_PARTAGE.url, alt: IMAGE_PARTAGE.alt }],
   },
 };
 

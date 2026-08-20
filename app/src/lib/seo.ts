@@ -96,8 +96,14 @@ export function graphe(noeuds: NoeudJsonLd[]): NoeudJsonLd {
  *
  * URL ABSOLUE en dur : avec `metadataBase`, un chemin « /og.png » perdrait le
  * sous-chemin d'un déploiement sous basePath (SITE_URL le contient déjà).
+ *
+ * EXPORTÉ parce que la carte X du layout racine doit porter la MÊME image ET
+ * le MÊME texte alternatif : X ne retombe pas systématiquement sur
+ * `og:image:alt`, il faut lui poser `twitter:image:alt`. Recopier l'URL et
+ * l'alternative textuelle dans le layout, c'était garantir qu'un jour l'une
+ * des deux décrirait une autre image que celle réellement partagée.
  */
-const IMAGE_PARTAGE = {
+export const IMAGE_PARTAGE = {
   url: `${SITE_URL}/og.png`,
   width: 1200,
   height: 630,
