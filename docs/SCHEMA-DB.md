@@ -788,6 +788,44 @@ CREATE TABLE dotations_dgf (
     PRIMARY KEY (niveau, code, exercice)
 );
 CREATE INDEX idx_dgf_niveau_exercice ON dotations_dgf(niveau, exercice);
+CREATE TABLE cada_administrations (
+    id             INTEGER PRIMARY KEY,       -- surface, réattribué à chaque ingestion
+    libelle        TEXT    NOT NULL,          -- graphie majoritaire, telle que publiée
+    categorie      TEXT    NOT NULL CHECK (categorie IN
+                     ('ministere', 'prefecture', 'commune', 'departement_region', 'sante', 'enseignement', 'securite_sociale', 'finances', 'justice_police', 'autorite_independante', 'autre')),
+    nb_dossiers    INTEGER NOT NULL CHECK (nb_dossiers > 0),
+    premiere_annee INTEGER NOT NULL,
+    derniere_annee INTEGER NOT NULL
+);
+CREATE INDEX idx_cada_admin_categorie
+    ON cada_administrations(categorie, nb_dossiers DESC);
+CREATE TABLE cada_saisines (            -- LE DÉNOMINATEUR : nombre de dossiers
+    administration_id INTEGER NOT NULL REFERENCES cada_administrations(id),
+    annee             INTEGER NOT NULL,
+    type_saisine      TEXT    NOT NULL CHECK (type_saisine IN ('Avis', 'Conseil', 'Sanction')),
+    nb_dossiers       INTEGER NOT NULL CHECK (nb_dossiers > 0),
+    PRIMARY KEY (administration_id, annee, type_saisine)
+) WITHOUT ROWID;
+CREATE TABLE cada_sens (                -- LE FAIT : dossiers portant ce sens
+    administration_id INTEGER NOT NULL REFERENCES cada_administrations(id),
+    annee             INTEGER NOT NULL,
+    type_saisine      TEXT    NOT NULL CHECK (type_saisine IN ('Avis', 'Conseil', 'Sanction')),
+    sens              TEXT    NOT NULL CHECK (sens IN
+                        ('Favorable', 'Défavorable', 'Irrecevable', 'Incompétence', 'Sans objet')),
+    nb_dossiers       INTEGER NOT NULL CHECK (nb_dossiers > 0),
+    PRIMARY KEY (administration_id, annee, type_saisine, sens)
+) WITHOUT ROWID;
+CREATE TABLE cada_motifs (              -- le fondement opposé au demandeur
+    annee        INTEGER NOT NULL,
+    type_saisine TEXT    NOT NULL CHECK (type_saisine IN ('Avis', 'Conseil', 'Sanction')),
+    sens         TEXT    NOT NULL CHECK (sens IN
+                   ('Favorable', 'Défavorable', 'Irrecevable', 'Incompétence', 'Sans objet')),
+    motivation   TEXT,                  -- NULL = sens publié sans motivation
+    nb_dossiers  INTEGER NOT NULL CHECK (nb_dossiers > 0)
+);
+CREATE UNIQUE INDEX idx_cada_motifs_cle
+    ON cada_motifs(annee, type_saisine, sens, ifnull(motivation, ''));
+CREATE INDEX idx_cada_motifs_sens ON cada_motifs(sens, motivation);
 CREATE TABLE trainvie_faits (
     id          TEXT PRIMARY KEY,
     categorie   TEXT NOT NULL CHECK (categorie IN
@@ -795,6 +833,7 @@ CREATE TABLE trainvie_faits (
     libelle     TEXT NOT NULL,
     valeur      REAL NOT NULL CHECK (valeur > 0),
     unite       TEXT NOT NULL,
+    assiette    TEXT CHECK (assiette IS NULL OR assiette IN ('brut', 'net')),
     periode     TEXT NOT NULL,
     institution TEXT NOT NULL,
     source_nom  TEXT NOT NULL,
@@ -857,7 +896,11 @@ CREATE TABLE trainvie_opacites (
 - lobby_agg_trimestres : 34 lignes
 - lobby_entites : 4067 lignes
 - marches_a_venir : 4060 lignes
-- meta_sources : 25 lignes
+- cada_administrations : 16593 lignes (comptage du 20/08/2026)
+- cada_motifs : 2034 lignes (comptage du 20/08/2026)
+- cada_saisines : 32614 lignes (comptage du 20/08/2026)
+- cada_sens : 47297 lignes (comptage du 20/08/2026)
+- meta_sources : 28 lignes (comptage du 20/08/2026)
 - partis : 718 lignes
 - partis_aide_annuelle : 2 lignes
 - partis_comptes : 2179 lignes
@@ -908,3 +951,131 @@ Ce qui n'est **pas** normalisé, et pourquoi :
 - **`hatvp_declarations.date_depot` / `.date_publication`** — les dates
   impossibles sont journalisées, jamais corrigées : toute correction serait
   une devinette.
+
+## Les tables `cada_*` (S38) — ce qu'il faut savoir avant de s'en servir
+
+### 1. Le corpus n'est ingéré qu'en agrégats, et c'est une décision
+
+Le CSV consolidé publié par la CADA pèse 198 Mo, dont **93 % pour la seule
+colonne « Avis »** (176,6 Mio sur 189,2 Mio, mesuré au passage du pipeline) : le texte intégral de chaque décision. Ce texte n'entre
+jamais en base — poids, et prudence : les demandeurs sont anonymisés à la
+source (« X, député »), mais les motivations citent nommément des
+responsables publics. Les quatre tables ne contiennent que des
+dénombrements, un libellé d'administration et le vocabulaire fermé de la
+commission. Les colonnes « Objet », « Mots clés » et « Numéro de dossier »
+ne sont pas ingérées non plus. Coût réel mesuré : **3,61 Mio** de base.
+
+### 2. `cada_saisines` est le seul dénominateur légitime
+
+Une décision porte souvent plusieurs sens (favorable sur une pièce,
+défavorable sur une autre). `cada_sens` compte un dossier **une fois par
+sens présent** : sa somme dépasse donc le nombre de dossiers d'environ un
+cinquième et ne peut jamais servir de total. Toute part se calcule sur
+`cada_saisines`, et la somme des parts dépasse 100 % — c'est correct, et
+l'UI le dit.
+
+Corollaire : **n'additionnez jamais « Défavorable + Incompétence +
+Irrecevable »** pour obtenir « les refus ». Les décisions composites
+seraient comptées deux fois. La page `/frais` s'en tient au seul sens
+« Défavorable » pour cette raison.
+
+### 3. `cada_administrations` est un cinquième vocabulaire d'administrations,
+et c'est assumé
+
+La base n'a **aucun référentiel unifié d'administrations**. Elle en porte
+déjà quatre, disjoints (mesurés le 20/08/2026 sur la base servie) :
+
+| Vocabulaire | Volume | Identifiants |
+|---|---|---|
+| `entites` (`type='ministere'`) | 20 lignes | 2 SIREN sur 20 |
+| `lobby_agg_ministeres` | 357 libellés HATVP historiques | aucun |
+| `jorf_nominations_ministere` | 19 libellés, casse propre au JO | aucun |
+| `trainvie_faits.institution` | 11 libellés | aucun |
+
+Ils ne se joignent pas : sur les 357 libellés AGORA confrontés à `entites`,
+**un seul** correspond exactement.
+
+```sql
+select count(*), sum(exists(select 1 from entites e where e.type='ministere'
+       and upper(e.nom)=upper(m.ministere))) from lobby_agg_ministeres m;
+-- 357|1
+```
+
+`cada_administrations` en ajoute un cinquième, délibérément :
+
+- **le champ source est du texte libre**, sans code ni SIREN, et il court sur
+  **quarante ans** (1984→2024) de dénominations superposées ;
+- sa distribution réelle interdit un référentiel : **16 984 libellés bruts**,
+  dont **plus de dix mille n'apparaissent qu'une fois** (« Mairie de
+  Dœuil-sur-le-Mignon »). Ce n'est pas un référentiel à retrouver, c'est une
+  longue traîne de communes et d'établissements ;
+- replier casse, accents et ponctuation ne ramène qu'à **16 593** entrées :
+  cela réunit « Ministère de la Justice » et « Ministère de la justice », et
+  rien de plus.
+
+Ce repli est **le seul** appliqué. Deux dénominations différentes restent
+deux entrées : « Ministère de la défense » (197 dossiers) et « Ministère
+des Armées » (544) désignent le même ministère à deux époques, mais les
+fusionner serait une reconstitution historique, pas une normalisation — et
+sur quarante ans d'intitulés ministériels, une normalisation hasardeuse
+produirait des agrégats faux, ce qui est bien pire que des libellés bruts.
+
+Le rapprochement avec les quatre autres vocabulaires reste donc **à faire**,
+le jour où un référentiel unifié sera construit. Ce n'est pas une dette
+cachée : c'est écrit ici pour que la table ne devienne pas un vocabulaire
+orphelin dont personne ne sait plus pourquoi il existe.
+
+### 4. `cada_administrations.categorie` est une typologie, pas un classement officiel
+
+Onze catégories, obtenues par **préfixe explicite** de la clé normalisée
+(règles littérales, relisibles une à une dans `pipelines/ingest_cada.py`).
+Ce qui n'entre dans aucune règle reste en **`autre`** — 5 426 libellés,
+**14 130 dossiers, soit 23,2 % du corpus**, affichés comme « non classés » et
+jamais répartis d'office. Une seule exclusion explicite : « Conseil
+départemental de l'**ordre** des médecins » est un ordre professionnel, pas
+une collectivité (48 libellés, 80 dossiers, sans quoi ils gonfleraient
+`departement_region`).
+
+### 5. `cada_motifs.motivation` — le séparateur appartient au vocabulaire
+
+Le champ source « Sens et motivation » concatène des éléments
+`Sens/Motivation` séparés par des virgules, **et certaines motivations
+contiennent une virgule** (« Irrecevable/Documentation, établissement de
+document », 262 dossiers). Une découpe naïve fabriquerait un sens
+« établissement de document » qui n'existe pas. La règle appliquée : un
+fragment n'ouvre un nouvel élément que s'il commence par l'un des **cinq**
+sens du vocabulaire fermé suivi d'un `/` ou de la fin ; sinon il est recollé
+au précédent. Contrôle sur le corpus entier : **zéro fragment orphelin**,
+cinq sens, **89 motivations distinctes** (165 avant normalisation des
+espaces autour du `/` : « Favorable / Sauf vie privée » et
+« Favorable/Sauf vie privée » sont la même règle de droit).
+
+`motivation` est **NULL** — jamais chaîne vide — quand la CADA publie un sens
+sans motivation (« Défavorable » seul, 749 dossiers ; « Favorable » nu, 22 808). D'où l'unicité par
+index d'expression plutôt que par clé primaire, qui interdirait le NULL.
+
+### 6. La colonne « Thème et sous thème » n'est PAS ingérée
+
+Même défaut, mais irréparable : les thèmes eux-mêmes contiennent des
+virgules (« Justice, Ordre Public Et Sécurité », « Economie, Industrie,
+Agriculture ») et le vocabulaire n'est pas publié. La découpe est ambiguë
+dès qu'une décision porte plusieurs thèmes (1 274 lignes sur 60 941).
+Reconstituer la nomenclature à la main serait de l'invention : colonne
+écartée.
+
+### 7. `meta_sources.date_donnees` porte la SÉANCE, jamais la date du dataset
+
+C'est tout l'intérêt éditorial de cette source : le jeu amont porte une date
+de modification récente alors que sa dernière séance a plus de deux ans. La
+fraîcheur enregistrée est celle de la donnée réellement ingérée
+(`2024-04-18` au 20/08/2026), ce qui place S38 en **ALERTE** dans
+`ft-fraicheur` (seuils 730/820 j) au lieu de masquer le décalage. Le
+`notes` de la ligne S38 porte l'écart mesuré au passage du pipeline.
+
+### 8. Les identifiants d'administration sont de surface
+
+`cada_administrations.id` est un entier réattribué à chaque ingestion, par
+ordre alphabétique de clé normalisée. Reproductible à corpus identique, mais
+**instable dans le temps** : ne le stockez nulle part ailleurs, ne le mettez
+dans aucune URL. Les quatre tables sont reconstruites ensemble à chaque
+passage, rien d'autre en base ne les référence.

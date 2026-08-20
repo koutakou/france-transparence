@@ -1,7 +1,8 @@
 /**
- * Requêtes SQL du module « Frais & train de vie » — source S31 : corpus
- * officiel « train de vie » (56 faits sourcés + 8 opacités documentées,
- * docs/NOTES-FRONT.md §« Frais & train de vie »).
+ * Requêtes SQL du module « Frais & train de vie » — deux sources :
+ * S31, corpus officiel « train de vie » (faits sourcés et opacités
+ * documentées, docs/NOTES-FRONT.md §« Frais & train de vie ») ; S38, avis
+ * et conseils de la CADA en agrégats, qui alimentent la carte des verrous.
  *
  * Fichier PROPRE à ce module (jamais partagé avec un autre module).
  * Chaque requête a été rejouée telle quelle le 19/08/2026 via
@@ -32,6 +33,13 @@ export interface TrainvieFait {
   valeur: number;
   /** euros | euros_par_mois | pourcent | personnes | justificatifs | deplacements */
   unite: string;
+  /**
+   * Assiette d'une rémunération telle que la source l'énonce : `"brut"`,
+   * `"net"`, ou `null` quand la question ne se pose pas (enveloppe de frais,
+   * dotation, effectif, total). À AFFICHER dès qu'elle est renseignée : la
+   * page met des barèmes bruts et des montants nets dans la même colonne.
+   */
+  assiette: "brut" | "net" | null;
   periode: string;
   institution: string;
   source_nom: string;
@@ -190,8 +198,8 @@ export function getFraisData(): FraisData | null {
 
   const faits = db
     .prepare(
-      `SELECT id, categorie, libelle, valeur, unite, periode, institution,
-              source_nom, source_url, date_source, notes
+      `SELECT id, categorie, libelle, valeur, unite, assiette, periode,
+              institution, source_nom, source_url, date_source, notes
        FROM trainvie_faits
        ORDER BY categorie, id`,
     )
@@ -221,4 +229,152 @@ export function grouperParCategorie(
     categorie,
     faits: faits.filter((f) => f.categorie === categorie),
   })).filter((g) => g.faits.length > 0);
+}
+
+/* ------------------------------------------------------------------ */
+/* Carte des verrous — source S38 (avis et conseils de la CADA)        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Le complément factuel de la « boîte noire » : la boîte noire dit ce que
+ * la loi ne publie pas, la carte des verrous dit ce que l'administration
+ * refuse de communiquer quand on le lui demande, et sur quel fondement la
+ * CADA lui donne — ou non — raison.
+ *
+ * Toutes les requêtes ci-dessous portent sur `type_saisine = 'Avis'` : un
+ * « conseil » est une administration qui interroge elle-même la CADA en
+ * amont, pas un citoyen à qui l'on a opposé un refus. Les mélanger
+ * fausserait la lecture.
+ */
+
+/** Sens que la CADA peut donner à un avis (vocabulaire fermé du schéma). */
+export const SENS_REFUS = ["Défavorable", "Incompétence", "Irrecevable"] as const;
+
+export interface CadaSens {
+  sens: string;
+  dossiers: number;
+}
+
+export interface CadaMotif {
+  sens: string;
+  /** `null` quand la CADA publie un sens sans motivation. */
+  motivation: string | null;
+  dossiers: number;
+}
+
+export interface CadaCategorie {
+  categorie: string;
+  /** Nombre de libellés distincts rangés dans cette catégorie. */
+  libelles: number;
+  /** Dossiers de type « Avis » visant une administration de la catégorie. */
+  dossiers: number;
+  /** Dossiers où la CADA a rendu un avis défavorable. */
+  defavorable: number;
+}
+
+export interface VerrousCadaData {
+  meta: MetaSource;
+  /** Dossiers de type « Avis » (le refus opposé à un demandeur). */
+  avis: number;
+  /** Dossiers de type « Conseil » (l'administration interroge la CADA). */
+  conseils: number;
+  premiereAnnee: number;
+  derniereAnnee: number;
+  /** Libellés d'administration distincts — pas un référentiel, cf. pipeline. */
+  administrations: number;
+  sens: CadaSens[];
+  motifs: CadaMotif[];
+  categories: CadaCategorie[];
+}
+
+/**
+ * Charge la carte des verrous en une passe (5 requêtes, toutes agrégées).
+ *
+ * @returns `null` si la base ou la source S38 manquent — la page se replie
+ *          alors silencieusement sur le reste du module.
+ */
+export function getVerrousCada(): VerrousCadaData | null {
+  const db = getDb();
+  if (!db) return null;
+
+  const meta =
+    (db
+      .prepare("SELECT * FROM meta_sources WHERE source_id = 'S38'")
+      .get() as MetaSource | undefined) ?? null;
+  if (!meta) return null;
+
+  const volumes = db
+    .prepare(
+      `SELECT type_saisine,
+              SUM(nb_dossiers) AS dossiers,
+              MIN(annee)       AS premiere,
+              MAX(annee)       AS derniere
+         FROM cada_saisines
+        GROUP BY type_saisine`,
+    )
+    .all() as { type_saisine: string; dossiers: number; premiere: number; derniere: number }[];
+  if (volumes.length === 0) return null;
+
+  const avis = volumes.find((v) => v.type_saisine === "Avis");
+  if (!avis) return null;
+
+  const administrations = (
+    db.prepare("SELECT COUNT(*) AS n FROM cada_administrations").get() as { n: number }
+  ).n;
+
+  const sens = db
+    .prepare(
+      `SELECT sens, SUM(nb_dossiers) AS dossiers
+         FROM cada_sens
+        WHERE type_saisine = 'Avis'
+        GROUP BY sens
+        ORDER BY dossiers DESC`,
+    )
+    .all() as CadaSens[];
+
+  const motifs = db
+    .prepare(
+      `SELECT sens, motivation, SUM(nb_dossiers) AS dossiers
+         FROM cada_motifs
+        WHERE type_saisine = 'Avis'
+          AND sens IN ('Défavorable', 'Incompétence', 'Irrecevable')
+        GROUP BY sens, motivation
+        ORDER BY dossiers DESC
+        LIMIT 8`,
+    )
+    .all() as CadaMotif[];
+
+  // « defavorable » ne retient QUE le sens défavorable : additionner les
+  // trois sens de refus double-compterait les dossiers qui en portent
+  // plusieurs (la CADA rend souvent un avis composite).
+  const categories = db
+    .prepare(
+      `SELECT a.categorie,
+              COUNT(*)                   AS libelles,
+              COALESCE(SUM(s.nb_dossiers), 0) AS dossiers,
+              (SELECT COALESCE(SUM(x.nb_dossiers), 0)
+                 FROM cada_sens x
+                 JOIN cada_administrations b ON b.id = x.administration_id
+                WHERE b.categorie = a.categorie
+                  AND x.type_saisine = 'Avis'
+                  AND x.sens = 'Défavorable') AS defavorable
+         FROM cada_administrations a
+         LEFT JOIN cada_saisines s
+                ON s.administration_id = a.id AND s.type_saisine = 'Avis'
+        GROUP BY a.categorie
+        ORDER BY dossiers DESC`,
+    )
+    .all() as CadaCategorie[];
+
+  return {
+    meta,
+    avis: avis.dossiers,
+    conseils: volumes.find((v) => v.type_saisine === "Conseil")?.dossiers ?? 0,
+    premiereAnnee: Math.min(...volumes.map((v) => v.premiere)),
+    derniereAnnee: Math.max(...volumes.map((v) => v.derniere)),
+    administrations,
+    sens,
+    motifs,
+    categories,
+  };
 }

@@ -14,10 +14,11 @@ PY     := $(VENV)/bin/python
 # suivies) — placé avant lui, il n'aurait aucune commune à agréger ;
 # hatvp_declarations APRÈS integrite, dont il lit les élus appariables
 # (nom+prénom+date de naissance) — placé avant lui, il n'aurait aucune fiche
-# à rattacher.
+# à rattacher. cada ne dépend d'aucune autre table (il n'écrit que ses propres
+# agrégats) : il est placé à côté de trainvie, dont il complète le module.
 PIPELINES := referentiels budget_mensuel budget_structure decp boamp approch \
              jorf parlement integrite hatvp_declarations lobbying financement \
-             collectivites elections trainvie
+             collectivites elections trainvie cada
 
 # NB : ne PAS déclarer les cibles ingest-<x> en .PHONY — make saute la
 # recherche de règles implicites (ingest-%) pour les cibles phony.

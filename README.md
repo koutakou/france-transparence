@@ -1,6 +1,6 @@
 # France Transparence
 
-Dashboard web sur la transparence de la vie politique française : dépenses de l'État, commande publique, élus, lobbying, financement politique, frais et train de vie, Journal officiel — **100 % données publiques réelles**, aucun chiffre fabriqué. L'honnêteté est le principe produit : chaque module affiche la date réelle de ses données (badge de fraîcheur alimenté par la table `meta_sources`), le mot « en direct » est banni parce qu'aucune source publique ne le permet, et ce que l'open data ne contient pas est documenté comme tel (la « boîte noire » du module Frais & train de vie). L'ensemble tient dans une base SQLite unique, reconstruite localement depuis 27 sources officielles tracées.
+Dashboard web sur la transparence de la vie politique française : dépenses de l'État, commande publique, élus, lobbying, financement politique, frais et train de vie, Journal officiel — **100 % données publiques réelles**, aucun chiffre fabriqué. L'honnêteté est le principe produit : chaque module affiche la date réelle de ses données (badge de fraîcheur alimenté par la table `meta_sources`), le mot « en direct » est banni parce qu'aucune source publique ne le permet, et ce que l'open data ne contient pas est documenté comme tel (la « boîte noire » du module Frais & train de vie). L'ensemble tient dans une base SQLite unique, reconstruite localement depuis 28 sources officielles tracées.
 
 ![Page d'accueil de France Transparence](docs/screenshots/accueil.png)
 
@@ -53,7 +53,7 @@ La base `data/france.db` (447 Mo, 51 tables) est gitignorée : elle se reconstru
 make ingest-<source>
 ```
 
-avec `<source>` parmi les pipelines déclarés dans la variable `PIPELINES` du `Makefile`, qui fait autorité : `referentiels`, `budget_mensuel`, `budget_structure`, `decp`, `boamp`, `approch`, `jorf`, `parlement`, `integrite`, `lobbying`, `financement`, `collectivites`, `trainvie`.
+avec `<source>` parmi les pipelines déclarés dans la variable `PIPELINES` du `Makefile`, qui fait autorité : `referentiels`, `budget_mensuel`, `budget_structure`, `decp`, `boamp`, `approch`, `jorf`, `parlement`, `integrite`, `hatvp_declarations`, `lobbying`, `financement`, `collectivites`, `elections`, `trainvie`, `cada`.
 
 ## Tests
 
@@ -87,11 +87,11 @@ Détails : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | `/elus/[id]` | Fiche élu | 1 053 fiches statiques (parlementaires et présidences d'exécutifs départementaux/régionaux — les autres élus restent dans les listes et agrégats) : mandats, 30 derniers votes sur les 8 434 scrutins AN (dernier : 21/07/2026, vacances parlementaires), scores Datan crédités, lien HATVP. |
 | `/lobbying` | Lobbying | 4 067 entités inscrites au répertoire HATVP (quotidien, données au 18/08/2026) ; dépenses déclarées par exercice annuel, en fourchettes. |
 | `/financement` | Financement politique | Comptes des partis, exercice 2024 (publié le 10/02/2026 — le dernier possible) ; comptes de campagne des législatives 2024, 4 010 candidats (municipales 2026 : publication attendue fin 2026/2027). |
-| `/frais` | Frais & train de vie | 56 faits chiffrés sourcés (barèmes au 01/01/2026, contrôles exercice 2024, Élysée audité 2024) + 8 opacités documentées — pas de notes de frais : elles ne sont ni publiées ni communicables. |
+| `/frais` | Frais & train de vie | 56 faits chiffrés sourcés (barèmes au 01/01/2026, contrôles exercice 2024, Élysée audité 2024) + 8 opacités documentées — pas de notes de frais : elles ne sont ni publiées ni communicables. **Carte des verrous** : 60 941 avis et conseils de la CADA de 1984 à 2024, dépouillés en agrégats (qui refuse, sur quel fondement, et dans quel sens la commission tranche), avec les 28 mois de retard de versement de la source affichés en clair. |
 | `/collectivites` | Finances locales | Comptes OFGL 2025 (provisoires, chargés en juillet 2026), dotations DGF 2018-2026, carte en €/habitant. |
 | `/documents` | Journal officiel | 2 778 textes des 30 derniers JO (quotidien, JO du jour disponible vers 00h30), filtres lois/décrets/nominations. |
 | `/alertes` | Alertes transparence | 1 590 alertes sur 8 types, chacune avec sa règle de calcul et sa base légale, recalculées à chaque ingestion. |
-| `/donnees` | Données & exports | Catalogue des 27 sources avec fraîcheur mesurée (le moniteur de santé des sources), licences, règles des alertes, 6 exports JSON statiques (méta, alertes, élus, budget mensuel, agrégats marchés, index de recherche) reconstruits à chaque publication. |
+| `/donnees` | Données & exports | Catalogue des 28 sources avec fraîcheur mesurée (le moniteur de santé des sources), licences, règles des alertes, 6 exports JSON statiques (méta, alertes, élus, budget mensuel, agrégats marchés, index de recherche) reconstruits à chaque publication. |
 
 Les volumes chiffrés de ce tableau sont un **instantané daté du 19/08/2026** : la plupart des sources publient quotidiennement, ces nombres bougent donc à chaque ingestion. La seule valeur qui fait foi est celle affichée par le site lui-même, avec la date de ses données — c'est le rôle du badge de fraîcheur et de la page `/donnees`.
 
@@ -115,8 +115,9 @@ Sources majeures (le catalogue complet et daté est sur la page `/donnees` et da
 | OFGL — comptes des collectivités et dotations | annuelle | Licence Ouverte 2.0 |
 | CNCCFP — comptes des partis et comptes de campagne | annuelle / par scrutin | Licence Ouverte |
 | geo.api.gouv.fr, france-geojson, populations INSEE | statique / annuelle | Licence Ouverte |
+| CADA — avis et conseils (ensemble consolidé, agrégats seulement) | irrégulière (lots, 2 à 4 fois par an) | Licence Ouverte (fr-lo) |
 
-Crédits : consolidation DECP par le projet communautaire `decp-processing` de Colin Maudry ; scores calculés par Datan (datan.fr, méthodologie liée dans l'UI) ; DILA (BOAMP, JORF, annuaire, référentiel de l'organisation de l'État) ; HATVP ; OFGL ; INSEE ; CNCCFP ; DGFiP / data.economie.gouv.fr ; fonds de carte france-geojson (Grégoire David) et contours Etalab. Toutes les réutilisations mentionnent leur source, conformément à la Licence Ouverte.
+Crédits : consolidation DECP par le projet communautaire `decp-processing` de Colin Maudry ; scores calculés par Datan (datan.fr, méthodologie liée dans l'UI) ; DILA (BOAMP, JORF, annuaire, référentiel de l'organisation de l'État) ; HATVP ; CADA ; OFGL ; INSEE ; CNCCFP ; DGFiP / data.economie.gouv.fr ; fonds de carte france-geojson (Grégoire David) et contours Etalab. Toutes les réutilisations mentionnent leur source, conformément à la Licence Ouverte.
 
 ## Limites connues
 

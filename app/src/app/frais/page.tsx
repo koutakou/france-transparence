@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { Money } from "@/components/ui/Money";
@@ -7,9 +8,12 @@ import { StatStrip } from "@/components/ui/StatStrip";
 import { ESPACE_FINE, formatDateFr, formatNombre, formatPct } from "@/lib/format";
 import {
   getFraisData,
+  getVerrousCada,
   grouperParCategorie,
+  SENS_REFUS,
   type TrainvieCategorie,
   type TrainvieFait,
+  type VerrousCadaData,
 } from "@/lib/queries/frais";
 import { metadonneesPage } from "@/lib/seo";
 
@@ -60,14 +64,44 @@ function formatDateSourceFr(d: string): string {
   return formatDateFr(d);
 }
 
+/**
+ * Assiette d’un montant (« brut » / « net »), accolée à la valeur.
+ *
+ * OBLIGATOIRE dès que la donnée la porte : cette page range dans la même
+ * colonne des barèmes bruts (indemnités de fonction, plafonds DGCL) et des
+ * montants nets (indemnité perçue par un parlementaire). Sans ce mot, la
+ * comparaison visuelle est fausse — un questeur du Sénat paraîtrait moins
+ * bien traité qu’un sénateur ordinaire, alors qu’on compare un brut à un net.
+ */
+function Assiette({ fait }: { fait: TrainvieFait }) {
+  if (!fait.assiette) return null;
+  return (
+    <span className="ml-1 font-normal text-ink-muted">
+      {fait.assiette === "brut" ? "brut" : "net"}
+    </span>
+  );
+}
+
 /** Valeur d’un fait formatée selon son `unite` (jamais de montant nu). */
 function ValeurFait({ fait }: { fait: TrainvieFait }) {
   switch (fait.unite) {
     case "euros":
       // ≥ 1 M€ : compaction Money (le title porte la valeur exacte).
-      return fait.valeur >= 1e6 ? <Money valeur={fait.valeur} /> : <>{eurosExact(fait.valeur)}</>;
+      return fait.valeur >= 1e6 ? (
+        <Money valeur={fait.valeur} />
+      ) : (
+        <>
+          {eurosExact(fait.valeur)}
+          <Assiette fait={fait} />
+        </>
+      );
     case "euros_par_mois":
-      return <>{eurosExact(fait.valeur)}/mois</>;
+      return (
+        <>
+          {eurosExact(fait.valeur)}/mois
+          <Assiette fait={fait} />
+        </>
+      );
     case "pourcent":
       return <>{formatPct(fait.valeur, Number.isInteger(fait.valeur) ? 0 : 1)}</>;
     case "personnes":
@@ -151,13 +185,193 @@ function ResumeCol({
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* Carte des verrous (S38 — avis de la CADA)                           */
+/* ------------------------------------------------------------------ */
+
+/** Libellés des catégories d'administration produites par le pipeline. */
+const CATEGORIES_CADA: Record<string, string> = {
+  ministere: "Ministères et Premier ministre",
+  prefecture: "Préfectures",
+  commune: "Communes et intercommunalités",
+  departement_region: "Départements et régions",
+  sante: "Hôpitaux et santé",
+  enseignement: "Enseignement et recherche",
+  securite_sociale: "Organismes de sécurité sociale",
+  finances: "Finances publiques et douanes",
+  justice_police: "Justice, police, pénitentiaire",
+  autorite_independante: "Autorités indépendantes",
+  autre: "Autres organismes (non classés)",
+};
+
+/** Écart en mois entre deux dates ISO, arrondi — jamais figé dans le code. */
+function moisEntre(debutIso: string, finIso: string): number {
+  const debut = new Date(debutIso);
+  const fin = new Date(finIso);
+  return Math.round((fin.getTime() - debut.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
+}
+
+/**
+ * La carte des verrous : qui refuse de communiquer, sur quel fondement, et
+ * dans quel sens la CADA tranche.
+ *
+ * Rendue intégralement côté serveur — le site doit rester utilisable sans
+ * JavaScript — et tenue à des agrégats : le corpus compte des dizaines de
+ * milliers de décisions, la page n'en porte que les dénombrements. Chaque
+ * bloc a été pesé : cette carte ajoute une quinzaine de kilo-octets au HTML
+ * de /frais, sur une page qui en fait déjà plus de deux cents.
+ */
+function CarteDesVerrous({ data }: { data: VerrousCadaData }) {
+  const { meta, avis, conseils, premiereAnnee, derniereAnnee, administrations } = data;
+  const retardMois = moisEntre(meta.date_donnees, meta.date_ingestion);
+  const defavorable = data.sens.find((s) => s.sens === "Défavorable")?.dossiers ?? 0;
+  const favorable = data.sens.find((s) => s.sens === "Favorable")?.dossiers ?? 0;
+  const pct = (v: number) => formatPct((100 * v) / avis, 0);
+
+  return (
+    <Card
+      titre="La carte des verrous"
+      sousTitre="Ce que l’administration refuse de communiquer, et ce que la CADA en dit"
+      droite={
+        <FreshnessBadge
+          dateDonnees={meta.date_donnees}
+          source="Avis de la CADA"
+          frequence={meta.frequence}
+          url={meta.url}
+          mention={`retard de versement : ${retardMois} mois`}
+        />
+      }
+    >
+      <div className="flex flex-col gap-5">
+        <p className="max-w-3xl text-[13px] leading-relaxed text-ink-secondary">
+          Quand une administration refuse de communiquer un document, le demandeur peut
+          saisir la Commission d’accès aux documents administratifs, qui rend un avis.
+          Ces avis sont publiés : ils dessinent, décision après décision, la carte des
+          refus. {formatNombre(avis)} avis et {formatNombre(conseils)} conseils sont ici
+          dépouillés, de {premiereAnnee} à {derniereAnnee}, visant{" "}
+          {formatNombre(administrations)} libellés d’administration distincts. Seuls des
+          dénombrements sont conservés : le texte des décisions, qui nomme des
+          responsables publics, n’est pas repris.
+        </p>
+
+        {/* Le piège éditorial, en clair et jamais masqué. */}
+        <p className="max-w-3xl rounded-lg border border-dashed border-raised-border p-3 text-[13px] leading-relaxed text-ink-secondary">
+          <span className="font-semibold text-ink">
+            {retardMois}&nbsp;mois de retard de versement.
+          </span>{" "}
+          La CADA publie par lots : le jeu de données porte une date de mise à jour
+          récente, mais la dernière séance qu’il contient est celle du{" "}
+          {formatDateFr(meta.date_donnees)}. Les millésimes {derniereAnnee - 1} et{" "}
+          {derniereAnnee} sont donc incomplets par construction, et l’écart s’aggrave :
+          les derniers lots couvrent moins de mois de séance qu’il ne s’écoule de mois
+          entre deux versements. Ces chiffres décrivent un corpus arrêté, pas l’activité
+          de la commission aujourd’hui.
+        </p>
+
+        <div className="grid items-start gap-5 lg:grid-cols-2">
+          <div className="flex flex-col gap-2">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.1em] text-ink">
+              Dans quel sens la CADA tranche
+            </h3>
+            <p className="text-[11px] leading-snug text-ink-muted">
+              Avis seulement, sur {formatNombre(avis)} dossiers. Une décision peut porter
+              plusieurs sens (favorable sur une pièce, défavorable sur une autre) : le
+              total dépasse donc 100 %.
+            </p>
+            <BarList
+              items={data.sens.map((s) => ({
+                libelle: s.sens,
+                valeur: s.dossiers,
+                // Emphase sur les trois sens de refus ; les deux autres en
+                // couleur de contexte (BarList §3.2 : une série nominale, une
+                // couleur, la seconde ne sert qu’à la dé-emphase).
+                couleur: (SENS_REFUS as readonly string[]).includes(s.sens)
+                  ? undefined
+                  : "var(--viz-autre)",
+              }))}
+              largeurLibelle="34%"
+              formatValeur={(v) => `${formatNombre(v)} (${pct(v)})`}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.1em] text-ink">
+              Sur quel fondement l’accès est refusé
+            </h3>
+            <p className="text-[11px] leading-snug text-ink-muted">
+              Les motivations de refus les plus fréquentes, telles que la CADA les
+              qualifie — un avis défavorable donne raison à l’administration, une
+              incompétence renvoie ailleurs, une irrecevabilité écarte la saisine sans
+              juger du fond.
+            </p>
+            <ul className="flex flex-col text-[13px]">
+              {data.motifs.map((m) => (
+                <li
+                  key={`${m.sens}-${m.motivation ?? ""}`}
+                  className="flex items-baseline justify-between gap-3 border-b border-card-border py-1.5 last:border-0"
+                >
+                  <span className="min-w-0 truncate text-ink-secondary">
+                    {m.sens}
+                    {m.motivation ? ` · ${m.motivation}` : ""}
+                  </span>
+                  <span className="shrink-0 [font-variant-numeric:tabular-nums]">
+                    {formatNombre(m.dossiers)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.1em] text-ink">
+            Qui est mis en cause
+          </h3>
+          <p className="max-w-3xl text-[11px] leading-snug text-ink-muted">
+            Le champ « administration » de la CADA est du texte libre, sans identifiant :
+            ces catégories sont une typologie grossière, déduite du seul libellé publié,
+            et ce qui n’entre dans aucune règle reste explicitement non classé. La part
+            de refus est donnée sur les seuls avis défavorables, jamais sur la somme des
+            refus, qui compterait deux fois les décisions composites.
+          </p>
+          <ul className="mt-1 flex flex-col text-[13px]">
+            {data.categories.map((c) => (
+              <li
+                key={c.categorie}
+                className="flex items-baseline justify-between gap-4 border-b border-card-border py-1.5 last:border-0"
+              >
+                <span className="min-w-0 truncate text-ink-secondary">
+                  {CATEGORIES_CADA[c.categorie] ?? c.categorie}
+                </span>
+                <span className="shrink-0 text-[12px] text-ink-muted [font-variant-numeric:tabular-nums]">
+                  <span className="font-semibold text-ink">{formatNombre(c.dossiers)}</span>{" "}
+                  avis · {formatNombre(c.defavorable)} défavorables
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="text-[11px] leading-relaxed text-ink-muted">
+          Lecture : la CADA donne raison au demandeur, au moins en partie, dans{" "}
+          {pct(favorable)} des avis, et à l’administration dans {pct(defavorable)}. Un
+          avis n’a pas force exécutoire : l’administration reste libre de maintenir son
+          refus, le demandeur devant alors saisir le juge administratif. Le corpus ne dit
+          donc pas ce qui a été communiqué, seulement ce que la commission a estimé
+          communicable.
+        </p>
+      </div>
+    </Card>
+  );
+}
+
 /** Titres et sous-titres des 7 catégories de faits. */
 const CATEGORIES: { cle: TrainvieCategorie; titre: string; sousTitre: string }[] = [
   {
     cle: "indemnites_parlementaires",
     titre: "Indemnités parlementaires",
     sousTitre:
-      "Barèmes publiés par les assemblées — indemnité de base identique pour les députés et les sénateurs",
+      "Barèmes publiés par les assemblées. Bruts et nets y coexistent tels qu’ils sont publiés : chaque montant porte son assiette, ne les comparez pas entre eux.",
   },
   {
     cle: "frais_mandat",
@@ -209,6 +423,7 @@ const CATEGORIES: { cle: TrainvieCategorie; titre: string; sousTitre: string }[]
  */
 export default async function FraisPage() {
   const data = getFraisData();
+  const verrous = getVerrousCada();
 
   if (!data) {
     return (
@@ -376,6 +591,9 @@ export default async function FraisPage() {
           </Card>
         ))}
       </div>
+
+      {/* --------------------------- Carte des verrous -------------------------- */}
+      {verrous && <CarteDesVerrous data={verrous} />}
 
       {/* ------------------------------ En résumé ------------------------------ */}
       <Card titre="En résumé" sousTitre="Ce que la loi publie — et ce qu’elle ne publie pas">

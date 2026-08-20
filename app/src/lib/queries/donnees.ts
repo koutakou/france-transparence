@@ -3,7 +3,7 @@
  * statiques (/api/meta.json, /api/elus.json, /api/marches-agregats.json,
  * /api/budget-mensuel.json) — générés au build, servis en fichiers.
  *
- * La table pivot est `meta_sources` (25 sources tracées) : chaque source y
+ * La table pivot est `meta_sources` (28 sources tracées) : chaque source y
  * porte sa date de données réelle, sa date d'ingestion, sa fréquence promise,
  * sa licence et ses notes — c'est le « moniteur de fraîcheur » du projet
  * (docs/SOURCES.md, alerte A11).
@@ -80,7 +80,7 @@ type SeuilSource = { unite: UniteAge; retard: number; alerte: number };
  * seuils dans `meta_sources` (colonnes dédiées) via les pipelines.
  *
  * Ordre et valeurs repris ligne à ligne de `fraicheur.conf`.
- * Dernière synchronisation : 20/08/2026, 25 sources.
+ * Dernière synchronisation : 20/08/2026, 28 sources (ajout de S38).
  */
 const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // Quotidiennes strictes, calendrier ouvré
@@ -113,6 +113,7 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   S21: { unite: "jc", retard: 400, alerte: 440 },
   S23: { unite: "jc", retard: 760, alerte: 850 },
   S25: { unite: "jc", retard: 850, alerte: 950 },
+  S38: { unite: "jc", retard: 730, alerte: 820 },
   "S27-geo-api": { unite: "jc", retard: 400, alerte: 430 },
   S29: { unite: "jc", retard: 1500, alerte: 1800 },
   // « Par scrutin » comme S29 : l'âge reste élevé entre deux scrutins par
@@ -258,7 +259,7 @@ export function evalueFraicheur(
 
 export type SourceCataloguee = MetaSource & { fraicheur: Fraicheur };
 
-/** Les 25 sources tracées, avec leur fraîcheur calculée. */
+/** Les 28 sources tracées, avec leur fraîcheur calculée. */
 export function getCatalogueSources(): SourceCataloguee[] | null {
   const db = getDb();
   if (!db) return null;

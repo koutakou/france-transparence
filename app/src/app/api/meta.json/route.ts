@@ -1,6 +1,6 @@
 /**
  * GET /api/meta.json — export statique généré au build : le catalogue
- * meta_sources complet (25 sources tracées) avec nom, URL amont, licence,
+ * meta_sources complet (28 sources tracées) avec nom, URL amont, licence,
  * fréquence, date des données, date d'ingestion, volumétrie, notes et
  * fraîcheur relative calculée : niveau, âge, unité de comptage et les deux
  * seuils calibrés pour la source (règle et seuils détaillés sur /donnees).
