@@ -124,6 +124,13 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   "S27-france-geojson": { unite: "jc", retard: 3650, alerte: 5475 },
   // Cadence composite (comptes locaux + dotations)
   S16: { unite: "jc", retard: 650, alerte: 750 },
+  // Quotidienne, mais calendrier EUROPÉEN : l'export du registre de
+  // transparence de l'Union est régénéré chaque soir par le secrétariat
+  // commun Parlement européen / Commission, que le calendrier ouvré français
+  // — jours fériés légaux compris — ne gouverne pas. D'où des jours
+  // calendaires et non des jours ouvrés, contrairement à S4 (HATVP), avec
+  // une marge suffisante pour absorber un week-end sans export.
+  S40: { unite: "jc", retard: 6, alerte: 12 },
 };
 
 const JOUR_MS = 86_400_000;

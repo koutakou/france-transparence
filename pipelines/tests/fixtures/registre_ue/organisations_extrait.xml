@@ -1,0 +1,1094 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<ListOfIRPublicDetail xmlns="http://intragate.ec.europa.eu/transparencyregister/odp">
+  <metaData xmlns="">
+    <exportDate>2026-08-19T20:00:00.069+00:00</exportDate>
+    <numberOfIR>7</numberOfIR>
+  </metaData>
+  <resultList xmlns="">
+    <interestRepresentative>
+      <identificationCode>9761005100555-43</identificationCode>
+      <registrationDate>2025-09-15T13:34:09.224+00:00</registrationDate>
+      <name>
+        <originalName>Saper Vedere</originalName>
+      </name>
+      <acronym>SV</acronym>
+      <entityForm>SRL</entityForm>
+      <webSiteURL>https://www.saper-vedere.eu/</webSiteURL>
+      <registrationCategory>Professional consultancies</registrationCategory>
+      <headOffice>
+        <address>17 rue du Bois Sauvage</address>
+        <postCode>1000</postCode>
+        <city>Bruxelle</city>
+        <country>BELGIUM</country>
+        <phone>
+          <indicPhone>33</indicPhone>
+          <phoneNumber>687507426</phoneNumber>
+        </phone>
+      </headOffice>
+      <EUOffice>
+        <address>17 rue du Bois Sauvage</address>
+        <postCode>1000</postCode>
+        <city>Bruxelle</city>
+        <country>BELGIUM</country>
+        <phone>
+          <indicPhone>33</indicPhone>
+          <phoneNumber>687507426</phoneNumber>
+        </phone>
+      </EUOffice>
+      <goals>Saper Vedere est un cabinet d’études et de conseil en affaires publiques et communication d’influence, implanté à Paris et Bruxelles. 
+
+Nous accompagnons nos clients dans &#xb;la compréhension et l’anticipation des dynamiques politiques, institutionnelles et sociétales, en France, au sein des institutions européennes et à l’international.​</goals>
+      <levelsOfInterest>
+        <levelOfInterest>
+          <levelOfInterest>european</levelOfInterest>
+        </levelOfInterest>
+        <levelOfInterest>
+          <levelOfInterest>sub-national</levelOfInterest>
+        </levelOfInterest>
+        <levelOfInterest>
+          <levelOfInterest>national</levelOfInterest>
+        </levelOfInterest>
+        <levelOfInterest>
+          <levelOfInterest>global</levelOfInterest>
+        </levelOfInterest>
+      </levelsOfInterest>
+      <EULegislativeProposals>- Directive 2004/37/CE du Parlement européen et du Conseil du 29 avril 2004 concernant la
+protection des travailleurs contre les risques liés à l'exposition à des agents cancérigènes ou mutagènes au
+travail 
+- Directive 2010/75/UE du Parlement européen et du Conseil du 24 novembre 2010 relative aux émissions industrielles
+- Résolution législative du Parlement européen du 10 avril 2024 sur la proposition de directive du Parlement
+européen et du Conseil relative à la surveillance et à la résilience des sols (directive sur la surveillance des sols)
+- Règlement (UE) 2024/1991 du Parlement européen et du Conseil du 24 juin 2024 relatif à la restauration de la nature
+- Directive (UE) 2016/2341 concernant les activités et la surveillance des institutions de retraite professionnelle
+</EULegislativeProposals>
+      <EUSupportedForumsAndPlatforms>N.A.</EUSupportedForumsAndPlatforms>
+      <communicationActivities>- Sollicitation et participation d'un haut fonctionnaire sur les enjeux règlementaires de l'affrètement dans le secteur aérien
+- Invitation à une visite d'usine auprès de parlementaires européennes sur les enjeux décarbonation (Green Deal)
+</communicationActivities>
+      <interOrUnofficalGroupings>N/A</interOrUnofficalGroupings>
+      <members>
+        <members25Percent>1</members25Percent>
+        <members10Percent>5</members10Percent>
+        <members>6.0</members>
+        <membersFTE>0.75</membersFTE>
+        <infoMembers>Nous collaborons régulièrement avec des senior advisors eux-mêmes inscrits au Registre de la Transparence.</infoMembers>
+      </members>
+      <EPAccreditedNumber>0</EPAccreditedNumber>
+      <interests>
+        <interest>
+          <name>Business and industry</name>
+        </interest>
+        <interest>
+          <name>Economy, finance and the euro</name>
+        </interest>
+        <interest>
+          <name>Environment</name>
+        </interest>
+        <interest>
+          <name>International co-operation and development</name>
+        </interest>
+        <interest>
+          <name>Public health</name>
+        </interest>
+        <interest>
+          <name>Single market</name>
+        </interest>
+        <interest>
+          <name>Trade</name>
+        </interest>
+      </interests>
+      <structure type="Structure">
+        <isMemberOf>Saper Vedere détient à 100% Saper Vedere France, basé au 3 boulevard Saint Martin, 75003, Paris (SIREN : 954094066).</isMemberOf>
+        <organisationMembers>Nous sommes membre de l'Association des Conseils en Lobbying et Affaires Publiques (AFCL), représentant les professionnels français du conseil en lobbying.
+
+Nous sommes également adhérents aux MEDEF Est parisien.
+
+Notre président, Erwan de Rancourt, est membre de We Are_, un club réunissant les acteurs des industries créatives et digitales françaises basé à Paris.</organisationMembers>
+      </structure>
+      <interestRepresented>Advances interests of their clients</interestRepresented>
+      <financialData>
+        <newOrganisation>false</newOrganisation>
+        <closedYear type="ClosedYearClientFinancialInformation">
+          <startDate>2024-01-01</startDate>
+          <endDate>2024-12-01</endDate>
+          <clients>
+            <client>
+              <name>CAISSE RETRAITE PERSONNEL NAVIGANT (CRPN)</name>
+              <revenue type="CostRange" currency="€">
+                <range>
+                  <max>10000</max>
+                </range>
+              </revenue>
+              <proposal>Directive (UE) 2016/2341 concernant les activités et la surveillance des institutions de retraite professionnelle</proposal>
+            </client>
+            <client>
+              <name>union des producteurs de chaux</name>
+              <revenue type="CostRange" currency="€">
+                <range>
+                  <min>25000</min>
+                  <max>49999</max>
+                </range>
+              </revenue>
+              <proposal>Règlement (UE) 2024/1991 du Parlement européen et du Conseil du 24 juin 2024 relatif à la restauration de la nature</proposal>
+            </client>
+          </clients>
+          <totalAnnualRevenue type="CostRange" currency="€">
+            <range>
+              <min>25000</min>
+              <max>99999</max>
+            </range>
+          </totalAnnualRevenue>
+          <grants/>
+        </closedYear>
+        <currentYear type="CurrentYearClientFinancialInformation">
+          <clients>
+            <client>
+              <name>CAISSE RETRAITE PERSONNEL NAVIGANT (CRPN)</name>
+              <revenue type="CostRange" currency="€">
+                <range/>
+              </revenue>
+            </client>
+            <client>
+              <name>union des producteurs de chaux</name>
+              <revenue type="CostRange" currency="€">
+                <range/>
+              </revenue>
+            </client>
+          </clients>
+          <grants/>
+        </currentYear>
+      </financialData>
+    </interestRepresentative>
+    <interestRepresentative>
+      <identificationCode>488647147874-39</identificationCode>
+      <registrationDate>2022-10-24T15:08:49.994+00:00</registrationDate>
+      <lastUpdateDate>2026-03-09T14:59:11.362+00:00</lastUpdateDate>
+      <name>
+        <originalName>Ogival Public Affairs</originalName>
+      </name>
+      <entityForm>Société par actions simplifiée (Société à associé unique)</entityForm>
+      <registrationCategory>Self-employed individuals</registrationCategory>
+      <headOffice>
+        <address>231 rue du Faubourg Saint-Martin</address>
+        <postCode>75010</postCode>
+        <city>Paris</city>
+        <country>FRANCE</country>
+        <phone>
+          <indicPhone>33</indicPhone>
+          <phoneNumber>769784466</phoneNumber>
+        </phone>
+      </headOffice>
+      <EUOffice>
+        <address>231 rue du Faubourg Saint-Martin</address>
+        <postCode>75010</postCode>
+        <city>Paris</city>
+        <country>FRANCE</country>
+        <phone>
+          <indicPhone>33</indicPhone>
+          <phoneNumber>769784466</phoneNumber>
+        </phone>
+      </EUOffice>
+      <goals>Conseil aux acteurs économiques pour les affaires européennes et autres conseils de gestion non réglementés; Rédaction de contenu sur tous types de supports; Apport d'affaires et formation non réglementée dans les domaines précités.</goals>
+      <levelsOfInterest>
+        <levelOfInterest>
+          <levelOfInterest>global</levelOfInterest>
+        </levelOfInterest>
+        <levelOfInterest>
+          <levelOfInterest>sub-national</levelOfInterest>
+        </levelOfInterest>
+        <levelOfInterest>
+          <levelOfInterest>national</levelOfInterest>
+        </levelOfInterest>
+        <levelOfInterest>
+          <levelOfInterest>european</levelOfInterest>
+        </levelOfInterest>
+      </levelsOfInterest>
+      <EULegislativeProposals>De manière non exhaustive :
+- EU Green Deal 
+- Smart &amp; Sustainable Mobility Strategy
+- SERA/Rail policies and legislative initiatives (rail capacity)
+- CMU/ESG
+- Europe that works for people (consumers rights)
+- Europe's Digital Decade
+- MICA
+- EU blockchain strategy
+- DSA/DMA
+- SUR
+- NGT
+- Carbon farming
+- Data Act
+- SERA/Rail regulations
+- FIC regulation/Wine labelling
+- Ecodesign ESPR
+- FEAMPA
+- NZIA
+- PTD
+- PSR/Mifir/Mifid/PSD
+- IA Act
+- EiDAS 
+- EBSI 
+- Revision of EU pharmaceutical
+legislation
+- Draghi and Letta Reports
+- Green fleets initiaitve
+- Tac &amp; Quotas
+- IIA
+- MFF
+- High Speed Rail Plan &amp; EU rail policies
+- Digital &amp; IA omnibus, GDPR</EULegislativeProposals>
+      <interOrUnofficalGroupings>N/A</interOrUnofficalGroupings>
+      <members>
+        <members100Percent>1</members100Percent>
+        <members>1.0</members>
+        <membersFTE>1.0</membersFTE>
+        <infoMembers> </infoMembers>
+      </members>
+      <EPAccreditedNumber>1</EPAccreditedNumber>
+      <interests>
+        <interest>
+          <name>Banking and financial services</name>
+        </interest>
+        <interest>
+          <name>Business and industry</name>
+        </interest>
+        <interest>
+          <name>Competition</name>
+        </interest>
+        <interest>
+          <name>Consumers</name>
+        </interest>
+        <interest>
+          <name>Culture and media</name>
+        </interest>
+        <interest>
+          <name>Digital economy and society</name>
+        </interest>
+        <interest>
+          <name>Economy, finance and the euro</name>
+        </interest>
+        <interest>
+          <name>Employment and social affairs</name>
+        </interest>
+        <interest>
+          <name>Energy</name>
+        </interest>
+        <interest>
+          <name>Environment</name>
+        </interest>
+        <interest>
+          <name>Food safety</name>
+        </interest>
+        <interest>
+          <name>Justice and fundamental rights</name>
+        </interest>
+        <interest>
+          <name>Maritime affairs and fisheries</name>
+        </interest>
+        <interest>
+          <name>Public health</name>
+        </interest>
+        <interest>
+          <name>Research and innovation</name>
+        </interest>
+        <interest>
+          <name>Single market</name>
+        </interest>
+        <interest>
+          <name>Taxation</name>
+        </interest>
+        <interest>
+          <name>Trade</name>
+        </interest>
+        <interest>
+          <name>Trans-European Networks</name>
+        </interest>
+        <interest>
+          <name>Transport</name>
+        </interest>
+      </interests>
+      <structure type="Structure">
+        <organisationMembers>https://cdpf-asso.eu/&#xd;
+France Forum</organisationMembers>
+      </structure>
+      <interestRepresented>Advances interests of their clients</interestRepresented>
+      <financialData>
+        <newOrganisation>false</newOrganisation>
+        <closedYear type="ClosedYearClientFinancialInformation">
+          <startDate>2024-10-01</startDate>
+          <endDate>2025-09-01</endDate>
+          <clients>
+            <client>
+              <name>Association Arianee</name>
+              <revenue type="CostRange" currency="€">
+                <range>
+                  <min>25000</min>
+                  <max>49999</max>
+                </range>
+              </revenue>
+              <proposal>De manière non exhaustive :&#xd;
+- EU Green Deal (SPI) - Ecodesign&#xd;
+- EU blockchain strategy&#xd;
+- FIC regulation/Wine labelling&#xd;
+&#xd;
+</proposal>
+            </client>
+            <client>
+              <name>ErVimmune</name>
+              <revenue type="CostRange" currency="€">
+                <range>
+                  <min>25000</min>
+                  <max>49999</max>
+                </range>
+              </revenue>
+              <proposal>EU biotech Act, Competivenes Compass, </proposal>
+            </client>
+            <client>
+              <name>Gide Loyrette Nouel</name>
+              <revenue type="CostRange" currency="€">
+                <range>
+                  <min>100000</min>
+                  <max>199999</max>
+                </range>
+              </revenue>
+              <proposal>De manière non exhaustive :&#xd;
+- EU Green Deal (SPI)&#xd;
+- Smart &amp; Sustainable Mobility Strategy&#xd;
+- CMU/ESG&#xd;
+- Europe that works for people (consumers rights)&#xd;
+- Europe's Digital Decade&#xd;
+- MICA&#xd;
+- EU blockchain strategy&#xd;
+- DSA/DMA&#xd;
+- SUR&#xd;
+- NGT&#xd;
+- Carbon farming&#xd;
+- Data Act&#xd;
+- SERA/Rail regulations&#xd;
+- Ecodesign&#xd;
+- FEAMPA&#xd;
+- NZIA&#xd;
+- PTD&#xd;
+- PSR/Mifir/Mifid/PSD&#xd;
+-&#xd;
+</proposal>
+            </client>
+            <client>
+              <name>Iliomad Health Data</name>
+              <revenue type="CostRange" currency="€">
+                <range>
+                  <max>10000</max>
+                </range>
+              </revenue>
+              <proposal>GDPR
+Digital &amp; IA Omnibus
+IA Act</proposal>
+            </client>
+            <client>
+              <name>OP du Sud</name>
+              <revenue type="CostRange" currency="€">
+                <range>
+                  <max>10000</max>
+                </range>
+              </revenue>
+              <proposal>EU Fish Policies / West Med</proposal>
+            </client>
+            <client>
+              <name>dream Mobility GmbH</name>
+              <revenue type="CostRange" currency="€">
+                <range>
+                  <min>10000</min>
+                  <max>24999</max>
+                </range>
+              </revenue>
+              <proposal>EU rail policies
+SERA
+High Speed Rail Action Plan</proposal>
+            </client>
+          </clients>
+          <totalAnnualRevenue type="CostRange" currency="€">
+            <range>
+              <min>160000</min>
+              <max>399999</max>
+            </range>
+          </totalAnnualRevenue>
+          <grants/>
+        </closedYear>
+        <currentYear type="CurrentYearClientFinancialInformation">
+          <clients>
+            <client>
+              <name>Gide</name>
+              <revenue type="CostRange" currency="€">
+                <range/>
+              </revenue>
+            </client>
+            <client>
+              <name>OP du Sud</name>
+              <revenue type="CostRange" currency="€">
+                <range/>
+              </revenue>
+            </client>
+            <client>
+              <name>dream Mobility GmbH</name>
+              <revenue type="CostRange" currency="€">
+                <range/>
+              </revenue>
+            </client>
+            <client>
+              <name>Iliomad Health Data</name>
+              <revenue type="CostRange" currency="€">
+                <range/>
+              </revenue>
+            </client>
+          </clients>
+          <grants/>
+        </currentYear>
+      </financialData>
+    </interestRepresentative>
+    <interestRepresentative>
+      <identificationCode>787105794254-32</identificationCode>
+      <registrationDate>2024-10-17T14:29:22.356+00:00</registrationDate>
+      <lastUpdateDate>2026-03-29T07:50:31.232+00:00</lastUpdateDate>
+      <name>
+        <originalName>Club des Experts de la Sécurité de l'Information et du Numérique</originalName>
+      </name>
+      <acronym>CESIN</acronym>
+      <entityForm>Association</entityForm>
+      <webSiteURL>https://cesin.fr</webSiteURL>
+      <registrationCategory>Trade unions and professional associations</registrationCategory>
+      <headOffice>
+        <address>115 rue Saint Dominique</address>
+        <postCode>75007</postCode>
+        <city>PARIS</city>
+        <country>FRANCE</country>
+        <phone>
+          <indicPhone>33</indicPhone>
+          <phoneNumber>680596250</phoneNumber>
+        </phone>
+      </headOffice>
+      <EUOffice>
+        <address>115 rue Saint Dominique</address>
+        <postCode>75007</postCode>
+        <city>PARIS</city>
+        <country>FRANCE</country>
+        <phone>
+          <indicPhone>33</indicPhone>
+          <phoneNumber>680596250</phoneNumber>
+        </phone>
+      </EUOffice>
+      <goals>Le CESIN a pour but :
+•	d'être un lieu d'échange de connaissances, de partage d'expériences et de coopération de toutes personnes ayant à traiter des questions de la sécurité de l'information et du numérique ; 
+•	de développer toutes actions de formation, de sensibilisation, d'organisation de congrès, colloques et conférences, d'entraide visant à développer et promouvoir la sécurité de l'information et du numérique dans l’intérêt général ; 
+•	de favoriser la collaboration entre toutes les personnes ayant à traiter des questions de la sécurité de l'information et du numérique et entre ces personnes, les pouvoirs publics, mais également le grand public ; 
+•	de participer à toutes démarches nationales et internationales ayant pour objet la promotion de la sécurité de l'information et du numérique ; 
+•	de proposer aux pouvoirs publics des actions législatives ou de promotion concernant la sécurité de l'information et du numérique</goals>
+      <levelsOfInterest>
+        <levelOfInterest>
+          <levelOfInterest>european</levelOfInterest>
+        </levelOfInterest>
+        <levelOfInterest>
+          <levelOfInterest>national</levelOfInterest>
+        </levelOfInterest>
+      </levelsOfInterest>
+      <EULegislativeProposals>NIS2 - CRA - DORA et les propositions législatives orientées Cybersécurité</EULegislativeProposals>
+      <EUSupportedForumsAndPlatforms>NA</EUSupportedForumsAndPlatforms>
+      <communicationActivities>Aucune</communicationActivities>
+      <interOrUnofficalGroupings>Future of Education and Skills for a Competitive Europe,Attracting Investment to Ensure a Competitive and Sustainable European Union</interOrUnofficalGroupings>
+      <members>
+        <members25Percent>1</members25Percent>
+        <members10Percent>1</members10Percent>
+        <members>2.0</members>
+        <membersFTE>0.3499999940395355</membersFTE>
+        <infoMembers>Aucune</infoMembers>
+      </members>
+      <EPAccreditedNumber>0</EPAccreditedNumber>
+      <interests>
+        <interest>
+          <name>Digital economy and society</name>
+        </interest>
+        <interest>
+          <name>Foreign affairs and security policy</name>
+        </interest>
+        <interest>
+          <name>Fraud prevention</name>
+        </interest>
+      </interests>
+      <structure type="Structure">
+        <isMemberOf>https://cesin.fr/pages/list.php</isMemberOf>
+        <organisationMembers>ECSO
+Cybermalveillance.gouv.fr
+</organisationMembers>
+      </structure>
+      <interestRepresented>Promotes their own interests or the collective interests of their members</interestRepresented>
+      <financialData>
+        <newOrganisation>false</newOrganisation>
+        <closedYear type="ClosedYearIntermediaryFinancialInformation">
+          <startDate>2024-01-01</startDate>
+          <endDate>2024-12-01</endDate>
+          <intermediaries/>
+          <costs type="CostRange" currency="€">
+            <range>
+              <max>10000</max>
+            </range>
+          </costs>
+          <grants/>
+        </closedYear>
+        <currentYear type="CurrentYearIntermediaryFinancialInformation">
+          <intermediaries/>
+          <grants/>
+        </currentYear>
+      </financialData>
+    </interestRepresentative>
+    <interestRepresentative>
+      <identificationCode>8630271103981-12</identificationCode>
+      <registrationDate>2026-05-13T10:25:24.859+00:00</registrationDate>
+      <name>
+        <originalName>INFINITE ORBITS</originalName>
+      </name>
+      <entityForm>SAS</entityForm>
+      <webSiteURL>https://www.infiniteorbits.io/</webSiteURL>
+      <registrationCategory>Companies &amp; groups</registrationCategory>
+      <headOffice>
+        <address>8 rue des Trente Six ponts</address>
+        <postCode>31400</postCode>
+        <city>TOULOUSE</city>
+        <country>FRANCE</country>
+        <phone>
+          <indicPhone>33</indicPhone>
+          <phoneNumber>760763168</phoneNumber>
+        </phone>
+      </headOffice>
+      <EUOffice>
+        <address>8 rue des Trente Six ponts</address>
+        <postCode>31400</postCode>
+        <city>TOULOUSE</city>
+        <country>FRANCE</country>
+        <phone>
+          <indicPhone>33</indicPhone>
+          <phoneNumber>760763168</phoneNumber>
+        </phone>
+      </EUOffice>
+      <goals>Our company is an European Newspace company offering in orbit services for geostationary orbit:
+- Orbit Guard is a surveillance and inspection micro-satellite
+- Endurance is a life extension vehicle extending end of life GEO assets for 5 additional years. 
+With first commercial missions for both servicers in 2027 and 2028, the objective of our organization is to become the international leader of this market. </goals>
+      <levelsOfInterest>
+        <levelOfInterest>
+          <levelOfInterest>european</levelOfInterest>
+        </levelOfInterest>
+        <levelOfInterest>
+          <levelOfInterest>global</levelOfInterest>
+        </levelOfInterest>
+      </levelsOfInterest>
+      <EULegislativeProposals>EU Space Law</EULegislativeProposals>
+      <communicationActivities>None</communicationActivities>
+      <interOrUnofficalGroupings>Small and Medium-Sized Enterprises (SMEs)</interOrUnofficalGroupings>
+      <members>
+        <members10Percent>1</members10Percent>
+        <members>1.0</members>
+        <membersFTE>0.10000000149011612</membersFTE>
+        <infoMembers> </infoMembers>
+      </members>
+      <EPAccreditedNumber>0</EPAccreditedNumber>
+      <interests>
+        <interest>
+          <name>Business and industry</name>
+        </interest>
+      </interests>
+      <structure type="Structure">
+        <isMemberOf>Infinite Orbits SAS (headquarters) owns different affiliates : 
+- LMO Luxembourg
+- Lunasa Space (UK)
+- Infinite Orbits Inc. (US)
+- Infinite Orbits PTE Ltd. (Singapour)
+- Infinite Orbits Spain
+- Infinite Orbits Germany</isMemberOf>
+        <organisationMembers>YESSS
+Alliance New Space France
+CONFERS
+Club Galaxie 
+Cluster Primus</organisationMembers>
+      </structure>
+      <interestRepresented>Promotes their own interests or the collective interests of their members</interestRepresented>
+      <financialData>
+        <newOrganisation>false</newOrganisation>
+        <closedYear type="ClosedYearIntermediaryFinancialInformation">
+          <startDate>2025-01-01</startDate>
+          <endDate>2025-12-01</endDate>
+          <intermediaries/>
+          <costs type="CostRange" currency="€">
+            <range>
+              <min>10000000</min>
+            </range>
+          </costs>
+          <grants>
+            <grant>
+              <source>Orbit Scan </source>
+              <amount type="AbsoluteCost" currency="€">
+                <absoluteCost>1271222</absoluteCost>
+              </amount>
+            </grant>
+          </grants>
+        </closedYear>
+        <currentYear type="CurrentYearIntermediaryFinancialInformation">
+          <intermediaries/>
+          <grants/>
+        </currentYear>
+        <complementaryInformation>Based on the last financial statement, our costs (overheads + operations) are close to 20M Euros</complementaryInformation>
+      </financialData>
+    </interestRepresentative>
+    <interestRepresentative>
+      <identificationCode>877833843416-03</identificationCode>
+      <registrationDate>2021-07-05T15:11:41.920+00:00</registrationDate>
+      <lastUpdateDate>2025-10-17T14:04:04.339+00:00</lastUpdateDate>
+      <name>
+        <originalName>Expertise France</originalName>
+      </name>
+      <acronym>EF</acronym>
+      <entityForm>SAS</entityForm>
+      <webSiteURL>http://www.expertisefrance.fr/</webSiteURL>
+      <registrationCategory>Other organisations, public or mixed entities</registrationCategory>
+      <headOffice>
+        <address>40 Boulevard de Port-Royal</address>
+        <postCode>75005</postCode>
+        <city>Paris</city>
+        <country>FRANCE</country>
+        <phone>
+          <indicPhone>33</indicPhone>
+          <phoneNumber>0170827082</phoneNumber>
+        </phone>
+      </headOffice>
+      <EUOffice>
+        <address>Place de Louvain 14</address>
+        <postCode>1000</postCode>
+        <city>Bruxelles</city>
+        <country>BELGIUM</country>
+        <phone>
+          <indicPhone>32</indicPhone>
+          <phoneNumber>22298590</phoneNumber>
+        </phone>
+      </EUOffice>
+      <goals>EXPERTISE FRANCE est l'agence publique de conception et de mise en œuvre de projets internationaux de coopération technique. &#xd;
+Notre métier, accompagner, conseiller, former les autorités nationales et locales dans la mise en place de politiques publiques adaptées aux besoins des populations.&#xd;
+Notre action passe par un transfert de compétences, un dialogue entre pairs dans tous les secteurs et les géographies de la coopération au développement. L’agence répond aux besoins d’expertise de pays partenaires dans les principaux domaines de l’action publique : gouvernance démocratique et financière, sécurité, développement durable et développement humain.&#xd;
+L'agence contribue, par son action sur le terrain, aux objectifs de solidarité et d’influence de la politique de développement française et européenne.</goals>
+      <levelsOfInterest>
+        <levelOfInterest>
+          <levelOfInterest>european</levelOfInterest>
+        </levelOfInterest>
+        <levelOfInterest>
+          <levelOfInterest>global</levelOfInterest>
+        </levelOfInterest>
+      </levelsOfInterest>
+      <EULegislativeProposals>Instruments financiers pour l'action extérieure - Neighbourhood, Development and International Cooperation Instrument (NDICI) – ‘Global Europe'</EULegislativeProposals>
+      <EUSupportedForumsAndPlatforms>Practitionners Network for european development cooperation. </EUSupportedForumsAndPlatforms>
+      <interOrUnofficalGroupings>N/A</interOrUnofficalGroupings>
+      <members>
+        <members100Percent>6</members100Percent>
+        <members>6.0</members>
+        <membersFTE>6.0</membersFTE>
+        <infoMembers> </infoMembers>
+      </members>
+      <EPAccreditedNumber>0</EPAccreditedNumber>
+      <interests>
+        <interest>
+          <name>Agriculture and rural development</name>
+        </interest>
+        <interest>
+          <name>Banking and financial services</name>
+        </interest>
+        <interest>
+          <name>Borders and security</name>
+        </interest>
+        <interest>
+          <name>Budget</name>
+        </interest>
+        <interest>
+          <name>Business and industry</name>
+        </interest>
+        <interest>
+          <name>Climate action</name>
+        </interest>
+        <interest>
+          <name>Communication</name>
+        </interest>
+        <interest>
+          <name>Competition</name>
+        </interest>
+        <interest>
+          <name>Consumers</name>
+        </interest>
+        <interest>
+          <name>Culture</name>
+        </interest>
+        <interest>
+          <name>Culture and media</name>
+        </interest>
+        <interest>
+          <name>Customs</name>
+        </interest>
+        <interest>
+          <name>Digital economy and society</name>
+        </interest>
+        <interest>
+          <name>Economy, finance and the euro</name>
+        </interest>
+        <interest>
+          <name>Education and training</name>
+        </interest>
+        <interest>
+          <name>Employment and social affairs</name>
+        </interest>
+        <interest>
+          <name>Energy</name>
+        </interest>
+        <interest>
+          <name>Enlargement</name>
+        </interest>
+        <interest>
+          <name>Environment</name>
+        </interest>
+        <interest>
+          <name>European neighbourhood policy</name>
+        </interest>
+        <interest>
+          <name>External relations</name>
+        </interest>
+        <interest>
+          <name>Food safety</name>
+        </interest>
+        <interest>
+          <name>Foreign affairs and security policy</name>
+        </interest>
+        <interest>
+          <name>Fraud prevention</name>
+        </interest>
+        <interest>
+          <name>Humanitarian aid and civil protection</name>
+        </interest>
+        <interest>
+          <name>Institutional affairs</name>
+        </interest>
+        <interest>
+          <name>International co-operation and development</name>
+        </interest>
+        <interest>
+          <name>Justice and fundamental rights</name>
+        </interest>
+        <interest>
+          <name>Maritime affairs and fisheries</name>
+        </interest>
+        <interest>
+          <name>Migration and asylum</name>
+        </interest>
+        <interest>
+          <name>Public health</name>
+        </interest>
+        <interest>
+          <name>Regional policy</name>
+        </interest>
+        <interest>
+          <name>Research and innovation</name>
+        </interest>
+        <interest>
+          <name>Single market</name>
+        </interest>
+        <interest>
+          <name>Sport</name>
+        </interest>
+        <interest>
+          <name>Taxation</name>
+        </interest>
+        <interest>
+          <name>Trade</name>
+        </interest>
+        <interest>
+          <name>Trans-European Networks</name>
+        </interest>
+        <interest>
+          <name>Transport</name>
+        </interest>
+        <interest>
+          <name>Youth</name>
+        </interest>
+      </interests>
+      <structure type="Structure">
+        <isMemberOf>Agence Française de Développement (AFD)</isMemberOf>
+        <organisationMembers>Suite à l'adoption en France par le Parlement le 4 août 2021 du projet de loi relatif au développement solidaire et à la lutte contre les inégalités mondiales, l'agence interministérielle de coopération technique internationale Expertise France a rejoint le groupe Agence Française de Développement (AFD) le 1er janvier 2022. Ce renfort confirme le rôle de plateforme opérationnelle, à la fois financière et technique, du groupe AFD, fort d’une palette d’instruments de développement durable inédite au service de ses clients.&#xd;
+&#xd;
+https://www.afd.fr/fr/le-groupe-afd</organisationMembers>
+      </structure>
+      <interestRepresented>Does not represent commercial interests</interestRepresented>
+      <financialData>
+        <newOrganisation>false</newOrganisation>
+        <closedYear type="ClosedYearNGOFinancialInformation">
+          <startDate>2024-01-01</startDate>
+          <endDate>2024-12-01</endDate>
+          <fundingSources>
+            <fundingSource>
+              <source>Public funding</source>
+            </fundingSource>
+            <fundingSource>
+              <source>EU funding</source>
+            </fundingSource>
+          </fundingSources>
+          <contributions/>
+          <totalBudget type="AbsoluteCost" currency="€">
+            <absoluteCost>447000000</absoluteCost>
+          </totalBudget>
+          <grants/>
+        </closedYear>
+        <currentYear type="CurrentYearNGOFinancialInformation">
+          <grants/>
+        </currentYear>
+        <complementaryInformation>Expertise France est l'agence française de coopération technique, disposant d'un chiffre d'affaire de 390 millions d€ en 2023.  Le détail est disponible sur le site de l'agence à l'adresse suivante : https://rapport-annuel.expertisefrance.fr/tous-les-rapports/ 
+
+En tant qu'entité dont les procédures sont accréditées par la Commission, EF est habilitée à gérer des fonds pour le compte de la CE selon le principe de la coopération déléguée. 
+</complementaryInformation>
+      </financialData>
+    </interestRepresentative>
+    <interestRepresentative>
+      <identificationCode>028362550210-63</identificationCode>
+      <registrationDate>2023-06-07T11:43:44.057+00:00</registrationDate>
+      <lastUpdateDate>2026-07-06T08:35:57.641+00:00</lastUpdateDate>
+      <name>
+        <originalName>Bundesverband Energiespeicher Systeme e. V.</originalName>
+      </name>
+      <acronym>BVES e. V.</acronym>
+      <entityForm>e. V. eingetragener Verein</entityForm>
+      <webSiteURL>www.bves.de</webSiteURL>
+      <registrationCategory>Trade and business associations</registrationCategory>
+      <headOffice>
+        <address>Prinzenstraße 34BVES e. V.</address>
+        <postCode>10969</postCode>
+        <city>Berlin</city>
+        <country>GERMANY</country>
+        <phone>
+          <indicPhone>49</indicPhone>
+          <phoneNumber>3054610630</phoneNumber>
+        </phone>
+      </headOffice>
+      <EUOffice>
+        <address>Prinzenstraße 34BVES e. V.</address>
+        <postCode>10969</postCode>
+        <city>Berlin</city>
+        <country>GERMANY</country>
+        <phone>
+          <indicPhone>49</indicPhone>
+          <phoneNumber>3054610630</phoneNumber>
+        </phone>
+      </EUOffice>
+      <goals>Wirtschaftsverband Bereich Energiespeicher - Technologien und Anwendungen&#xd;
+Interessenvertretung der Energiespeicherbranche gegenüber Regierung, Politik, Öffentlichkeit und Verwaltung auf deutscher und europäischer Ebene</goals>
+      <levelsOfInterest>
+        <levelOfInterest>
+          <levelOfInterest>national</levelOfInterest>
+        </levelOfInterest>
+        <levelOfInterest>
+          <levelOfInterest>sub-national</levelOfInterest>
+        </levelOfInterest>
+        <levelOfInterest>
+          <levelOfInterest>global</levelOfInterest>
+        </levelOfInterest>
+        <levelOfInterest>
+          <levelOfInterest>european</levelOfInterest>
+        </levelOfInterest>
+      </levelsOfInterest>
+      <EULegislativeProposals>Energiemarkt Design und Flexibilitätsmärkte
+EU Elektrizitätsbinnenmarkt Richtlinie
+Erneuerbare Energien Richtlinie
+Zukünftiges Energiemarkt Design
+Zukünftiges Strommarkt Design
+Dekarbonisierungsstrategie Industrie
+Beihilferechtliche Genehmigung StromVKG</EULegislativeProposals>
+      <communicationActivities>- Organisation und Teilnahme an Fachpolitischen Veranstaltungen
+- Übergabe und Diskussion von Positionspapieren
+- Teilnahme an Gremiensitzungen EU-Parlament
+- Teilnahme an Konsultationen, Anhörungen
+- Fachgespräche mit Abgeordneten, EU-Kommission sowie Mitarbeitern</communicationActivities>
+      <interOrUnofficalGroupings>N/A</interOrUnofficalGroupings>
+      <members>
+        <members25Percent>2</members25Percent>
+        <members10Percent>1</members10Percent>
+        <members>3.0</members>
+        <membersFTE>0.6000000238418579</membersFTE>
+        <infoMembers> </infoMembers>
+      </members>
+      <EPAccreditedNumber>0</EPAccreditedNumber>
+      <interests>
+        <interest>
+          <name>Business and industry</name>
+        </interest>
+        <interest>
+          <name>Climate action</name>
+        </interest>
+        <interest>
+          <name>Competition</name>
+        </interest>
+        <interest>
+          <name>Energy</name>
+        </interest>
+        <interest>
+          <name>Research and innovation</name>
+        </interest>
+        <interest>
+          <name>Single market</name>
+        </interest>
+        <interest>
+          <name>Trans-European Networks</name>
+        </interest>
+        <interest>
+          <name>Transport</name>
+        </interest>
+      </interests>
+      <structure type="Structure">
+        <isMemberOf>https://www.bves.de/der-bves/mitglieder/</isMemberOf>
+        <organisationMembers>Open District HUB e. V.
+Smart Grids-Plattform Baden-Württemberg e. V. 
+Solar Cluster Baden-Württemberg e. V.</organisationMembers>
+      </structure>
+      <interestRepresented>Promotes their own interests or the collective interests of their members</interestRepresented>
+      <financialData>
+        <newOrganisation>false</newOrganisation>
+        <closedYear type="ClosedYearIntermediaryFinancialInformation">
+          <startDate>2024-01-01</startDate>
+          <endDate>2024-12-01</endDate>
+          <intermediaries/>
+          <costs type="CostRange" currency="€">
+            <range>
+              <min>25000</min>
+              <max>49999</max>
+            </range>
+          </costs>
+          <grants/>
+        </closedYear>
+        <currentYear type="CurrentYearIntermediaryFinancialInformation">
+          <intermediaries/>
+          <grants/>
+        </currentYear>
+      </financialData>
+    </interestRepresentative>
+    <interestRepresentative>
+      <identificationCode>352325223827-36</identificationCode>
+      <registrationDate>2016-10-14T07:29:42.408+00:00</registrationDate>
+      <lastUpdateDate>2025-12-22T12:51:56.238+00:00</lastUpdateDate>
+      <name>
+        <originalName>UNION OF INTERNATIONAL HAULERS</originalName>
+        <nameInLatinAlphabet>Union of International Haulers</nameInLatinAlphabet>
+      </name>
+      <acronym>UIH</acronym>
+      <entityForm>Association</entityForm>
+      <webSiteURL>http://www.smp-eu.org</webSiteURL>
+      <registrationCategory>Trade unions and professional associations</registrationCategory>
+      <headOffice>
+        <address>48 Iztochen Blvd.Floor 1</address>
+        <postCode>4006</postCode>
+        <city>Plovdiv</city>
+        <country>BULGARIA</country>
+        <phone>
+          <indicPhone>359</indicPhone>
+          <phoneNumber>32395512</phoneNumber>
+        </phone>
+      </headOffice>
+      <EUOffice>
+        <address>48 Iztochen Blvd.Floor 1</address>
+        <postCode>4006</postCode>
+        <city>Plovdiv</city>
+        <country>BULGARIA</country>
+        <phone>
+          <indicPhone>359</indicPhone>
+          <phoneNumber>32395512</phoneNumber>
+        </phone>
+      </EUOffice>
+      <goals>The main objectives of the Union are the protection of the rights and legitimate interests of the Bulgarian haulers domestically and abroad in front of all national and international institutions thus encouraging the efforts of its members to regulate of professional ethics in the field of transport services and the prevention of unfair competition.&#xd;
+&#xd;
+The means by which the association achieves its goals include participation in specialized programs for the development of transport at a national level; supporting education and training of staff and promoting high educational level and professional competence; cooperation with national and international associations, unions and other associations in the field of international transport.</goals>
+      <levelsOfInterest>
+        <levelOfInterest>
+          <levelOfInterest>sub-national</levelOfInterest>
+        </levelOfInterest>
+        <levelOfInterest>
+          <levelOfInterest>european</levelOfInterest>
+        </levelOfInterest>
+        <levelOfInterest>
+          <levelOfInterest>national</levelOfInterest>
+        </levelOfInterest>
+      </levelsOfInterest>
+      <EULegislativeProposals>Policies: Transport, Multimodal and Combined Transport,  Enviroment, Taxation, Internal Market&#xd;
+&#xd;
+Legislative files: EU Mobility Package, Clean Mobility Package, E-freight</EULegislativeProposals>
+      <interOrUnofficalGroupings>N/A</interOrUnofficalGroupings>
+      <members>
+        <members10Percent>2</members10Percent>
+        <members>2.0</members>
+        <membersFTE>0.20000000298023224</membersFTE>
+        <infoMembers> </infoMembers>
+      </members>
+      <EPAccreditedNumber>0</EPAccreditedNumber>
+      <interests>
+        <interest>
+          <name>Borders and security</name>
+        </interest>
+        <interest>
+          <name>Business and industry</name>
+        </interest>
+        <interest>
+          <name>Competition</name>
+        </interest>
+        <interest>
+          <name>Customs</name>
+        </interest>
+        <interest>
+          <name>Education and training</name>
+        </interest>
+        <interest>
+          <name>Employment and social affairs</name>
+        </interest>
+        <interest>
+          <name>Institutional affairs</name>
+        </interest>
+        <interest>
+          <name>International co-operation and development</name>
+        </interest>
+        <interest>
+          <name>Justice and fundamental rights</name>
+        </interest>
+        <interest>
+          <name>Migration and asylum</name>
+        </interest>
+        <interest>
+          <name>Public health</name>
+        </interest>
+        <interest>
+          <name>Single market</name>
+        </interest>
+        <interest>
+          <name>Transport</name>
+        </interest>
+      </interests>
+      <structure type="Structure">
+        <isMemberOf>www.smp-eu.org</isMemberOf>
+        <organisationMembers>IRU &#xd;
+BSEC-URTA</organisationMembers>
+      </structure>
+      <interestRepresented>Promotes their own interests or the collective interests of their members</interestRepresented>
+      <financialData>
+        <newOrganisation>false</newOrganisation>
+        <closedYear type="ClosedYearIntermediaryFinancialInformation">
+          <startDate>2024-01-01</startDate>
+          <endDate>2024-12-01</endDate>
+          <intermediaries/>
+          <costs type="CostRange" currency="€">
+            <range>
+              <max>10000</max>
+            </range>
+          </costs>
+          <grants/>
+        </closedYear>
+        <currentYear type="CurrentYearIntermediaryFinancialInformation">
+          <intermediaries/>
+          <grants/>
+        </currentYear>
+      </financialData>
+    </interestRepresentative>
+  </resultList>
+</ListOfIRPublicDetail>

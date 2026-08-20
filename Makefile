@@ -16,9 +16,14 @@ PY     := $(VENV)/bin/python
 # (nom+prénom+date de naissance) — placé avant lui, il n'aurait aucune fiche
 # à rattacher. cada ne dépend d'aucune autre table (il n'écrit que ses propres
 # agrégats) : il est placé à côté de trainvie, dont il complète le module.
+# registre_ue (S40, registre de transparence de l'UE) n'a AUCUNE dépendance
+# d'ordre : il n'écrit que ses propres tables ue_registre_*, ne lit rien des
+# autres et ne peut pas être joint au répertoire HATVP (l'export UE ne porte
+# ni SIREN ni numéro de TVA). Sa place en fin de liste est donc arbitraire —
+# elle ne doit surtout pas se lire comme une dépendance à lobbying.
 PIPELINES := referentiels budget_mensuel budget_structure decp boamp approch \
              jorf parlement integrite hatvp_declarations lobbying financement \
-             collectivites elections trainvie cada
+             collectivites elections trainvie cada registre_ue
 
 # NB : ne PAS déclarer les cibles ingest-<x> en .PHONY — make saute la
 # recherche de règles implicites (ingest-%) pour les cibles phony.

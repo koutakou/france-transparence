@@ -558,6 +558,62 @@ CREATE TABLE lobby_agg_trimestres (
     nb_activites INTEGER NOT NULL,
     nb_entites   INTEGER NOT NULL
 );
+-- ---------------------------------------------------------------------------
+-- S40 — Registre de transparence de l'Union européenne (pipeline P16).
+-- Le préfixe `ue_registre_` marque un CLOISONNEMENT VOULU : ces tables
+-- décrivent un AUTRE registre, adossé à un AUTRE cadre juridique (accord
+-- interinstitutionnel du 20/05/2021) que les tables `lobby_*` (loi
+-- « Sapin II »). Elles ne doivent jamais être jointes à celles-ci ni leurs
+-- montants comparés — et la jointure serait impossible de toute façon :
+-- l'export européen ne publie AUCUN identifiant national d'entreprise,
+-- d'aucun pays (ni SIREN, ni TVA), son seul identifiant est le code du
+-- registre lui-même.
+-- Les inscrits « Self-employed individuals » (personnes physiques) sont
+-- comptés dans les tables d'agrégats et ABSENTS de la table nominative ;
+-- l'écart est publié par `ue_registre_agg_pays.nb_personnes_physiques`.
+-- ---------------------------------------------------------------------------
+CREATE TABLE ue_registre_organisations (
+    id                  TEXT PRIMARY KEY,   -- identificationCode du registre UE
+    nom                 TEXT NOT NULL,
+    nom_latin           TEXT,
+    acronyme            TEXT,
+    categorie           TEXT,
+    siege_ville         TEXT,
+    siege_code_postal   TEXT,
+    siege_pays          TEXT,               -- libellé anglais natif ('FRANCE')
+    date_inscription    TEXT,
+    date_maj            TEXT,
+    etp                 REAL,               -- membersFTE : ETP consacrés
+    accredites_pe       INTEGER,            -- nb d'accréditations au PE (compte seul)
+    exercice_debut      TEXT,
+    exercice_fin        TEXT,
+    cout_libelle        TEXT,               -- fourchette rendue en euros
+    cout_min            REAL,               -- borne native, NULL si non bornée
+    cout_max            REAL
+);
+CREATE INDEX idx_ue_registre_orgs_pays ON ue_registre_organisations(siege_pays);
+CREATE TABLE ue_registre_agg_categories (
+    categorie        TEXT PRIMARY KEY,
+    nb_organisations INTEGER NOT NULL,
+    nb_france        INTEGER NOT NULL
+);
+CREATE TABLE ue_registre_agg_pays (
+    pays                  TEXT PRIMARY KEY,
+    nb_organisations      INTEGER NOT NULL,
+    nb_personnes_physiques INTEGER NOT NULL
+);
+CREATE TABLE ue_registre_agg_interets (
+    domaine          TEXT PRIMARY KEY,
+    nb_organisations INTEGER NOT NULL,
+    nb_france        INTEGER NOT NULL
+);
+CREATE TABLE ue_registre_agg_couts (
+    fourchette       TEXT PRIMARY KEY,
+    borne_min        REAL,
+    borne_max        REAL,
+    nb_organisations INTEGER NOT NULL,
+    nb_france        INTEGER NOT NULL
+);
 CREATE TABLE partis (
     id               TEXT PRIMARY KEY REFERENCES entites(id),
     code_cnccfp      TEXT NOT NULL UNIQUE,
@@ -900,7 +956,7 @@ CREATE TABLE trainvie_opacites (
 - cada_motifs : 2034 lignes (comptage du 20/08/2026)
 - cada_saisines : 32614 lignes (comptage du 20/08/2026)
 - cada_sens : 47297 lignes (comptage du 20/08/2026)
-- meta_sources : 28 lignes (comptage du 20/08/2026)
+- meta_sources : 29 lignes (comptage du 20/08/2026, S38 et S40 comprises)
 - partis : 718 lignes
 - partis_aide_annuelle : 2 lignes
 - partis_comptes : 2179 lignes
@@ -912,6 +968,13 @@ CREATE TABLE trainvie_opacites (
 - subventions_associations : 112722 lignes
 - trainvie_faits : 56 lignes
 - trainvie_opacites : 8 lignes
+- ue_registre_agg_categories : 13 lignes (comptage du 20/08/2026)
+- ue_registre_agg_couts : 32 lignes (comptage du 20/08/2026)
+- ue_registre_agg_interets : 40 lignes (comptage du 20/08/2026)
+- ue_registre_agg_pays : 140 lignes (comptage du 20/08/2026)
+- ue_registre_organisations : 17476 lignes (comptage du 20/08/2026 — 17 711
+  inscrits au registre moins 235 personnes physiques non nommées ;
+  +4 427 776 octets en base, index compris)
 - votes_recents : 13796 lignes
 
 ## Conventions de valeurs — ce que le DDL ne dit pas
