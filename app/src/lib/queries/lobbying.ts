@@ -70,6 +70,45 @@ export type MinistereVise = {
   nb_entites: number;
 };
 
+/**
+ * Libellés du champ « département ministériel » de la HATVP qui ne désignent
+ * NI un ministère NI une institution : ce sont des TYPES D'INTERLOCUTEUR
+ * (« un agent d'administration centrale », « autres »). Le formulaire AGORA
+ * les propose dans la même liste que les portefeuilles ministériels, les
+ * autorités indépendantes et les collectivités, et l'agrégat les mélange donc
+ * à des institutions nommées.
+ *
+ * Les laisser dans le classement faisait dire au tableau quelque chose de
+ * faux : « Agent d'administration centrale de l'État » y arrivait au 4ᵉ rang
+ * d'un classement intitulé « ministères et institutions », alors que ce
+ * libellé ne nomme aucun destinataire. Ils sont donc présentés à part —
+ * jamais retirés : qu'une activité de représentation d'intérêts soit
+ * déclarée en visant « un agent d'administration centrale » sans nommer
+ * l'administration est une information sur la précision du répertoire.
+ *
+ * Liste FERMÉE, écrite en dur, sur le même principe que la table de
+ * recomposition des portefeuilles du pipeline : aucune heuristique ne
+ * saurait distinguer un type d'interlocuteur d'une institution réelle sans
+ * se tromper (« Défenseur des droits » est une institution, « Agent de
+ * l'État » n'en est pas une). Un libellé hors de cette liste est traité comme
+ * une institution — dégradation propre, jamais une erreur.
+ */
+const LIBELLES_TYPES_INTERLOCUTEUR: ReadonlySet<string> = new Set([
+  "Agent d'administration centrale de l'État",
+  "Agent d'un service déconcentré de l'État",
+  "Agent d'un établissement public administratif de l'État",
+  "Autres : à préciser",
+]);
+
+/**
+ * Vrai si le libellé désigne un type d'interlocuteur et non une institution.
+ * Les apostrophes typographiques de la donnée réelle (U+2019) sont unifiées
+ * avant comparaison, comme le fait le pipeline pour les catégories.
+ */
+export function estTypeInterlocuteur(libelle: string): boolean {
+  return LIBELLES_TYPES_INTERLOCUTEUR.has(libelle.replace(/’/g, "'").trim());
+}
+
 /** Alerte telle qu'en base (table partagée `alertes`). */
 export type AlerteLigne = {
   id: string;
@@ -105,7 +144,12 @@ export type DonneesLobbying = {
   /** Nb d'entités couvertes par une fourchette (somme des nb_entites). */
   budgetsCouverture: { dansFourchettes: number; total: number };
   trimestres: TrimestreActivites[];
+  /** Top 12 des ministères et institutions RÉELLEMENT nommés. */
   ministeres: MinistereVise[];
+  /** Types d'interlocuteur déclarés sans nommer d'institution (présentés à part). */
+  typesInterlocuteur: MinistereVise[];
+  /** Part des activités déclarées sur un type d'interlocuteur, en %. */
+  partTypesInterlocuteur: number | null;
   /** Alerte agrégée native du pipeline (type lobbying_declaration_incomplete). */
   alerteDefauts: AlerteLigne | null;
   /** Nb d'alertes individuelles `lobbying_defaut_declaration` (= 316). */
@@ -211,14 +255,35 @@ export function getDonneesLobbying(): DonneesLobbying | null {
     )
     .all() as TrimestreActivites[];
 
-  const ministeres = db
+  // L'agrégat entier (quelques centaines de lignes) est lu pour être TRIÉ ici
+  // en deux ensembles : les institutions nommées d'un côté, les types
+  // d'interlocuteur de l'autre. Un `LIMIT 12` en SQL mêlait les deux, et la
+  // part des seconds ne pouvait plus être calculée honnêtement.
+  const ministeresTous = db
     .prepare(
       `SELECT ministere, nb_activites_total, nb_activites_12m, nb_entites
        FROM lobby_agg_ministeres
-       ORDER BY nb_activites_total DESC
-       LIMIT 12`,
+       ORDER BY nb_activites_total DESC`,
     )
     .all() as MinistereVise[];
+
+  const typesInterlocuteur = ministeresTous.filter((m) =>
+    estTypeInterlocuteur(m.ministere),
+  );
+  const ministeres = ministeresTous
+    .filter((m) => !estTypeInterlocuteur(m.ministere))
+    .slice(0, 12);
+
+  const totalActivitesVisees = ministeresTous.reduce(
+    (somme, m) => somme + m.nb_activites_total,
+    0,
+  );
+  const partTypesInterlocuteur =
+    totalActivitesVisees === 0
+      ? null
+      : (100 *
+          typesInterlocuteur.reduce((somme, m) => somme + m.nb_activites_total, 0)) /
+        totalActivitesVisees;
 
   const alerteDefauts =
     (db
@@ -256,6 +321,8 @@ export function getDonneesLobbying(): DonneesLobbying | null {
     budgetsCouverture: couverture,
     trimestres,
     ministeres,
+    typesInterlocuteur,
+    partTypesInterlocuteur,
     alerteDefauts,
     nbAlertesDefaut,
     entitesEnDefaut,

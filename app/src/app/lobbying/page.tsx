@@ -867,6 +867,8 @@ export default async function LobbyingPage() {
     budgetsCouverture,
     trimestres,
     ministeres,
+    typesInterlocuteur,
+    partTypesInterlocuteur,
     alerteDefauts,
     nbAlertesDefaut,
     entitesEnDefaut,
@@ -1057,7 +1059,7 @@ export default async function LobbyingPage() {
       {/* ── Ministères / institutions les plus visés ─────────────────── */}
       <Card
         titre="Ministères et institutions les plus visés"
-        sousTitre="Top 12 par nombre d'activités déclarées (historique). Le champ « département ministériel » de la HATVP accepte plusieurs valeurs et son export CSV les sépare par une virgule, sans distinguer cette virgule de celle qui appartient au nom d'un ministère : « Environnement, énergie et mer » y figure en deux lignes. Les portefeuilles connus sont donc reconstitués à partir d'une liste de correspondances fermée, vérifiée sur les identifiants d'activité ; les autres libellés restent tels que déclarés. Une même activité pouvant viser plusieurs portefeuilles, les lignes ne se cumulent pas."
+        sousTitre="Top 12 par nombre d'activités déclarées (historique), parmi les destinataires RÉELLEMENT NOMMÉS — ministères, autorités indépendantes, collectivités. Le champ « département ministériel » de la HATVP accepte plusieurs valeurs et son export CSV les sépare par une virgule, sans distinguer cette virgule de celle qui appartient au nom d'un ministère : « Environnement, énergie et mer » y figure en deux lignes. Les portefeuilles connus sont donc reconstitués à partir d'une liste de correspondances fermée, vérifiée sur les identifiants d'activité ; les autres libellés restent tels que déclarés. Une même activité pouvant viser plusieurs destinataires, les lignes ne se cumulent pas."
         droite={badge}
       >
         <DataTable<MinistereVise>
@@ -1073,6 +1075,51 @@ export default async function LobbyingPage() {
           lignes={ministeres}
           cleLigne={(l) => l.ministere}
         />
+
+        {/* Ces libellés étaient auparavant classés AVEC les ministères : le
+            tableau affirmait alors qu'« Agent d'administration centrale de
+            l'État » était le 4ᵉ ministère le plus visé. Ils sortent du
+            classement, mais restent publiés avec leurs volumes — c'est une
+            information sur la précision du répertoire, pas un déchet. */}
+        {typesInterlocuteur.length > 0 && (
+          <div className="mt-5 border-t border-card-border pt-4">
+            <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+              Déclaré sans nommer d&apos;institution
+            </h3>
+            <p className="mb-3 text-xs leading-relaxed text-ink-secondary">
+              Le formulaire de la HATVP propose, dans la même liste que les
+              ministères, les autorités indépendantes et les collectivités,
+              des libellés qui désignent un{" "}
+              <strong className="font-medium text-ink">
+                type d&apos;interlocuteur
+              </strong>{" "}
+              et non un destinataire nommé. Les activités déclarées ainsi
+              n&apos;ont pas de ministère ni d&apos;institution identifiable et
+              ne peuvent donc pas figurer dans le classement ci-dessus — elles
+              représentent{" "}
+              {partTypesInterlocuteur !== null && (
+                <strong className="font-medium text-ink">
+                  {formatPct(partTypesInterlocuteur)}
+                </strong>
+              )}{" "}
+              des activités rattachées à un destinataire. Aucun chiffre
+              n&apos;est retiré : ils sont ici.
+            </p>
+            <DataTable<MinistereVise>
+              colonnes={[
+                {
+                  cle: "ministere",
+                  entete: "Type d'interlocuteur (libellé natif HATVP)",
+                },
+                { cle: "nb_activites_total", entete: "Activités (hist.)", type: "nombre" },
+                { cle: "nb_activites_12m", entete: "Activités (12 mois)", type: "nombre" },
+                { cle: "nb_entites", entete: "Entités", type: "nombre" },
+              ]}
+              lignes={typesInterlocuteur}
+              cleLigne={(l) => l.ministere}
+            />
+          </div>
+        )}
       </Card>
 
       {/* ── Alertes : défauts de déclaration ─────────────────────────── */}
