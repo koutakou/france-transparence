@@ -11,7 +11,11 @@
  * - montants d'accords-cadres = MAXIMUMS notifiés, pas du dépensé ;
  * - latence légale de publication ≤ 2 mois : fenêtres récentes incomplètes ;
  * - top titulaires : montant divisé par le nombre de co-titulaires ;
- * - decp_agg_departement.montant_total NULL = aucun montant connu (≠ 0).
+ * - decp_agg_departement.montant_total NULL = aucun montant connu (≠ 0) ;
+ * - decp_qualite_montants (1 ligne) dit ce que vaut le total 12 mois : part
+ *   plafonnée, part marquée suspecte, total sans écrêtage. La borne basse
+ *   « hors suspects » n'est PAS « le vrai montant » (drapeau non audité
+ *   ligne à ligne).
  *
  * BOAMP : ao_en_cours est un instantané quotidien — on re-filtre TOUJOURS
  * annulee = 0 ET date_limite_reponse > datetime('now') à la requête.
@@ -79,6 +83,33 @@ export type DernierMarche = {
   techniques: string | null; // contient « Accord-cadre » → montant = maximum
 };
 
+/**
+ * Qualité du montant agrégé 12 mois (table `decp_qualite_montants`, une
+ * seule ligne, calculée DANS le pipeline sur la même fenêtre que
+ * `decp_repartition` — la coupe des 12 mois n'est stockée nulle part en
+ * base et `MAX(date_notification)` la retrouverait décalée).
+ *
+ * `montant_hors_suspects` est une BORNE BASSE, pas « le vrai montant » :
+ * le drapeau `montant_suspect` n'a pas été audité ligne à ligne.
+ */
+export type QualiteMontants = {
+  nb_marches: number;
+  /** Total écrêté — la valeur du KPI héros. */
+  montant_total: number | null;
+  /** Marchés au-delà du plafond, TOUS acheteurs (≠ decp_agg_departement). */
+  nb_ecretes: number;
+  /** Ce que ces marchés apportent au total, au plafond (montant réel inconnu). */
+  montant_ecretes: number | null;
+  nb_suspects: number;
+  montant_suspects: number | null;
+  /** Borne basse : total hors marchés à montant marqué suspect. */
+  montant_hors_suspects: number | null;
+  /** Somme des montants retenus sans aucun écrêtage. */
+  montant_brut: number | null;
+  nb_sans_montant: number;
+  plafond: number;
+};
+
 export type FamilleAO = {
   famille: string;
   famille_libelle: string | null;
@@ -135,9 +166,10 @@ export type DonneesMarches = {
     nbMarches30j: number;
     aoEnCours: number;
     marchesAVenir: number;
-    /** Marchés > 100 M€ écrêtés dans les agrégats 12 mois (acheteurs à département connu). */
-    nbEcretes12m: number;
   };
+  /** Ce que vaut le total 12 mois : parts écrêtée et suspecte. `null` si la
+   *  table n'a pas encore été produite par le pipeline. */
+  qualiteMontants: QualiteMontants | null;
   departements: DepartementAgg[];
   serieMensuelle: MoisAgg[]; // 36 mois, ordre chronologique
   topAcheteurs: TopAcheteur[];
@@ -206,12 +238,21 @@ export function chargerDonneesMarches(
     .prepare("SELECT COUNT(*) AS nb FROM marches_a_venir")
     .get() as { nb: number };
 
-  // Vérifié : 402 marchés écrêtés (12 mois, acheteurs à département connu).
-  const ecretes = db
-    .prepare(
-      "SELECT SUM(nb_marches_ecretes) AS nb FROM decp_agg_departement",
-    )
-    .get() as { nb: number | null };
+  // Qualité du total 12 mois. Le compte d'écrêtés vient d'ICI et non de
+  // SUM(nb_marches_ecretes) FROM decp_agg_departement, qui n'en couvre que
+  // les acheteurs à département connu (402 contre 404 sur l'ensemble).
+  // Vérifié le 20/08/2026 : 297 323 marchés, 270,88 Md€ écrêtés ; 404
+  // marchés au-delà du plafond pour 40,40 Md€ ; 6 247 marchés suspects
+  // pour 81,29 Md€ ; 189,59 Md€ hors suspects ; 469,45 Md€ sans écrêtage.
+  const qualiteMontants =
+    (db
+      .prepare(
+        `SELECT nb_marches, montant_total, nb_ecretes, montant_ecretes,
+                nb_suspects, montant_suspects, montant_hors_suspects,
+                montant_brut, nb_sans_montant, plafond
+         FROM decp_qualite_montants WHERE id = 1`,
+      )
+      .get() as QualiteMontants | undefined) ?? null;
 
   // Carte : 107 départements, montants déjà écrêtés, NULL = aucun montant
   // connu. Vérifié : Paris (75) 37,55 Md€ / 15 838 marchés.
@@ -357,8 +398,8 @@ export function chargerDonneesMarches(
       nbMarches30j: nb30j.nb,
       aoEnCours: aoEnCours.nb,
       marchesAVenir: aVenir.nb,
-      nbEcretes12m: ecretes.nb ?? 0,
     },
+    qualiteMontants,
     departements,
     serieMensuelle,
     topAcheteurs,

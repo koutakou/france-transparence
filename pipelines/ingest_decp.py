@@ -49,6 +49,17 @@ Tables produites (module UI « Commande publique » + carte de France + Accueil)
   valeur (libellé le plus fréquent après normalisation casse/accents ;
   NULL = non renseigné à la source), nb_marches, montant_total (écrêté).
 
+- decp_qualite_montants — UNE ligne (id = 1), même fenêtre 12 mois et même
+  vue `recents` que decp_repartition : nb_marches, montant_total (écrêté),
+  nb_ecretes / montant_ecretes (marchés au-delà du plafond, tous acheteurs —
+  à ne pas confondre avec SUM(nb_marches_ecretes) de decp_agg_departement,
+  qui n'en couvre que les acheteurs à département connu), nb_suspects /
+  montant_suspects, montant_hors_suspects, montant_brut (sans écrêtage),
+  nb_sans_montant, plafond. Sert à dire au lecteur ce que vaut le total
+  affiché : quelle part vient d'un plafond arbitraire, quelle part d'un
+  montant marqué suspect. montant_hors_suspects est une BORNE BASSE — le
+  drapeau montant_suspect n'a pas été audité ligne à ligne.
+
 - decp_derniers_marches — flux « derniers marchés notifiés » : les 200 plus
   récents de decp_marches, colonnes identiques précédées de rang (PK).
 
@@ -198,6 +209,20 @@ CREATE TABLE IF NOT EXISTS decp_top_titulaires (
     categorie     TEXT,
     nb_marches    INTEGER NOT NULL,
     montant_total REAL
+);
+
+CREATE TABLE IF NOT EXISTS decp_qualite_montants (
+    id                    INTEGER PRIMARY KEY CHECK (id = 1),
+    nb_marches            INTEGER NOT NULL,
+    montant_total         REAL,
+    nb_ecretes            INTEGER NOT NULL,
+    montant_ecretes       REAL,
+    nb_suspects           INTEGER NOT NULL,
+    montant_suspects      REAL,
+    montant_hors_suspects REAL,
+    montant_brut          REAL,
+    nb_sans_montant       INTEGER NOT NULL,
+    plafond               REAL NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS decp_repartition (
@@ -448,6 +473,31 @@ def transformer(
         + " ORDER BY dimension, nb_marches DESC"
     )
 
+    # Qualité des montants de la MÊME fenêtre 12 mois que decp_repartition :
+    # le chiffre héros (« montant notifié, écrêté ») ne dit pas à lui seul
+    # quelle part vient d'un plafond arbitraire ou d'un montant marqué
+    # suspect. Ces parts sont calculées ICI, dans le pipeline, parce que la
+    # coupe des 12 mois n'est stockée nulle part en base : elle dépend de
+    # date_ref (jour de l'ingestion), et max(date_notification) — antérieur
+    # de quelques jours — la retrouverait décalée. Une seule ligne (id = 1).
+    duck.execute(
+        f"""
+        CREATE TEMP TABLE t_qualite_montants AS
+        SELECT 1                                              AS id,
+               count(*)                                       AS nb_marches,
+               sum(montant_ecrete)                            AS montant_total,
+               count(*) FILTER (ecrete)                       AS nb_ecretes,
+               sum(montant_ecrete) FILTER (ecrete)            AS montant_ecretes,
+               count(*) FILTER (montant_suspect = 1)          AS nb_suspects,
+               sum(montant_ecrete) FILTER (montant_suspect = 1) AS montant_suspects,
+               sum(montant_ecrete) FILTER (montant_suspect = 0) AS montant_hors_suspects,
+               sum(montant_retenu)                            AS montant_brut,
+               count(*) FILTER (montant_retenu IS NULL)       AS nb_sans_montant,
+               CAST({p['plafond']} AS DOUBLE)                 AS plafond
+        FROM recents
+        """
+    )
+
     duck.execute(
         f"""
         CREATE TEMP TABLE t_derniers_marches AS
@@ -495,12 +545,18 @@ _TABLES = {
         "t_repartition",
         ["dimension", "valeur", "nb_marches", "montant_total"],
     ),
+    "decp_qualite_montants": (
+        "t_qualite_montants",
+        ["id", "nb_marches", "montant_total", "nb_ecretes", "montant_ecretes",
+         "nb_suspects", "montant_suspects", "montant_hors_suspects",
+         "montant_brut", "nb_sans_montant", "plafond"],
+    ),
     "decp_derniers_marches": ("t_derniers_marches", ["rang"] + _CHAMPS_MARCHE),
 }
 
 
 def charger(conn: sqlite3.Connection, duck: duckdb.DuckDBPyConnection) -> dict[str, int]:
-    """Réécrit les 7 tables decp_* depuis les tables temp DuckDB.
+    """Réécrit les 8 tables decp_* depuis les tables temp DuckDB.
 
     CREATE TABLE IF NOT EXISTS puis DELETE/INSERT dans la transaction en
     cours (aucun commit ici — l'appelant commet, cf. main, ou annule).

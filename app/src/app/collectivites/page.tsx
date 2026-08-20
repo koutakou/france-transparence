@@ -19,6 +19,7 @@ import {
   getGrandesCommunes,
   getKpisCommunes,
   getMetaFinancesLocales,
+  getNbRegionsReferentiel,
   getRegions,
 } from "@/lib/queries/collectivites";
 
@@ -81,6 +82,7 @@ export default async function PageCollectivites() {
   const kpis = getKpisCommunes();
   const dgfNationale = getDgfNationale() ?? [];
   const regions = getRegions() ?? [];
+  const nbRegionsReferentiel = getNbRegionsReferentiel();
   const conseilsDep = getConseilsDepartementaux() ?? [];
   const grandesCommunes = getGrandesCommunes() ?? [];
   const dgfTopFlop = getDgfCommunesTopFlop();
@@ -327,7 +329,9 @@ export default async function PageCollectivites() {
           titre="Régions"
           sousTitre={
             regions.length > 0
-              ? `${regions.length} collectivités régionales, exercice ${regions[0].exercice} — dont ${ctu.length} collectivités territoriales uniques (${ctu
+              ? `${regions.length}${
+                  nbRegionsReferentiel ? ` des ${nbRegionsReferentiel}` : ""
+                } collectivités régionales, exercice ${regions[0].exercice} — dont ${ctu.length} collectivités territoriales uniques (${ctu
                   .map((r) => r.nom)
                   .join(", ")}) exerçant aussi les compétences départementales`
               : undefined
@@ -335,6 +339,24 @@ export default async function PageCollectivites() {
           droite={badge(mentionComptes)}
         >
           <SeriesCollectivites niveau="regions" lignes={lignesRegions} />
+          {/* L'écart au référentiel s'explique, il ne se comble pas : rien
+              n'est recopié depuis les comptes départementaux de Mayotte.
+              La phrase disparaît d'elle-même si OFGL publie la 18e. */}
+          {nbRegionsReferentiel !== null &&
+            regions.length < nbRegionsReferentiel && (
+              <p className="mt-2 text-[11px] text-ink-muted">
+                {nbRegionsReferentiel - regions.length === 1
+                  ? "Une collectivité régionale manque à ce tableau"
+                  : `${nbRegionsReferentiel - regions.length} collectivités régionales manquent à ce tableau`}{" "}
+                : le Département de Mayotte (976) est une collectivité unique
+                qui exerce à la fois les compétences régionales et
+                départementales, et la base OFGL ne le publie pas dans son jeu
+                « régions ». Ses comptes figurent parmi les conseils
+                départementaux ci-dessous. Ils n&apos;y sont pas recopiés :
+                aucune ligne régionale n&apos;est fabriquée pour combler
+                l&apos;écart.
+              </p>
+            )}
         </Card>
       </section>
 
@@ -359,6 +381,14 @@ export default async function PageCollectivites() {
             691 = Métropole de Lyon (compétences départementales sur son territoire) ·
             75 = Paris, collectivité à statut particulier (commune et département). L&apos;épargne
             brute peut être négative : donnée réelle, affichée signée.
+          </p>
+          <p className="mt-2 text-[11px] text-ink-muted">
+            976 = Département de Mayotte, collectivité unique : il exerce aussi
+            les compétences régionales, que les autres conseils départementaux
+            n&apos;ont pas. Ses agrégats de fonctionnement ne sont donc pas
+            comparables aux leurs. C&apos;est à ce titre qu&apos;il figure ici
+            et non dans le tableau des régions ci-dessus, où la base OFGL ne le
+            publie pas.
           </p>
         </Card>
       </section>
