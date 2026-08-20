@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
 import { Card } from "@/components/ui/Card";
+import { JsonLd } from "@/components/JsonLd";
 import { DataTable } from "@/components/ui/DataTable";
 import { formatDateFr, formatNombre } from "@/lib/format";
 import {
   getCatalogueSources,
+  getCouvertureBudgetMensuel,
+  getCouvertureMarchesAgregats,
   getDerniereIngestion,
+  getDerniereIngestionParIds,
   getLicences,
   type NiveauFraicheur,
   type SourceCataloguee,
 } from "@/lib/queries/donnees";
+import { jsonLdCatalogueDonnees, type DescriptionDataset } from "@/lib/seo";
 
 // Rendu statique : le catalogue est figé au build, qui suit chaque
 // ingestion (docs/deploiement/DECISION.md) — il reste donc à jour.
@@ -122,33 +127,79 @@ const PROMESSES: { promesse: string; reel: string }[] = [
 /* Exports JSON quotidiens (site statique — plus d'API paramétrique)  */
 /* ---------------------------------------------------------------- */
 
-const EXPORTS: { chemin: string; description: string }[] = [
+/**
+ * Les exports JSON publiés avec le site.
+ *
+ * En plus de ce qui est affiché (`chemin`, `description`), chaque entrée
+ * porte ce qu'exige le balisage `Dataset` de schema.org — celui que Google
+ * Dataset Search indexe, et la cible réelle de ce site (journalistes de
+ * données, chercheurs) :
+ * - `nom` : titre du jeu de données (l'URL ne suffit pas comme nom) ;
+ * - `sources` : identifiants `meta_sources` amont, d'où est tirée la date de
+ *   dernière modification RÉELLE (jamais la date du build) ; ils reprennent
+ *   exactement ceux déclarés par la route de l'export ;
+ * - `motsCles` : vocabulaire de recherche, factuel.
+ */
+type ExportJson = {
+  cle: string;
+  nom: string;
+  chemin: string;
+  description: string;
+  sources: string[];
+  motsCles: string[];
+};
+
+const EXPORTS: ExportJson[] = [
   {
+    cle: "meta",
+    nom: "Catalogue des sources de France Transparence (meta_sources)",
+    sources: [],
+    motsCles: ["open data", "catalogue de sources", "fraîcheur des données", "France"],
     chemin: "/api/meta.json",
     description:
       "Le catalogue meta_sources complet : chaque source tracée avec nom, URL amont, licence, fréquence, date des données, date d'ingestion, volumétrie et notes — plus genere_le, la date du build (témoin de fraîcheur du déploiement).",
   },
   {
+    cle: "alertes",
+    nom: "Alertes d'intégrité de la vie publique (France Transparence)",
+    sources: ["S14", "S17", "S4", "S25", "S29"],
+    motsCles: ["intégrité publique", "HATVP", "lobbying", "financement politique", "France"],
     chemin: "/api/alertes.json",
     description:
       "Toutes les alertes calculées à l'ingestion (dump complet), chacune avec sa règle, sa base légale et son URL source.",
   },
   {
+    cle: "elus",
+    nom: "Répertoire des élus français — champs publics compacts",
+    sources: ["S17", "S5-AMO10", "S6-ODSEN", "S14"],
+    motsCles: ["élus", "députés", "sénateurs", "mandats", "répertoire national des élus", "France"],
     chemin: "/api/elus.json",
     description:
       "Le répertoire des élus, en champs publics compacts : identité, identifiants AN/Sénat, lien HATVP, types de mandats (le détail des mandats reste sur les fiches et dans le RNE amont).",
   },
   {
+    cle: "budget-mensuel",
+    nom: "Situations mensuelles budgétaires de l'État français",
+    sources: ["S13"],
+    motsCles: ["budget de l'État", "dépenses publiques", "DGFiP", "série mensuelle", "France"],
     chemin: "/api/budget-mensuel.json",
     description:
       "Situations mensuelles budgétaires de l'État, série complète 2013 → dernier mois publié (26 lignes par mois, montants = cumuls depuis le 1er janvier).",
   },
   {
+    cle: "marches-agregats",
+    nom: "Agrégats de marchés publics français (DECP consolidées)",
+    sources: ["S1"],
+    motsCles: ["marchés publics", "commande publique", "DECP", "acheteurs publics", "France"],
     chemin: "/api/marches-agregats.json",
     description:
       "Agrégats de marchés publics pré-calculés à l'ingestion : par département (12 mois, montants écrêtés à 100 M€/marché) et par mois (36 mois).",
   },
   {
+    cle: "recherche-index",
+    nom: "Index de recherche du site (élus et entités publiques)",
+    sources: ["S17", "S5-AMO10", "S6-ODSEN"],
+    motsCles: ["index de recherche", "élus", "institutions", "France"],
     chemin: "/data/recherche-index.json",
     description:
       "L'index de la recherche du site — c'est ce fichier que la barre de recherche charge et interroge côté navigateur.",
@@ -180,8 +231,28 @@ export default async function PageDonnees() {
 
   const totalLignes = sources.reduce((s, x) => s + x.lignes, 0);
 
+  /* Balisage `DataCatalog` + `Dataset` : dates de modification et couvertures
+     temporelles LUES EN BASE — un balisage qui affirmerait une fraîcheur que
+     la donnée n'a pas serait pire que pas de balisage du tout. */
+  const couvertures: Record<string, string | null> = {
+    "budget-mensuel": getCouvertureBudgetMensuel(),
+    "marches-agregats": getCouvertureMarchesAgregats(),
+  };
+  const datasets: DescriptionDataset[] = EXPORTS.map((e) => ({
+    cle: e.cle,
+    nom: e.nom,
+    description: e.description,
+    chemin: e.chemin,
+    motsCles: e.motsCles,
+    dateModified:
+      (e.sources.length > 0 ? getDerniereIngestionParIds(e.sources) : null) ??
+      derniereIngestion,
+    temporalCoverage: couvertures[e.cle] ?? null,
+  }));
+
   return (
     <section className="flex flex-col gap-6">
+      <JsonLd donnees={jsonLdCatalogueDonnees(datasets, derniereIngestion)} />
       <header className="flex flex-col gap-2">
         <h1 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
           Données &amp; exports

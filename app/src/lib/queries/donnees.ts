@@ -129,6 +129,58 @@ export function getMetaSourcesParIds(ids: string[]): MetaSource[] | null {
 }
 
 /* ------------------------------------------------------------------ */
+/* Couvertures temporelles réelles (balisage schema.org des exports)   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Couverture temporelle d'une série mensuelle, au format d'intervalle
+ * ISO 8601 attendu par `Dataset.temporalCoverage` (« 2013-01/2026-06 »).
+ * Calculée sur la donnée RÉELLEMENT en base — jamais une borne codée en dur,
+ * qui deviendrait fausse au premier mois publié.
+ */
+function intervalle(debut: string | null, fin: string | null): string | null {
+  return debut && fin ? `${debut}/${fin}` : null;
+}
+
+/** Couverture réelle de la série budgétaire mensuelle (S13, DGFiP). */
+export function getCouvertureBudgetMensuel(): string | null {
+  const db = getDb();
+  if (!db) return null;
+  const r = db
+    .prepare(
+      `SELECT MIN(annee || '-' || printf('%02d', mois)) AS debut,
+              MAX(annee || '-' || printf('%02d', mois)) AS fin
+         FROM budget_mensuel`,
+    )
+    .get() as { debut: string | null; fin: string | null };
+  return intervalle(r.debut, r.fin);
+}
+
+/** Couverture réelle des agrégats mensuels de marchés publics (S1, DECP). */
+export function getCouvertureMarchesAgregats(): string | null {
+  const db = getDb();
+  if (!db) return null;
+  const r = db
+    .prepare("SELECT MIN(mois) AS debut, MAX(mois) AS fin FROM decp_agg_mois")
+    .get() as { debut: string | null; fin: string | null };
+  return intervalle(r.debut, r.fin);
+}
+
+/**
+ * Date d'ingestion la plus récente parmi une liste de sources — c'est la
+ * date de dernière modification RÉELLE d'un export qui les agrège
+ * (`Dataset.dateModified`), et non la date du build.
+ */
+export function getDerniereIngestionParIds(ids: string[]): string | null {
+  const sources = getMetaSourcesParIds(ids);
+  if (!sources || sources.length === 0) return null;
+  return sources.reduce(
+    (max, s) => (s.date_ingestion > max ? s.date_ingestion : max),
+    sources[0].date_ingestion,
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* /api/elus — recherche dans le répertoire des élus (36 018 lignes)   */
 /* ------------------------------------------------------------------ */
 
