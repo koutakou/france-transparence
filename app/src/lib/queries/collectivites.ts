@@ -8,6 +8,10 @@
  * Règles (docs/NOTES-FRONT.md § Finances locales) :
  * - comptes 2025 chargés en juillet 2026, PROVISOIRES jusqu'en décembre ;
  * - `collectivites_departements.euros_par_hab` = (fonct + inv) / population ;
+ * - le jeu OFGL « régions » ne publie QUE 17 collectivités régionales : le
+ *   Département de Mayotte (976), collectivité unique, n'y figure pas — ses
+ *   comptes sont publiés parmi les conseils départementaux. Rien n'est
+ *   recopié d'une table à l'autre : une donnée régionale absente le reste ;
  * - régions / conseils départementaux en format long
  *   `(code, nom, exercice, agregat, montant, euros_par_hab, population)`
  *   → pivotés ici sur 3 agrégats clés ;
@@ -132,7 +136,35 @@ export type CollectiviteAgregats = {
 
 export type RegionAgregats = CollectiviteAgregats & { est_ctu: number };
 
-/** Les 17 régions (dont 3 CTU), dernier exercice, pivotées sur 3 agrégats. */
+/**
+ * Nombre de collectivités régionales du référentiel (18 : les 17 publiées
+ * par OFGL + Mayotte), dérivé de `ref_departements` plutôt que codé en dur.
+ *
+ * Sert à dire « X des 18 » sur /collectivites : le jeu OFGL « régions »
+ * ne publie pas le Département de Mayotte (collectivité unique exerçant
+ * les compétences régionales ET départementales — OFGL la range côté
+ * départements). Si OFGL la publie un jour, `getRegions()` en renverra 18
+ * et la mention d'écart disparaîtra d'elle-même.
+ *
+ * `null` si la base ou le référentiel est absent : la page se rabat alors
+ * sur le seul compte réellement disponible, sans inventer de total.
+ */
+export function getNbRegionsReferentiel(): number | null {
+  const db = getDb();
+  if (!db) return null;
+  const ligne = db
+    .prepare(
+      "SELECT COUNT(DISTINCT code_region) AS nb FROM ref_departements",
+    )
+    .get() as { nb: number } | undefined;
+  return ligne && ligne.nb > 0 ? ligne.nb : null;
+}
+
+/**
+ * Les régions publiées par OFGL au dernier exercice (17 sur 18 : Mayotte
+ * n'est pas dans le jeu « régions », cf. `getNbRegionsReferentiel`), dont
+ * 3 CTU, pivotées sur 3 agrégats.
+ */
 export function getRegions(): RegionAgregats[] | null {
   const db = getDb();
   if (!db) return null;
@@ -151,7 +183,12 @@ export function getRegions(): RegionAgregats[] | null {
     .all() as RegionAgregats[];
 }
 
-/** Les 97 conseils départementaux (67A = CEA, 691 = Métropole de Lyon, 75 = Paris). */
+/**
+ * Les 97 conseils départementaux (67A = CEA, 691 = Métropole de Lyon,
+ * 75 = Paris). Contient aussi le Département de Mayotte (976), qui exerce
+ * en outre les compétences régionales : ses agrégats de fonctionnement ne
+ * sont pas comparables à ceux des autres conseils départementaux.
+ */
 export function getConseilsDepartementaux(): CollectiviteAgregats[] | null {
   const db = getDb();
   if (!db) return null;

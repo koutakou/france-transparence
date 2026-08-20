@@ -307,12 +307,15 @@ export default async function LobbyingPage() {
       {/* ── Ministères / institutions les plus visés ─────────────────── */}
       <Card
         titre="Ministères et institutions les plus visés"
-        sousTitre="Top 12 par nombre d'activités déclarées (historique). Libellés tels que déclarés par les représentants d'intérêts : une même activité peut viser plusieurs libellés de portefeuille — les lignes ne se cumulent pas."
+        sousTitre="Top 12 par nombre d'activités déclarées (historique). Le champ « département ministériel » de la HATVP accepte plusieurs valeurs et son export CSV les sépare par une virgule, sans distinguer cette virgule de celle qui appartient au nom d'un ministère : « Environnement, énergie et mer » y figure en deux lignes. Les portefeuilles connus sont donc reconstitués à partir d'une liste de correspondances fermée, vérifiée sur les identifiants d'activité ; les autres libellés restent tels que déclarés. Une même activité pouvant viser plusieurs portefeuilles, les lignes ne se cumulent pas."
         droite={badge}
       >
         <DataTable<MinistereVise>
           colonnes={[
-            { cle: "ministere", entete: "Ministère / institution (libellé déclaré)" },
+            {
+              cle: "ministere",
+              entete: "Ministère / institution (libellé reconstitué)",
+            },
             { cle: "nb_activites_total", entete: "Activités (hist.)", type: "nombre" },
             { cle: "nb_activites_12m", entete: "Activités (12 mois)", type: "nombre" },
             { cle: "nb_entites", entete: "Entités", type: "nombre" },

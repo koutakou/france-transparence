@@ -19,6 +19,8 @@ import pytest
 
 from pipelines import db
 from pipelines.ingest_lobbying import (
+    FRAGMENTS_MINISTERIELS,
+    PORTEFEUILLES_MINISTERIELS,
     TYPES_ALERTES,
     construire,
     ecrire_db,
@@ -26,8 +28,19 @@ from pipelines.ingest_lobbying import (
     groupe_institution,
     iso_de_fr,
     parse_borne,
+    portefeuille_ministeriel,
     url_fiche_hatvp,
+    verifier_fragments,
 )
+
+# Vues séparées réelles, si elles ont été extraites par une ingestion
+# précédente : c'est sur ELLES que la sonnette de dérive du vocabulaire
+# HATVP a un sens (la fixture ne contient que 2 des 8 portefeuilles).
+VUES_REELLES = (
+    Path(__file__).resolve().parents[2]
+    / "data" / "raw" / "lobbying" / "Vues_Separees"
+)
+CSV_MINISTERES_REEL = VUES_REELLES / "13_ministeres_aai_api.csv"
 
 FIXTURE = Path(__file__).parent / "fixtures" / "lobbying"
 AUJOURDHUI = date(2026, 8, 19)  # date de constitution de la fixture
@@ -240,6 +253,119 @@ def test_idempotence_et_table_alertes_partagee(base, tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Recomposition des portefeuilles ministériels (table FERMÉE)
+# ---------------------------------------------------------------------------
+
+
+def test_table_des_portefeuilles_est_bien_formee():
+    """La table fermée ne doit contenir ni doublon ni famille dégénérée."""
+    for famille in PORTEFEUILLES_MINISTERIELS:
+        # un portefeuille éclaté fait au moins deux morceaux
+        assert len(famille) >= 2
+        # aucun morceau vide ou déjà espacé/ponctué de travers
+        for fragment in famille:
+            assert fragment == fragment.strip() and fragment
+            assert "," not in fragment  # sinon ce n'est pas un fragment
+    # un fragment n'appartient qu'à UN portefeuille
+    tous = [f for famille in PORTEFEUILLES_MINISTERIELS for f in famille]
+    assert len(tous) == len(set(tous)) == len(FRAGMENTS_MINISTERIELS)
+    # le libellé recomposé est la simple recollure des morceaux
+    for famille in PORTEFEUILLES_MINISTERIELS:
+        attendu = ", ".join(famille)
+        for fragment in famille:
+            assert FRAGMENTS_MINISTERIELS[fragment] == attendu
+
+
+def test_portefeuille_ministeriel_degrade_proprement():
+    assert portefeuille_ministeriel("Environnement") == "Environnement, énergie et mer"
+    # l'espace de tête du CSV n'est PAS un discriminant : même résultat
+    assert portefeuille_ministeriel(" énergie et mer") == "Environnement, énergie et mer"
+    assert (portefeuille_ministeriel("formation professionnelle et dialogue social")
+            == "Travail, emploi, formation professionnelle et dialogue social")
+    # libellé hors table : rendu BRUT (trimé), jamais une erreur
+    assert portefeuille_ministeriel(" Economie et finances") == "Economie et finances"
+    assert portefeuille_ministeriel("Logement") == "Logement"
+    assert portefeuille_ministeriel("Ministère créé demain") == "Ministère créé demain"
+
+
+def test_recomposition_dans_lagregat(base):
+    """Fragments recomposés, et compteurs en UNION (jamais en somme).
+
+    Dans la fixture, les actions 150, 223 et 227 visent chacune les deux
+    fragments « Environnement » et « énergie et mer ». Le portefeuille doit
+    peser 3 activités — pas 6.
+    """
+    conn, _ = base
+    lignes = {r["ministere"]: r for r in conn.execute(
+        "SELECT * FROM lobby_agg_ministeres")}
+
+    env = lignes["Environnement, énergie et mer"]
+    assert env["nb_activites_total"] == 3      # union des deux fragments
+    assert env["nb_entites"] == 1
+    amenagement = lignes["Aménagement du territoire, ruralité et collectivités territoriales"]
+    assert amenagement["nb_activites_total"] == 1
+
+    # aucun fragment ne subsiste comme libellé autonome
+    for fragment in FRAGMENTS_MINISTERIELS:
+        assert fragment not in lignes
+
+    # les libellés hors table restent bruts, à l'identique
+    assert lignes["Economie et finances"]["nb_activites_total"] == 4
+    assert "Conseil départemental d'Alsace" in lignes
+
+
+def test_verifier_fragments_signale_les_disparitions():
+    """La sonnette de dérive fonctionne dans les deux sens."""
+    # vocabulaire intact (espaces de tête compris, comme dans le CSV)
+    tous = [" " + f for f in FRAGMENTS_MINISTERIELS]
+    assert verifier_fragments(tous) == []
+    # un portefeuille renommé après remaniement : les morceaux disparus
+    # doivent ressortir, triés, et non passer inaperçus
+    ampute = [f for f in FRAGMENTS_MINISTERIELS if f != "jeunesse et sport"]
+    assert verifier_fragments(ampute) == ["jeunesse et sport"]
+    assert verifier_fragments([]) == sorted(FRAGMENTS_MINISTERIELS)
+    assert verifier_fragments([None, ""]) == sorted(FRAGMENTS_MINISTERIELS)
+
+
+def test_fragments_absents_remontent_dans_les_stats(base):
+    """`construire` expose les fragments introuvables (la fixture en a)."""
+    _conn, donnees = base
+    absents = donnees["stats"]["fragments_ministeres_absents"]
+    # la fixture ne porte que 2 des 8 portefeuilles : les autres manquent
+    assert "jeunesse et sport" in absents
+    # ceux qu'elle porte ne sont PAS signalés
+    assert "Environnement" not in absents
+    assert "ruralité et collectivités territoriales" not in absents
+
+
+@pytest.mark.skipif(
+    not CSV_MINISTERES_REEL.exists(),
+    reason="vues séparées réelles absentes (data/raw/lobbying) — "
+           "lancer le pipeline lobbying pour armer ce contrôle",
+)
+def test_aucun_fragment_connu_na_disparu_de_la_donnee_reelle():
+    """Sonnette de dérive du vocabulaire HATVP, sur la donnée réelle.
+
+    Si un remaniement fait renommer un portefeuille, ses fragments cessent
+    d'exister et la table fermée cesse SILENCIEUSEMENT de recomposer : le
+    tableau se remettrait à afficher des morceaux. Ce test échoue alors, et
+    la table doit être relue à la main (jamais élargie automatiquement).
+    """
+    import csv
+
+    with open(CSV_MINISTERES_REEL, encoding="utf-8", newline="") as f:
+        libelles = [
+            ligne["departement_ministeriel"]
+            for ligne in csv.DictReader(f, delimiter=";")
+        ]
+    absents = verifier_fragments(libelles)
+    assert absents == [], (
+        "fragments de PORTEFEUILLES_MINISTERIELS introuvables dans la donnée "
+        f"HATVP : {absents} — le vocabulaire a changé, relire la table fermée"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Intégration réelle (réseau)
 # ---------------------------------------------------------------------------
 
@@ -252,6 +378,8 @@ def test_integration_reelle(tmp_path):
     assert stats["entites"] > 3000            # ~4 067 constatées le 19/08/2026
     assert stats["activites_total"] > 80000   # ~112 450 constatées
     assert stats["alertes_defaut"] > 100      # ~316 constatées
+    # la table fermée doit toujours coller au vocabulaire HATVP du jour
+    assert stats["fragments_ministeres_absents"] == []
 
     conn = db.connexion(chemin)
     try:
@@ -264,5 +392,10 @@ def test_integration_reelle(tmp_path):
         libelles = [r["fourchette"] for r in conn.execute(
             "SELECT fourchette FROM lobby_agg_budgets")]
         assert any("€" in lib for lib in libelles)
+        # portefeuilles recomposés : aucun fragment ne subsiste seul
+        ministeres = {r["ministere"] for r in conn.execute(
+            "SELECT ministere FROM lobby_agg_ministeres")}
+        assert not (ministeres & set(FRAGMENTS_MINISTERIELS))
+        assert "Environnement, énergie et mer" in ministeres
     finally:
         conn.close()

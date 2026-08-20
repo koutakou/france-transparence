@@ -239,3 +239,98 @@ def test_integration_reelle(tmp_path, monkeypatch):
         assert meta["date_donnees"] >= "2026-08-01"  # build quotidien, notif J-1
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Qualité des montants : ce que vaut le total affiché
+# ---------------------------------------------------------------------------
+
+
+def test_qualite_montants_est_une_ligne_coherente(resultat):
+    """La table de qualité décrit EXACTEMENT la fenêtre 12 mois des agrégats.
+
+    Elle est calculée dans le pipeline, sur la vue `recents`, parce que la
+    coupe des 12 mois n'est stockée nulle part en base : elle dépend du jour
+    d'ingestion, et max(date_notification) — antérieur de quelques jours —
+    la retrouverait décalée.
+    """
+    duck, _ = resultat
+    lignes = duck.execute("SELECT * FROM t_qualite_montants").fetchall()
+    assert len(lignes) == 1
+    noms = [d[0] for d in duck.description]
+    q = dict(zip(noms, lignes[0]))
+
+    assert q["id"] == 1
+    assert q["plafond"] == ingest_decp.PLAFOND_ECRETAGE_EUR
+
+    # Même population et même total que decp_repartition (100 % des marchés
+    # de la fenêtre) : les deux chiffres affichés doivent coïncider.
+    nb_rep, montant_rep = duck.execute(
+        "SELECT sum(nb_marches), sum(montant_total) FROM t_repartition "
+        "WHERE dimension = 'procedure'"
+    ).fetchone()
+    assert q["nb_marches"] == nb_rep == 37
+    assert q["montant_total"] == pytest.approx(montant_rep)
+    assert q["montant_total"] == pytest.approx(122_699_312.99)
+
+    # Part écrêtée : le géant à 12,3 Md€ compté au plafond, et lui seul.
+    assert q["nb_ecretes"] == 1
+    assert q["montant_ecretes"] == pytest.approx(100_000_000.0)
+
+    # Part suspecte : le géant + l'aberrant (drapeau de la source).
+    assert q["nb_suspects"] == 2
+    assert q["montant_suspects"] == pytest.approx(100_115_000.0)
+
+    # Les écrêtés sont un sous-ensemble des suspects (règle du pipeline :
+    # montant_suspect = 1 dès que montant_retenu dépasse le plafond).
+    assert q["nb_ecretes"] <= q["nb_suspects"]
+
+    # Borne basse = total moins la part suspecte, à l'euro près.
+    assert q["montant_hors_suspects"] == pytest.approx(
+        q["montant_total"] - q["montant_suspects"]
+    )
+
+    # Le brut n'est pas écrêté : il dépasse largement le total affiché.
+    assert q["montant_brut"] == pytest.approx(12_333_810_423.99)
+    assert q["montant_brut"] > q["montant_total"]
+
+    # Marchés sans montant : comptés dans nb_marches, hors de toute somme.
+    assert q["nb_sans_montant"] == 2
+
+
+def test_qualite_montants_ecrit_une_seule_ligne(tmp_path, resultat):
+    """`decp_qualite_montants` reste à UNE ligne après plusieurs passages."""
+    duck, _ = resultat
+    conn = db.init_db(chemin=tmp_path / "decp_qualite.db")
+    try:
+        for _ in range(2):
+            comptes = ingest_decp.charger(conn, duck)
+            conn.commit()
+        assert comptes["decp_qualite_montants"] == 1
+        lignes = conn.execute("SELECT * FROM decp_qualite_montants").fetchall()
+        assert len(lignes) == 1
+        assert lignes[0]["id"] == 1
+        assert lignes[0]["nb_marches"] == 37
+        assert lignes[0]["plafond"] == ingest_decp.PLAFOND_ECRETAGE_EUR
+        # Les valeurs traversent SQLite en REAL/INTEGER (jamais un Decimal,
+        # que sqlite3 refuse de lier).
+        for col in ("montant_total", "montant_ecretes", "montant_suspects",
+                    "montant_hors_suspects", "montant_brut", "plafond"):
+            assert isinstance(lignes[0][col], float)
+    finally:
+        conn.close()
+
+
+def test_ecretes_totaux_depassent_le_sous_total_departemental(resultat):
+    """Le compte d'écrêtés de la qualité couvre TOUS les acheteurs.
+
+    `SUM(nb_marches_ecretes) FROM decp_agg_departement` n'en couvre que les
+    acheteurs à département connu (402 contre 404 sur la base réelle du
+    20/08/2026) : la page doit citer le compte total, pas ce sous-total.
+    """
+    duck, _ = resultat
+    total = duck.execute("SELECT nb_ecretes FROM t_qualite_montants").fetchone()[0]
+    par_dep = duck.execute(
+        "SELECT coalesce(sum(nb_marches_ecretes), 0) FROM t_agg_departement"
+    ).fetchone()[0]
+    assert total >= par_dep

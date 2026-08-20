@@ -126,7 +126,25 @@ export default async function PageMarches() {
     );
   }
 
-  const { meta, kpis, serieMensuelle, familles, alertes } = donnees;
+  const { meta, kpis, serieMensuelle, familles, alertes, qualiteMontants } =
+    donnees;
+
+  /* ---- « Ce que vaut ce total » : parts écrêtée et suspecte du KPI héros.
+     Le chiffre affiché n'est PAS modifié — on lui ajoute son contexte.
+     Les parts se lisent sur le total écrêté lui-même (montant_total de
+     decp_qualite_montants = valeur du KPI). `null` tant que le pipeline
+     n'a pas produit la table : le paragraphe disparaît, aucun chiffre
+     n'est deviné. */
+  const qm = qualiteMontants;
+  const totalQm = qm?.montant_total ?? null;
+  const partEcretee =
+    qm && totalQm && qm.montant_ecretes !== null
+      ? (100 * qm.montant_ecretes) / totalQm
+      : null;
+  const partSuspecte =
+    qm && totalQm && qm.montant_suspects !== null
+      ? (100 * qm.montant_suspects) / totalQm
+      : null;
 
   /* ---- KPI : tendances 12 derniers mois de la série mensuelle ---- */
   const douzeDerniers = serieMensuelle.slice(-12);
@@ -245,11 +263,68 @@ export default async function PageMarches() {
         />
         <p className="text-xs leading-relaxed text-ink-muted">
           Méthode : montants agrégés écrêtés à 100&nbsp;M€ par marché pour
-          neutraliser les saisies aberrantes ({formatNombre(kpis.nbEcretes12m)}{" "}
-          marchés au-delà du plafond sur 12&nbsp;mois, acheteurs à département
-          connu) ; les montants non renseignés restent exclus des sommes —
-          aucune valeur n’est inventée.
+          neutraliser les saisies aberrantes ; les montants non renseignés
+          restent exclus des sommes — aucune valeur n’est inventée.
         </p>
+        {qm && totalQm !== null && (
+          <div className="max-w-3xl rounded-xl border border-card-border bg-card p-4">
+            <h2 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+              Ce que vaut ce total
+            </h2>
+            <p className="text-xs leading-relaxed text-ink-secondary">
+              Le total de{" "}
+              <strong className="font-medium text-ink">
+                {formatEuros(totalQm)}
+              </strong>{" "}
+              porte sur {formatNombre(qm.nb_marches)} marchés notifiés sur
+              12&nbsp;mois. Il n’est pas homogène :
+            </p>
+            <ul className="mt-2 flex flex-col gap-1.5 text-xs leading-relaxed text-ink-secondary">
+              <li>
+                <strong className="font-medium text-ink">
+                  {formatNombre(qm.nb_ecretes)} marchés
+                </strong>{" "}
+                dépassent le plafond de {formatEuros(qm.plafond)} et sont
+                comptés à ce plafond. Ils apportent{" "}
+                {qm.montant_ecretes !== null ? formatEuros(qm.montant_ecretes) : "—"}
+                {partEcretee !== null && <>, soit {formatPct(partEcretee)} du total</>} :
+                cette part est faite de valeurs de substitution, leur montant
+                réel n’est pas connu.
+              </li>
+              <li>
+                <strong className="font-medium text-ink">
+                  {formatNombre(qm.nb_suspects)} marchés
+                </strong>{" "}
+                portent le drapeau « montant suspect » (anomalie signalée à la
+                source, ou montant au-delà du plafond) et apportent{" "}
+                {qm.montant_suspects !== null ? formatEuros(qm.montant_suspects) : "—"}
+                {partSuspecte !== null && <>, soit {formatPct(partSuspecte)} du total</>}.
+              </li>
+              <li>
+                En les écartant tous, il reste{" "}
+                {qm.montant_hors_suspects !== null
+                  ? formatEuros(qm.montant_hors_suspects)
+                  : "—"}
+                . À lire comme une{" "}
+                <strong className="font-medium text-ink">borne basse</strong>, et
+                non comme le montant réel : le drapeau « suspect » n’a pas été
+                vérifié marché par marché, il écarte donc aussi des montants
+                exacts.
+              </li>
+              <li>
+                Sans aucun écrêtage, la somme brute des montants déclarés
+                atteindrait{" "}
+                {qm.montant_brut !== null ? formatEuros(qm.montant_brut) : "—"} —
+                ce que le plafond sert précisément à ne pas afficher.
+              </li>
+              <li>
+                {formatNombre(qm.nb_sans_montant)} marchés sont notifiés sans
+                montant renseigné : comptés dans le nombre de marchés, exclus
+                de toutes les sommes.
+              </li>
+            </ul>
+          </div>
+        )}
       </section>
 
       {/* ---------------------------------------------------------- */}

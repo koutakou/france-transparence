@@ -40,7 +40,13 @@ Tables écrites (remplacement complet, idempotent) :
 - lobby_agg_institutions : institution (catégorie native normalisée), groupe
   (Gouvernement, Parlement, Présidence…), nb_activites_total, nb_activites_12m,
   nb_entites.
-- lobby_agg_ministeres : departement_ministeriel précisé (trim), mêmes compteurs.
+- lobby_agg_ministeres : departement_ministeriel précisé (trim), mêmes
+  compteurs. Le champ est multivalué et l'export CSV le coupe sur la
+  virgule : les portefeuilles connus sont RECOMPOSÉS via la table fermée
+  PORTEFEUILLES_MINISTERIELS (« Environnement » + « énergie et mer » →
+  « Environnement, énergie et mer »), les compteurs restant des
+  count(DISTINCT activite_id) — union des fragments, jamais somme. Un
+  libellé hors table s'affiche brut.
 - lobby_agg_top_entites : top 50 par nb d'activités publiées sur 12 mois
   (rang, entite_id, denomination, categorie, nb_activites_12m).
 - lobby_agg_budgets : répartition des entités ACTIVES par fourchette de
@@ -134,6 +140,56 @@ GROUPES_INSTITUTIONS = {
         "Collectivités territoriales",
     "Agent d'une collectivité territoriale": "Collectivités territoriales",
     "Agent d'un centre hospitalier": "Établissements publics de santé",
+}
+
+# Recomposition des portefeuilles ministériels éclatés par la HATVP.
+#
+# Le champ « département ministériel » de la vue 13 est MULTIVALUÉ, et l'export
+# CSV le sépare par une virgule — sans distinguer la virgule qui sépare deux
+# ministères visés de celle qui appartient au nom d'un seul portefeuille.
+# « Environnement, énergie et mer » ressort donc en DEUX lignes portant le même
+# action_representation_interet_id, et le tableau des ministères visés affiche
+# deux fragments (« Environnement », « énergie et mer ») au lieu d'un libellé.
+#
+# Pourquoi cette table est FERMÉE (écrite en dur, jamais devinée) :
+#
+# 1. Aucune règle syntaxique ne sépare un fragment d'un vrai second ministère.
+#    L'espace de tête n'est PAS un discriminant : 325 libellés apparaissent à
+#    la fois avec et sans espace initial (« Economie et finances » : 15 764
+#    occurrences avec, 9 644 sans). Un morceau situé après une virgule est le
+#    plus souvent un ministère à part entière.
+# 2. L'égalité des compteurs n'est PAS une preuve. « Communauté d'agglomération
+#    du Cotentin » et « Communauté d'agglomération d'Epinal » ont les mêmes
+#    trois compteurs par coïncidence ; « Logement » et « Education nationale »
+#    ont le même nombre d'activités historiques (2 938) mais pas le même
+#    compteur 12 mois. Fusionner sur les compteurs fabriquerait des ministères.
+#
+# Le seul critère retenu est l'identité STRICTE des ensembles d'identifiants
+# d'action : deux fragments d'un même portefeuille sont toujours déclarés
+# ensemble, sur exactement les mêmes actions. Les huit familles ci-dessous sont
+# celles — et les seules — que ce critère isole dans la donnée réelle.
+#
+# Un libellé absent de cette table est affiché BRUT : dégradation propre, jamais
+# une erreur. Si la HATVP renomme un portefeuille (remaniement), les fragments
+# devenus introuvables sont signalés par `verifier_fragments()` — la table doit
+# alors être relue à la main, pas élargie automatiquement.
+PORTEFEUILLES_MINISTERIELS: tuple[tuple[str, ...], ...] = (
+    ("Environnement", "énergie et mer"),
+    ("Agriculture", "agroalimentaire et forêt"),
+    ("Travail", "emploi", "formation professionnelle et dialogue social"),
+    ("Aménagement du territoire", "ruralité et collectivités territoriales"),
+    ("Education nationale", "enseignement supérieur et recherche"),
+    ("Ville", "jeunesse et sport"),
+    ("Famille", "enfance et droits des femmes"),
+    ("Autorité de régulation des communications électroniques",
+     "des postes et de la distribution de la presse"),
+)
+
+# fragment (trimé, tel qu'il sort du CSV) → libellé de portefeuille recomposé.
+FRAGMENTS_MINISTERIELS: dict[str, str] = {
+    fragment: ", ".join(famille)
+    for famille in PORTEFEUILLES_MINISTERIELS
+    for fragment in famille
 }
 
 _SCHEMA = """
@@ -298,6 +354,27 @@ def groupe_institution(categorie_native: str) -> str:
     """Étiquette de regroupement d'une catégorie native (apostrophes unifiées)."""
     cle = categorie_native.replace("’", "'").strip()
     return GROUPES_INSTITUTIONS.get(cle, "Autre")
+
+
+def portefeuille_ministeriel(libelle: str) -> str:
+    """Fragment connu → portefeuille recomposé ; sinon le libellé tel quel.
+
+    Aucune heuristique : uniquement la table fermée FRAGMENTS_MINISTERIELS.
+    Un libellé inconnu ressort brut (dégradation propre, jamais une erreur).
+    """
+    return FRAGMENTS_MINISTERIELS.get(libelle.strip(), libelle.strip())
+
+
+def verifier_fragments(libelles_observes) -> list[str]:
+    """Fragments de la table fermée qui n'apparaissent PLUS dans la donnée.
+
+    Sert de sonnette : si la HATVP renomme un portefeuille après un
+    remaniement, la table cesse silencieusement de recomposer. La liste
+    retournée (triée) doit rester vide ; le pipeline la journalise en
+    WARNING et les tests la vérifient.
+    """
+    vus = {(lib or "").strip() for lib in libelles_observes}
+    return sorted(f for f in FRAGMENTS_MINISTERIELS if f not in vus)
 
 
 # ---------------------------------------------------------------------------
@@ -528,9 +605,40 @@ def construire(dossier_csv: Path, aujourdhui: date) -> dict:
         ).fetchall()
     ]
 
+    # Recomposition des portefeuilles éclatés (table FERMÉE, cf. constantes) :
+    # la correspondance entre dans le GROUP BY, et les compteurs restent des
+    # count(DISTINCT …) — une activité visant deux fragments du MÊME
+    # portefeuille n'est comptée qu'une fois (union, jamais somme).
+    con.execute(
+        "CREATE TEMP TABLE t_portefeuilles (fragment VARCHAR, portefeuille VARCHAR)")
+    con.executemany(
+        "INSERT INTO t_portefeuilles VALUES (?, ?)",
+        sorted(FRAGMENTS_MINISTERIELS.items()),
+    )
+
+    # Sonnette de dérive : un fragment de la table qui a disparu de la donnée
+    # (renommage HATVP après remaniement) doit se voir, pas passer inaperçu.
+    libelles_observes = [
+        r[0] for r in con.execute(
+            f"""
+            SELECT DISTINCT trim(m.departement_ministeriel)
+            FROM {mia} m
+            WHERE coalesce(trim(m.departement_ministeriel), '') <> ''
+            """
+        ).fetchall()
+    ]
+    fragments_absents = verifier_fragments(libelles_observes)
+    if fragments_absents:
+        log.warning(
+            "recomposition des ministères : %d fragment(s) de la table fermée "
+            "introuvable(s) dans la donnée HATVP (%s) — le vocabulaire a "
+            "probablement changé, la table doit être relue à la main",
+            len(fragments_absents), " ; ".join(fragments_absents),
+        )
+
     agg_ministeres = con.execute(
         f"""
-        SELECT trim(m.departement_ministeriel) AS c,
+        SELECT coalesce(p.portefeuille, trim(m.departement_ministeriel)) AS c,
                count(DISTINCT l.activite_id),
                count(DISTINCT l.activite_id)
                    FILTER (t.date_publication_activite >= '{coupe_12m}'),
@@ -538,6 +646,8 @@ def construire(dossier_csv: Path, aujourdhui: date) -> dict:
         FROM {mia} m
         JOIN t_lien l USING (action_representation_interet_id)
         JOIN t_act t USING (activite_id)
+        LEFT JOIN t_portefeuilles p
+               ON p.fragment = trim(m.departement_ministeriel)
         WHERE coalesce(trim(m.departement_ministeriel), '') <> ''
         GROUP BY 1 ORDER BY 2 DESC
         """
@@ -608,6 +718,8 @@ def construire(dossier_csv: Path, aujourdhui: date) -> dict:
         "activites_orphelines": con.execute(
             "SELECT count(*) FROM t_act WHERE representants_id IS NULL"
         ).fetchone()[0],
+        # fragments de la table fermée introuvables dans la donnée du jour
+        "fragments_ministeres_absents": fragments_absents,
     }
     con.close()
 
