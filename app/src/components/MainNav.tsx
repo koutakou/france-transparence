@@ -32,7 +32,7 @@ function Icone({ children }: { children: ReactNode }) {
 
 /**
  * Libellés volontairement COURTS (« Financement », « Frais », « Données ») :
- * les 10 onglets doivent tenir dans le conteneur max-w-7xl dès 1440px sans
+ * les 11 onglets doivent tenir dans le conteneur max-w-7xl dès 1440px sans
  * couper le dernier. Les intitulés complets restent portés par les pages.
  */
 const ITEMS: ItemNav[] = [
@@ -53,6 +53,16 @@ const ITEMS: ItemNav[] = [
       <Icone>
         <path d="M17.5 6.2A7 7 0 1 0 17.5 17.8" />
         <path d="M4.5 10.2h9M4.5 13.8h8" />
+      </Icone>
+    ),
+  },
+  {
+    href: "/recettes",
+    label: "Recettes",
+    icone: (
+      <Icone>
+        <path d="M12 3.5v9M8.5 9 12 12.5 15.5 9" />
+        <path d="M4.5 14.5v5h15v-5" />
       </Icone>
     ),
   },
