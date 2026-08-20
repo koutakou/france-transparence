@@ -243,11 +243,20 @@ Tous téléchargés/dépouillés le 19/08/2026 (05-frais-indemnites.md) :
 - **URL testée** (10-critique, appels n° 1 et 6, HTTP 200) : `https://www.data.gouv.fr/api/1/datasets/avis-et-conseils-de-la-cada/` — dataset « Avis et conseils de la CADA » (org. CADA) ; ressource « Ensemble consolidé des avis et conseils de la CADA » = **CSV 198,4 Mo (198 398 592 o), dernière modification 14/08/2026**, plus lots mensuels/trimestriels 2022-2024.
 - **Licence** : fr-lo. **Intérêt** : sens des avis **par administration mise en cause** (qui refuse quoi) — alimente directement la « carte des verrous juridiques » du module Frais & train de vie et le lien avec Ma Dada (08 §1.2).
 - **Pièges** : volumétrie à **échantillonner avant toute promesse** (CSV de 198 Mo). **Modules** : Frais & train de vie (boîte noire, carte des verrous) — **v2** (aucun module v1 n'en dépend).
+- **Évaluation du 20/08/2026 (CSV consolidé téléchargé et mesuré en entier)** : 60 941 lignes (57 385 avis, 3 553 conseils, 3 sanctions), 1984→2024 ; **89 % du fichier est du texte intégral** (176,6 Mio) qui ne sera jamais ingéré (poids et prudence RGPD — les demandeurs sont anonymisés à la source, mais des noms de responsables publics subsistent dans les motifs). Piège décisif : le jeu est « modifié le 14/08/2026 » mais la **dernière séance date du 18/04/2024** — 28 mois de retard de versement, millésimes 2023-2024 vraisemblablement incomplets, à afficher tel quel. **Verdict : à ingérer en v2, en agrégats seulement** (sens × administration × année, +3 à 6 Mo en base).
 
 #### S39. Jaune « opérateurs de l'État » PLF 2026 (ajout post-critique I4)
 - **Vérifié le 19/08/2026** (10-critique, appels n° 2 et 3) : dataset « PLF 2026, jaune opérateurs de l'État, liste des opérateurs et catégories » (data.gouv.fr, id `69665c766034b48d897c47be`), maj **13/01/2026** — **seule photographie 2026 du paysage des agences/opérateurs** (liste et catégories ; **pas les crédits par opérateur**). Retenu plutôt qu'écarté : le débat public 2026 sur les agences de l'État en fait un référentiel naturel.
-- **Licence** : à confirmer à l'ingestion (non relevée par le contre-audit). **Exploitable directement** (annuel), classé ici pour préserver la numérotation.
+- **Licence** : **confirmée le 20/08/2026** — la réponse API du dataset porte `"license": "lov2"` (Licence Ouverte 2.0).
 - **Modules** : Dépenses de l'État (référentiel des opérateurs, complète l'encart de périmètre) — **v2**.
+- **Évaluation du 20/08/2026** : le **volet budgétaire n'existe pas en données structurées** — recherche data.gouv (9 résultats) et énumération des 606 jeux de data.economie : le dernier jeu financier des opérateurs est **PLF 2014** (166 lignes, grain programme et non opérateur × SCSP, figé en 2018) ; le jeu PLF 2019 répond 200 mais contient **0 enregistrement** (`total_count: 0` constaté) ; les jaunes PDF sont derrière l'anti-bot de budget.gouv.fr (groupe E). **Verdict : ne pas ingérer le volet budgétaire (il n'existe pas)** ; seule la liste 2026 (431 lignes, cp1252, aucun montant, 70 826 octets) peut servir de référentiel à coût quasi nul, adossée à un pipeline existant plutôt qu'un pipeline dédié ; re-vérifier chaque janvier si un jaune structuré paraît.
+
+#### S40. Registre de transparence de l'Union européenne (évalué le 20/08/2026)
+- **URL testée** (HTTP 200) : `https://data.europa.eu/api/hub/search/datasets/transparency-register` ; export XML intégral téléchargé et mesuré : **115 010 602 octets**, `<exportDate>` du 19/08/2026 (quotidien réel — la métadonnée DCAT, périmée de 2 ans, ne fait pas foi).
+- **Licence** : la réponse API référence la **décision 2011/833/UE** (`COM_REUSE`, réutilisation y compris commerciale avec mention de source, sans clause de partage à l'identique) — compatible avec la promesse Licence Ouverte 2.0 des agrégats. Une note antérieure annonçait « CC BY 4.0 » : non confirmé par l'API.
+- **Contenu mesuré** : 17 711 organisations inscrites dont **1 654 à siège en France** ; coûts de lobbying en fourchettes ; **aucune balise SIREN ni TVA** (77 balises inventoriées) → aucun rapprochement automatique possible avec le répertoire HATVP (S14), constat définitif.
+- **Pièges éditoriaux (bloquants)** : lobbying UE et lobbying France sont **deux registres, deux cadres juridiques** — blocs jamais fusionnés, montants jamais comparés ; à titre d'illustration du contraste, 141 entités HATVP (sur 4 068) déclarent un niveau d'action « Européen » quand 1 654 organisations françaises sont inscrites à Bruxelles — **deux compteurs séparés, jamais un ratio**. Ne jamais ingérer le fichier des 8 927 accrédités (personnes physiques) ; exclure les 235 « Self-employed individuals » de toute restitution nominative. Parseur tolérant XML 1.1 ; fraîcheur lue dans `<exportDate>`.
+- **Verdict : à ingérer en v2, périmètre minimal cloisonné** (organisations seulement, +2 à 5 Mo en base). **Modules** : Lobbying.
 
 ### Groupe E — Sources écartées (raison prouvée le 19/08/2026)
 
@@ -505,7 +514,8 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 | S36 API Légifrance (PISTE) | Temps réel (one-shot humain requis) (07) | CGU PISTE + fr-lo | Documents (recherche) | v2 (optionnel) |
 | S37 Décret aide publique partis | Annuel (décret 03/03/2026, 403 curl) (04) | — | Financement politique | v2 |
 | S38 Avis CADA (ensemble consolidé) | Consolidé maj 14/08/2026 + lots mensuels/trimestriels (10-critique) | fr-lo | Frais & train de vie (carte des verrous, boîte noire) | v2 |
-| S39 Jaune opérateurs PLF 2026 | Annuelle (13/01/2026) (10-critique) | à confirmer | Dépenses de l'État (référentiel opérateurs) | v2 |
+| S39 Jaune opérateurs PLF 2026 | Annuelle (13/01/2026) (10-critique) | lov2 (confirmée 20/08/2026) | Dépenses de l'État (référentiel opérateurs) | v2 |
+| S40 Registre de transparence UE | Export XML quotidien (exportDate) | décision 2011/833/UE (20/08/2026) | Lobbying (bloc cloisonné) | v2 |
 
 ---
 
