@@ -23,7 +23,7 @@ import {
   getNbRegionsReferentiel,
   getRegions,
 } from "@/lib/queries/collectivites";
-import { getDonneesElections } from "@/lib/queries/elections";
+import { getDonneesElectionsInline } from "@/lib/queries/elections";
 import { metadonneesPage } from "@/lib/seo";
 
 /**
@@ -565,7 +565,7 @@ export default async function PageCollectivites() {
           réserves (participation seulement, aucune nuance politique, scrutins
           non comparables entre eux). Voir docs/ELECTIONS.md. */}
       <section id="participation">
-        <ParticipationElectorale donnees={getDonneesElections()} />
+        <ParticipationElectorale donnees={getDonneesElectionsInline()} />
       </section>
     </div>
   );

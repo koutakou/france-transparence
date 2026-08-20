@@ -287,3 +287,55 @@ export function getDonneesElections(): DonneesElections | null {
 
   return { meta, scrutins, noms, nbCommunesSuivies };
 }
+
+/** L'identité d'un scrutin sans ses lignes — de quoi dessiner un bouton. */
+export type ScrutinResume = Pick<Scrutin, "id" | "libelle" | "famille" | "annee" | "tour" | "date">;
+
+/**
+ * Ce que le HTML de /collectivites embarque : le scrutin initial COMPLET
+ * (rendu serveur intact, lisible sans JavaScript) et les seuls résumés des
+ * autres — leurs lignes (~119 Ko inline avant découpage, mesuré le
+ * 20/08/2026) vivent dans le fragment statique /data/elections.json, chargé
+ * au premier changement de scrutin. `noms` reste complet : les libellés
+ * servent aux deux niveaux et ne pèsent qu'une fois.
+ */
+export type DonneesElectionsInline = {
+  /** Fraîcheur S26 (badge du bloc). */
+  meta: MetaSource;
+  /** Libellés par code (départements ET communes), une seule fois. */
+  noms: Record<string, string>;
+  /** Communes suivies par le site (ref_villes ∪ collectivites_communes). */
+  nbCommunesSuivies: number;
+  /** Les scrutins ingérés, du plus récent au plus ancien — SANS leurs lignes. */
+  resumes: ScrutinResume[];
+  /** Le scrutin affiché au chargement, seul rendu côté serveur. */
+  scrutinInitial: Scrutin;
+};
+
+/**
+ * Sous-ensemble de `getDonneesElections()` embarqué dans le HTML.
+ *
+ * RÈGLE DU SCRUTIN INITIAL (une seule vérité, ici et pas dans le composant) :
+ * le dernier PREMIER tour — c'est le seul où toutes les communes votent.
+ * Ouvrir sur un second tour donnerait à voir un tableau amputé des trois
+ * quarts des communes pour une raison qui n'a rien à voir avec la donnée.
+ */
+export function getDonneesElectionsInline(): DonneesElectionsInline | null {
+  const donnees = getDonneesElections();
+  if (!donnees || donnees.scrutins.length === 0) return null;
+  const scrutinInitial = donnees.scrutins.find((s) => s.tour === 1) ?? donnees.scrutins[0];
+  return {
+    meta: donnees.meta,
+    noms: donnees.noms,
+    nbCommunesSuivies: donnees.nbCommunesSuivies,
+    resumes: donnees.scrutins.map(({ id, libelle, famille, annee, tour, date }) => ({
+      id,
+      libelle,
+      famille,
+      annee,
+      tour,
+      date,
+    })),
+    scrutinInitial,
+  };
+}

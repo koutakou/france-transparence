@@ -6,6 +6,7 @@ import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { TableTronquee } from "@/components/client/TableTronquee";
 import { formatNombre, formatPct } from "@/lib/format";
+import { urlSite } from "@/lib/basePath";
 // IMPORTATION DE TYPES SEULEMENT (`import type`, effacée à la compilation) :
 // `@/lib/queries/elections` ouvre la base SQLite via `@/lib/db`. Une
 // importation de valeur embarquerait better-sqlite3 et `node:fs` dans le
@@ -13,6 +14,7 @@ import { formatNombre, formatPct } from "@/lib/format";
 // Les formules d'affichage vivent donc ici, et elles sont PURES.
 import type {
   DonneesElections,
+  DonneesElectionsInline,
   Effectifs,
   LigneCompacte,
   LigneParticipation,
@@ -21,9 +23,14 @@ import type {
 
 /**
  * Participation électorale (source S26, ministère de l'Intérieur) — bloc de
- * la page /collectivites. Un scrutin à la fois, choisi CÔTÉ CLIENT : les
- * 7 scrutins voyagent en données brutes dans les props (payload RSC compact),
- * seul le scrutin sélectionné est rendu — même principe que TableTronquee.
+ * la page /collectivites. Un scrutin à la fois : le HTML n'embarque que le
+ * SCRUTIN INITIAL (choisi par `getDonneesElectionsInline`, rendu serveur
+ * complet, lisible sans JavaScript) et les résumés qui dessinent les
+ * 7 boutons. Les six autres scrutins vivent dans le fragment statique
+ * /data/elections.json, chargé au premier changement de scrutin puis servi
+ * depuis la mémoire — même mécanique que le fond de carte de
+ * `CarteDepartements` (promesse mémoïsée au niveau module : une seule
+ * requête, quelle que soit la suite des clics).
  *
  * Ce que ce composant N'AFFICHE PAS, et pourquoi (docs/ELECTIONS.md) :
  * - aucune nuance politique : qualification préfectorale, vide à 25,2 % sur
@@ -35,6 +42,8 @@ import type {
  * Règles d'affichage tenues ici :
  * - **aucun taux n'est stocké** : tout est recalculé sur les effectifs bruts
  *   et vaut « — » (pas 0) si le dénominateur manque ;
+ * - si le fragment ne se charge pas, le scrutin INITIAL reste affiché et
+ *   l'échec est DIT — jamais un tableau vide, jamais des zéros ;
  * - une commune absente d'un scrutin est DITE absente, et la raison est
  *   donnée — elle n'apparaît jamais avec un taux à zéro ;
  * - l'agrégat s'appelle « ensemble des départements », jamais « France » :
@@ -47,7 +56,21 @@ import type {
 
 export interface ParticipationElectoraleProps {
   /** `null` si la base ou la source S26 manque : le bloc le dit et s'arrête. */
-  donnees: DonneesElections | null;
+  donnees: DonneesElectionsInline | null;
+}
+
+/**
+ * Fragment /data/elections.json, mémoïsé au niveau module — singleton
+ * légitime : donnée GLOBALE du site, identique pour toutes les instances.
+ * Même modèle que `chargerGeo()` dans `CarteDepartements`.
+ */
+let electionsPromesse: Promise<DonneesElections | null> | null = null;
+
+function chargerElections(): Promise<DonneesElections | null> {
+  electionsPromesse ??= fetch(urlSite("/data/elections.json"))
+    .then((rep) => (rep.ok ? (rep.json() as Promise<DonneesElections | null>) : null))
+    .catch(() => null);
+  return electionsPromesse;
 }
 
 /**
@@ -142,10 +165,14 @@ function Tuiles({ ensemble, nbDepartements }: { ensemble: Effectifs; nbDeparteme
 }
 
 export function ParticipationElectorale({ donnees }: ParticipationElectoraleProps) {
-  const scrutins = donnees?.scrutins ?? [];
+  const resumes = donnees?.resumes ?? [];
   const [idChoisi, setIdChoisi] = useState<string | null>(null);
+  // Fragment complet une fois chargé ; undefined = jamais demandé,
+  // null = demandé mais indisponible (l'échec est dit, l'initial reste).
+  const [complet, setComplet] = useState<DonneesElections | null | undefined>(undefined);
+  const [chargement, setChargement] = useState(false);
 
-  if (!donnees || scrutins.length === 0) {
+  if (!donnees || resumes.length === 0) {
     return (
       <Card titre="Participation électorale">
         <p className="text-sm text-ink-muted">
@@ -158,12 +185,30 @@ export function ParticipationElectorale({ donnees }: ParticipationElectoraleProp
     );
   }
 
-  // Par défaut, le dernier PREMIER tour : c'est le seul où toutes les
-  // communes votent. Ouvrir sur un second tour donnerait à voir un tableau
-  // amputé des trois quarts des communes pour une raison qui n'a rien à voir
-  // avec la donnée.
-  const parDefaut = scrutins.find((s) => s.tour === 1) ?? scrutins[0];
-  const scrutin: Scrutin = scrutins.find((s) => s.id === idChoisi) ?? parDefaut;
+  // Le scrutin initial (règle « dernier premier tour », tenue dans
+  // `getDonneesElectionsInline` — une seule vérité) est le SEUL inline : il
+  // reste affiché tant que le scrutin demandé n'est pas disponible.
+  const initial = donnees.scrutinInitial;
+  const idVoulu = idChoisi ?? initial.id;
+  const scrutin: Scrutin =
+    idVoulu === initial.id
+      ? initial
+      : (complet?.scrutins.find((s) => s.id === idVoulu) ?? initial);
+  // L'échec ne se dit que si un AUTRE scrutin que l'initial est attendu.
+  const echec = complet === null && idVoulu !== initial.id && !chargement;
+
+  const choisirScrutin = (id: string) => {
+    setIdChoisi(id);
+    if (id === initial.id || complet) return;
+    // Premier changement de scrutin : on va chercher le fragment complet.
+    // La promesse module ne part qu'une fois, les clics suivants la partagent.
+    setChargement(true);
+    void chargerElections().then((d) => {
+      setComplet(d && d.scrutins.length > 0 ? d : null);
+      setChargement(false);
+    });
+  };
+
   const noms = donnees.noms;
   const lignesDep = scrutin.departements.map((l: LigneCompacte) => lireLigne(l, noms));
   const lignesCommunes = scrutin.communes.map((l: LigneCompacte) => lireLigne(l, noms));
@@ -200,14 +245,16 @@ export function ParticipationElectorale({ donnees }: ParticipationElectoraleProp
       droite={badge}
     >
       {/* ------------------------------------------------ choix du scrutin */}
-      <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Choix du scrutin">
-        {scrutins.map((s) => {
-          const actif = s.id === scrutin.id;
+      <div className="mb-2 flex flex-wrap gap-2" role="group" aria-label="Choix du scrutin">
+        {resumes.map((s) => {
+          // Pendant le chargement, le bouton visé est marqué actif ; en cas
+          // d'échec, la marque revient au scrutin réellement AFFICHÉ.
+          const actif = chargement ? s.id === idVoulu : s.id === scrutin.id;
           return (
             <button
               key={s.id}
               type="button"
-              onClick={() => setIdChoisi(s.id)}
+              onClick={() => choisirScrutin(s.id)}
               aria-pressed={actif}
               className={`rounded-lg border px-2.5 py-1 text-xs transition-colors ${
                 actif
@@ -219,6 +266,30 @@ export function ParticipationElectorale({ donnees }: ParticipationElectoraleProp
             </button>
           );
         })}
+      </div>
+
+      {/* Bandeau d'état à hauteur RÉSERVÉE (aucun saut de layout) : cadre
+          « Chargement… » pendant le fetch du fragment, constat d'échec sinon.
+          En échec le scrutin initial reste affiché — jamais un tableau vide,
+          jamais des zéros. */}
+      <div className="mb-2 min-h-[1.5rem] text-xs" aria-live="polite">
+        {chargement && (
+          <p
+            role="status"
+            className="inline-block rounded-lg border border-card-border bg-card px-2.5 py-1 text-ink-muted"
+          >
+            Chargement du scrutin…
+          </p>
+        )}
+        {echec && (
+          <p
+            role="status"
+            className="inline-block rounded-lg border border-card-border bg-card px-2.5 py-1 text-ink-muted"
+          >
+            Les données de ce scrutin n&apos;ont pas pu être chargées — le scrutin affiché
+            reste « {initial.libelle} ».
+          </p>
+        )}
       </div>
 
       <Tuiles ensemble={scrutin.ensembleDepartements} nbDepartements={scrutin.departements.length} />
@@ -233,7 +304,7 @@ export function ParticipationElectorale({ donnees }: ParticipationElectoraleProp
         comptés ici — le taux publié par le ministère, qui les inclut, diffère donc de quelques
         dixièmes de point.{" "}
         <strong className="font-medium text-ink">
-          Les {formatNombre(scrutins.length)} scrutins proposés ne se comparent pas entre eux
+          Les {formatNombre(resumes.length)} scrutins proposés ne se comparent pas entre eux
         </strong>{" "}
         : une participation municipale et une participation présidentielle ne mesurent ni le même
         corps électoral, ni le même enjeu, ni le même mode de scrutin. Comparer des départements
