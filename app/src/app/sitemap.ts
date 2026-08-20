@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getDb } from "@/lib/db";
+import { getSlugsMissions } from "@/lib/queries/depenses";
 import { SITE_URL } from "@/lib/site";
 
 // Exigé par `output: "export"` (route metadata générée au build).
@@ -29,6 +30,8 @@ export const dynamic = "force-static";
 const PAGES_DONNEES = [
   "",
   "depenses",
+  "depenses/destination",
+  "recettes",
   "marches",
   "elus",
   "collectivites",
@@ -70,6 +73,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
     lastModified,
   }));
   for (const p of PAGES_LEGALES) urls.push({ url: `${SITE_URL}/${p}/` });
+
+  // Pages de mission (/depenses/destination/<slug>/) : mêmes slugs que
+  // generateStaticParams de la page — getSlugsMissions() est la seule vérité,
+  // et rend [] sans base, comme le reste du sitemap.
+  if (db) {
+    for (const slug of getSlugsMissions()) {
+      urls.push({ url: `${SITE_URL}/depenses/destination/${slug}/`, lastModified });
+    }
+  }
 
   // Fiches élus : ids distincts porteurs d'au moins un mandat pré-rendu.
   if (db) {
