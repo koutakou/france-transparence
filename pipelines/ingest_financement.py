@@ -134,18 +134,14 @@ DECRETS_AIDE_PUBLIQUE: tuple[dict, ...] = (
         "fraction2_eur": None,
         "perimetre": "Enveloppe nationale, 1re + 2nde fractions",
         "reference": "Décret n° 2024-77 du 2 février 2024",
-        "source_url": (
-            "https://www.legifrance.gouv.fr/search"
-            "?fonds=JORF&tab_selection=jorf&query=d%C3%A9cret%20n%C2%B0%202024-77"
-        ),
+        "source_url": "https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000049085148",
         "note": (
-            "Montant repris du diagnostic interne du projet ; le texte du "
-            "décret n'a PAS pu être re-vérifié sur Légifrance (HTTP 403 "
-            "anti-bot au 20/08/2026), et l'identifiant JORFTEXT n'a pas été "
-            "résolu — d'où un lien de recherche Légifrance plutôt qu'un lien "
-            "direct. À confirmer sur le texte publié. Cette enveloppe n'est "
-            "PAS comparable à la somme des aides inscrites aux comptes 2024 "
-            "par les partis (70 275 372,28 € sur 575 comptes) : la seconde "
+            "Montant re-vérifié sur Légifrance le 20/08/2026 sur le texte "
+            "publié (JORFTEXT000049085148) : total 66 438 848,34 € confirmé "
+            "(1re fraction 32 251 989,49 €, 2nde 34 186 858,85 €). Cette "
+            "enveloppe n'est PAS comparable à la somme des aides inscrites "
+            "aux comptes 2024 par les partis (70 275 372,28 € sur "
+            "575 comptes) : la seconde "
             "est un cumul de déclarations, où une même aide peut être comptée "
             "deux fois."
         ),
@@ -1416,9 +1412,9 @@ def main() -> int:
                   )
                   + ". Totaux seuls (tableau par parti non publié en données ; "
                   "Légifrance anti-bot) — répartition par parti = v2. Le "
-                  "décret n° 2024-77 n'a pas pu être re-vérifié sur Légifrance "
-                  "(HTTP 403 au 20/08/2026) : valeur reprise du diagnostic "
-                  "interne, à confirmer. Ces enveloppes ne sont PAS "
+                  "décret n° 2024-77 a été re-vérifié sur Légifrance le "
+                  "20/08/2026 (JORFTEXT000049085148) : total confirmé. Ces "
+                  "enveloppes ne sont PAS "
                   "comparables aux aides inscrites aux comptes des partis "
                   "(partis_comptes), qui sont des déclarations cumulées.",
         )

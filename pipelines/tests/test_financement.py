@@ -597,13 +597,17 @@ def test_decrets_aide_publique_table_annuelle(conn):
         assert l["source_url"].startswith("https://www.legifrance.gouv.fr/")
 
 
-def test_decret_2024_porte_sa_reserve_de_verification(conn):
-    """La valeur 2024 n'a pas été re-vérifiée sur Légifrance : ça doit se lire."""
+def test_decret_2024_reverifie_sur_legifrance(conn):
+    """Réserve levée le 20/08/2026 : lien direct JORF et note positive."""
     fin.charger_decrets_aide(conn)
-    note = conn.execute(
-        "SELECT note FROM partis_aide_annuelle WHERE annee = 2024"
-    ).fetchone()["note"]
-    assert "403" in note and "à confirmer" in note.lower()
+    ligne = conn.execute(
+        "SELECT note, source_url FROM partis_aide_annuelle WHERE annee = 2024"
+    ).fetchone()
+    assert "re-vérifié" in ligne["note"] and "20/08/2026" in ligne["note"]
+    assert "à confirmer" not in ligne["note"].lower()
+    assert ligne["source_url"] == (
+        "https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000049085148"
+    )
 
 
 def test_ancienne_table_mono_annee_supprimee(conn):
