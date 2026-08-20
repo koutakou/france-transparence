@@ -5,12 +5,19 @@ import type { NextConfig } from "next";
  * Deux modes de build (docs/deploiement/DECISION.md) :
  * - classique (`npm run build` + `next start`) : serveur Node local, la CI
  *   de test et le dev continuent de fonctionner sans variable ;
- * - export statique (`FT_EXPORT=1 npm run build`) : la CI GitHub Actions
- *   génère app/out/ et le déploie tel quel sur GitHub Pages.
+ * - export statique (`FT_EXPORT=1 npm run build`) : génère app/out/, servi
+ *   tel quel par nginx sur le serveur de production. Aucun process Node ne
+ *   tourne en production. La CI construit le même export pour le VALIDER,
+ *   mais ne le publie pas.
  *
- * `NEXT_PUBLIC_BASE_PATH` (ex. « /france-transparence » pour la project page
- * https://koutakou.github.io/france-transparence/) préfixe routes et assets ;
- * absent en local → site servi à la racine.
+ * Deux variables décrivent l'ADRESSE de déploiement, et rien d'autre — elles
+ * évitent d'avoir à réécrire les sources pour changer de domaine :
+ * - `NEXT_PUBLIC_SITE_URL` (voir src/lib/site.ts) : URL absolue du site,
+ *   d'où sont dérivés canoniques, sitemap et robots.txt ;
+ * - `NEXT_PUBLIC_BASE_PATH` : sous-chemin éventuel (ex. « /france-transparence »
+ *   pour une « project page » GitHub Pages), qui préfixe routes et assets.
+ *   Absent — c'est le cas du déploiement de référence, à la racine de
+ *   francetransparence.fr — le site est servi à la racine.
  */
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || undefined;
 

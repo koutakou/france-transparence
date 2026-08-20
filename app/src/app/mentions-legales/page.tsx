@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Fragment } from "react";
 import { Card } from "@/components/ui/Card";
+import {
+  HEBERGEUR,
+  HEBERGEUR_MENTION,
+  HEBERGEUR_NATURE_SERVICE,
+  HEBERGEUR_SUPPORT_LIBELLE,
+} from "@/lib/hebergeur";
 import { CONTACT_EMAIL, CONTACT_ISSUES_URL, REPO_URL } from "@/lib/site";
 
 /**
@@ -14,20 +21,15 @@ import { CONTACT_EMAIL, CONTACT_ISSUES_URL, REPO_URL } from "@/lib/site";
  * publication n'a pas à être publié dans ce régime (art. 93-2 de la loi
  * n° 82-652 du 29 juillet 1982 ; docs/deploiement/exigences-publiques.md §1.1).
  *
- * Adresse de l'hébergeur VÉRIFIÉE le 19/08/2026 :
- *   « GitHub, Inc. 88 Colin P. Kelly Jr. St. San Francisco, CA 94107
- *     United States » — GitHub General Privacy Statement, section
- *     « Contact Us » : https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement
- *   Même adresse au registre LEI (6354003LMZZAKOPXLX69).
- *   Nom du service d'hébergement : GitHub Pages — https://pages.github.com/
- *   (doc : https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages)
+ * L'identité de l'hébergeur n'est PAS écrite ici : c'est une donnée de
+ * déploiement (elle change avec la machine, pas avec le code). Elle vient de
+ * src/lib/hebergeur.ts, qui porte aussi la traçabilité de sa vérification.
  */
 
 export const metadata: Metadata = {
   alternates: { canonical: "/mentions-legales/" },
   title: "Mentions légales",
-  description:
-    "Site édité à titre non professionnel par un particulier (art. 1-1, II LCEN), hébergé par GitHub, Inc. (GitHub Pages). Contact, droit de réponse et licences du site.",
+  description: `Site édité à titre non professionnel par un particulier (art. 1-1, II LCEN), hébergé par ${HEBERGEUR_MENTION}. Contact, droit de réponse et licences du site.`,
 };
 
 /** Style commun des liens externes de la page. */
@@ -69,32 +71,45 @@ export default function PageMentionsLegales() {
       <Card titre="Hébergeur">
         <div className="flex flex-col gap-3 text-sm leading-relaxed text-ink-secondary">
           <p className="text-ink">
-            GitHub, Inc.
+            {HEBERGEUR.raisonSociale}
+            {HEBERGEUR.adresse.map((ligne) => (
+              <Fragment key={ligne}>
+                <br />
+                {ligne}
+              </Fragment>
+            ))}
             <br />
-            88 Colin P. Kelly Jr. Street
-            <br />
-            San Francisco, CA 94107
-            <br />
-            États-Unis
+            {HEBERGEUR.pays}
           </p>
+          <p>{HEBERGEUR.formeJuridique}</p>
           <p>
             Service d&apos;hébergement :{" "}
             <a
-              href="https://pages.github.com/"
+              href={HEBERGEUR.serviceUrl}
               target="_blank"
               rel="noopener noreferrer"
               className={LIEN}
             >
-              GitHub Pages
-            </a>
-            . L&apos;hébergeur peut être contacté via son support :{" "}
+              {HEBERGEUR.serviceNom}
+            </a>{" "}
+            ({HEBERGEUR_NATURE_SERVICE}). L&apos;hébergeur peut être contacté
+            via son support :{" "}
             <a
-              href="https://support.github.com/"
+              href={HEBERGEUR.supportUrl}
               target="_blank"
               rel="noopener noreferrer"
               className={LIEN}
             >
-              support.github.com
+              {HEBERGEUR_SUPPORT_LIBELLE}
+            </a>{" "}
+            ou son{" "}
+            <a
+              href={HEBERGEUR.contactUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={LIEN}
+            >
+              formulaire de contact
             </a>
             .
           </p>
