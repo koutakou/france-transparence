@@ -29,17 +29,33 @@
  */
 import { getDb, type MetaSource } from "@/lib/db";
 
-/** Organisation inscrite au registre de l'Union (personne morale). */
+/**
+ * Organisation inscrite au registre de l'Union (personne morale).
+ *
+ * Ce type est la PROJECTION PUBLIÉE : il part tel quel dans le fragment
+ * statique /data/registre-ue/organisations.json, que n'importe qui peut
+ * télécharger. Il ne doit donc porter que les champs réellement affichés —
+ * les colonnes du tableau, plus `id` qui sert de clé de ligne et de lien
+ * vers la fiche du registre.
+ *
+ * `siege_ville` et `exercice_fin` en ont été retirés : la base les porte,
+ * mais aucune colonne ne les montrait et aucun chunk JS ne les lisait. Ils
+ * voyageaient donc chez chaque visiteur sans rien lui apprendre. Le registre
+ * de l'Union exclut les personnes physiques déclarées comme telles, mais son
+ * filtre laisse passer des consultants en nom propre classés « cabinets de
+ * conseil » — pour eux, la ville du siège est une adresse personnelle. Une
+ * donnée qu'on n'affiche pas n'a aucune raison d'être publiée.
+ *
+ * Si une colonne devait un jour les afficher, les remettre ici est trivial ;
+ * l'inverse ne l'est pas, une fois le fragment aspiré.
+ */
 export type OrganisationUe = {
   id: string;
   nom: string;
   acronyme: string | null;
   categorie: string | null;
-  siege_ville: string | null;
   /** Fourchette de coûts annuels telle que publiée (`null` si non déclarée). */
   cout_libelle: string | null;
-  /** Exercice clos auquel se rapporte la fourchette. */
-  exercice_fin: string | null;
 };
 
 /** Catégorie d'inscription × effectifs (total registre / siège en France). */
@@ -139,7 +155,7 @@ export function getOrganisationsFrance(): OrganisationUe[] | null {
   if (!db || !tablesPresentes()) return null;
   return db
     .prepare(
-      `SELECT id, nom, acronyme, categorie, siege_ville, cout_libelle, exercice_fin
+      `SELECT id, nom, acronyme, categorie, cout_libelle
        FROM ue_registre_organisations
        WHERE siege_pays = 'FRANCE'
        ORDER BY nom`,
@@ -257,7 +273,7 @@ export function getDonneesRegistreUe(): DonneesRegistreUe | null {
 
   const organisationsFrance = db
     .prepare(
-      `SELECT id, nom, acronyme, categorie, siege_ville, cout_libelle, exercice_fin
+      `SELECT id, nom, acronyme, categorie, cout_libelle
        FROM ue_registre_organisations
        WHERE siege_pays = 'FRANCE'
        ORDER BY nom
