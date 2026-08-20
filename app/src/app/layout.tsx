@@ -22,8 +22,11 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "France Transparence",
     locale: "fr_FR",
-    title: TITRE_DEFAUT,
-    description: DESCRIPTION_DEFAUT,
+    // PAS de `title` ni de `description` ici : posés au niveau du layout, ils
+    // se figeraient sur TOUTES les pages (chaque fiche d'élu partagée sur un
+    // réseau social afficherait la carte de l'accueil). Sans eux, Next
+    // retombe sur le title et la description RÉSOLUS de chaque page — le
+    // gabarit « %s — France Transparence » compris.
     // URL absolue en dur : avec metadataBase, un chemin « /og.png » perdrait
     // le sous-chemin /france-transparence (basePath GitHub Pages).
     images: [
