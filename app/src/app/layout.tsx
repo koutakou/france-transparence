@@ -3,6 +3,7 @@ import Link from "next/link";
 import { LogoBouclier } from "@/components/LogoBouclier";
 import { MainNav } from "@/components/MainNav";
 import { SearchBox } from "@/components/ui/SearchBox";
+import { openGraphPage } from "@/lib/seo";
 import { REPO_URL, SITE_URL } from "@/lib/site";
 import "./globals.css";
 
@@ -18,26 +19,14 @@ export const metadata: Metadata = {
     template: "%s — France Transparence",
   },
   description: DESCRIPTION_DEFAUT,
-  openGraph: {
-    type: "website",
-    siteName: "France Transparence",
-    locale: "fr_FR",
-    // PAS de `title` ni de `description` ici : posés au niveau du layout, ils
-    // se figeraient sur TOUTES les pages (chaque fiche d'élu partagée sur un
-    // réseau social afficherait la carte de l'accueil). Sans eux, Next
-    // retombe sur le title et la description RÉSOLUS de chaque page — le
-    // gabarit « %s — France Transparence » compris.
-    // URL absolue en dur : avec metadataBase, un chemin « /og.png » perdrait
-    // le sous-chemin /france-transparence (basePath GitHub Pages).
-    images: [
-      {
-        url: `${SITE_URL}/og.png`,
-        width: 1200,
-        height: 630,
-        alt: "France Transparence — données publiques officielles",
-      },
-    ],
-  },
+  // Open Graph PAR DÉFAUT — il ne sert qu'aux pages qui n'en déclarent pas
+  // (la 404). Toutes les autres passent par `metadonneesPage()`, qui rend le
+  // MÊME bloc en y ajoutant leur `og:url` : Next remplace `openGraph` en bloc
+  // au lieu de le fusionner champ à champ, il n'y a donc pas d'héritage à
+  // espérer ici — d'où la fabrique partagée dans src/lib/seo.ts.
+  // Sans `url` : la 404 est servie sous n'importe quelle adresse, elle n'a
+  // aucune URL propre à revendiquer.
+  openGraph: openGraphPage(),
   twitter: {
     card: "summary_large_image",
     images: [`${SITE_URL}/og.png`],
@@ -45,8 +34,18 @@ export const metadata: Metadata = {
 };
 
 /**
- * CSP du site statique, portée par <meta http-equiv> : GitHub Pages ne
- * permet aucun header custom (docs/deploiement/DECISION.md).
+ * CSP du site statique, portée par <meta http-equiv>.
+ *
+ * La raison d'origine — GitHub Pages n'autorise aucun en-tête personnalisé — a
+ * disparu le 20/08/2026 : le site est servi par nginx sur un serveur dédié, qui
+ * peut parfaitement émettre l'en-tête `Content-Security-Policy`. Le <meta> est
+ * CONSERVÉ malgré tout, et volontairement : il voyage avec l'export. Un miroir,
+ * une préproduction ou un fork republiant `app/out/` derrière n'importe quel
+ * serveur gardent ainsi la même politique, sans avoir à recopier une
+ * configuration. L'en-tête HTTP, lui, reste la voie à privilégier si l'on veut
+ * un jour des directives que le <meta> ne sait pas porter (`frame-ancestors`,
+ * `report-uri`) — elles seraient alors à poser dans la configuration nginx, pas
+ * ici. Voir docs/deploiement/DECISION.md.
  * Limites assumées et documentées :
  * - `script-src 'unsafe-inline'` : l'hydratation Next en export statique
  *   injecte des scripts inline (payload RSC) sans nonce possible sur un

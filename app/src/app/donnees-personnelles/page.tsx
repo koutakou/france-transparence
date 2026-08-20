@@ -6,6 +6,7 @@ import {
   HEBERGEUR_NATURE_SERVICE,
 } from "@/lib/hebergeur";
 import { CONTACT_EMAIL, CONTACT_ISSUES_URL } from "@/lib/site";
+import { metadonneesPage } from "@/lib/seo";
 
 /**
  * Page /donnees-personnelles — information des personnes concernées.
@@ -36,12 +37,12 @@ import { CONTACT_EMAIL, CONTACT_ISSUES_URL } from "@/lib/site";
  * une donnée de déploiement, et les mentions légales en publient la même.
  */
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/donnees-personnelles/" },
-  title: "Données personnelles",
+export const metadata: Metadata = metadonneesPage({
+  chemin: "/donnees-personnelles/",
+  titre: "Données personnelles",
   description:
     "Visiteurs : aucun cookie ni traceur, mais des journaux de serveur — finalités, base légale, durées. Personnes figurant dans les données publiées : information de l'article 14 du RGPD. Droits et réclamation CNIL.",
-};
+});
 
 /** Style commun des liens de la page. */
 const LIEN = "underline decoration-dotted underline-offset-2 hover:text-ink";
@@ -159,8 +160,13 @@ export default function PageDonneesPersonnelles() {
               <strong className="text-ink">
                 mesure d&apos;audience du site
               </strong>
-              , sous forme exclusivement statistique et agrégée — c&apos;est le
-              seul journal que lit l&apos;outil de statistiques. Conservation :{" "}
+              , sous forme exclusivement statistique et agrégée. C&apos;est le
+              journal que l&apos;outil de statistiques lit en priorité ; pour les
+              périodes qu&apos;il ne couvre pas — avant sa mise en place, ou les
+              heures d&apos;une journée qu&apos;il n&apos;a pas vues — le journal
+              de sécurité est lu à sa place, sans que cela prolonge sa
+              conservation ni n&apos;en fasse sortir la moindre adresse.
+              Conservation :{" "}
               <strong className="text-ink">400 jours</strong>, cette durée plus
               longue étant permise par la pseudonymisation ; elle sert à
               comparer une année à la suivante.
@@ -257,10 +263,35 @@ export default function PageDonneesPersonnelles() {
             circonscription ou collectivité de rattachement ; groupe et
             appartenance politiques ; votes et activités parlementaires ;
             existence et date des déclarations HATVP ainsi que les constats
-            publiés par elle ; montants déclarés dans les comptes de partis et
-            de campagne. Aucune coordonnée privée n&apos;est publiée : ni
+            publiés par elle ;{" "}
+            <strong className="text-ink">
+              le contenu des déclarations d&apos;intérêts publiées par la HATVP
+            </strong>{" "}
+            — mandats et fonctions électives, participations aux organes
+            dirigeants d&apos;un organisme, participations financières directes
+            dans le capital d&apos;une société, activités professionnelles des
+            cinq dernières années, activités de consultant, fonctions bénévoles
+            et observations —, ainsi que les{" "}
+            <strong className="text-ink">
+              montants de rémunération déclarés, année par année
+            </strong>{" "}
+            qui y figurent, reproduits mot pour mot et datés ; montants déclarés
+            dans les comptes de partis et de campagne. Aucune coordonnée privée n&apos;est publiée : ni
             adresse postale personnelle, ni téléphone, ni adresse
             électronique, ni donnée relevant de l&apos;article 9 du RGPD.
+          </p>
+          <p>
+            <strong className="text-ink">
+              Ce que la source contient et que le site ne publie pas
+            </strong>{" "}
+            — le contenu des déclarations de situation patrimoniale (biens
+            immobiliers, comptes bancaires, valeurs mobilières, assurances-vie,
+            véhicules, emprunts) n&apos;est jamais repris : sa divulgation est
+            punie par l&apos;article LO 135-2 du code électoral. Ne sont pas
+            repris non plus, par choix éditorial et non par obligation,
+            l&apos;employeur et la profession du conjoint ni l&apos;identité des
+            collaborateurs : ce sont des données sur des tiers qui n&apos;exercent
+            aucun mandat.
           </p>
           <p>
             La liste complète des sources — producteur, URL amont, licence,

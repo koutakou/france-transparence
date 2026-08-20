@@ -99,6 +99,9 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   "S5-SCRUTINS": { unite: "jc", retard: 60, alerte: 95 },
   // Hebdomadaire / mensuelle (lag de clôture comptable pour S13)
   S14: { unite: "jc", retard: 10, alerte: 18 },
+  // Même génération hebdomadaire que S14 : les deux fichiers sont publiés à
+  // une seconde d'écart par la HATVP, d'où des seuils identiques.
+  S15: { unite: "jc", retard: 10, alerte: 18 },
   S13: { unite: "jc", retard: 65, alerte: 80 },
   // Trimestrielle
   S17: { unite: "jc", retard: 110, alerte: 150 },
@@ -112,6 +115,9 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   S25: { unite: "jc", retard: 850, alerte: 950 },
   "S27-geo-api": { unite: "jc", retard: 400, alerte: 430 },
   S29: { unite: "jc", retard: 1500, alerte: 1800 },
+  // « Par scrutin » comme S29 : l'âge reste élevé entre deux scrutins par
+  // construction, l'alerting est donc quasi désactivé (~36/43 mois).
+  S26: { unite: "jc", retard: 1100, alerte: 1300 },
   "S27-insee-populations": { unite: "jc", retard: 1500, alerte: 1650 },
   // Quasi statiques : l'âge n'est plus un signal, seul le volume l'est
   "S27-france-geojson": { unite: "jc", retard: 3650, alerte: 5475 },

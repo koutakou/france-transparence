@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getDb } from "@/lib/db";
 import { Card } from "@/components/ui/Card";
 import { JsonLd } from "@/components/JsonLd";
+import { InteretsDeclares } from "@/components/client/InteretsDeclares";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { StatStrip } from "@/components/ui/StatStrip";
@@ -15,8 +16,9 @@ import {
   type MandatJson,
   type VoteLigne,
 } from "@/lib/queries/elus";
+import { getInteretsElu, getSourceDeclarations } from "@/lib/queries/declarations";
 import type { MetaSource } from "@/lib/db";
-import { jsonLdFicheElu, type RoleElu } from "@/lib/seo";
+import { jsonLdFicheElu, metadonneesPage, type RoleElu } from "@/lib/seo";
 
 /**
  * Fiches PRÉ-GÉNÉRÉES au build, limitées aux mandats nationaux et exécutifs
@@ -59,24 +61,27 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  // Canonique de la FICHE (jamais celle de l'accueil) : chemin relatif, que
-  // Next compose avec metadataBase — basePath compris. Slash final imposé
-  // par `trailingSlash: true`.
-  const alternates = { canonical: `/elus/${encodeURIComponent(decodeIdSur(id))}/` };
+  // Chemin de la FICHE (jamais celui de l'accueil) : relatif, que Next
+  // compose avec metadataBase — basePath compris. Slash final imposé par
+  // `trailingSlash: true`. Ce seul chemin alimente la canonique ET l'og:url
+  // des 1 053 fiches, via `metadonneesPage()`.
+  const chemin = `/elus/${encodeURIComponent(decodeIdSur(id))}/`;
   const db = getDb();
-  if (!db) return { alternates };
+  // Base absente ou élu inconnu : la fiche garde son identité d'URL, mais on
+  // n'invente ni titre ni description — Next retombe sur ceux du site.
+  if (!db) return metadonneesPage({ chemin });
   const elu = db
     .prepare("SELECT nom, prenom, uid_an, matricule_senat FROM elus WHERE id = ?")
     .get(decodeIdSur(id)) as
     | { nom: string; prenom: string | null; uid_an: string | null; matricule_senat: string | null }
     | undefined;
-  if (!elu) return { alternates };
+  if (!elu) return metadonneesPage({ chemin });
   const nomComplet = `${elu.prenom ?? ""} ${elu.nom}`.trim();
   const description =
     elu.uid_an || elu.matricule_senat
       ? `Mandats, activité parlementaire et déclarations HATVP de ${nomComplet}, à partir des données publiques officielles (AN, Sénat, HATVP, RNE).`
       : `Mandats et déclarations HATVP de ${nomComplet}, à partir des données publiques officielles (RNE, HATVP).`;
-  return { title: `${nomComplet} — Élus`, description, alternates };
+  return metadonneesPage({ chemin, titre: `${nomComplet} — Élus`, description });
 }
 
 /* ------------------------------------------------------------------ */
@@ -259,6 +264,12 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
   if (!fiche) notFound();
 
   const sources = getSourcesElus() ?? {};
+  // Contenu des déclarations d'INTÉRÊTS (S15). `null` = base absente ou
+  // pipeline P15 jamais passé ; `apparie: false` = pipeline passé, mais
+  // aucune déclaration rattachée à cette fiche. Les deux cas se disent
+  // différemment à l'écran, et aucun des deux ne se dit « rien à déclarer ».
+  const interets = getInteretsElu(decodeIdSur(id));
+  const sourceDeclarations = getSourceDeclarations();
   const { elu, mandats, depute, senateur, votes, nb_scrutins_base, declarations } = fiche;
 
   const nomComplet = `${elu.prenom ?? ""} ${elu.nom}`.trim();
@@ -653,6 +664,58 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
             Aucune déclaration HATVP appariée à cette fiche dans la base. L’appariement se fait
             uniquement par URL de fiche nominative HATVP (jamais par homonymie) : l’absence
             d’appariement ne signifie pas l’absence de déclaration.
+          </p>
+        )}
+      </Card>
+
+      <Card
+        titre="Intérêts déclarés"
+        sousTitre="Contenu des déclarations d’intérêts publiées par la HATVP, reproduit mot pour mot et daté."
+        droite={<Badge source={sourceDeclarations ?? undefined} />}
+      >
+        {interets === null ? (
+          <p className="text-sm text-ink-muted">
+            Le contenu des déclarations n’est pas encore ingéré dans cette base.
+          </p>
+        ) : interets.apparie ? (
+          <>
+            <p className="mb-4 text-[11px] leading-relaxed text-ink-muted">
+              Ce qui suit est une <strong className="text-ink-secondary">déclaration</strong> :
+              son contenu a été renseigné par la personne elle-même et publié tel quel par la
+              HATVP. France Transparence ne l’a pas vérifié et n’en garantit pas l’exactitude ;
+              rien n’y est recalculé, additionné ni classé — les libellés de la source ne sont
+              pas normalisés et ne le supporteraient pas. Chaque montant est celui d’une année
+              précise, tel qu’il a été saisi.
+              {urlHatvp ? (
+                <>
+                  {" "}
+                  Les documents d’origine sont consultables sur la{" "}
+                  <a
+                    href={urlHatvp}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
+                  >
+                    fiche HATVP
+                  </a>
+                  .
+                </>
+              ) : null}
+            </p>
+            <InteretsDeclares declarations={interets.declarations} />
+          </>
+        ) : (
+          <p className="text-sm leading-relaxed text-ink-muted">
+            Aucune déclaration d’intérêts n’a pu être rattachée à cette fiche dans notre base.
+            <strong className="text-ink-secondary">
+              {" "}
+              Cela ne veut pas dire que cette personne n’a rien déclaré.
+            </strong>{" "}
+            L’appariement se fait sur le nom, le prénom et la date de naissance : une déclaration
+            déposée mais non encore publiée, une publication en préfecture à venir, ou une
+            identité orthographiée autrement dans le fichier amont suffisent à l’empêcher. Le
+            bloc « Déclarations HATVP » ci-dessus indique, le cas échéant, le statut publié par
+            la HATVP{urlHatvp ? ", et la fiche HATVP donne l’état officiel" : ""}.
           </p>
         )}
       </Card>

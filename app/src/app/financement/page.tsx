@@ -17,16 +17,17 @@ import {
   type DecretAidePublique,
   type PartiTopProduits,
 } from "@/lib/queries/financement";
+import { metadonneesPage } from "@/lib/seo";
 
 // Rendu statique : la donnée ne change qu'à l'ingestion, le site est
 // reconstruit après chaque ingestion (docs/deploiement/DECISION.md).
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/financement/" },
-  title: "Financement de la vie politique",
+export const metadata: Metadata = metadonneesPage({
+  chemin: "/financement/",
+  titre: "Financement de la vie politique",
   description:
     "Comptes des partis politiques, dons et cotisations, aide publique et comptes de campagne (CNCCFP) : les flux d'argent de la vie politique, sourcés et datés.",
-};
+});
 
 /** Toggle « Vue tableau » — la jumelle WCAG de chaque graphique (DATAVIZ §7/§9). */
 function VueTableau({ children }: { children: ReactNode }) {

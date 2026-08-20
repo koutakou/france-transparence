@@ -285,3 +285,63 @@ def test_reseau_resolution_rne_data_gouv():
     for r in ressources.values():
         assert r["url"].startswith("https://static.data.gouv.fr/")
         assert len(r["last_modified"]) == 10     # re-résolution des URLs horodatées
+
+
+# ---------------------------------------------------------------------------
+# Hygiène de liste.csv (§ M4 de doc/QUALITE-DONNEES.md)
+# ---------------------------------------------------------------------------
+
+
+def _dossier(**surcharges):
+    """Ligne HATVP minimale — toutes les colonnes, valeurs vides par défaut."""
+    base = {c: "" for c in p7.COLONNES_HATVP}
+    base.update(statut_publication="Livrée")
+    base.update(surcharges)
+    return base
+
+
+def test_dedoublonner_hatvp_ecarte_les_lignes_strictement_identiques():
+    a = _dossier(nom="DUPONT", prenom="Jean", type_document="DI", date_depot="2025-01-02")
+    b = dict(a)                                   # doublon strict
+    c = _dossier(nom="DUPONT", prenom="Jean", type_document="DSP", date_depot="2025-01-02")
+    uniques = p7.dedoublonner_hatvp([a, b, c])
+    assert len(uniques) == 2
+    # Premier exemplaire gagnant : l'ordre d'origine est préservé, donc
+    # l'ingestion est reproductible d'un run à l'autre.
+    assert uniques[0] is a and uniques[1] is c
+
+
+def test_dedoublonner_hatvp_ne_touche_pas_aux_declarations_distinctes():
+    """Deux déclarations d'une même personne peuvent partager beaucoup.
+
+    C'est POURQUOI le dédoublonnage est strict (les seize colonnes) et non
+    fondé sur une clé métier : ici seule la date de dépôt diffère, et les
+    deux lignes sont deux dépôts réels.
+    """
+    a = _dossier(nom="DUPONT", prenom="Jean", type_document="DI", date_depot="2022-01-02")
+    b = _dossier(nom="DUPONT", prenom="Jean", type_document="DI", date_depot="2025-06-30")
+    assert len(p7.dedoublonner_hatvp([a, b])) == 2
+
+
+def test_controler_dates_hatvp_compte_les_impossibilites(caplog):
+    auj = date(2026, 8, 20)
+    dossiers = [
+        _dossier(nom="VIDAL", date_depot="2026-11-27"),                 # dépôt futur
+        _dossier(nom="ROUSSET", date_depot="2022-02-18",
+                 date_publication="2022-02-17"),                        # publication < dépôt
+        _dossier(nom="NASROU", date_depot="2026-08-01",
+                 date_publication="2026-08-21"),                        # publication programmée
+        _dossier(nom="SAIN", date_depot="2025-01-02",
+                 date_publication="2025-02-02"),
+    ]
+    assert p7.controler_dates_hatvp(dossiers, auj) == {
+        "depots_futurs": 1, "publications_futures": 1, "publications_avant_depot": 1,
+    }
+
+
+def test_controler_dates_hatvp_ne_corrige_rien():
+    """Aucune date n'est devinée : le contrôle journalise, point."""
+    dossiers = [_dossier(nom="VIDAL", date_depot="2026-11-27")]
+    avant = [dict(d) for d in dossiers]
+    p7.controler_dates_hatvp(dossiers, date(2026, 8, 20))
+    assert dossiers == avant

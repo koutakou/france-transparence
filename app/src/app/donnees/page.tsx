@@ -14,17 +14,21 @@ import {
   type NiveauFraicheur,
   type SourceCataloguee,
 } from "@/lib/queries/donnees";
-import { jsonLdCatalogueDonnees, type DescriptionDataset } from "@/lib/seo";
+import {
+  jsonLdCatalogueDonnees,
+  type DescriptionDataset,
+  metadonneesPage,
+} from "@/lib/seo";
 
 // Rendu statique : le catalogue est figé au build, qui suit chaque
 // ingestion (docs/deploiement/DECISION.md) — il reste donc à jour.
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/donnees/" },
-  title: "Données & exports",
+export const metadata: Metadata = metadonneesPage({
+  chemin: "/donnees/",
+  titre: "Données & exports",
   description:
     "Le manifeste de méthode du site : catalogue des sources avec fraîcheur mesurée, périmètre et limites assumées, licences et crédits, exports JSON quotidiens, reproduction locale.",
-};
+});
 
 /**
  * Page /donnees — « Données & exports », le manifeste de méthode du projet :
@@ -236,6 +240,22 @@ const EXPORTS: ExportJson[] = [
     chemin: "/api/marches-agregats.json",
     description:
       "Agrégats de marchés publics pré-calculés à l'ingestion : par département (12 mois, montants écrêtés à 100 M€/marché) et par mois (36 mois).",
+  },
+  {
+    cle: "lobbying-marches",
+    nom: "Croisement lobbying × marchés publics (HATVP × DECP)",
+    sources: ["S4", "S1"],
+    motsCles: [
+      "lobbying",
+      "représentants d’intérêts",
+      "marchés publics",
+      "HATVP",
+      "DECP",
+      "France",
+    ],
+    chemin: "/api/lobbying-marches.json",
+    description:
+      "Les représentants d'intérêts inscrits au répertoire HATVP qui sont titulaires de marchés publics, joints sur le SIREN : agrégats par périmètre (hors accords-cadres, montants écrêtés à 100 M€/marché puis répartis entre co-titulaires) et les titulaires détaillés. Être inscrit au répertoire et titulaire d'un marché est légal et courant : le fichier ne constate aucune irrégularité, hormis le constat officiel de défaut de déclaration de la HATVP, repris tel quel.",
   },
   {
     cle: "recherche-index",

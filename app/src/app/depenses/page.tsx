@@ -17,16 +17,17 @@ import {
   getSourcesBudget,
   getSubventionsAssociations,
 } from "@/lib/queries/depenses";
+import { metadonneesPage } from "@/lib/seo";
 
 // Rendu statique : la donnée ne change qu'à l'ingestion, le site est
 // reconstruit après chaque ingestion (docs/deploiement/DECISION.md).
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/depenses/" },
-  title: "Dépenses de l'État",
+export const metadata: Metadata = metadonneesPage({
+  chemin: "/depenses/",
+  titre: "Dépenses de l'État",
   description:
     "Exécution budgétaire mensuelle de l'État (DGFiP), budget voté par mission, dépenses par ministère et subventions aux associations — données publiques réelles.",
-};
+});
 
 const MOIS_COURTS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
 const MOIS_LONGS = [

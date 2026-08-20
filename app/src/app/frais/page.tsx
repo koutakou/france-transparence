@@ -11,16 +11,17 @@ import {
   type TrainvieCategorie,
   type TrainvieFait,
 } from "@/lib/queries/frais";
+import { metadonneesPage } from "@/lib/seo";
 
 // Rendu statique : la donnée ne change qu'à l'ingestion, le site est
 // reconstruit après chaque ingestion (docs/deploiement/DECISION.md).
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/frais/" },
-  title: "Frais & train de vie",
+export const metadata: Metadata = metadonneesPage({
+  chemin: "/frais/",
+  titre: "Frais & train de vie",
   description:
     "Indemnités, frais de mandat et train de vie des responsables publics : les barèmes publics, les agrégats de contrôle — et ce que la loi ne publie pas.",
-};
+});
 
 /* ------------------------------------------------------------------ */
 /* Formats propres au module (typographie française, espaces fines)    */

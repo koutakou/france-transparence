@@ -72,7 +72,7 @@ from pathlib import Path
 import duckdb
 
 from pipelines import db
-from pipelines.common import obtenir_logger, telecharger
+from pipelines.common import obtenir_logger, reparer_mojibake, telecharger
 
 log = obtenir_logger("budget_structure")
 
@@ -99,14 +99,46 @@ ANNEE_VERSEMENT_ASSOS = 2023  # millésime du jaune PLF 2025 (colonne source obj
 
 
 def nettoyer_texte(s: str | None) -> str | None:
-    """Qualité Chorus : espaces insécables (U+00A0/U+202F), retours ligne et
-    espaces multiples → un espace ; vide → None. Ne modifie pas le contenu."""
+    """Qualité Chorus : mojibake réparé, espaces insécables (U+00A0/U+202F),
+    retours ligne et espaces multiples → un espace ; vide → None.
+
+    Le CONTENU n'est jamais modifié, à une exception prouvée près : le
+    mojibake. Le défaut est dans le CSV publié — `grep Ivoire
+    jaune_associations_2023.csv` rend « Côte dâ€™Ivoire », le libellé du pays
+    COG 99326, sur 4 lignes et 236 145 € de versements. La réparation est
+    celle de pipelines/common.py : elle ne re-décode qu'une séquence dont
+    l'aller-retour cp1252→UTF-8 est valide, donc aucun libellé français
+    légitime n'est touché.
+    """
     if s is None:
         return None
-    s = unicodedata.normalize("NFC", s)
+    s = unicodedata.normalize("NFC", reparer_mojibake(s))
     s = s.replace(" ", " ").replace(" ", " ")
     s = re.sub(r"\s+", " ", s).strip()
     return s or None
+
+
+# POURQUOI cette liste : Chorus livre « 0 » — un zéro littéral — là où l'état
+# administratif de l'établissement est inconnu (3 638 lignes sur 112 722, soit
+# 3,2 %, mesuré le 20/08/2026). Stocké tel quel, ce « 0 » se lit comme une
+# valeur alors qu'il en est l'absence, et il fausse tout regroupement par
+# état. On le ramène à NULL, qui est ce qu'il veut dire. « Non déterminé »
+# (471 lignes) est en revanche une VRAIE valeur de la nomenclature source :
+# elle est conservée telle quelle.
+_ETATS_ADMINISTRATIFS_VIDES = frozenset({"0"})
+
+
+def nettoyer_etat_administratif(s: str | None) -> str | None:
+    """État administratif Chorus → valeur exploitable, ou None.
+
+    NB : les 262 valeurs de la forme « Fermé <nombre> » sont laissées INTACTES.
+    Le nombre est un numéro de série de date, mais l'époque de référence n'est
+    pas documentée par la source ; la convertir reviendrait à publier une date
+    devinée. Constat et élimination des hypothèses : § M6 de
+    doc/QUALITE-DONNEES.md.
+    """
+    valeur = nettoyer_texte(s)
+    return None if valeur in _ETATS_ADMINISTRATIFS_VIDES else valeur
 
 
 def normaliser_siren(s: str | None) -> str | None:
@@ -230,7 +262,8 @@ def transformer_subvention(ligne: dict) -> dict:
         "convention": nettoyer_texte(ligne["convention_2022"]),
         "date_creation_etablissement": nettoyer_texte(
             ligne["date_de_creation_de_l_etablissement"]),
-        "etat_administratif": nettoyer_texte(ligne["etat_administratif"]),
+        "etat_administratif": nettoyer_etat_administratif(
+            ligne["etat_administratif"]),
         "categorie_juridique": nettoyer_texte(ligne["categorie_juridique"]),
         "cog_code": cog,
         "cog_libelle": nettoyer_texte(ligne["cog_libelle"]),

@@ -3,7 +3,8 @@
 Modules UI alimentés : « Élus & Institutions » et « Alertes ».
 
 Tables produites (remplacement complet, idempotent) :
-- hatvp_declarations : 1 ligne = 1 dossier déclaratif HATVP (12 930 au 14/08/2026).
+- hatvp_declarations : 1 ligne = 1 dossier déclaratif HATVP, doublons stricts
+  écartés (12 930 lignes publiées au 14/08/2026, 50 doublons → 12 880).
   Colonnes : civilite, prenom, nom, classement (clé personne HATVP), type_mandat,
   qualite (mandat/fonction concerné), type_document (di/dia/dsp/dim/diam/dspm/dspfm),
   departement, date_publication, date_depot, statut_publication (natif),
@@ -265,6 +266,79 @@ def parser_liste_hatvp(chemin: str | Path) -> list[dict]:
     if not lignes:
         raise ValueError("liste.csv : fichier vide")
     return lignes
+
+
+def dedoublonner_hatvp(dossiers: list[dict]) -> list[dict]:
+    """Écarte les lignes STRICTEMENT identiques de liste.csv.
+
+    POURQUOI un dédoublonnage exact et pas sur une clé métier : liste.csv
+    n'a pas d'identifiant de dossier fiable (`id_origine` est vide 64 % du
+    temps), et deux déclarations différentes d'une même personne peuvent
+    partager n'importe quel sous-ensemble de colonnes — même type de
+    document, même qualité, même date de dépôt. La SEULE duplication qu'on
+    puisse écarter sans risque de perte est celle où les seize colonnes
+    coïncident : la ligne n'apporte alors rien, par construction.
+    Mesuré le 20/08/2026 sur le fichier publié : 12 930 lignes, dont 50
+    doublons stricts répartis en 49 groupes (un groupe à 3 exemplaires).
+    Conséquence : les agrégats par statut et par type de document, servis
+    sur /elus, comptaient ces lignes deux fois.
+
+    L'ordre d'origine est conservé (premier exemplaire gagnant) : c'est ce
+    qui rend le résultat reproductible d'une ingestion à l'autre.
+    """
+    vus: set[tuple] = set()
+    uniques: list[dict] = []
+    for dossier in dossiers:
+        empreinte = tuple(sorted(dossier.items()))
+        if empreinte in vus:
+            continue
+        vus.add(empreinte)
+        uniques.append(dossier)
+    ecartes = len(dossiers) - len(uniques)
+    if ecartes:
+        log.info("HATVP : %d doublon(s) strict(s) écarté(s) sur %d lignes",
+                 ecartes, len(dossiers))
+    return uniques
+
+
+def controler_dates_hatvp(dossiers: list[dict], aujourd_hui: date) -> dict[str, int]:
+    """Compte et JOURNALISE les dates impossibles de liste.csv.
+
+    POURQUOI signaler et ne rien corriger : ces dates sont des défauts de la
+    source, et aucune correction ne serait autre chose qu'une devinette —
+    « 2026-11-27 » peut être une coquille pour 2025-11-27 comme pour
+    2026-01-27, on n'en sait rien. Les effacer serait pire : on perdrait la
+    trace d'un défaut réel sans rien gagner, puisque ces champs ne sont pas
+    affichés nominativement. Le pipeline dit donc ce qu'il voit, à chaque
+    run, et le silence du log devient l'information utile (« la source s'est
+    corrigée »). Mesuré le 20/08/2026 : 1 dépôt à trois mois dans le futur,
+    4 publications antérieures à leur propre dépôt, 4 publications
+    postérieures au jour d'ingestion — ces dernières étant probablement des
+    publications programmées, donc légitimes : c'est bien un signalement, pas
+    un verdict.
+    """
+    depots_futurs = publications_futures = publications_avant_depot = 0
+    for dossier in dossiers:
+        depot = _parser_date_iso(dossier.get("date_depot"))
+        publication = _parser_date_iso(dossier.get("date_publication"))
+        if depot and depot > aujourd_hui:
+            depots_futurs += 1
+            log.warning("HATVP : dépôt daté du futur — %s %s, %s",
+                        dossier.get("prenom"), dossier.get("nom"), depot)
+        if publication and publication > aujourd_hui:
+            publications_futures += 1
+        if depot and publication and publication < depot:
+            publications_avant_depot += 1
+            log.warning("HATVP : publication (%s) antérieure au dépôt (%s) — %s %s",
+                        publication, depot, dossier.get("prenom"), dossier.get("nom"))
+    if publications_futures:
+        log.info("HATVP : %d publication(s) datée(s) après le jour d'ingestion "
+                 "(publications programmées probables)", publications_futures)
+    return {
+        "depots_futurs": depots_futurs,
+        "publications_futures": publications_futures,
+        "publications_avant_depot": publications_avant_depot,
+    }
 
 
 def agreger_hatvp(dossiers: list[dict], aujourd_hui: date) -> list[tuple[str, str, int]]:
@@ -750,6 +824,8 @@ def main() -> int:
         if len(dossiers) < 10_000:
             raise ValueError(f"liste.csv : {len(dossiers)} lignes, seuil de plausibilité "
                              "(10 000) non atteint — source suspecte, abandon")
+        dossiers = dedoublonner_hatvp(dossiers)
+        controler_dates_hatvp(dossiers, aujourd_hui)
         log.info("HATVP : %d dossiers déclaratifs (données du %s)", len(dossiers), date_hatvp)
 
         # --- S17 : RNE (trimestriel, URLs re-résolues) ---------------------

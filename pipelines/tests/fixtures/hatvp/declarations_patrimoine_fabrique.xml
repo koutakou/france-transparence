@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Fixture P15 — ENTIÈREMENT FABRIQUÉE. Aucune ligne ne provient de la HATVP.
+
+  POURQUOI elle est inventée alors que toutes les autres fixtures du dépôt
+  sont des extraits réels : cette fixture-ci porte des blocs PATRIMONIAUX, et
+  le contenu d'une déclaration de situation patrimoniale ne se recopie pas
+  dans un dépôt public — l'article LO 135-2 du code électoral réserve sa
+  consultation à la préfecture et punit sa divulgation de 45 000 € d'amende.
+  Copier un vrai bloc patrimonial « pour tester qu'on ne le publie pas »
+  serait précisément le publier. Les noms, les sociétés et les montants
+  ci-dessous n'existent pas.
+
+  Trois cas, un par situation que la double barrière doit tenir :
+
+  1. DSP-FABRIQUE  — type patrimonial ANNONCÉ, contenant en plus une rubrique
+     d'intérêts parfaitement légitime. La barrière 1 (type) doit refuser la
+     déclaration ENTIÈRE : même son mandat électif ne doit pas entrer.
+  2. DI-MENTEUSE   — type « DI » ANNONCÉ (donc accepté par la barrière 1),
+     mais qui transporte cinq blocs patrimoniaux. C'est le cas le plus
+     important du lot : seule la barrière 2 (nom de balise) l'arrête, et il
+     doit rester exactement UNE ligne d'intérêt, celle du mandat électif.
+  3. DIAM-FABRIQUE — type d'intérêts modificatif, hors liste blanche : refusé
+     par la barrière 1 comme tout type non retenu.
+-->
+<declarations>
+	<declaration>
+		<dateDepot>02/01/2026 10:00:00</dateDepot>
+		<uuid>DSP-FABRIQUE-0000-0000-000000000001</uuid>
+		<origine>FIXTURE</origine>
+		<mandatElectifDto>
+			<items>
+				<items>
+					<commentaire/>
+					<descriptionMandat>MANDAT FICTIF DE LA FIXTURE</descriptionMandat>
+					<remuneration>
+						<brutNet>Net</brutNet>
+						<montant>
+							<montant>
+								<annee>2025</annee>
+								<montant>11 111</montant>
+							</montant>
+						</montant>
+					</remuneration>
+					<dateDebut>01/2025</dateDebut>
+					<dateFin/>
+				</items>
+			</items>
+			<neant>false</neant>
+		</mandatElectifDto>
+		<immeubleDto>
+			<items>
+				<items>
+					<designation>PATRIMOINE-FABRIQUE-IMMEUBLE</designation>
+					<valeurVenale>999 999</valeurVenale>
+				</items>
+			</items>
+			<neant>false</neant>
+		</immeubleDto>
+		<general>
+			<typeDeclaration>
+				<id>DSP</id>
+				<label>Déclaration de situation patrimoniale</label>
+			</typeDeclaration>
+			<qualiteMandat>
+				<codTypeMandatFichier>fixture</codTypeMandatFichier>
+			</qualiteMandat>
+			<organe>
+				<labelOrgane>Organe fictif</labelOrgane>
+			</organe>
+			<qualiteDeclarant>Qualité fictive</qualiteDeclarant>
+			<declarationModificative>false</declarationModificative>
+			<declarant>
+				<civilite>Mme</civilite>
+				<nom>PERSONNE-FIXTURE-UN</nom>
+				<prenom>Fictive</prenom>
+				<dateNaissance>01/01/1970</dateNaissance>
+			</declarant>
+		</general>
+	</declaration>
+	<declaration>
+		<dateDepot>03/01/2026 11:00:00</dateDepot>
+		<uuid>DI-MENTEUSE-0000-0000-000000000002</uuid>
+		<origine>FIXTURE</origine>
+		<mandatElectifDto>
+			<items>
+				<items>
+					<commentaire>Commentaire fictif [Données non publiées]</commentaire>
+					<descriptionMandat>MANDAT FICTIF DE LA FIXTURE</descriptionMandat>
+					<remuneration>
+						<brutNet>Brut</brutNet>
+						<montant>
+							<montant>
+								<annee>2025</annee>
+								<montant>22 222</montant>
+							</montant>
+							<montant>
+								<annee>2024</annee>
+								<montant/>
+							</montant>
+						</montant>
+					</remuneration>
+					<dateDebut>07/2024</dateDebut>
+					<dateFin/>
+				</items>
+			</items>
+			<neant>false</neant>
+		</mandatElectifDto>
+		<fonctionBenevoleDto>
+			<neant>true</neant>
+		</fonctionBenevoleDto>
+		<immeubleDto>
+			<items>
+				<items>
+					<designation>PATRIMOINE-FABRIQUE-IMMEUBLE</designation>
+					<valeurVenale>888 888</valeurVenale>
+				</items>
+			</items>
+			<neant>false</neant>
+		</immeubleDto>
+		<valeursEnBourseDto>
+			<items>
+				<items>
+					<nomSociete>PATRIMOINE-FABRIQUE-BOURSE</nomSociete>
+					<evaluation>777 777</evaluation>
+				</items>
+			</items>
+			<neant>false</neant>
+		</valeursEnBourseDto>
+		<comptesBancaireDto>
+			<items>
+				<items>
+					<etablissement>PATRIMOINE-FABRIQUE-BANQUE</etablissement>
+					<solde>666 666</solde>
+				</items>
+			</items>
+			<neant>false</neant>
+		</comptesBancaireDto>
+		<passifDto>
+			<items>
+				<items>
+					<creancier>PATRIMOINE-FABRIQUE-PASSIF</creancier>
+					<montant>555 555</montant>
+				</items>
+			</items>
+			<neant>false</neant>
+		</passifDto>
+		<revenuMandatDto>
+			<items>
+				<items>
+					<description>PATRIMOINE-FABRIQUE-REVENU</description>
+					<montant>444 444</montant>
+				</items>
+			</items>
+			<neant>false</neant>
+		</revenuMandatDto>
+		<activProfConjointDto>
+			<items>
+				<items>
+					<nomConjoint>TEMOIN-TIERS-CONJOINT</nomConjoint>
+					<employeurConjoint>TEMOIN-TIERS-CONJOINT</employeurConjoint>
+				</items>
+			</items>
+			<neant>false</neant>
+		</activProfConjointDto>
+		<general>
+			<typeDeclaration>
+				<id>DI</id>
+				<label>Déclaration d'intérêts</label>
+			</typeDeclaration>
+			<qualiteMandat>
+				<codTypeMandatFichier>fixture</codTypeMandatFichier>
+			</qualiteMandat>
+			<organe>
+				<labelOrgane>Organe fictif</labelOrgane>
+			</organe>
+			<qualiteDeclarant>Qualité fictive</qualiteDeclarant>
+			<declarationModificative>false</declarationModificative>
+			<declarant>
+				<civilite>M.</civilite>
+				<nom>PERSONNE-FIXTURE-DEUX</nom>
+				<prenom>Fictif</prenom>
+				<dateNaissance>02/02/1971</dateNaissance>
+			</declarant>
+		</general>
+	</declaration>
+	<declaration>
+		<dateDepot>04/01/2026 12:00:00</dateDepot>
+		<uuid>DIAM-FABRIQUE-0000-0000-00000000003</uuid>
+		<origine>FIXTURE</origine>
+		<mandatElectifDto>
+			<items>
+				<items>
+					<commentaire/>
+					<descriptionMandat>MANDAT FICTIF DE LA FIXTURE</descriptionMandat>
+					<dateDebut>01/2026</dateDebut>
+					<dateFin/>
+				</items>
+			</items>
+			<neant>false</neant>
+		</mandatElectifDto>
+		<general>
+			<typeDeclaration>
+				<id>DIAM</id>
+				<label>Déclaration d'intérêts et d'activités modificative</label>
+			</typeDeclaration>
+			<qualiteMandat>
+				<codTypeMandatFichier>fixture</codTypeMandatFichier>
+			</qualiteMandat>
+			<organe>
+				<labelOrgane>Organe fictif</labelOrgane>
+			</organe>
+			<qualiteDeclarant>Qualité fictive</qualiteDeclarant>
+			<declarationModificative>true</declarationModificative>
+			<declarant>
+				<civilite>Mme</civilite>
+				<nom>PERSONNE-FIXTURE-TROIS</nom>
+				<prenom>Fictive</prenom>
+				<dateNaissance>03/03/1972</dateNaissance>
+			</declarant>
+		</general>
+	</declaration>
+</declarations>

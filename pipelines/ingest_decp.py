@@ -101,7 +101,12 @@ from pathlib import Path
 import duckdb
 
 from pipelines import db
-from pipelines.common import obtenir_logger, telecharger
+from pipelines.common import (
+    normaliser_espaces,
+    obtenir_logger,
+    reparer_mojibake,
+    telecharger,
+)
 
 log = obtenir_logger("ingest_decp")
 
@@ -320,7 +325,17 @@ def transformer(
                    any_value(acheteur_departement_code)           AS acheteur_departement_code,
                    any_value(acheteur_departement_nom)            AS acheteur_departement_nom,
                    CAST(min(dateNotification) AS VARCHAR)         AS date_notification,
-                   any_value(dureeMois)                           AS duree_mois,
+                   -- POURQUOI ce CASE : la source livre des durées
+                   -- impossibles (négatives, ou 32 000 mois = 2 666 ans).
+                   -- On ne devine rien — la valeur invraisemblable est
+                   -- remplacée par NULL, qui dit « non renseigné » sans
+                   -- mentir. Borne haute très large (600 mois = 50 ans),
+                   -- au-delà du plus long marché public concevable : aucune
+                   -- valeur légitime n'est perdue. Mesuré le 20/08/2026 sur
+                   -- la base de production : 22 durées < 0 et 119 > 600 sur
+                   -- 585 503 marchés (§ M3 de QUALITE-DONNEES.md).
+                   CASE WHEN any_value(dureeMois) BETWEEN 0 AND 600
+                        THEN any_value(dureeMois) END               AS duree_mois,
                    any_value("procedure")                         AS procedure,
                    any_value(nature)                              AS nature,
                    any_value("type")                              AS type_marche,
@@ -555,11 +570,52 @@ _TABLES = {
 }
 
 
+# Colonnes texte assainies au moment du transfert DuckDB → SQLite.
+# POURQUOI ici et pas en SQL : la réparation du mojibake exige un
+# aller-retour d'encodage octet par octet, hors de portée de DuckDB comme de
+# SQLite. POURQUOI ces colonnes-là : ce sont les seules chaînes DECP servies
+# à l'écran ou indexées. Mesuré le 20/08/2026 sur la base de production
+# (585 503 objets) : 308 objets porteurs de mojibake → 5 irréparables,
+# 0 régression ; 77 306 objets porteurs d'espaces parasites (insécables,
+# retours ligne, bords).
+_COLONNES_ASSAINIES = frozenset({"objet", "acheteur_nom", "titulaire_nom"})
+# `titulaires_json` est du JSON : on y répare le mojibake (qui n'affecte que
+# le contenu des chaînes) mais on n'y touche PAS aux espaces, qui font partie
+# de la syntaxe sérialisée.
+_COLONNES_MOJIBAKE_SEUL = frozenset({"titulaires_json"})
+
+
+def _assainir_lot(lot: list[tuple], champs: list[str]) -> list[tuple]:
+    """Applique l'hygiène des chaînes aux colonnes texte d'un lot de lignes.
+
+    Rendu tel quel si aucune colonne du lot n'est concernée : le pipeline
+    DECP transfère ~600 000 lignes, on ne paye le coût que là où il sert.
+    """
+    indices_pleins = [i for i, c in enumerate(champs) if c in _COLONNES_ASSAINIES]
+    indices_moji = [i for i, c in enumerate(champs) if c in _COLONNES_MOJIBAKE_SEUL]
+    if not indices_pleins and not indices_moji:
+        return lot
+    sorties = []
+    for ligne in lot:
+        cellules = list(ligne)
+        for i in indices_pleins:
+            v = cellules[i]
+            if isinstance(v, str):
+                cellules[i] = normaliser_espaces(reparer_mojibake(v)) or None
+        for i in indices_moji:
+            v = cellules[i]
+            if isinstance(v, str):
+                cellules[i] = reparer_mojibake(v)
+        sorties.append(tuple(cellules))
+    return sorties
+
+
 def charger(conn: sqlite3.Connection, duck: duckdb.DuckDBPyConnection) -> dict[str, int]:
     """Réécrit les 8 tables decp_* depuis les tables temp DuckDB.
 
     CREATE TABLE IF NOT EXISTS puis DELETE/INSERT dans la transaction en
     cours (aucun commit ici — l'appelant commet, cf. main, ou annule).
+    Les colonnes texte sont assainies au passage (cf. `_assainir_lot`).
     Retourne {table: lignes insérées}.
     """
     conn.executescript(_SCHEMA)  # idempotent, ne détruit rien
@@ -575,7 +631,8 @@ def charger(conn: sqlite3.Connection, duck: duckdb.DuckDBPyConnection) -> dict[s
             if not lot:
                 break
             conn.executemany(
-                f"INSERT INTO {table} ({colonnes}) VALUES ({marqueurs})", lot
+                f"INSERT INTO {table} ({colonnes}) VALUES ({marqueurs})",
+                _assainir_lot(lot, champs),
             )
             total += len(lot)
         comptes[table] = total

@@ -15,6 +15,7 @@ import { StatStrip } from "@/components/ui/StatStrip";
 import { TableTronquee } from "@/components/client/TableTronquee";
 import { formatDateFr, formatEuros, formatNombre, formatPct } from "@/lib/format";
 import { chargerDonneesMarches, type AlerteMarches } from "@/lib/queries/marches";
+import { metadonneesPage } from "@/lib/seo";
 
 /**
  * Page STATIQUE (site pré-rendu quotidiennement) : tout est calculé au
@@ -24,12 +25,12 @@ import { chargerDonneesMarches, type AlerteMarches } from "@/lib/queries/marches
  * chaque construction du site — pas à chaque affichage.
  */
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/marches/" },
-  title: "Commande publique",
+export const metadata: Metadata = metadonneesPage({
+  chemin: "/marches/",
+  titre: "Commande publique",
   description:
     "Marchés publics notifiés et appels d’offres en cours : montants, attributaires, répartition par département — DECP consolidées et BOAMP, données datées.",
-};
+});
 
 /* ------------------------------------------------------------------ */
 /* Helpers d'affichage (purs, locaux à la page)                        */

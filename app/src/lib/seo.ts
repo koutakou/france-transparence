@@ -4,11 +4,13 @@
  * Deux besoins distincts, réunis ici pour n'avoir qu'un seul endroit où
  * l'identité du site est décrite :
  *
- * 1. CANONIQUE — chaque page déclare `alternates.canonical` dans son objet
- *    `metadata`. Next résout un chemin relatif contre `metadataBase`
- *    (posé dans le layout racine à partir de SITE_URL) EN Y JOIGNANT son
- *    pathname : « /donnees/ » devient donc `<origine>/donnees/` quand le site
- *    est à la racine d'un domaine, et `<origine>/<basePath>/donnees/` sous un
+ * 1. CANONIQUE ET `og:url` — chaque page passe par `metadonneesPage()`, qui
+ *    pose les deux À PARTIR DU MÊME CHEMIN : ils sont résolus par le même
+ *    résolveur de Next, ils ne peuvent donc pas diverger.
+ *    Next résout un chemin relatif contre `metadataBase` (posé dans le
+ *    layout racine à partir de SITE_URL) EN Y JOIGNANT son pathname :
+ *    « /donnees/ » devient donc `<origine>/donnees/` quand le site est à la
+ *    racine d'un domaine, et `<origine>/<basePath>/donnees/` sous un
  *    basePath — aucune URL n'est à recopier ici.
  *    Les chemins portent TOUJOURS le slash final (`trailingSlash: true` —
  *    le site sert des `index.html`), sinon la canonique désignerait une URL
@@ -22,6 +24,7 @@
  * pour les exports, désambiguïsation d'entité pour les élus). Aucun balisage
  * décoratif, aucune donnée qui ne figure pas déjà à l'écran.
  */
+import type { Metadata } from "next";
 import { SITE_URL } from "@/lib/site";
 
 /** Nom public du site (identique au `og:site_name` du layout). */
@@ -82,6 +85,95 @@ export function compacte<T>(valeur: T): T {
 /** Enveloppe `@graph` avec le contexte schema.org. */
 export function graphe(noeuds: NoeudJsonLd[]): NoeudJsonLd {
   return compacte({ "@context": "https://schema.org", "@graph": noeuds });
+}
+
+/* ------------------------------------------------------------------ */
+/* Métadonnées d'une page (canonique + Open Graph)                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Visuel de partage, commun à tout le site.
+ *
+ * URL ABSOLUE en dur : avec `metadataBase`, un chemin « /og.png » perdrait le
+ * sous-chemin d'un déploiement sous basePath (SITE_URL le contient déjà).
+ */
+const IMAGE_PARTAGE = {
+  url: `${SITE_URL}/og.png`,
+  width: 1200,
+  height: 630,
+  alt: "France Transparence — données publiques officielles",
+};
+
+/**
+ * Bloc `openGraph` COMPLET d'une page — à n'appeler que d'ici et du layout.
+ *
+ * POURQUOI il recopie tout (type, siteName, locale, image) au lieu de ne
+ * poser que `url` : Next NE FUSIONNE PAS `openGraph` champ à champ entre le
+ * layout racine et la page. Sa boucle de fusion traite la clé EN BLOC —
+ * `newResolvedMetadata.openGraph = resolveOpenGraph(metadata.openGraph, …)`
+ * (next/dist/lib/metadata/resolve-metadata.js) : dès qu'une page déclare
+ * `openGraph`, l'objet du layout est REMPLACÉ, pas complété. Une page qui ne
+ * déclarerait que `{ url }` perdrait d'un coup og:type, og:site_name,
+ * og:locale et og:image — la carte de partage se réduirait à un lien nu, et
+ * la régression serait invisible en relecture de source.
+ *
+ * `title` et `description` restent au contraire volontairement ABSENTS :
+ * quand ils manquent, Next les recopie du titre et de la description RÉSOLUS
+ * de la page (`inheritFromMetadata`), gabarit « %s — France Transparence »
+ * compris. Les poser ici les figerait sur la valeur du site entier — c'est
+ * exactement le piège déjà évité dans le layout racine.
+ *
+ * `chemin` (facultatif) reçoit le MÊME chemin relatif que la canonique :
+ * Next le résout avec le même résolveur, la même `metadataBase` et le même
+ * `trailingSlash` — og:url et la canonique ne peuvent donc pas diverger.
+ * Omis (layout racine, page 404), aucun `og:url` n'est émis : une page
+ * d'erreur servie sous n'importe quelle adresse n'a pas d'URL canonique à
+ * revendiquer, et en annoncer une serait un mensonge.
+ */
+export function openGraphPage(chemin?: string): NonNullable<Metadata["openGraph"]> {
+  return {
+    type: "website",
+    siteName: NOM_SITE,
+    locale: "fr_FR",
+    images: [IMAGE_PARTAGE],
+    url: chemin,
+  };
+}
+
+/**
+ * Métadonnées complètes d'une page indexable : titre, description, canonique
+ * et Open Graph d'un seul tenant.
+ *
+ * Un seul point d'entrée pour que `alternates.canonical` et `openGraph.url`
+ * soient CONSTRUITS DU MÊME `chemin` : les tenir à jour séparément dans
+ * quatorze fichiers, c'est garantir qu'un jour l'un des deux désignera une
+ * autre page que l'autre.
+ *
+ * `titre` et `description` sont optionnels, et leurs clés ne sont POSÉES QUE
+ * si la valeur est fournie — jamais avec `undefined`. La fusion de Next itère
+ * `for (const key in metadata)` : une clé PRÉSENTE mais `undefined` est
+ * traitée quand même, et son cas efface la valeur héritée
+ * (`resolveTitle(undefined)` rend `{ absolute: "" }`, `metadata[key] ?? null`
+ * annule la description). Une page qui laisserait passer `titre: undefined`
+ * perdrait donc le titre par défaut du layout — ce qui est exactement le
+ * besoin de l'accueil (titre par défaut) et des chemins dégradés de
+ * `generateMetadata` (fiche d'élu introuvable : pas de description à
+ * annoncer, on garde celle du site).
+ */
+export function metadonneesPage(page: {
+  /** Chemin du site, slash final compris (« /donnees/ », « / »). */
+  chemin: string;
+  /** Titre de la page, sans le suffixe du gabarit ; omis = titre par défaut. */
+  titre?: string;
+  /** Description propre à la page ; omise = description par défaut du site. */
+  description?: string;
+}): Metadata {
+  return {
+    ...(page.titre !== undefined && { title: page.titre }),
+    ...(page.description !== undefined && { description: page.description }),
+    alternates: { canonical: page.chemin },
+    openGraph: openGraphPage(page.chemin),
+  };
 }
 
 /* ------------------------------------------------------------------ */

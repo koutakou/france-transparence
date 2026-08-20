@@ -86,9 +86,11 @@ Un seul hôte :
 
 ## Variables d'environnement suspectes (noms seulement)
 
-Une seule variable matche `token|key|secret|api|credential|passw` :
-
-- `CLAUDE_CODE_MESSAGING_TOKEN` (interne à Claude Code, sans rapport avec le déploiement)
+Une seule variable matche `token|key|secret|api|credential|passw`, et elle appartient à un
+outil de développement local sans aucun rapport avec le déploiement : elle n'est ni lue par les
+pipelines, ni par le build, ni par le serveur. Son nom n'est pas reproduit ici — ce relevé sert à
+repérer un secret de plateforme qui aurait fui dans l'environnement, pas à cataloguer l'outillage
+du poste.
 
 Aucune variable de plateforme (pas de `FLY_API_TOKEN`, `VERCEL_TOKEN`, `HCLOUD_TOKEN`, `AWS_*`, `SCW_*`, etc.).
 

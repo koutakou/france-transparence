@@ -10,6 +10,7 @@ import {
   HEBERGEUR_TELEPHONE_LIEN,
 } from "@/lib/hebergeur";
 import { CONTACT_EMAIL, CONTACT_ISSUES_URL, REPO_URL } from "@/lib/site";
+import { metadonneesPage } from "@/lib/seo";
 
 /**
  * Page /mentions-legales — obligations d'identification de la LCEN
@@ -27,11 +28,12 @@ import { CONTACT_EMAIL, CONTACT_ISSUES_URL, REPO_URL } from "@/lib/site";
  * src/lib/hebergeur.ts, qui porte aussi la traçabilité de sa vérification.
  */
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/mentions-legales/" },
-  title: "Mentions légales",
-  description: `Site édité à titre non professionnel par un particulier (art. 1-1, II LCEN), hébergé par ${HEBERGEUR_MENTION}. Contact, droit de réponse et licences du site.`,
-};
+export const metadata: Metadata = metadonneesPage({
+  chemin: "/mentions-legales/",
+  titre: "Mentions légales",
+  description:
+    `Site édité à titre non professionnel par un particulier (art. 1-1, II LCEN), hébergé par ${HEBERGEUR_MENTION}. Contact, droit de réponse et licences du site.`,
+});
 
 /** Style commun des liens externes de la page. */
 const LIEN = "underline decoration-dotted underline-offset-2 hover:text-ink";

@@ -9,7 +9,18 @@ import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { LineChart } from "@/components/ui/LineChart";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { DefautsLobbying } from "@/components/client/DefautsLobbying";
-import { formatDateFr, formatNombre } from "@/lib/format";
+import {
+  TitulairesLobbyistes,
+  type LigneTitulaireLobbyiste,
+} from "@/components/client/TitulairesLobbyistes";
+import { formatDateFr, formatEuros, formatNombre, formatPct } from "@/lib/format";
+import {
+  getCroisementLobbyingMarches,
+  PLAFOND_ECRETAGE,
+  type CroisementLobbyingMarches,
+  type TitulaireLobbyiste,
+} from "@/lib/queries/croisement-lobbying-marches";
+import { metadonneesPage } from "@/lib/seo";
 import {
   getDonneesLobbying,
   type FourchetteBudget,
@@ -22,12 +33,12 @@ import {
 // Rendu statique : la donnée ne change qu'à l'ingestion, le site est
 // reconstruit après chaque ingestion (docs/deploiement/DECISION.md).
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/lobbying/" },
-  title: "Lobbying",
+export const metadata: Metadata = metadonneesPage({
+  chemin: "/lobbying/",
+  titre: "Lobbying",
   description:
-    "Le répertoire des représentants d'intérêts de la HATVP : activités déclarées, budgets, institutions visées et entités en défaut de déclaration — constats officiels repris tels quels, datés et sourcés.",
-};
+    "Le répertoire des représentants d'intérêts de la HATVP : activités déclarées, budgets, institutions visées, entités en défaut de déclaration, et les marchés publics dont ces représentants d'intérêts sont titulaires — constats officiels repris tels quels, datés et sourcés.",
+});
 
 /** Toggle « Vue tableau » — la jumelle WCAG de chaque graphique (DATAVIZ §7/§9). */
 function VueTableau({ children }: { children: ReactNode }) {
@@ -91,6 +102,436 @@ function libelleFourchetteCourt(f: FourchetteBudget): string {
   return borneCompacte(f.borne_min);
 }
 
+/** Part en % de `partie` dans `total` — `null` si le total est inconnu ou nul. */
+function part(partie: number | null, total: number | null): number | null {
+  if (partie === null || total === null || total === 0) return null;
+  return (100 * partie) / total;
+}
+
+/**
+ * Ligne du classement des titulaires, pour un périmètre donné : le montant
+ * passe en MILLIONS d'euros parce que l'unité vit dans l'en-tête de colonne
+ * (DATAVIZ §7) et n'est jamais répétée par cellule.
+ */
+function ligneTitulaire(
+  t: TitulaireLobbyiste,
+  perimetre: "horsAccordsCadres" | "tousMarches",
+): LigneTitulaireLobbyiste {
+  const horsAc = perimetre === "horsAccordsCadres";
+  const montant = horsAc ? t.montant_hors_ac : t.montant_tous;
+  return {
+    siren: t.siren,
+    denomination: t.denomination,
+    categorie: t.categorie,
+    url_fiche: t.url_fiche,
+    defaut_declaration: t.defaut_declaration,
+    activites_12m: t.activites_12m,
+    nb_marches: horsAc ? t.nb_marches_hors_ac : t.nb_marches_tous,
+    montant_meur: montant === null ? null : montant / 1e6,
+  };
+}
+
+/** Ligne de la table « en défaut de déclaration ET titulaire de marchés ». */
+type LigneDefautTitulaire = {
+  siren: string;
+  denomination: string;
+  categorie: string | null;
+  url_fiche: string | null;
+  nb_marches_tous: number;
+  montant_tous_meur: number | null;
+  nb_marches_hors_ac: number;
+  montant_hors_ac_meur: number | null;
+};
+
+/**
+ * Croisement RÉPERTOIRE DES REPRÉSENTANTS D'INTÉRÊTS × MARCHÉS PUBLICS
+ * (sources S4 × S1), joints sur le SIREN. Méthode complète, exclusions et
+ * limites : docs/CROISEMENT-LOBBYING-MARCHES.md.
+ *
+ * Section extraite du corps de la page pour une raison de fond : elle ne
+ * s'affiche QUE si les deux sources sont ingérées, et elle a besoin d'une
+ * dizaine de valeurs dérivées (parts, conversions en M€) qu'il serait
+ * illisible de calculer sous une garde `croisement && …` dans le JSX.
+ *
+ * `baseLegale` est reprise de l'alerte native du pipeline (table `alertes`)
+ * plutôt que réécrite ici : le site n'a qu'UNE formulation du défaut de
+ * déclaration, celle de la base.
+ */
+function SectionCroisement({
+  croisement,
+  baseLegale,
+}: {
+  croisement: CroisementLobbyingMarches;
+  baseLegale: string | null;
+}) {
+  const { metaS1, metaS4, couverture, agregats: ag, ensemble, titulaires } = croisement;
+
+  const sansSiren = couverture.entites - couverture.entitesSiren;
+  const partMontant = part(ag.montantHorsAc, ensemble.montantHorsAc);
+  const partMarches = part(ag.marchesHorsAc, ensemble.marchesHorsAc);
+  const partTitulaires = part(ag.sirensHorsAc, ensemble.sirensTitulaires);
+  const partEcretee = part(ag.montantEcretesHorsAc, ag.montantHorsAc);
+  const partSuspecte = part(ag.montantSuspectsHorsAc, ag.montantHorsAc);
+
+  // Les DEUX classements sont calculés au build ; la bascule côté client ne
+  // fait que choisir lequel afficher (aucun fetch, aucun recalcul).
+  const topHorsAc = titulaires
+    .slice(0, 20)
+    .map((t) => ligneTitulaire(t, "horsAccordsCadres"));
+  const topTous = [...titulaires]
+    .sort((a, b) => (b.montant_tous ?? 0) - (a.montant_tous ?? 0))
+    .slice(0, 20)
+    .map((t) => ligneTitulaire(t, "tousMarches"));
+
+  const enDefaut: LigneDefautTitulaire[] = titulaires
+    .filter((t) => t.defaut_declaration === 1)
+    .sort((a, b) => (b.montant_tous ?? 0) - (a.montant_tous ?? 0))
+    .map((t) => ({
+      siren: t.siren,
+      denomination: t.denomination,
+      categorie: t.categorie,
+      url_fiche: t.url_fiche,
+      nb_marches_tous: t.nb_marches_tous,
+      montant_tous_meur: t.montant_tous === null ? null : t.montant_tous / 1e6,
+      nb_marches_hors_ac: t.nb_marches_hors_ac,
+      montant_hors_ac_meur:
+        t.montant_hors_ac === null ? null : t.montant_hors_ac / 1e6,
+    }));
+
+  // Deux sources croisées = deux badges. Aucune fusion : chacune a sa date
+  // et sa fréquence, et la DECP porte en plus sa latence légale.
+  const badges = (
+    <div className="flex flex-wrap items-center justify-end gap-1.5">
+      <FreshnessBadge
+        dateDonnees={metaS1.date_donnees}
+        source="DECP consolidées"
+        frequence={metaS1.frequence}
+        url={metaS1.url}
+        mention="latence légale ≤ 2 mois"
+      />
+      <FreshnessBadge
+        dateDonnees={metaS4.date_donnees}
+        source="HATVP — AGORA"
+        frequence={metaS4.frequence}
+        url={metaS4.url}
+      />
+    </div>
+  );
+
+  return (
+    <>
+      {/* ── Croisement : représentants d'intérêts titulaires de marchés ── */}
+      <Card
+        titre="Représentants d'intérêts titulaires de marchés publics"
+        sousTitre={`Croisement de deux répertoires publics : le SIREN des entités inscrites au répertoire HATVP et le SIREN des titulaires de marchés publics (DECP consolidées). La jointure est exacte sur le SIREN — aucun rapprochement de noms, donc aucune homonymie. ${formatNombre(couverture.entitesSiren)} des ${formatNombre(couverture.entites)} entités inscrites portent un SIREN (${formatNombre(couverture.sirensDistincts)} SIREN distincts) ; les ${formatNombre(sansSiren)} autres sont identifiées par un numéro RNA d'association ou un identifiant interne HATVP et restent hors de portée de ce croisement.`}
+        droite={badges}
+      >
+        <div className="flex flex-col gap-4">
+          {/* Le cadrage éditorial passe AVANT le chiffre : sans lui, le
+              tableau se lit comme une liste de suspects, ce qu'il n'est pas. */}
+          <div className="rounded-xl border border-card-border bg-raised p-4">
+            <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+              Ce que ce croisement ne dit pas
+            </h3>
+            <p className="text-xs leading-relaxed text-ink-secondary">
+              Être inscrit au répertoire des représentants d&apos;intérêts et
+              être titulaire d&apos;un marché public sont deux situations{" "}
+              <strong className="font-medium text-ink">
+                légales, distinctes et courantes
+              </strong>
+              . L&apos;inscription au répertoire est une obligation de
+              transparence qui pèse sur qui exerce une activité de
+              représentation d&apos;intérêts ; l&apos;attribution d&apos;un
+              marché résulte d&apos;une procédure d&apos;achat public encadrée.
+              Le cumul des deux n&apos;est ni interdit, ni irrégulier, ni
+              suspect en soi : une entreprise, une association ou une chambre
+              consulaire peut avoir des raisons parfaitement légitimes de
+              figurer au répertoire. Aucune des entités listées ci-dessous
+              n&apos;est en tort du seul fait d&apos;y figurer, et cette
+              section ne formule aucun constat d&apos;irrégularité — à la seule
+              exception du bloc suivant, qui reprend un constat officiel de la
+              HATVP portant sur la déclaration, jamais sur le marché.
+            </p>
+          </div>
+
+          <StatStrip
+            stats={[
+              {
+                label: "Représentants d'intérêts titulaires (hors accords-cadres)",
+                valeur: formatNombre(ag.sirensHorsAc),
+              },
+              {
+                label: "Marchés notifiés (hors accords-cadres)",
+                valeur: formatNombre(ag.marchesHorsAc),
+              },
+              {
+                label: "Montant notifié (écrêté, hors accords-cadres)",
+                valeur:
+                  ag.montantHorsAc !== null ? formatEuros(ag.montantHorsAc) : "—",
+                montantVedette: true,
+              },
+              {
+                label: "Part du montant notifié hors accords-cadres",
+                valeur: partMontant !== null ? formatPct(partMontant) : "—",
+              },
+            ]}
+          />
+
+          <p className="text-xs leading-relaxed text-ink-muted">
+            Lecture : {formatNombre(ag.sirensHorsAc)} SIREN inscrits au
+            répertoire — soit{" "}
+            {partTitulaires !== null ? formatPct(partTitulaires, 2) : "—"} des{" "}
+            {formatNombre(ensemble.sirensTitulaires)} SIREN titulaires
+            d&apos;au moins un marché dans les DECP — sont titulaires de{" "}
+            {partMarches !== null ? formatPct(partMarches) : "—"} des marchés
+            notifiés hors accords-cadres, pour{" "}
+            {partMontant !== null ? formatPct(partMontant) : "—"} du montant
+            correspondant. Marchés notifiés = engagements contractuels, pas des
+            paiements. Fenêtre couverte par la source DECP au{" "}
+            {formatDateFr(metaS1.date_donnees)} : les 24 derniers mois environ,
+            avec une latence légale de publication pouvant aller jusqu&apos;à
+            deux mois.
+          </p>
+
+          {/* « Ce que vaut ce total » — même grille de lecture que /marches :
+              un total DECP ne se publie pas sans ses parts écrêtée et
+              suspecte, sinon le lecteur croit lire un montant homogène. */}
+          <div className="rounded-xl border border-card-border bg-card p-4">
+            <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+              Ce que vaut ce total
+            </h3>
+            <p className="text-xs leading-relaxed text-ink-secondary">
+              Le total de{" "}
+              <strong className="font-medium text-ink">
+                {ag.montantHorsAc !== null ? formatEuros(ag.montantHorsAc) : "—"}
+              </strong>{" "}
+              porte sur {formatNombre(ag.marchesHorsAc)} marchés notifiés hors
+              accords-cadres. Il n&apos;est pas homogène :
+            </p>
+            <ul className="mt-2 flex flex-col gap-1.5 text-xs leading-relaxed text-ink-secondary">
+              <li>
+                <strong className="font-medium text-ink">
+                  {formatNombre(ag.ecretesHorsAc)} marchés
+                </strong>{" "}
+                dépassent le plafond de {formatEuros(PLAFOND_ECRETAGE)} et sont
+                comptés à ce plafond. Ils apportent{" "}
+                {ag.montantEcretesHorsAc !== null
+                  ? formatEuros(ag.montantEcretesHorsAc)
+                  : "—"}
+                {partEcretee !== null && <>, soit {formatPct(partEcretee)} du total</>}{" "}
+                : cette part est faite de valeurs de substitution, leur montant
+                réel n&apos;est pas connu.
+              </li>
+              <li>
+                <strong className="font-medium text-ink">
+                  {formatNombre(ag.suspectsHorsAc)} marchés
+                </strong>{" "}
+                portent le drapeau « montant suspect » (anomalie signalée à la
+                source, ou montant au-delà du plafond) et apportent{" "}
+                {ag.montantSuspectsHorsAc !== null
+                  ? formatEuros(ag.montantSuspectsHorsAc)
+                  : "—"}
+                {partSuspecte !== null && <>, soit {formatPct(partSuspecte)} du total</>}.
+              </li>
+              <li>
+                En les écartant, il reste{" "}
+                <strong className="font-medium text-ink">
+                  {ag.montantHorsAcHorsSuspects !== null
+                    ? formatEuros(ag.montantHorsAcHorsSuspects)
+                    : "—"}
+                </strong>{" "}
+                pour {formatNombre(ag.marchesHorsAcHorsSuspects)} marchés et{" "}
+                {formatNombre(ag.sirensHorsAcHorsSuspects)} représentants
+                d&apos;intérêts. À lire comme une{" "}
+                <strong className="font-medium text-ink">borne basse</strong>, et
+                non comme le montant réel : le drapeau « suspect » n&apos;a pas
+                été vérifié marché par marché, il écarte donc aussi des montants
+                exacts.
+              </li>
+              <li>
+                Sans aucun écrêtage, la somme brute atteindrait{" "}
+                {ag.montantHorsAcBrut !== null
+                  ? formatEuros(ag.montantHorsAcBrut)
+                  : "—"}{" "}
+                — ce que le plafond sert précisément à ne pas afficher.
+              </li>
+              <li>
+                {formatNombre(ag.sansMontantHorsAc)} marchés sont notifiés sans
+                montant renseigné : comptés dans le nombre de marchés, exclus de
+                toutes les sommes.
+              </li>
+            </ul>
+          </div>
+
+          {/* Les accords-cadres ne sont pas passés sous silence : ils sont
+              chiffrés, et dits pour ce qu'ils sont (un maximum, pas du
+              dépensé). */}
+          <div className="rounded-xl border border-card-border bg-card p-4">
+            <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+              Les accords-cadres, comptés à part
+            </h3>
+            <p className="text-xs leading-relaxed text-ink-secondary">
+              {formatNombre(ag.marchesAccordsCadres)} des{" "}
+              {formatNombre(ag.marchesTous)} marchés du croisement sont des
+              accords-cadres, pour un montant notifié de{" "}
+              {ag.montantAccordsCadres !== null
+                ? formatEuros(ag.montantAccordsCadres)
+                : "—"}
+              . Ce montant est un{" "}
+              <strong className="font-medium text-ink">
+                maximum contractuel, pas une dépense
+              </strong>{" "}
+              : l&apos;acheteur peut n&apos;en consommer qu&apos;une fraction, et
+              la source ne publie pas ce qui a été réellement commandé. Les
+              additionner au reste porterait le croisement à{" "}
+              {ag.montantTous !== null ? formatEuros(ag.montantTous) : "—"} pour{" "}
+              {formatNombre(ag.sirensTous)} représentants d&apos;intérêts et{" "}
+              {formatNombre(ag.marchesTous)} marchés — un total qui mélange des
+              plafonds et des engagements fermes. C&apos;est pourquoi le
+              périmètre de référence de cette section les exclut ; la bascule
+              du tableau ci-dessous permet néanmoins de les voir.
+            </p>
+          </div>
+
+          <TitulairesLobbyistes horsAccordsCadres={topHorsAc} tousMarches={topTous} />
+
+          <p className="text-xs leading-relaxed text-ink-muted">
+            Classement des 20 premiers sur {formatNombre(titulaires.length)}{" "}
+            représentants d&apos;intérêts titulaires d&apos;au moins un marché.
+            La liste complète, les agrégats et la méthode sont exportés dans{" "}
+            <code className="rounded bg-raised px-1 py-0.5">
+              /api/lobbying-marches.json
+            </code>
+            . Un marché est rattaché à TOUS ses titulaires, co-titulaires
+            compris (la donnée source ne désigne pas de mandataire) ; les
+            activités déclarées sur 12 mois viennent du répertoire HATVP et
+            n&apos;ont aucun lien de causalité avec les marchés listés.
+            Consolidation DECP : decp-processing (Colin Maudry).
+          </p>
+        </div>
+      </Card>
+
+      {/* ── Sous-ensemble : titulaires en défaut de déclaration ────────── */}
+      <Card
+        titre="Titulaires de marchés en défaut de déclaration"
+        sousTitre={`${formatNombre(ag.defautSirensTous)} des ${formatNombre(ag.sirensTous)} représentants d'intérêts titulaires d'un marché public figurent sur la liste officielle HATVP des représentants d'intérêts en défaut de déclaration — flag public officiel, repris tel quel.`}
+        droite={badges}
+      >
+        <div className="flex flex-col gap-4">
+          <div className="rounded-xl border border-card-border bg-raised p-4">
+            <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+              Ce que « défaut de déclaration » veut dire ici
+            </h3>
+            <p className="text-xs leading-relaxed text-ink-secondary">
+              Le défaut de déclaration est un{" "}
+              <strong className="font-medium text-ink">
+                constat officiel de la Haute Autorité pour la transparence de la
+                vie publique
+              </strong>
+              , publié par elle dans son répertoire et repris ici tel quel : il
+              désigne une entité inscrite sur la liste des représentants
+              d&apos;intérêts n&apos;ayant pas communiqué à la Haute Autorité
+              tout ou partie des informations exigibles par la loi, pour au
+              moins un exercice. Ce n&apos;est ni un calcul, ni une
+              interprétation, ni une accusation de France Transparence. Il porte
+              sur la{" "}
+              <strong className="font-medium text-ink">
+                déclaration d&apos;activité de représentation d&apos;intérêts,
+                jamais sur les marchés publics
+              </strong>{" "}
+              : rien n&apos;indique une irrégularité dans l&apos;attribution ou
+              l&apos;exécution des marchés listés ci-dessous, et le croisement
+              n&apos;en établit aucune. Il n&apos;est publié ici que parce que
+              le manquement concerne des organisations qui sont aussi titulaires
+              de la commande publique.
+            </p>
+            {baseLegale && (
+              <p className="mt-2 text-[11px] leading-relaxed text-ink-muted">
+                Base légale : {baseLegale}
+              </p>
+            )}
+          </div>
+
+          <p className="text-xs leading-relaxed text-ink-secondary">
+            Ces {formatNombre(ag.defautSirensTous)} entités sont titulaires de{" "}
+            {formatNombre(ag.defautMarchesTous)} marchés, tous types confondus,
+            pour{" "}
+            {ag.defautMontantTous !== null
+              ? formatEuros(ag.defautMontantTous)
+              : "—"}{" "}
+            — dont{" "}
+            {ag.defautMontantTousHorsSuspects !== null
+              ? formatEuros(ag.defautMontantTousHorsSuspects)
+              : "—"}{" "}
+            sur {formatNombre(ag.defautMarchesTousHorsSuspects)} marchés une fois
+            écartés les montants marqués suspects. Sur le périmètre de référence
+            de cette page (accords-cadres exclus), il reste{" "}
+            {formatNombre(ag.defautSirensHorsAc)} entités,{" "}
+            {formatNombre(ag.defautMarchesHorsAc)} marchés et{" "}
+            {ag.defautMontantHorsAc !== null
+              ? formatEuros(ag.defautMontantHorsAc)
+              : "—"}{" "}
+            : l&apos;essentiel du montant de ce sous-ensemble tient à des
+            accords-cadres, dont le montant est un maximum et non une dépense.
+          </p>
+
+          <DataTable<LigneDefautTitulaire>
+            colonnes={[
+              { cle: "denomination", entete: "Entité en défaut de déclaration" },
+              { cle: "categorie", entete: "Catégorie (libellé natif HATVP)" },
+              {
+                cle: "nb_marches_tous",
+                entete: "Marchés (tous)",
+                type: "nombre",
+                largeur: "6rem",
+              },
+              {
+                cle: "montant_tous_meur",
+                entete: "Montant (M€, tous)",
+                type: "montant",
+                decimales: 1,
+                largeur: "7rem",
+              },
+              {
+                cle: "nb_marches_hors_ac",
+                entete: "Marchés (hors AC)",
+                type: "nombre",
+                largeur: "6rem",
+              },
+              {
+                cle: "montant_hors_ac_meur",
+                entete: "Montant (M€, hors AC)",
+                type: "montant",
+                decimales: 1,
+                largeur: "7rem",
+              },
+              {
+                cle: "url_fiche",
+                entete: "Registre",
+                rendu: (l) => <LienFiche url={l.url_fiche} />,
+                largeur: "7rem",
+              },
+            ]}
+            lignes={enDefaut}
+            cleLigne={(l) => l.siren}
+            vide="Aucun représentant d'intérêts en défaut de déclaration n'est titulaire d'un marché public dans les DECP."
+            hauteurMax="24rem"
+          />
+          <p className="text-xs leading-relaxed text-ink-muted">
+            « AC » = accord-cadre. Montants écrêtés à{" "}
+            {formatEuros(PLAFOND_ECRETAGE)} par marché puis répartis entre
+            co-titulaires ; ils comprennent ici les montants marqués suspects,
+            le détail par entité étant trop fin pour qu&apos;une borne basse par
+            ligne ait un sens. La liste officielle complète des représentants
+            d&apos;intérêts en défaut de déclaration — marchés publics ou non —
+            est celle du bloc précédent et reste consultable chez la HATVP.
+          </p>
+        </div>
+      </Card>
+    </>
+  );
+}
+
 /**
  * Lobbying — répertoire des représentants d'intérêts (HATVP, loi
  * « Sapin II »). Données 100 % réelles de data/france.db (source S4),
@@ -142,6 +583,11 @@ export default async function LobbyingPage() {
   );
 
   const dernierTrimestre = trimestres[trimestres.length - 1];
+
+  // Croisement HATVP × DECP (S4 × S1). Facultatif par construction : si la
+  // source marchés n'est pas ingérée, `null` — la section disparaît au lieu
+  // d'afficher un croisement à une seule source, qui ne voudrait rien dire.
+  const croisement = getCroisementLobbyingMarches();
 
   return (
     <section className="flex flex-col gap-6">
@@ -355,6 +801,14 @@ export default async function LobbyingPage() {
           />
         </div>
       </Card>
+
+      {/* ── Croisement lobbying × marchés publics (S4 × S1) ───────────── */}
+      {croisement && (
+        <SectionCroisement
+          croisement={croisement}
+          baseLegale={alerteDefauts?.base_legale ?? null}
+        />
+      )}
     </section>
   );
 }

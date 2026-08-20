@@ -20,6 +20,7 @@ import {
   type ScrutinLigne,
 } from "@/lib/queries/elus";
 import type { MetaSource } from "@/lib/db";
+import { metadonneesPage } from "@/lib/seo";
 
 /**
  * Page STATIQUE (site pré-rendu quotidiennement) : agrégats et premiers
@@ -28,12 +29,12 @@ import type { MetaSource } from "@/lib/db";
  * (docs/deploiement/DECISION.md).
  */
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/elus/" },
-  title: "Élus & institutions",
+export const metadata: Metadata = metadonneesPage({
+  chemin: "/elus/",
+  titre: "Élus & institutions",
   description:
     "Députés, sénateurs, maires et présidents d’exécutifs locaux : mandats, groupes, votes nominaux et déclarations HATVP, à partir des données officielles datées.",
-};
+});
 
 /** Premier écran des tableaux : le reste se charge au geste (fragments). */
 const PREMIER_ECRAN = 25;

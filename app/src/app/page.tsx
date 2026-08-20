@@ -20,17 +20,17 @@ import {
   lireDepartementsGeojson,
   type AlerteAccueil,
 } from "@/lib/queries/accueil";
-import { jsonLdIdentiteSite } from "@/lib/seo";
+import { jsonLdIdentiteSite, metadonneesPage } from "@/lib/seo";
 
 // Rendu statique : la donnée ne change qu'à l'ingestion, le site est
 // reconstruit après chaque ingestion (docs/deploiement/DECISION.md).
 
 // Le title de l'accueil est le title par défaut du layout racine.
-export const metadata: Metadata = {
-  alternates: { canonical: "/" },
+export const metadata: Metadata = metadonneesPage({
+  chemin: "/",
   description:
     "Le tableau de bord de l'argent public : budget de l'État, marchés publics, élus, lobbying, financement de la vie politique et alertes d'intégrité — données publiques officielles, datées et sourcées.",
-};
+});
 
 /* ------------------------------------------------------------------ */
 /* Aides d'affichage (module accueil uniquement)                       */

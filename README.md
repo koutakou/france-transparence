@@ -6,17 +6,28 @@ Dashboard web sur la transparence de la vie politique française : dépenses de 
 
 ## Site public
 
-**https://koutakou.github.io/france-transparence/**
+**https://francetransparence.fr**
 
-Version statique pré-rendue du dashboard, hébergée sur GitHub Pages et reconstruite chaque matin à 04:45 UTC (~06h45 Paris) par GitHub Actions : ingestion complète dans un runner éphémère → tests → export statique → déploiement atomique. Si une étape échoue, rien n'est déployé : le site de la veille reste servi tel quel et une issue GitHub s'ouvre automatiquement. La fraîcheur affichée reste donc toujours celle de la base réellement construite. Coût : 0 €/mois.
+Export statique du dashboard, servi **directement par nginx** depuis un serveur dédié (Scaleway Dedibox, Ubuntu 22.04). **Aucun process Node en production** : le HTML est pré-rendu au build, nginx ne fait que servir des fichiers déjà écrits sur disque (et déjà compressés).
+
+Le site est reconstruit chaque matin vers 05:17 (heure de Paris) par le script serveur `ft-deploy`, déclenché par la minuterie systemd `ft-deploy.timer`. La publication est **tout ou rien** : mise à jour du dépôt → contrôle de l'identité de déploiement → ingestion des 13 pipelines → tests → build statique → contrôles de santé du site généré → **bascule atomique** du lien symbolique `current` vers la nouvelle release. Si une étape échoue, le lien ne bascule pas : l'ancienne version continue d'être servie sans interruption, et une alerte part. La fraîcheur affichée reste donc toujours celle de la base réellement construite.
+
+Les cinq dernières releases sont conservées sur le serveur : `ft-rollback` revient à l'une d'elles en quelques secondes, sans rebuild.
 
 ```bash
-gh workflow run publication.yml   # déclencher une publication manuellement
-make build-static                 # export statique local (FT_EXPORT=1 → app/out/)
-make serve-static                 # sert app/out/ sur http://localhost:3620
+make build-static   # export statique local (FT_EXPORT=1 → app/out/)
+make serve-static   # sert app/out/ sur http://localhost:3620
 ```
 
-Choix d'hébergement et limites : [docs/deploiement/DECISION.md](docs/deploiement/DECISION.md) · exploitation quotidienne : [docs/deploiement/RUNBOOK.md](docs/deploiement/RUNBOOK.md) · actions humaines optionnelles (domaine, e-mail de contact) : [docs/ACTIONS-HUMAINES.md](docs/ACTIONS-HUMAINES.md).
+L'ancienne adresse GitHub Pages ne sert plus le site : elle ne porte plus qu'une **page de redirection canonique** vers le domaine (`pages-redirection/`). Publier une copie intégrale du site sur les deux hôtes aurait fait vivre deux sites identiques en ligne et partagé l'autorité de référencement de chacune des ~1 066 pages entre deux domaines ; GitHub Pages ne sachant pas émettre de 301, la canonique et le rafraîchissement méta sont les seuls instruments disponibles.
+
+**La CI GitHub Actions ne publie plus le site**, et ce n'est pas une perte : elle valide chaque jour (cron 04:45 UTC) la chaîne complète — ingestion des 13 pipelines dans une base neuve, tests, build, contrôles de santé — dans un environnement neuf, **indépendant du serveur**. Si une source amont casse, on l'apprend là avant que le serveur ne rebuilde. Elle vérifie aussi chaque proposition de fusion **avant** qu'elle n'atteigne `main`, puisque c'est `main` qui alimente le serveur.
+
+L'identité de déploiement est **paramétrable au build** : un fork change d'adresse sans toucher une ligne de source. `NEXT_PUBLIC_SITE_URL` (défaut `https://francetransparence.fr`) porte l'URL du site — canoniques, sitemap et `robots.txt` en sont dérivés (`app/src/app/robots.ts` génère le `robots.txt`, il n'y a plus de fichier statique), et les variables `NEXT_PUBLIC_HEBERGEUR_*` portent l'identité de l'hébergeur publiée dans les mentions légales (`app/src/lib/hebergeur.ts`).
+
+Hébergement : serveur dédié — donc payant, contrairement à la première mise en ligne sur GitHub Pages.
+
+Décision d'hébergement et limites : [docs/deploiement/DECISION.md](docs/deploiement/DECISION.md) · exploitation quotidienne : [docs/deploiement/RUNBOOK.md](docs/deploiement/RUNBOOK.md) · ce qui exige encore un humain : [docs/ACTIONS-HUMAINES.md](docs/ACTIONS-HUMAINES.md).
 
 ## Démarrage rapide
 
@@ -47,7 +58,7 @@ avec `<source>` parmi les 13 pipelines : `referentiels`, `budget_mensuel`, `budg
 ## Tests
 
 ```bash
-make test         # 150 tests pytest
+make test         # suite pytest complète
 ```
 
 Les tests de transformation tournent hors ligne sur des extraits réels figés dans `pipelines/tests/fixtures/` (pièges d'encodage inclus). Les tests d'intégration qui touchent le réseau portent le marqueur `reseau` — les exclure avec `pytest -m 'not reseau'`.
@@ -81,6 +92,8 @@ Détails : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | `/documents` | Journal officiel | 2 778 textes des 30 derniers JO (quotidien, JO du jour disponible vers 00h30), filtres lois/décrets/nominations. |
 | `/alertes` | Alertes transparence | 1 590 alertes sur 8 types, chacune avec sa règle de calcul et sa base légale, recalculées à chaque ingestion. |
 | `/donnees` | Données & exports | Catalogue des 25 sources avec fraîcheur mesurée (le moniteur de santé des sources), licences, règles des alertes, 6 exports JSON statiques (méta, alertes, élus, budget mensuel, agrégats marchés, index de recherche) reconstruits à chaque publication. |
+
+Les volumes chiffrés de ce tableau sont un **instantané daté du 19/08/2026** : la plupart des sources publient quotidiennement, ces nombres bougent donc à chaque ingestion. La seule valeur qui fait foi est celle affichée par le site lui-même, avec la date de ses données — c'est le rôle du badge de fraîcheur et de la page `/donnees`.
 
 ## Sources & licences
 

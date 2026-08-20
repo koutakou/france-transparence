@@ -334,3 +334,32 @@ def test_ecretes_totaux_depassent_le_sous_total_departemental(resultat):
         "SELECT coalesce(sum(nb_marches_ecretes), 0) FROM t_agg_departement"
     ).fetchone()[0]
     assert total >= par_dep
+
+
+# ---------------------------------------------------------------------------
+# Hygiène des chaînes au chargement (§ M8 de doc/QUALITE-DONNEES.md)
+# ---------------------------------------------------------------------------
+
+
+def test_assainir_lot_repare_et_normalise_les_colonnes_servies():
+    """Mesuré le 20/08/2026 sur la base de production : 308 objets porteurs
+    de mojibake (→ 5 irréparables) et 77 306 porteurs d'espaces parasites."""
+    champs = ["uid", "objet", "acheteur_nom", "montant_retenu"]
+    lot = [("U1", "TRAVAUX  DE\nRÃ‰NOVATION ", "  MAIRIE DE PARIS ", 1000.0)]
+    (ligne,) = ingest_decp._assainir_lot(lot, champs)
+    assert ligne == ("U1", "TRAVAUX DE RÉNOVATION", "MAIRIE DE PARIS", 1000.0)
+
+
+def test_assainir_lot_ne_touche_pas_aux_espaces_du_json_titulaires():
+    """`titulaires_json` est de la syntaxe : on y répare le mojibake, pas
+    les espaces, qui sont porteurs de sens dans une chaîne sérialisée."""
+    champs = ["uid", "titulaires_json"]
+    valeur = '[{"siret": "123", "nom": "SociÃ©tÃ©  X"}]'
+    (ligne,) = ingest_decp._assainir_lot([("U1", valeur)], champs)
+    assert ligne[1] == '[{"siret": "123", "nom": "Société  X"}]'
+
+
+def test_assainir_lot_laisse_passer_un_lot_sans_colonne_texte():
+    """Le pipeline transfère ~600 000 lignes : pas de coût là où c'est inutile."""
+    lot = [("2026-01", 42, 1000.0)]
+    assert ingest_decp._assainir_lot(lot, ["mois", "nb_marches", "montant_total"]) is lot

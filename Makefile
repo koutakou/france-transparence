@@ -8,9 +8,16 @@ PY     := $(VENV)/bin/python
 
 # Ordre d'ingestion : référentiels d'abord (entites), parlement AVANT integrite
 # (les élus AN/Sénat sont créés avec leurs uid, integrite les complète par
-# nom+prénom+date de naissance puis ajoute maires/exécutifs).
+# nom+prénom+date de naissance puis ajoute maires/exécutifs) ; elections APRÈS
+# referentiels ET collectivites, dont il lit le périmètre (ref_departements
+# pour les libellés, ref_villes ∪ collectivites_communes pour les communes
+# suivies) — placé avant lui, il n'aurait aucune commune à agréger ;
+# hatvp_declarations APRÈS integrite, dont il lit les élus appariables
+# (nom+prénom+date de naissance) — placé avant lui, il n'aurait aucune fiche
+# à rattacher.
 PIPELINES := referentiels budget_mensuel budget_structure decp boamp approch \
-             jorf parlement integrite lobbying financement collectivites trainvie
+             jorf parlement integrite hatvp_declarations lobbying financement \
+             collectivites elections trainvie
 
 # NB : ne PAS déclarer les cibles ingest-<x> en .PHONY — make saute la
 # recherche de règles implicites (ingest-%) pour les cibles phony.

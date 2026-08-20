@@ -7,7 +7,9 @@ Le plafond `/records` (offset+limit ≤ 10 000) est contourné partout par
 
 Tables produites (réécriture complète à chaque run, en transaction) :
 
-- ao_en_cours — appels d'offres dont la date limite de réponse est future :
+- ao_en_cours — appels d'offres dont la date limite de réponse est future
+  ET plausible (écart parution → limite ≤ 15 ans, cf.
+  ECART_MAX_LIMITE_ANNEES) :
     idweb (PK), objet, acheteur, nature, nature_libelle, famille,
     famille_libelle, type_marche (JSON), type_procedure, procedure_libelle,
     descripteurs (JSON), departements (JSON), montant_estime (EUR, NULL si
@@ -219,13 +221,51 @@ def extraire_montant(donnees_texte: str | None) -> tuple[float | None, str | Non
     return montant, devise or "EUR"
 
 
+# Écart maximal admis entre parution et date limite de réponse, en années.
+# POURQUOI un garde-fou : la date limite est saisie par l'acheteur et le
+# BOAMP ne la contrôle pas. La base de production du 20/08/2026 contenait
+# 17 avis à échéance impossible (« 7017-07-24 », « 2924-04-15 » — un chiffre
+# de mille frappé de travers), dont deux parus en 2017 et 2018 encore
+# comptés comme « en cours » neuf ans plus tard dans le compteur public.
+# POURQUOI 15 ans et pas moins : la distribution réelle des écarts s'arrête
+# net à 10 ans (8 avis), puis plus rien jusqu'à 15 — le seuil tombe dans une
+# bande vide, il ne peut donc écarter aucun avis légitime, y compris les
+# accords-cadres et concessions les plus longs.
+ECART_MAX_LIMITE_ANNEES = 15
+
+
+def _limite_plausible(parution: str, limite: str) -> bool:
+    """Date limite de réponse cohérente avec la parution ?
+
+    Comparaison sur le seul millésime : les deux champs sont des chaînes
+    ISO 8601 et l'écart en cause se joue sur des siècles, pas sur des jours.
+    Parser les dates complètes n'apporterait qu'un risque d'exception sur
+    les formats bancals que le BOAMP laisse passer.
+    Retourne True si l'un des deux millésimes est illisible : on ne rejette
+    jamais sur une incertitude de format, seulement sur une preuve.
+    """
+    try:
+        an_parution = int(parution[:4])
+        an_limite = int(limite[:4])
+    except (TypeError, ValueError):
+        return True
+    return an_limite - an_parution <= ECART_MAX_LIMITE_ANNEES
+
+
 def parser_ao(rec: dict) -> dict | None:
     """Enregistrement export BOAMP (AO) → ligne ao_en_cours, ou None si
-    les champs indispensables (idweb, dates) manquent."""
+    les champs indispensables (idweb, dates) manquent, ou si la date limite
+    de réponse est manifestement fautive (cf. `_limite_plausible`)."""
     idweb = rec.get("idweb")
     parution = rec.get("dateparution")
     limite = rec.get("datelimitereponse")
     if not idweb or not parution or not limite:
+        return None
+    if not _limite_plausible(parution, limite):
+        log.warning(
+            "AO %s écarté : date limite %s incohérente avec la parution %s "
+            "(> %d ans)", idweb, limite, parution, ECART_MAX_LIMITE_ANNEES,
+        )
         return None
     montant, devise = extraire_montant(rec.get("donnees"))
     return {

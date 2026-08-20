@@ -293,3 +293,34 @@ def test_integration_p1_p2_base_jetable(monkeypatch, tmp_path):
     assert metas["S13"]["date_donnees"] >= "2026-06-30"
     assert metas["S23"]["date_donnees"] == "2023-12-31"
     conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Scories Chorus du jaune budgétaire (§ M6 de doc/QUALITE-DONNEES.md)
+# ---------------------------------------------------------------------------
+
+
+def test_nettoyer_texte_repare_le_mojibake_du_jaune():
+    """Défaut PRÉSENT DANS LE CSV publié, pas introduit par le pipeline :
+    `grep Ivoire jaune_associations_2023.csv` rend « Côte dâ€™Ivoire »."""
+    assert p2.nettoyer_texte("Côte dâ€™Ivoire") == "Côte d’Ivoire"
+
+
+def test_nettoyer_texte_ne_touche_pas_aux_libelles_legitimes():
+    assert p2.nettoyer_texte("BÂTIMENT DE FRANCE") == "BÂTIMENT DE FRANCE"
+
+
+def test_etat_administratif_zero_devient_null():
+    """« 0 » est l'absence d'état, pas un état : 3 638 lignes sur 112 722."""
+    assert p2.nettoyer_etat_administratif("0") is None
+    assert p2.nettoyer_etat_administratif("") is None
+
+
+def test_etat_administratif_conserve_les_vraies_valeurs():
+    """« Non déterminé » appartient à la nomenclature source : on le garde."""
+    assert p2.nettoyer_etat_administratif("Actif") == "Actif"
+    assert p2.nettoyer_etat_administratif("Non déterminé") == "Non déterminé"
+    # « Fermé <nombre> » : numéro de série de date, époque non documentée.
+    # On ne convertit pas — publier une date devinée serait pire que le
+    # laisser tel quel (cf. § M6).
+    assert p2.nettoyer_etat_administratif("Fermé  \n17532") == "Fermé 17532"

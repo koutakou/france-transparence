@@ -122,7 +122,9 @@ Documentées dans docs/SOURCES.md §5, aucune ne conditionne un module v1 :
 
 ## 9. Déploiement public (reprise du 19/08/2026, décisions 20-22)
 
-**URL : https://koutakou.github.io/france-transparence/** — statique pré-rendu sur GitHub Pages, reconstruit chaque matin par GitHub Actions. Premier run de publication lancé le 19/08/2026, en cours au moment de la rédaction de cette section (voir dernière ligne).
+> **Section datée — lire au passé.** Ce § 9 décrit le déploiement tel qu'il était le 19/08/2026. Le **20/08/2026**, le site a migré vers un serveur dédié et son propre domaine : voir § 10, et `docs/deploiement/DECISION.md` pour l'état courant. Rien n'est réécrit ici — ce qui est consigné a bien eu lieu.
+
+**URL au 19/08/2026 : https://koutakou.github.io/france-transparence/** — le site était alors un statique pré-rendu sur GitHub Pages, reconstruit chaque matin par GitHub Actions. Premier run de publication lancé le 19/08/2026, en cours au moment de la rédaction de cette section (voir dernière ligne de la section). **Depuis le 20/08/2026, cette adresse ne sert plus le site** : elle ne porte plus qu'une page de redirection canonique vers https://francetransparence.fr.
 
 ### Pourquoi GitHub Pages (docs/deploiement/DECISION.md)
 
@@ -155,11 +157,15 @@ Build export intégral vert (décision 22) : zéro route dynamique, 1 053 fiches
 
 ### Exploitation quotidienne
 
-Workflow `publication.yml` : cron **04:45 UTC** (~06h45 Paris, après le lot JO ~00h30 et les builds DECP nocturnes) — `make ingest` (base neuve dans le runner éphémère) → `make test` → build export → déploiement Pages atomique. **Toute étape en échec = aucun déploiement** : le site de la veille reste servi tel quel et une issue « publication-echec » s'ouvre automatiquement ; la fraîcheur affichée (meta_sources) reste vraie par construction. Déclenchement manuel : `gh workflow run publication.yml`. Détail d'exploitation : docs/deploiement/RUNBOOK.md. **Coût : 0 €/mois** (repo public — audité sans secret —, Pages et minutes Actions gratuites).
+*(Décrit l'exploitation en vigueur le 19/08/2026. Depuis le 20/08, `publication.yml` ne publie plus le site : il valide la chaîne et vérifie les propositions de fusion — § 10.)*
 
-### Actions humaines restantes (optionnelles — docs/ACTIONS-HUMAINES.md)
+Workflow `publication.yml` : cron **04:45 UTC** (~06h45 Paris, après le lot JO ~00h30 et les builds DECP nocturnes) — `make ingest` (base neuve dans le runner éphémère) → `make test` → build export → déploiement Pages atomique. **Toute étape en échec = aucun déploiement** : le site de la veille reste servi tel quel et une issue « publication-echec » s'ouvre automatiquement ; la fraîcheur affichée (meta_sources) reste vraie par construction. Déclenchement manuel : `gh workflow run publication.yml`. Détail d'exploitation : docs/deploiement/RUNBOOK.md. **Coût, à cette date : 0 €/mois** (repo public — audité sans secret —, Pages et minutes Actions gratuites) — ce chiffre n'a plus cours depuis la migration du 20/08 sur serveur dédié, qui est un abonnement payant.
 
-Rien n'est bloqué sans elles : rachat d'un domaine (koutakou.fr expiré, redevenu libre ; DNS et procédure prêts), adresse e-mail de contact dédiée (les issues GitHub servent de canal RGPD en attendant), vérification au manager OVH du VPS 51.83.96.83 (peut-être facturé sans servir), montée en gamme VPS si la bande passante Pages (~100 Go/mois, souple) devenait limitante.
+### Actions humaines restantes au 19/08/2026 (optionnelles — docs/ACTIONS-HUMAINES.md)
+
+*Toutes traitées ou devenues sans objet le 20/08/2026 : le domaine est enregistré, l'e-mail de contact est publié, la « montée en gamme » a eu lieu. Seule la vérification du VPS OVH reste ouverte. Consigné ici tel qu'écrit le 19/08.*
+
+Rien n'était bloqué sans elles : rachat d'un domaine (koutakou.fr expiré, redevenu libre ; DNS et procédure prêts), adresse e-mail de contact dédiée (les issues GitHub servent de canal RGPD en attendant), vérification au manager OVH du VPS 51.83.96.83 (peut-être facturé sans servir), montée en gamme VPS si la bande passante Pages (~100 Go/mois, souple) devenait limitante.
 
 ### Vérifications externes du site public (faites le 19/08/2026, 22 h 00-22 h 35 Paris)
 
@@ -178,4 +184,20 @@ L'ingestion sur le runner GitHub prend ~3 min (contre 25-30 min en local : les t
 
 ---
 
-*Rapport établi le 19/08/2026. Toute reprise du projet commence par JOURNAL.md + STATUS.md, puis docs/SOURCES.md, docs/ARCHITECTURE.md, docs/deploiement/DECISION.md et docs/deploiement/RUNBOOK.md.*
+## 10. Migration d'hébergement (20/08/2026, décisions 25-27)
+
+**Le site a quitté GitHub Pages pour https://francetransparence.fr** : export statique servi **directement par nginx** sur un serveur dédié (Scaleway Dedibox, Ubuntu 22.04), **aucun process Node en production**. Reconstruction quotidienne par le script serveur `ft-deploy` (minuterie systemd `ft-deploy.timer`, **05:17 Paris**, volontairement décalée du cron GitHub de 04:45 UTC), selon le même principe du **tout ou rien** que la CI : `git pull` → contrôle d'identité de déploiement → ingestion → tests → build → contrôles de santé → **bascule atomique** du lien symbolique `current`. Échec d'une étape = le lien ne bascule pas, l'ancienne version reste servie, une alerte part. Cinq releases conservées, retour arrière par `ft-rollback` sans rebuild.
+
+**Ce que le § 9 tenait pour des limites de plateforme est levé.** Pages n'autorisait aucun en-tête personnalisé : CSP reléguée dans un `<meta http-equiv>` où `frame-ancestors` est ignoré, ni HSTS ni `X-Content-Type-Options` servis, `github.io` sorti de la liste de préchargement HSTS de Chromium. nginx sert désormais ces en-têtes pour de bon, vérifiables d'un `curl -sI`. S'y ajoutent une pré-compression zopfli au build (servie par `gzip_static`, plutôt qu'un gzip à la volée par requête) et un domaine qui ne porte plus le nom d'un compte de plateforme. **Contrepartie assumée** : l'hébergement devient payant, et l'exploitation (mises à jour, TLS, journaux, surveillance) revient au projet — ce que les scripts `ft-*` et les minuteries systemd ramènent à une routine.
+
+**GitHub Pages est rétrogradé en page de redirection.** Publier le site sur les deux hôtes aurait mis en ligne deux copies identiques et partagé l'autorité de référencement de chacune des ~1 066 pages entre deux domaines ; Pages ne sachant pas émettre de 301, `pages-redirection/` porte une page unique à canonique + rafraîchissement méta. C'est le seul endroit du dépôt où l'ancienne adresse doit encore figurer — un contrôle de santé de la CI échoue si l'export généré la contient encore.
+
+**La CI ne publie plus le site, et garde deux rôles qui valent leur poids** : valider chaque jour la chaîne complète (cron 04:45 UTC) dans un environnement neuf et **indépendant du serveur** — si une source amont casse, on l'apprend là avant que `ft-deploy` ne rebuilde —, et vérifier chaque proposition de fusion **avant** qu'elle n'atteigne `main`, puisque c'est `main` que le serveur tire chaque matin. Le job `deployer` est conditionné à `github.ref == 'refs/heads/main'`.
+
+**L'identité de déploiement est devenue paramétrable au build**, ce qui rend le dépôt réutilisable tel quel : `NEXT_PUBLIC_SITE_URL` (défaut `https://francetransparence.fr`) d'où dérivent canoniques, sitemap et le `robots.txt` désormais **généré** par `app/src/app/robots.ts` (le fichier statique `app/public/robots.txt` a disparu — il fallait le réécrire à la main à chaque changement de domaine, et rien ne garantissait qu'il reste d'accord avec le reste du site) ; `NEXT_PUBLIC_HEBERGEUR_*` pour l'identité de l'hébergeur publiée dans les mentions légales (`app/src/lib/hebergeur.ts`, mention LCEN complète : raison sociale, adresse **et** téléphone). Corollaire : un fork change d'adresse et d'hébergeur sans toucher une ligne de source.
+
+Conséquence sur l'outillage serveur : `ft-localiser`, qui réappliquait des correctifs par `git apply` et réécrivait les sources par substitution de chaînes, **ne modifie plus rien**. Les correctifs sont fusionnés en amont, l'identité est paramétrable : il ne reste qu'une **garantie**, 53 contrôles en lecture seule, sortie 4 si l'un échoue — ce qui interrompt `ft-deploy` avant publication. Réécrire les sources au déploiement était de toute façon la mauvaise idée : ce qui était publié n'était plus ce qui était versionné, et la moindre reformulation en amont cassait le motif recherché.
+
+---
+
+*Rapport établi le 19/08/2026, complété du § 10 le 20/08/2026. Toute reprise du projet commence par JOURNAL.md + STATUS.md, puis docs/SOURCES.md, docs/ARCHITECTURE.md, docs/deploiement/DECISION.md et docs/deploiement/RUNBOOK.md.*

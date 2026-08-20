@@ -6,6 +6,7 @@ import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import type { KpiTileProps } from "@/components/ui/KpiTile";
 import { LineChart } from "@/components/ui/LineChart";
 import { Money } from "@/components/ui/Money";
+import { ParticipationElectorale } from "@/components/client/ParticipationElectorale";
 import { SeriesCollectivites } from "@/components/client/SeriesCollectivites";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { TableTronquee } from "@/components/client/TableTronquee";
@@ -22,6 +23,8 @@ import {
   getNbRegionsReferentiel,
   getRegions,
 } from "@/lib/queries/collectivites";
+import { getDonneesElections } from "@/lib/queries/elections";
+import { metadonneesPage } from "@/lib/seo";
 
 /**
  * Page STATIQUE (site pré-rendu quotidiennement) : tous les agrégats sont
@@ -30,12 +33,12 @@ import {
  * fragments /data/* (docs/deploiement/DECISION.md).
  */
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/collectivites/" },
-  title: "Finances locales",
+export const metadata: Metadata = metadonneesPage({
+  chemin: "/collectivites/",
+  titre: "Finances locales",
   description:
     "Comptes des communes, départements et régions : dépenses par habitant, dotations de l’État — données OFGL datées.",
-};
+});
 
 /** Titre de sous-bloc (dans une Card). */
 function SousTitreBloc({ children }: { children: React.ReactNode }) {
@@ -264,7 +267,10 @@ export default async function PageCollectivites() {
           <strong className="font-medium text-ink">
             montants provisoires jusqu&apos;en décembre 2026
           </strong>{" "}
-          (environ 97 communes encore manquantes). Dotation globale de fonctionnement (DGF) :
+          (environ 97 communes encore manquantes). La colonne « Population » est la somme des
+          seules communes ayant rendu leurs comptes : elle sous-estime donc les départements où
+          il en manque, la Lozère de 13 % parce que Mende y figure parmi les manquantes.
+          Dotation globale de fonctionnement (DGF) :
           jusqu&apos;à l&apos;exercice {exerciceDgf ?? "—"}. Chaque bloc affiche sa source et sa
           fraîcheur — aucun montant estimé.
         </p>
@@ -551,6 +557,15 @@ export default async function PageCollectivites() {
             )}
           </Card>
         </div>
+      </section>
+
+      {/* ------------------------------------------------ participation électorale
+          Source S26 (ministère de l'Intérieur), indépendante des comptes OFGL :
+          le composant porte son propre badge de fraîcheur et ses propres
+          réserves (participation seulement, aucune nuance politique, scrutins
+          non comparables entre eux). Voir docs/ELECTIONS.md. */}
+      <section id="participation">
+        <ParticipationElectorale donnees={getDonneesElections()} />
       </section>
     </div>
   );

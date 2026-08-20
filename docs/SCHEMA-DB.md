@@ -845,3 +845,41 @@ CREATE TABLE trainvie_opacites (
 - trainvie_faits : 56 lignes
 - trainvie_opacites : 8 lignes
 - votes_recents : 13796 lignes
+
+## Conventions de valeurs — ce que le DDL ne dit pas
+
+Le bloc `CREATE TABLE` ci-dessus est un dump : il donne les types, pas le
+sens des valeurs. Les normalisations suivantes sont appliquées **à
+l'ingestion** et ne sont donc lisibles nulle part dans le schéma. Elles
+datent du 20/08/2026 (§ 5 de `doc/QUALITE-DONNEES.md`) : les tables
+produites avant cette date ne les portent pas.
+
+| Table.colonne | Convention appliquée | Pourquoi |
+|---|---|---|
+| `ao_en_cours` (table entière) | Un avis dont la date limite dépasse la parution de plus de **15 ans** n'est pas ingéré (`ECART_MAX_LIMITE_ANNEES`) | Coquilles de millésime de l'acheteur (« 2924 » pour « 2024 ») qui laissaient des avis de 2017 dans le compteur « AO en cours » |
+| `campagnes_2024.code_departement` | Code **COG** : zéro initial rétabli (`01`…`09`), `2A`/`2B`, `977` pour Saint-Barthélemy. **NULL** pour les Français établis hors de France | Le CSV CNCCFP publie des codes non INSEE, et rattachait 125 lignes « hors de France » au département 75 (Paris). Joignable à `ref_departements` depuis cette normalisation |
+| `campagnes_2024.departement` | `ZZ` → `Français établis hors de France` | Sentinelle de la source, illisible telle quelle |
+| `campagnes_2024.circonscription` | Ordinaux ramenés à `1re` / `Ne` (jamais `1ère` / `Nème`) | Quatre conventions typographiques coexistaient, et deux d'entre elles s'affichaient côte à côte en page Alertes |
+| `decp_marches.duree_mois` | **NULL** hors de l'intervalle `[0, 600]` mois | La source livre des durées négatives et jusqu'à 32 000 mois. NULL dit « non renseigné » ; une durée négative ment |
+| `decp_marches.objet` / `.acheteur_nom` / `.titulaire_nom` | Mojibake réparé, espaces normalisés (insécables et retours ligne → une espace, bords rognés) | Double encodage UTF-8→cp1252 de la source ; les espaces parasites cassaient tris, `GROUP BY` et recherche |
+| `decp_marches.titulaires_json` | Mojibake réparé, espaces **non** touchés | C'est du JSON : ses espaces sont de la syntaxe |
+| `hatvp_declarations` (table entière) | Lignes strictement identiques sur les **seize** colonnes écartées | 50 doublons dans `liste.csv`, qui comptaient double dans les agrégats servis sur `/elus` |
+| `subventions_associations.etat_administratif` | Le `0` littéral → **NULL** | 3 638 lignes où Chorus écrit un zéro pour dire « inconnu ». `Non déterminé` est une vraie valeur de la nomenclature et est conservé |
+| `subventions_associations.*` (colonnes texte) | Mojibake réparé | `Côte dâ€™Ivoire` dans le CSV publié du jaune budgétaire |
+
+Ce qui n'est **pas** normalisé, et pourquoi :
+
+- **`decp_marches.titulaire_siret`** — 6 738 SIRET malformés conservés tels
+  quels : c'est le seul identifiant disponible pour ces marchés, et il sert
+  de clé de regroupement aux agrégats par titulaire. La réponse est un
+  rapprochement SIRENE, pas un effacement.
+- **`campagnes_2024.departement`** (libellés désaccentués) — une fois le
+  code ramené au COG, le libellé canonique s'obtient par jointure sur
+  `ref_departements`, sans coupler le pipeline financement au référentiel.
+- **`partis_comptes`** — les incohérences comptables (produits totaux
+  négatifs, `produits − charges ≠ résultat`) sont **journalisées** à chaque
+  ingestion mais jamais réécrites : ce sont les comptes publiés par la
+  CNCCFP.
+- **`hatvp_declarations.date_depot` / `.date_publication`** — les dates
+  impossibles sont journalisées, jamais corrigées : toute correction serait
+  une devinette.

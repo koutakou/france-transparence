@@ -207,3 +207,42 @@ def test_approch_api_contrat_projets_futurs():
         ligne = ingest_approch.parser_projet(rec)
         assert ligne is not None
         assert ligne["date_prev_publication"] >= aujourdhui
+
+
+# ---------------------------------------------------------------------------
+# Garde-fou sur la date limite de réponse (§ M2 de doc/QUALITE-DONNEES.md)
+# ---------------------------------------------------------------------------
+
+
+def test_limite_plausible_accepte_les_ecarts_reels():
+    """La distribution réelle des écarts s'arrête à 10 ans : tout doit passer."""
+    assert ingest_boamp._limite_plausible("2025-06-26", "2025-07-23")
+    assert ingest_boamp._limite_plausible("2024-03-24", "2034-04-15")  # 10 ans
+    assert ingest_boamp._limite_plausible("2025-08-03", "2040-08-01")  # 15 ans pile
+
+
+def test_limite_plausible_rejette_les_millesimes_fautifs():
+    """Cas réels relevés dans la base de production le 20/08/2026."""
+    assert not ingest_boamp._limite_plausible("2017-06-23", "7017-07-24")
+    assert not ingest_boamp._limite_plausible("2024-03-24", "2924-04-15")
+    assert not ingest_boamp._limite_plausible("2025-02-28", "2099-03-02")
+
+
+def test_limite_plausible_ne_rejette_pas_sur_un_format_illisible():
+    """On ne rejette que sur une preuve, jamais sur une incertitude."""
+    assert ingest_boamp._limite_plausible("2025-06-26", "")
+    assert ingest_boamp._limite_plausible("", "2025-07-23")
+    assert ingest_boamp._limite_plausible("date inconnue", "2025-07-23")
+
+
+def test_parser_ao_ecarte_l_avis_a_echeance_impossible():
+    rec = {
+        "idweb": "17-88555",
+        "dateparution": "2017-06-23",
+        "datelimitereponse": "7017-07-24",
+        "nomacheteur": "Mairie Saint-Cyprien",
+    }
+    assert ingest_boamp.parser_ao(rec) is None
+    # Même avis, échéance corrigée : il est ingéré.
+    rec_sain = dict(rec, datelimitereponse="2017-07-24")
+    assert ingest_boamp.parser_ao(rec_sain)["idweb"] == "17-88555"

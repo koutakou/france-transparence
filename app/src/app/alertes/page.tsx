@@ -10,6 +10,7 @@ import {
   getAlertesStats,
   getAlertesTypes,
 } from "@/lib/queries/alertes";
+import { metadonneesPage } from "@/lib/seo";
 
 /**
  * Page STATIQUE (site pré-rendu quotidiennement) : agrégats et première
@@ -19,12 +20,12 @@ import {
  * déplie règle + base légale (docs/NOTES-FRONT.md §Alertes).
  */
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/alertes/" },
-  title: "Alertes transparence",
+export const metadata: Metadata = metadonneesPage({
+  chemin: "/alertes/",
+  titre: "Alertes transparence",
   description:
     "Constats sourcés : déclarations HATVP non déposées, comptes de campagne rejetés, lobbying non déclaré — chaque alerte avec sa règle et sa base légale.",
-};
+});
 
 export default async function PageAlertes() {
   const stats = getAlertesStats();

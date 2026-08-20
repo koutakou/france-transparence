@@ -18,6 +18,7 @@ import {
   getRepartitionNatures,
   type ParutionJour,
 } from "@/lib/queries/documents";
+import { metadonneesPage } from "@/lib/seo";
 
 /**
  * Documents — Journal officiel. Page STATIQUE (site pré-rendu
@@ -29,12 +30,12 @@ import {
  * uniquement — jamais de fetch de contenu externe.
  */
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/documents/" },
-  title: "Journal officiel",
+export const metadata: Metadata = metadonneesPage({
+  chemin: "/documents/",
+  titre: "Journal officiel",
   description:
     "Lois, décrets et nominations du Journal officiel, à parution — source DILA.",
-};
+});
 
 /* ------------------------------------------------------------------ */
 /* Aides                                                                */

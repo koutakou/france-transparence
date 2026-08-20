@@ -395,6 +395,76 @@ def _normaliser_token(token: str) -> str:
     return token
 
 
+# ---------------------------------------------------------------------------
+# Rattachement géographique des comptes de campagne (§ M5 QUALITE-DONNEES.md)
+# ---------------------------------------------------------------------------
+
+# POURQUOI ces trois correspondances et pas une table complète : la CNCCFP
+# publie des codes qui ne sont PAS ceux du COG, mais l'écart est systématique
+# et se réduit à trois familles, chacune vérifiée sur le CSV publié le
+# 20/08/2026 (4 010 lignes) :
+#   - un zéro initial perdu par un tableur (« 1 » pour l'Ain) — 216 lignes ;
+#   - la Corse notée « 20A »/« 20B » au lieu de « 2A »/« 2B » — 32 lignes ;
+#   - Saint-Barthélemy notée « ZX », dont le code COG est « 977 » — 8 lignes.
+# Tout autre code est rendu tel quel : on corrige ce qui est prouvé, rien de
+# plus. Enjeu concret : sans cela, campagnes_2024 ne peut PAS être jointe à
+# ref_departements, et toute carte des comptes de campagne est impossible.
+_CODES_DEPARTEMENT_CNCCFP = {"20A": "2A", "20B": "2B", "ZX": "977"}
+
+# Sentinelle de la CNCCFP pour les onze circonscriptions des Français de
+# l'étranger. Le CSV leur attribue en outre le code département « 75 »
+# (Paris) : c'est FAUX, et 125 lignes sont ainsi rattachées à tort à un
+# département métropolitain. On restitue le libellé porté par la
+# circonscription elle-même, et on met le code à NULL — il n'existe aucun
+# département français correspondant, et NULL dit « pas de département »
+# sans inventer de code.
+_SENTINELLE_HORS_DE_FRANCE = "ZZ"
+_LIBELLE_HORS_DE_FRANCE = "Français établis hors de France"
+
+# Quatre conventions typographiques pour le même ordinal cohabitent dans la
+# colonne `circonscription` : « 2e » (3 048 lignes), « 1re » (624),
+# « 2ème » (246), « 1ère » (50). Les deux dernières ne sont pas des abréviations
+# françaises correctes ; surtout, elles s'affichent côte à côte en page
+# Alertes (« 8ème circonscription » à côté de « 6e circonscription »).
+# On ramène tout sur la forme courte, qui est déjà majoritaire à 87 %.
+_ORDINAL_EME_RE = re.compile(r"(\d+)ème\b")
+_ORDINAL_ERE_RE = re.compile(r"(\d+)ère\b")
+
+
+def normaliser_code_departement(code: str | None) -> str | None:
+    """Code département CNCCFP → code COG, ou None si non renseigné."""
+    if not code:
+        return None
+    code = code.strip()
+    if not code:
+        return None
+    if code in _CODES_DEPARTEMENT_CNCCFP:
+        return _CODES_DEPARTEMENT_CNCCFP[code]
+    # Zéro initial rétabli pour les seuls codes métropolitains à un chiffre.
+    if len(code) == 1 and code.isdigit():
+        return "0" + code
+    return code
+
+
+def normaliser_ordinaux(texte: str) -> str:
+    """« 8ème circonscription » → « 8e », « 1ère » → « 1re ». Rien d'autre."""
+    return _ORDINAL_ERE_RE.sub(r"\1re", _ORDINAL_EME_RE.sub(r"\1e", texte))
+
+
+def normaliser_geographie_campagne(
+    circonscription: str, departement: str | None, code_departement: str | None
+) -> tuple[str, str | None, str | None]:
+    """(circonscription, departement, code) nettoyés — voir les constantes.
+
+    Fonction pure et sans accès base : elle ne fait que réécrire ce que le
+    CSV contient déjà, jamais compléter depuis une autre source.
+    """
+    circonscription = normaliser_ordinaux(circonscription)
+    if departement == _SENTINELLE_HORS_DE_FRANCE:
+        return circonscription, _LIBELLE_HORS_DE_FRANCE, None
+    return circonscription, departement, normaliser_code_departement(code_departement)
+
+
 def normaliser_casse_nom(texte: str) -> str:
     """Répare la casse des noms de personnes livrés cassés par la CNCCFP.
 
@@ -660,6 +730,11 @@ def parser_campagnes(brut: bytes) -> list[dict]:
     Deux traitements du nom en plus (constats du 20/08/2026) : casse réparée
     (normaliser_casse_nom — défaut du CSV source, distinct du mojibake) et
     marqueur « (*) » sorti du nom vers un champ dédié.
+
+    Et depuis le 20/08/2026, le rattachement géographique est normalisé
+    (normaliser_geographie_campagne) : codes département ramenés au COG,
+    sentinelle « ZZ » des Français de l'étranger explicitée, ordinaux de
+    circonscription unifiés. Voir § M5 de doc/QUALITE-DONNEES.md.
     """
     texte, encodage = decoder_campagnes(brut)
     log.info("comptes de campagne : encodage retenu = %s", encodage)
@@ -701,15 +776,24 @@ def parser_campagnes(brut: bytes) -> list[dict]:
         nom, marqueur_etoile = extraire_marqueur_etoile(
             normaliser_casse_nom(champs[1].strip())
         )
+        circonscription, departement, code_departement = (
+            normaliser_geographie_campagne(
+                champs[3].strip(), champs[4].strip() or None,
+                champs[5].strip() or None,
+            )
+        )
         resultat.append(
             {
                 "candidat_id": champs[0].strip(),
                 "nom": nom,
                 "marqueur_etoile": marqueur_etoile,
                 "scrutin": champs[2].strip() or None,
-                "circonscription": champs[3].strip(),
-                "departement": champs[4].strip() or None,
-                "code_departement": champs[5].strip() or None,
+                # Les trois colonnes géographiques sont traitées ENSEMBLE :
+                # la sentinelle « ZZ » du département conditionne le sort du
+                # code (cf. normaliser_geographie_campagne).
+                "circonscription": circonscription,
+                "departement": departement,
+                "code_departement": code_departement,
                 "nuance": nuance,
                 "depenses_declarees": montant(champs[7]),
                 "depenses_retenues": montant(champs[36]),
@@ -746,6 +830,72 @@ def creer_tables(conn) -> None:
     conn.commit()
 
 
+# Tolérance de l'identité comptable produits − charges = résultat, en unités
+# monétaires. 1 unité suffit : les comptes sont publiés au centime, un écart
+# supérieur à l'euro n'est pas un arrondi mais une incohérence de saisie.
+TOLERANCE_EQUILIBRE = 1.0
+
+
+def controler_comptes_partis(lignes: list[dict]) -> dict[str, int]:
+    """Journalise les incohérences comptables des comptes de partis.
+
+    Trois contrôles, tous fondés sur des impossibilités et non sur des
+    seuils d'opinion :
+    1. `produits_total < 0` — un TOTAL de produits ne peut pas être négatif ;
+       une charge n'a rien à faire dans un total de produits ;
+    2. `produits − charges ≠ résultat` au-delà de TOLERANCE_EQUILIBRE — c'est
+       l'identité qui définit le résultat ;
+    3. `produits_total = 0` — techniquement possible (parti en sommeil), mais
+       massif : 51 à 61 partis par exercice. Simple compteur, pas d'alerte
+       ligne à ligne : impossible de distinguer la coquille vide réelle du
+       dépôt incomplet sans une source externe.
+
+    POURQUOI journaliser et ne RIEN corriger : ces montants sont ceux que la
+    CNCCFP publie. Les rectifier reviendrait à publier des comptes que
+    personne n'a déposés. Le site n'expose que le Top 10 des partis, où
+    aucune de ces lignes n'apparaît ; l'enjeu est de ne plus les absorber en
+    silence, pour qu'une dégradation de la source se voie dans les logs
+    d'ingestion. Mesuré le 20/08/2026 : 5 produits totaux négatifs,
+    3 comptes déséquilibrés, 222 exercices à produits nuls.
+    """
+    produits_negatifs = desequilibres = produits_nuls = 0
+    for ligne in lignes:
+        produits = ligne.get("produits_total")
+        charges = ligne.get("charges_total")
+        resultat_ = ligne.get("resultat")
+        if produits is not None and produits < 0:
+            produits_negatifs += 1
+            log.warning(
+                "comptes de partis : produits totaux négatifs — %s (%s), %s",
+                ligne.get("nom"), ligne.get("exercice"), produits,
+            )
+        if produits is not None and produits == 0:
+            produits_nuls += 1
+        # L'identité comptable ne se teste que sur une même unité monétaire :
+        # les comptes du Pacifique sont publiés en XPF (cf. colonne `unite`).
+        if (
+            ligne.get("unite") == "EUR"
+            and produits is not None
+            and charges is not None
+            and resultat_ is not None
+            and abs(produits - charges - resultat_) > TOLERANCE_EQUILIBRE
+        ):
+            desequilibres += 1
+            log.warning(
+                "comptes de partis : produits − charges ≠ résultat — %s (%s), "
+                "%s − %s ≠ %s", ligne.get("nom"), ligne.get("exercice"),
+                produits, charges, resultat_,
+            )
+    if produits_nuls:
+        log.info("comptes de partis : %d exercice(s) à produits totaux nuls",
+                 produits_nuls)
+    return {
+        "produits_negatifs": produits_negatifs,
+        "desequilibres": desequilibres,
+        "produits_nuls": produits_nuls,
+    }
+
+
 def charger_partis(conn, comptes_par_exercice: dict[int, list[dict]]) -> tuple[int, int]:
     """Référentiel partis (+ entites) et table partis_comptes. → (partis, lignes).
 
@@ -771,6 +921,7 @@ def charger_partis(conn, comptes_par_exercice: dict[int, list[dict]]) -> tuple[i
             cle[0], cle[1], ecartee["millesime"], gardee["millesime"],
         )
     toutes = list(par_cle.values())
+    controler_comptes_partis(toutes)
     referentiel: dict[str, dict] = {}
     for ligne in sorted(toutes, key=lambda l: l["exercice"]):
         referentiel[ligne["code"]] = ligne  # le dernier exercice publié gagne

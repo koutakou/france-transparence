@@ -1,158 +1,186 @@
 # RUNBOOK — exploitation de France Transparence
 
 Public : l'exploitant (ou un repreneur) qui doit tout faire depuis zéro, sans autre contexte.
-Décision d'hébergement et alternatives : [DECISION.md](DECISION.md). Actions nécessitant un humain : [../ACTIONS-HUMAINES.md](../ACTIONS-HUMAINES.md).
+Décision d'hébergement et alternatives : [DECISION.md](DECISION.md). Ce qui exige un humain : [../ACTIONS-HUMAINES.md](../ACTIONS-HUMAINES.md).
+
+**Deux chaînes cohabitent, et il faut savoir laquelle fait quoi** — c'est le point que ce document doit rendre évident :
+
+| | Ce qui publie le site | Ce qui valide le code |
+|---|---|---|
+| Où | Le **serveur dédié** (scripts `ft-*`, minuteries systemd) | **GitHub Actions** (`.github/workflows/publication.yml`) |
+| Quand | Tous les jours ~**05:17 Paris** | Cron **04:45 UTC**, plus chaque push et chaque proposition de fusion sur `main` |
+| Effet d'un échec | L'ancienne version reste servie, une alerte part | Une issue `publication-echec` s'ouvre ; **le site n'est pas concerné** |
+| Effet d'un succès | Le site public change | Rien n'est mis en ligne (seule la page de redirection part sur Pages, depuis `main`) |
+
+Un run CI rouge n'est **jamais** une panne du site ; un site figé n'est **jamais** visible dans GitHub Actions. Ne cherchez pas la cause de l'un dans les journaux de l'autre.
 
 ## 1. Architecture d'exploitation
 
 ```
 25 sources open data officielles (data.gouv.fr, DILA, AN, Sénat, HATVP, DGFiP, OFGL, CNCCFP…)
-        │  re-téléchargées à chaque run — rien n'est hébergé chez nous
+        │  re-téléchargées à chaque cycle — rien n'est hébergé chez nous
         ▼
-GitHub Actions — workflow « publication » (runner éphémère ubuntu-latest, cron 04:45 UTC quotidien)
-        make ingest (base SQLite neuve ~448 Mo) → make test (pytest) → next build (export statique)
-        → contrôles de santé (index, meta.json, ≥ 900 fiches, taille < 950 Mo)
-        ▼  déploiement ATOMIQUE (tout le site remplacé d'un coup, ou rien)
-GitHub Pages (CDN Fastly, HTTPS) — https://koutakou.github.io/france-transparence/
+SERVEUR DÉDIÉ (Scaleway Dedibox, Ubuntu 22.04) — ft-deploy.timer, tous les jours 05:17 Paris
+        git pull → ft-localiser (53 contrôles d'identité de déploiement, ne modifie rien)
+        → make ingest (base SQLite neuve) → make test (pytest) → build export (FT_EXPORT=1)
+        → contrôles de santé → pré-compression zopfli → BASCULE ATOMIQUE du lien « current »
+        ▼
+nginx sert /srv/france-transparence/current/ — https://francetransparence.fr
+        aucun process Node en production : que des fichiers déjà écrits, déjà compressés
 ```
 
 Propriétés à connaître :
 
-- **Échec de n'importe quelle étape = aucun déploiement** : le site de la veille reste servi tel quel, et une issue `publication-echec` est ouverte (ou commentée si déjà ouverte).
-- **Aucune machine à entretenir, aucun secret** : le runner est éphémère, la base est reconstruite à chaque ingestion, tout fonctionne avec le `GITHUB_TOKEN` automatique.
-- Trois déclencheurs (`.github/workflows/publication.yml`) : cron 04:45 UTC (06:45 Paris l'été — après le lot JO ~00h30 et les builds DECP) ; push sur `main` (rebuild avec la dernière base en cache Actions, ingestion complète si cache vide) ; déclenchement manuel avec ingestion forçable.
-- Coût : 0 €/mois (repo public → Pages et minutes Actions gratuits).
+- **Tout ou rien.** Le lien `current` ne bascule qu'après les contrôles de santé et la pré-compression. Une étape en échec = **rien n'est publié**, la version de la veille continue d'être servie sans interruption, et `ft-alerte` notifie. La bascule est un `ln -sfnT` puis un `mv -Tf` — un `rename(2)` : aucun visiteur ne voit d'état intermédiaire.
+- **Contrôles de santé du site généré** : `index.html` présent et titré, `404.html` présent, `api/meta.json` parsable et porteur de `meta.genere_le`, **≥ 900 fiches d'élus**, export **< 950 Mo**, et **aucune URL `koutakou.github.io` résiduelle**.
+- **Retour arrière sans rebuild** : les **5** dernières releases sont conservées sous `/srv/france-transparence/releases/`, `ft-rollback` rebascule le lien en quelques secondes.
+- **La fraîcheur affichée reste vraie par construction** : elle est calculée depuis `meta_sources` de la base réellement déployée. Un cycle raté ne dégrade pas l'honnêteté du site, il la laisse constater un jour de retard.
+- **Coût** : abonnement au serveur dédié + nom de domaine. Ce n'est plus gratuit ; c'est le prix des en-têtes HTTP maîtrisés et du domaine propre (voir DECISION.md).
 
 ## 2. URLs et accès
 
 | Quoi | URL |
 |---|---|
-| Site public | https://koutakou.github.io/france-transparence/ |
-| Repo (public) | https://github.com/koutakou/france-transparence |
-| Runs du workflow | https://github.com/koutakou/france-transparence/actions/workflows/publication.yml |
-| Issues d'échec | https://github.com/koutakou/france-transparence/issues?q=label%3Apublication-echec |
-| Trafic (Insights) | https://github.com/koutakou/france-transparence/graphs/traffic |
+| Site public | https://francetransparence.fr |
+| Ancienne adresse (page de redirection seule) | https://koutakou.github.io/france-transparence/ |
+| Dépôt (public) | https://github.com/koutakou/france-transparence |
+| Runs de validation CI | https://github.com/koutakou/france-transparence/actions/workflows/publication.yml |
+| Issues d'échec CI | https://github.com/koutakou/france-transparence/issues?q=label%3Apublication-echec |
 
-Accès : tout est piloté par le **compte GitHub `koutakou`** (seul admin). En ligne de commande, `gh` doit être authentifié sur ce compte (`gh auth status`).
+Deux accès distincts, à ne pas confondre :
 
-Pour **pousser** : le token OAuth de `gh` n'a pas le scope `workflow` (il ne peut pas pousser de modification sous `.github/workflows/`) ; le push passe donc par la **clé SSH dédiée `~/.ssh/id_ed25519_ft_deploy`** (sans passphrase, enregistrée sur le compte sous le titre `france-transparence-deploy`), le remote étant en SSH (`git@github.com:koutakou/france-transparence.git`) :
+- **Le serveur**, en SSH, avec les droits root pour les scripts `ft-*` (l'arbre de build appartient à l'utilisateur `ftweb`). C'est le seul accès qui permet de changer ce qui est en ligne.
+- **Le compte GitHub `koutakou`**, seul admin du dépôt. Le token OAuth de `gh` n'a pas le scope `workflow` (il ne peut pas pousser de modification sous `.github/workflows/`) ; le push passe donc par une clé SSH dédiée sans passphrase, le remote étant en SSH :
 
 ```bash
 GIT_SSH_COMMAND="ssh -i ~/.ssh/id_ed25519_ft_deploy -o IdentitiesOnly=yes" git push
 ```
 
-Clé absente (machine neuve) : rejouer `deploy/creer-repo-github.sh` (§6), qui régénère et enregistre la clé.
+Clé absente (machine neuve) : rejouer `deploy/creer-repo-github.sh` (§ 6), qui la régénère et l'enregistre.
 
-## 3. Opérations courantes
+**La documentation d'exploitation détaillée vit sur le serveur**, dans `/srv/france-transparence/doc/` : `EXPLOITATION.md` en est la porte d'entrée (ce qui tourne, publication, diagnostic, TLS, sécurité, sauvegardes, audience), complétée par des documents spécialisés (performance, fraîcheur, sauvegardes, incidents). Ce RUNBOOK-ci en est le résumé public : en cas de divergence, la doc du serveur fait foi, parce qu'elle est révisée en même temps que les scripts.
 
-### Déclencher une publication manuelle
+## 3. Opérations courantes (sur le serveur)
 
-```bash
-# Publication complète (ingestion neuve, ~25-60 min) :
-gh workflow run publication --repo koutakou/france-transparence
-
-# Rebuild du site sans ré-ingérer (réutilise la dernière base en cache, ~10 min) :
-gh workflow run publication --repo koutakou/france-transparence -f ingestion=false
-```
-
-Équivalent web : repo → onglet **Actions** → workflow **publication** → bouton **Run workflow** (case « Ingestion complète » cochée par défaut).
-
-### Suivre un run
+### Publier maintenant
 
 ```bash
-gh run list  --repo koutakou/france-transparence --workflow publication --limit 5
-gh run watch <run-id> --repo koutakou/france-transparence        # suit en direct jusqu'à la fin
-gh run view  <run-id> --repo koutakou/france-transparence --log-failed   # logs des étapes échouées
+ft-deploy                  # cycle complet : git pull → contrôles → ingestion → tests → build → bascule
+ft-deploy --sans-ingest    # rebuild sans ré-ingérer (réutilise la base existante) — livrer un correctif d'app
+ft-deploy --sans-pull      # rejoue un build sans toucher au dépôt
 ```
 
-### Lire et fermer une issue d'échec
+Un `git push` sur `main` ne met **plus rien** en ligne par lui-même : la production se met à jour au cycle suivant, ou immédiatement par un `ft-deploy` lancé à la main. C'est le changement d'habitude le plus important par rapport à l'ancienne chaîne GitHub Pages.
 
-Le workflow ouvre une issue `publication-echec` au premier échec, puis **commente la même issue** pour les échecs suivants — il ne la ferme jamais lui-même.
+Journal : `/var/log/france-transparence/deploiement.log` (le script y écrit lui-même — un cycle lancé à la main y laisse aussi sa trace), et `journalctl -u ft-deploy`.
+
+### Revenir à une version précédente
 
 ```bash
-gh issue list  --repo koutakou/france-transparence --label publication-echec
-gh issue view  <numéro> --repo koutakou/france-transparence --comments
-# Une fois un run redevenu vert :
-gh issue close <numéro> --repo koutakou/france-transparence -c "Rétabli par le run <url du run vert>"
+ft-rollback                     # liste les releases disponibles, ne change rien
+ft-rollback 20260820-150748     # bascule current vers cette release
+ft-rollback --precedente        # bascule vers la release juste avant l'actuelle
 ```
 
-### Pousser un changement de code
+Instantané, sans rebuild : c'est une bascule de lien symbolique, atomique comme celle de `ft-deploy`.
+
+### Diagnostiquer
 
 ```bash
-git add -p && git commit -m "…"
-GIT_SSH_COMMAND="ssh -i ~/.ssh/id_ed25519_ft_deploy -o IdentitiesOnly=yes" git push
+ft-etat              # tableau de bord : révision servie, fraîcheur, dernière sonde, TLS, services, disque
+ft-sonde --verbeux   # rejoue les 10 contrôles de disponibilité et les détaille
+ft-fraicheur         # fraîcheur RÉELLE des 25 sources amont (--json, --silencieux)
+ft-alerte --test     # vérifie que le canal de notification fonctionne vraiment
 ```
 
-Tout push sur `main` déclenche une republication **avec la dernière base en cache** (données du matin) : idéal pour livrer un correctif d'app sans attendre le cron ni payer une ingestion. Si le cache est vide (évincé après ~7 jours sans usage, ou tout premier run), le workflow fait l'ingestion complète tout seul.
+**Ne rechargez jamais nginx par `systemctl reload nginx` seul** : nginx peut refuser une configuration à chaud, journaliser un `[emerg]` et **conserver silencieusement l'ancienne** — pendant que `nginx -t` réussit et que systemd affiche « Reloaded ». Utilisez `ft-nginx-reload`, qui relit `error.log` après le rechargement et vous dit si un `restart` est nécessaire.
 
-## 4. Diagnostic d'un échec
+### Minuteries en place
 
-Où regarder : issue `publication-echec` → lien vers le run → job rouge (`construire`, `deployer`) → première étape rouge ; ou directement `gh run view <run-id> --log-failed`.
+| Heure | Unité | Rôle |
+|---|---|---|
+| toutes les 5 min | `ft-sonde.timer` | disponibilité (10 contrôles) |
+| 03:30 | `ft-sauvegarde.timer` | sauvegarde locale |
+| 04:12 | `ft-audience.timer` | rapport d'audience quotidien |
+| 04:15 | `ft-sauvegarde-distante.timer` | copie hors-site chiffrée |
+| **05:17** | **`ft-deploy.timer`** | **reconstruction et publication** |
+| 06:30 | `ft-fraicheur.timer` | fraîcheur des sources amont |
 
-Trois familles de panne, reconnaissables à l'étape rouge :
+Toutes en `Persistent=true` : un déclenchement manqué (serveur éteint) est rattrapé au démarrage.
 
-1. **Source amont cassée** (étapes « Ingestion complète » ou « Tests pipelines ») — un producteur de données a changé une URL, un format, ou est indisponible.
-   Conséquence : **aucune** — le site reste sur la veille, et la page [/donnees](https://koutakou.github.io/france-transparence/donnees/) continue d'afficher la vraie fraîcheur de chaque source (elle est calculée depuis `meta_sources` de la base réellement déployée : l'honnêteté ne se dégrade pas, elle se constate).
-   Conduite : lire le log pour identifier le pipeline fautif ; reproduire en local avec `make ingest-<source>` (les 13 sources sont listées dans le README) ; si l'amont est juste indisponible, ne rien faire (le cron réessaie demain) ou relancer manuellement plus tard ; si le format a changé, corriger `pipelines/ingest_<source>.py` (et ses tests), pousser.
-2. **Échec build/app** (étapes `npm ci`, « Build statique », « Contrôles de santé ») — régression de code ou site généré invalide (< 900 fiches, ≥ 950 Mo…).
-   Conduite : reproduire en local (`make build-static` avec une base fraîche), corriger, pousser ; si le coupable est un commit récent → rollback (§5).
-3. **Quota/infra GitHub** (runner perdu, timeout 150 min, étapes cache/upload/deploy-pages, erreurs 5xx) — rien à corriger dans le projet.
-   Conduite : vérifier https://www.githubstatus.com/ puis relancer : `gh run rerun <run-id> --repo koutakou/france-transparence --failed` (ne rejoue que les jobs échoués) ; si ça persiste, attendre le cron suivant — le site, lui, reste en ligne.
+## 4. Diagnostic d'un échec de publication
+
+Où regarder, dans l'ordre : `ft-etat` → `tail -n 40 /var/log/france-transparence/deploiement.log` → `journalctl -u ft-deploy -n 50`. L'étape en échec est nommée dans le journal.
+
+Quatre familles de panne :
+
+1. **Contrôle d'identité de déploiement** (`ft-localiser`, sortie 4) — l'arbre qui allait être construit n'annonce pas la bonne adresse, le bon hébergeur ou le bon responsable de traitement.
+   Conséquence : aucune. Le build n'a pas eu lieu, le site de la veille est servi.
+   Conduite : lire les contrôles KO — chacun dit quoi faire. **La correction se fait en amont** (dépôt), ou par variables d'environnement de build (`NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_HEBERGEUR_*`). Le script ne corrige rien, et c'est voulu : ce qui est publié doit être ce qui est versionné.
+2. **Source amont cassée** (ingestion ou tests) — un producteur de données a changé une URL, un format, ou est indisponible.
+   Conséquence : **aucune** — le site reste sur la veille, et la page [/donnees](https://francetransparence.fr/donnees/) continue d'afficher la vraie fraîcheur de chaque source.
+   Conduite : identifier le pipeline fautif ; reproduire avec `make ingest-<source>` ; si l'amont est juste indisponible, ne rien faire (le cycle réessaie demain) ; si le format a changé, corriger `pipelines/ingest_<source>.py` et ses tests, ouvrir une proposition de fusion (la CI la vérifiera), fusionner. La CI de 04:45 UTC voit souvent ces pannes **avant** le serveur : c'est tout son intérêt.
+3. **Échec build ou contrôles de santé** — régression de code, ou site généré invalide (< 900 fiches, ≥ 950 Mo, `koutakou.github.io` résiduel…).
+   Conduite : reproduire en local (`make build-static`), corriger, fusionner ; si le coupable est un commit récent, `ft-rollback` remet immédiatement le site d'avant pendant que la correction se prépare.
+4. **Problème machine ou réseau** (disque plein, inodes, nginx tombé, certificat) — `ft-sonde` le voit dans les 5 minutes et alerte ; `ft-etat` le résume.
+
+**Un échec de la CI GitHub Actions ne relève d'aucune de ces familles** : il ouvre ou commente une issue `publication-echec` et signale un problème de code ou de source amont à corriger avant que le serveur ne le rencontre. Le site en ligne, lui, n'en dépend pas.
 
 ## 5. Rollback
 
-**Revenir au code d'avant** = revert + push (jamais de force-push sur `main`) :
+Deux rollbacks distincts, pour deux problèmes distincts :
 
-```bash
-git revert <sha-fautif>
-GIT_SSH_COMMAND="ssh -i ~/.ssh/id_ed25519_ft_deploy -o IdentitiesOnly=yes" git push
-```
+- **Le site est mauvais maintenant** (données amont aberrantes, régression visuelle passée entre les mailles) → `ft-rollback` : retour en quelques secondes à une release précédente, sans rebuild, sans réseau. C'est le geste d'urgence.
+- **Le code est mauvais** → `git revert <sha>` + push sur `main`. Le serveur reprendra ce code au cycle suivant (ou tout de suite avec `ft-deploy`). Jamais de force-push sur `main`.
 
-Le push déclenche un nouveau build avec la dernière base en cache : le site revient à l'ancien code **avec les données du jour** — c'est le comportement voulu.
+**Il n'y a pas de rollback des données, par principe** : les sources amont font foi ; le site publie ce que l'open data officiel dit aujourd'hui. Si une source publie une donnée aberrante, le recours est de corriger ou désactiver le pipeline concerné (et de le documenter), pas de maquiller un état antérieur. Le serveur conserve tout de même deux générations compressées de la base — non contre la perte (elle se reconstruit par `make ingest`), mais précisément pour pouvoir revenir en arrière quand une source amont a publié un jeu corrompu, cas où la reconstruction ne ferait que réimporter la corruption.
 
-**Ce qu'un re-run ne fait PAS** : `gh run rerun <ancien-run-réussi>` rejoue le workflow au même commit (même code, re-run possible ~30 jours), mais l'étape d'ingestion **re-télécharge les sources du moment** — ce n'est pas un snapshot des données de ce jour-là. Personne ne conserve les bases passées : le cache Actions ne garde que les dernières (évincées après ~7 jours sans usage et par le plafond de 10 Go/repo).
+## 6. Reconstruction totale depuis zéro
 
-**Il n'y a pas de rollback des données, par principe** : les sources amont font foi ; le site publie ce que l'open data officiel dit aujourd'hui. Si une source amont publie une donnée aberrante, le recours est de corriger ou désactiver le pipeline concerné (et de le documenter), pas de restaurer un état antérieur.
+### Le projet, sur n'importe quelle machine
 
-## 6. Reconstruction totale depuis zéro (machine neuve)
-
-Prérequis : `python3.14`, Node.js ≥ 24, `make`, `git`, `gh` authentifié sur le compte `koutakou` (`gh auth login`, scopes `repo` et `admin:public_key`).
+Prérequis : `python3.14`, Node.js ≥ 24, `make`, `git`.
 
 ```bash
 git clone https://github.com/koutakou/france-transparence.git
 cd france-transparence
 make venv          # crée .venv (requests, duckdb, pytest)
-make ingest        # reconstruit data/france.db (~448 Mo) — 5-10 min en local, ~1 Go téléchargé
-make test          # 150 tests pytest (exclure le réseau : .venv/bin/pytest pipelines/tests -m 'not reseau')
+make ingest        # reconstruit data/france.db — ~1 Go téléchargé
+make test          # suite pytest complète (hors réseau : .venv/bin/pytest pipelines/tests -m 'not reseau')
 make app-install   # npm install dans app/
 make build-static  # export statique → app/out/ (FT_EXPORT=1, lit data/france.db)
 make serve-static  # sert app/out/ sur http://localhost:3620/
 ```
 
-NB : en local le build se fait **sans** `NEXT_PUBLIC_BASE_PATH` → site à la racine ; en prod il vit sous `/france-transparence/`. Pour le mode développement : `make dev` (même port 3620).
+Le build local produit le **même site que la production** : plus de `basePath`, le site vit à la racine. Pour publier ailleurs, poser `NEXT_PUBLIC_SITE_URL` (et `NEXT_PUBLIC_HEBERGEUR_*` pour les mentions légales) au build — aucune source n'est à modifier. Mode développement : `make dev` (même port 3620).
 
-**Re-créer l'hébergement** (repo supprimé, compte à remonter, ou première fois) :
+### Le serveur
+
+Ce dépôt ne contient pas la configuration du serveur : elle vit sur la machine (nginx, unités systemd `ft-*`, scripts `/usr/local/bin/ft-*`, `/etc/france-transparence/`) et c'est **elle** qui est sauvegardée hors-site, chiffrée — le reste (site, export, `node_modules`, releases, cache `data/raw/`, base) est intégralement régénérable par `ft-deploy`. Procédure de restauration : `SAUVEGARDES.md` dans `/srv/france-transparence/doc/`, à exécuter depuis la machine qui détient la clé privée `age` — **jamais** depuis le serveur, qui ne détient que la clé publique. C'est ce qui fait qu'un root distant compromis ne peut pas relire les sauvegardes.
+
+### Le dépôt GitHub
 
 ```bash
 bash deploy/creer-repo-github.sh
 ```
 
-Le script est **idempotent** (chaque étape teste avant d'agir) : génère la clé SSH `~/.ssh/id_ed25519_ft_deploy` si absente et l'enregistre sur le compte, crée le repo public si absent, pose le remote et pousse `main`, crée le label `publication-echec`, active GitHub Pages en mode « GitHub Actions » (`build_type=workflow`). Le push initial déclenche la première publication ; le site est en ligne à la fin du premier run vert (le temps du run, l'URL répond 404 — normal).
+Idempotent (chaque étape teste avant d'agir) : génère la clé SSH `~/.ssh/id_ed25519_ft_deploy` si absente et l'enregistre sur le compte, crée le dépôt public si absent, pose le remote et pousse `main`, crée le label `publication-echec`, active GitHub Pages en mode « GitHub Actions ». **Ce script ne met plus le site en ligne** : ce que Pages reçoit désormais est la page de redirection de `pages-redirection/`.
 
 ## 7. Surveillance
 
-- **Quotidien (une commande)** : `gh run list --repo koutakou/france-transparence --workflow publication --limit 3` — un `success` daté du matin = tout va bien.
-- **Passif** : les échecs ouvrent/commentent une issue → activer les notifications GitHub sur le repo (Watch → Custom → Issues) pour être prévenu par e-mail sans rien scruter.
-- **Moniteur public de fraîcheur** : la page `/donnees` du site affiche la date réelle de chaque source (table `meta_sources`) — c'est le healthcheck lisible par n'importe qui : si le site a un jour de retard, ça s'y lit.
-- **Limites à surveiller** :
-  - Taille du site : plafond Pages ~1 Go ; le workflow **échoue de lui-même à ≥ 950 Mo** (contrôle de santé) ; actuellement ~232 Mo — la marge est large, la taille est loggée à chaque run (« Taille du site : N Mo »).
-  - Bande passante Pages : ~100 Go/mois (limite *soft*). GitHub n'expose pas de compteur exact de bande passante Pages : **Insights → Traffic** (URL en §2) donne l'ordre de grandeur des visites, et GitHub prévient par e-mail en cas d'approche de la limite.
-  - Minutes Actions : illimitées sur repo public — non surveillé.
-- **Migration VPS** : si le trafic dépasse durablement Pages (ou pour un domaine + vrais headers HTTP), suivre [docs/ACTIONS-HUMAINES.md §4](../ACTIONS-HUMAINES.md) (Hetzner recommandé, architecture cible dans `plateformes.md` §4).
+- **Automatique, toutes les 5 minutes** : `ft-sonde` vérifie 10 points — point de santé, page d'accueil et son titre, jours restants sur le certificat, espace disque, inodes, cohérence du lien `current`, **âge des données générées** (c'est lui qui détecte qu'une reconstruction quotidienne a cessé de fonctionner), `nginx.service` actif, `ft-deploy.timer` actif, absence de plantages répétés de workers nginx. Chaque passage écrit une ligne dans `sonde.log`.
+- **Quotidien, une commande** : `ft-etat` — révision servie, issue du dernier déploiement, fraîcheur, TLS, services, sauvegardes, disque, le tout recoupé entre plusieurs sources pour signaler un journal incomplet plutôt que de rassurer à tort.
+- **Fraîcheur réelle des sources** : `ft-fraicheur` compare, pour chacune des 25 sources, la date de la donnée la plus récente en base (`meta_sources.date_donnees`) à un seuil calibré par source. C'est le complément indispensable de la sonde : le site peut être fraîchement régénéré chaque nuit alors qu'une source amont a cessé de publier depuis des semaines.
+- **Alertes** : `ft-alerte` est le point d'extension unique — il écrit **toujours** dans le journal systemd en priorité `err` (`journalctl -t ft-alerte -p err`), puis pousse vers un webhook si l'un est configuré. Un échec du webhook n'est jamais remonté à l'appelant : le journal reste le canal de dernier recours.
+- **Moniteur public de fraîcheur** : la page `/donnees` affiche la date réelle de chaque source — le healthcheck lisible par n'importe qui, sans accès au serveur.
+- **CI** : un run rouge sur `publication.yml` ouvre une issue `publication-echec`. Activer les notifications GitHub sur le dépôt (Watch → Custom → Issues) pour être prévenu.
+- **Le trou de couverture, à connaître** : la sonde interroge le site **depuis la machine elle-même**. Une panne de DNS, de routage ou de datacenter la laisse parfaitement satisfaite. Seule une supervision externe comble ce trou.
 
 ## 8. Sécurité
 
-- **Repo public sans secret** — audité avant publication (cf. DECISION.md) ; la règle à maintenir : aucun token, aucune clé, aucun `.env` commité. Tout le workflow fonctionne avec le **`GITHUB_TOKEN` automatique**, aux permissions minimales déclarées en tête de `publication.yml` : `contents: read`, `pages: write`, `id-token: write`, `issues: write`. Rien à faire tourner, rien à renouveler.
-- **Clé SSH de déploiement** `~/.ssh/id_ed25519_ft_deploy` : dédiée à ce projet, **sans passphrase** — si la machine locale est compromise ou perdue, révoquer la clé `france-transparence-deploy` sur https://github.com/settings/keys (le site continue de se publier tout seul ; seule la capacité de push est touchée, et `deploy/creer-repo-github.sh` recrée une clé neuve).
-- Le compte `koutakou` est le seul point de contrôle : le protéger (2FA) protège tout.
-- **Aucune donnée visiteur collectée** : site 100 % statique, zéro cookie, zéro analytics, aucun formulaire, aucun process serveur à nous ; les visiteurs ne parlent qu'au CDN de GitHub Pages.
+- **En-têtes HTTP servis par nginx** — c'est ce que l'hébergement précédent ne permettait pas : `Strict-Transport-Security`, `Content-Security-Policy` (en en-tête, donc `frame-ancestors` réellement appliqué), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`. Redirection 301 HTTP→HTTPS, certificat renouvelé automatiquement (certbot, hook passant par `ft-nginx-reload` — sinon un certificat renouvelé pourrait n'être jamais pris en compte).
+- **Aucun process applicatif exposé** : pas de Node en production, pas de base accessible depuis le réseau, pas de formulaire. La surface d'attaque du site se réduit à nginx servant des fichiers.
+- **Dépôt public sans secret** — la règle à maintenir : aucun token, aucune clé, aucun `.env` commité. Les secrets d'exploitation vivent sur le serveur en `0600` (`/etc/france-transparence/`) et n'ont pas à être recopiés dans un document, un journal ou un ticket. La CI, elle, fonctionne avec le `GITHUB_TOKEN` automatique, aux permissions minimales déclarées en tête de `publication.yml`.
+- **Clé SSH de déploiement** `~/.ssh/id_ed25519_ft_deploy` : dédiée, sans passphrase — si la machine de travail est perdue ou compromise, révoquer la clé sur https://github.com/settings/keys. Le site continue de se publier tout seul : le serveur tire le dépôt, il ne dépend pas de cette clé.
+- **Sauvegardes chiffrées hors-site** en clé publique `age` : la clé de déchiffrement ne vit jamais sur le serveur.
+- **Aucune donnée visiteur collectée** : site 100 % statique, zéro cookie, zéro traceur, aucun compte, aucun formulaire. Les journaux nginx contiennent des adresses IP — donnée personnelle — traitées et documentées comme telles dans les pages légales du site.

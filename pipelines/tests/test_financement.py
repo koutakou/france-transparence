@@ -63,7 +63,9 @@ def test_parser_campagnes_valeurs_reelles():
     breton = next(l for l in lignes if l["candidat_id"] == "202408090")
     assert breton["nom"] == "M. BRETON Xavier"
     assert breton["circonscription"] == "Ain - 1re circonscription"
-    assert breton["code_departement"] == "1"
+    # Le CSV publie « 1 » ; le pipeline rend le code COG « 01 », seul
+    # joignable à ref_departements (§ M5 de doc/QUALITE-DONNEES.md).
+    assert breton["code_departement"] == "01"
     assert breton["nuance"] == "Les Républicains"
     assert breton["depenses_declarees"] == 21571.0
     assert breton["depenses_retenues"] == 21571.0
@@ -667,3 +669,94 @@ def test_ingestion_reelle_complete(tmp_path, monkeypatch):
         assert nb_rejets == 85
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Rattachement géographique des comptes de campagne (§ M5 QUALITE-DONNEES.md)
+# ---------------------------------------------------------------------------
+
+
+def test_code_departement_ramene_au_cog():
+    """Les trois familles d'écart constatées, et rien d'autre."""
+    assert fin.normaliser_code_departement("1") == "01"     # zéro initial perdu
+    assert fin.normaliser_code_departement("9") == "09"
+    assert fin.normaliser_code_departement("20A") == "2A"   # Corse-du-Sud
+    assert fin.normaliser_code_departement("20B") == "2B"   # Haute-Corse
+    assert fin.normaliser_code_departement("ZX") == "977"   # Saint-Barthélemy
+    # Codes déjà conformes : rendus tels quels.
+    for code in ("01", "54", "2A", "971", "976", "988"):
+        assert fin.normaliser_code_departement(code) == code
+    assert fin.normaliser_code_departement("") is None
+    assert fin.normaliser_code_departement(None) is None
+
+
+def test_ordinaux_de_circonscription_unifies():
+    assert fin.normaliser_ordinaux("8ème circonscription") == "8e circonscription"
+    assert fin.normaliser_ordinaux("1ère circonscription") == "1re circonscription"
+    # Formes déjà correctes et libellés sans ordinal : inchangés.
+    assert fin.normaliser_ordinaux("6e circonscription") == "6e circonscription"
+    assert fin.normaliser_ordinaux("1re circonscription") == "1re circonscription"
+    assert fin.normaliser_ordinaux("Circonscription unique") == "Circonscription unique"
+
+
+def test_sentinelle_zz_explicitee_et_code_75_ecarte():
+    """125 lignes du CSV rattachent les Français de l'étranger au 75 (Paris).
+
+    C'est faux : aucun département français ne leur correspond. Le libellé
+    est restitué, le code passe à NULL — on ne remplace pas un code faux par
+    un autre code.
+    """
+    circ, dep, code = fin.normaliser_geographie_campagne(
+        "Français établis hors de France - 8ème circonscription", "ZZ", "75"
+    )
+    assert circ == "Français établis hors de France - 8e circonscription"
+    assert dep == "Français établis hors de France"
+    assert code is None
+
+
+def test_geographie_campagne_laisse_intact_un_departement_normal():
+    assert fin.normaliser_geographie_campagne(
+        "Meurthe-et-Moselle - 6e circonscription", "Meurthe-et-Moselle", "54"
+    ) == ("Meurthe-et-Moselle - 6e circonscription", "Meurthe-et-Moselle", "54")
+
+
+# ---------------------------------------------------------------------------
+# Contrôles comptables des comptes de partis (§ M7 QUALITE-DONNEES.md)
+# ---------------------------------------------------------------------------
+
+
+def test_controle_comptes_partis_detecte_les_impossibilites():
+    lignes = [
+        # Sain : l'identité produits − charges = résultat est vérifiée.
+        {"nom": "OK", "exercice": 2024, "unite": "EUR",
+         "produits_total": 1000.0, "charges_total": 400.0, "resultat": 600.0},
+        # Un TOTAL de produits ne peut pas être négatif.
+        {"nom": "NEG", "exercice": 2021, "unite": "EUR",
+         "produits_total": -661.54, "charges_total": 0.0, "resultat": -661.54},
+        # Identité comptable rompue de 44 126 €.
+        {"nom": "DESEQ", "exercice": 2021, "unite": "EUR",
+         "produits_total": 79260.0, "charges_total": 101323.0, "resultat": 22063.0},
+        # Coquille vide ou dépôt incomplet : compté, pas dénoncé.
+        {"nom": "ZERO", "exercice": 2023, "unite": "EUR",
+         "produits_total": 0.0, "charges_total": 0.0, "resultat": 0.0},
+    ]
+    assert fin.controler_comptes_partis(lignes) == {
+        "produits_negatifs": 1, "desequilibres": 1, "produits_nuls": 1,
+    }
+
+
+def test_controle_comptes_partis_ignore_les_unites_non_euro():
+    """L'identité comptable ne se teste pas à cheval sur deux monnaies."""
+    lignes = [{"nom": "XPF", "exercice": 2021, "unite": "XPF",
+               "produits_total": 79260.0, "charges_total": 101323.0,
+               "resultat": 22063.0}]
+    assert fin.controler_comptes_partis(lignes)["desequilibres"] == 0
+
+
+def test_controle_comptes_partis_ne_modifie_rien():
+    """Le contrôle SIGNALE : les montants publiés par la CNCCFP sont intacts."""
+    lignes = [{"nom": "NEG", "exercice": 2021, "unite": "EUR",
+               "produits_total": -70.0, "charges_total": 0.0, "resultat": -70.0}]
+    avant = [dict(l) for l in lignes]
+    fin.controler_comptes_partis(lignes)
+    assert lignes == avant
