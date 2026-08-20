@@ -9,8 +9,9 @@
 # (pages-redirection/) portant une <link rel="canonical"> vers le domaine.
 #
 # Ce qui reste, et qui est précieux : la VALIDATION QUOTIDIENNE DU BUILD, dans
-# un environnement neuf et indépendant du serveur — ingestion complète des 13
-# pipelines, tests, build statique, contrôles de santé. Si une source amont
+# un environnement neuf et indépendant du serveur — ingestion complète de tous
+# les pipelines (la liste qui fait autorité est la variable PIPELINES du
+# Makefile), tests, build statique, contrôles de santé. Si une source amont
 # casse, on l'apprend ici avant que le serveur ne rebuilde.
 #
 # Trois déclencheurs :

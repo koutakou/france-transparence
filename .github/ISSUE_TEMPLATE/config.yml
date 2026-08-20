@@ -1,0 +1,12 @@
+# Les issues vierges sont désactivées : chaque gabarit rend obligatoires les
+# éléments sans lesquels une issue ne peut pas être instruite (la source
+# officielle pour une donnée, la licence pour une source, la reproduction
+# pour un bogue).
+blank_issues_enabled: false
+contact_links:
+  - name: Faille de sécurité — signalement privé uniquement
+    url: https://github.com/koutakou/france-transparence/blob/main/SECURITY.md
+    about: Jamais par issue publique. SECURITY.md indique le courriel et, le cas échéant, le signalement privé via l'onglet Security.
+  - name: Données personnelles vous concernant
+    url: https://francetransparence.fr/donnees-personnelles/
+    about: Une demande qui concerne une personne n'a pas à être rendue publique — canal privé et droits RGPD sur cette page.

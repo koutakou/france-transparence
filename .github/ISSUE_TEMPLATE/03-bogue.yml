@@ -1,0 +1,48 @@
+name: Bogue
+description: Un comportement défectueux du code — pipeline, application, build.
+title: "[bogue] "
+labels: ["bogue"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Pour une **valeur affichée qui paraît fausse**, préférez le gabarit
+        « Erreur dans une donnée affichée » : le diagnostic n'est pas le même.
+        Pour une **faille de sécurité**, n'ouvrez pas d'issue publique —
+        voir [SECURITY.md](https://github.com/koutakou/france-transparence/blob/main/SECURITY.md).
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Les étapes exactes, depuis un clone propre si possible — commandes jouées, et ce qui se passe à la place de ce qui devrait.
+      placeholder: |
+        1. make venv
+        2. make ingest-jorf
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: comportement-attendu
+    attributes:
+      label: Comportement attendu
+    validations:
+      required: true
+  - type: textarea
+    id: environnement
+    attributes:
+      label: Environnement
+      description: OS, version de Python (`python3 --version`), de Node (`node --version`), et tout écart par rapport au README.
+      placeholder: |
+        - OS :
+        - Python :
+        - Node :
+    validations:
+      required: true
+  - type: textarea
+    id: journaux
+    attributes:
+      label: Journaux et messages d'erreur (facultatif)
+      description: Sortie complète de la commande en échec, traceback compris.
+      render: text
+    validations:
+      required: false

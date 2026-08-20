@@ -1,0 +1,53 @@
+# La licence est demandée en premier lieu : une clause de partage à
+# l'identique (ODbL, CC BY-SA…) est rédhibitoire — elle contaminerait la
+# promesse Licence Ouverte 2.0 des agrégats du site (CONTRIBUTING.md § 4.2).
+name: Proposition de source
+description: Un jeu de données officiel qui mériterait d'être ingéré.
+title: "[source] "
+labels: ["source"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Avant de proposer, un détour par [docs/SOURCES.md](https://github.com/koutakou/france-transparence/blob/main/docs/SOURCES.md)
+        (périmètre et pièges des sources) et [CONTRIBUTING.md § 4](https://github.com/koutakou/france-transparence/blob/main/CONTRIBUTING.md)
+        vaut la peine : plusieurs familles de sources sont exclues par principe,
+        quelle que soit leur qualité.
+  - type: input
+    id: url-jeu
+    attributes:
+      label: URL du jeu de données
+      description: La page du jeu chez son producteur (pas un article de presse qui en parle).
+      placeholder: "https://www.data.gouv.fr/datasets/…"
+    validations:
+      required: true
+  - type: input
+    id: licence
+    attributes:
+      label: Licence
+      description: >-
+        ⚠ Point rédhibitoire — une clause de partage à l'identique (ODbL, CC BY-SA…)
+        exclut l'ingestion, sans exception : elle contaminerait la promesse
+        Licence Ouverte 2.0 sous laquelle les agrégats du site sont réutilisables.
+        Une telle source peut être citée et liée, jamais ingérée. Indiquez la licence
+        exacte affichée par le producteur.
+      placeholder: "ex. Licence Ouverte 2.0 (Etalab)"
+    validations:
+      required: true
+  - type: textarea
+    id: valeur-lecteur
+    attributes:
+      label: Valeur pour le lecteur
+      description: >-
+        Qu'est-ce que cette source permettrait d'afficher que le site n'affiche pas,
+        et en quoi cela éclaire l'usage de l'argent public ou la vie politique ?
+        Le périmètre du projet est étroit à dessein : « c'est ouvert » ne suffit pas.
+    validations:
+      required: true
+  - type: textarea
+    id: fraicheur-format
+    attributes:
+      label: Fraîcheur et format (facultatif)
+      description: Fréquence de mise à jour constatée, format (CSV, JSON, Parquet…), volumétrie, pièges connus.
+    validations:
+      required: false

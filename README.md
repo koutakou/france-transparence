@@ -131,6 +131,10 @@ Assumées et affichées dans l'interface — l'honnêteté est le principe produ
 - **Outre-mer** : hors rendu de la carte v1 (présent dans les tableaux et agrégats).
 - **Scrutins du Sénat** : non ingérés en v1 (dump Dosleg prévu en v2).
 
+## Contribuer
+
+Signaler une donnée fausse (avec source officielle), proposer une source, corriger du code : [CONTRIBUTING.md](CONTRIBUTING.md). Une faille de sécurité se signale en privé, jamais par issue publique : [SECURITY.md](SECURITY.md).
+
 ## Rapport de mission
 
 Construction, méthode multi-agents, corrections d'honnêteté en cours de route et pistes v2 : [docs/RAPPORT-MISSION.md](docs/RAPPORT-MISSION.md).

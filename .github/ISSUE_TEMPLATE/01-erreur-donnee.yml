@@ -1,0 +1,61 @@
+# Gabarit du cas le plus probable : une valeur affichée paraît fausse.
+# La source officielle est obligatoire : sans elle, impossible de trancher
+# entre bogue de pipeline et erreur de la source amont (CONTRIBUTING.md § 1).
+name: Erreur dans une donnée affichée
+description: Une valeur affichée sur le site paraît fausse — signalement avec source officielle à l'appui.
+title: "[donnée] "
+labels: ["donnee"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci — c'est la contribution la plus utile au projet. Deux rappels avant de commencer :
+
+        - **Aucune donnée ne vit dans le dépôt** : la base est reconstruite depuis les sources
+          officielles à chaque publication. Cette issue sert à diagnostiquer si l'écart vient
+          d'un bogue de pipeline (corrigeable ici) ou de la source amont elle-même (à signaler
+          au producteur) — voir [CONTRIBUTING.md § 1](https://github.com/koutakou/france-transparence/blob/main/CONTRIBUTING.md).
+        - Si votre demande concerne **des données sur vous-même**, elle n'a pas à être publique :
+          utilisez le canal privé indiqué sur la page
+          [/donnees-personnelles](https://francetransparence.fr/donnees-personnelles/).
+  - type: input
+    id: url-page
+    attributes:
+      label: URL de la page concernée
+      description: L'adresse exacte de la page du site où la valeur s'affiche.
+      placeholder: "https://francetransparence.fr/…"
+    validations:
+      required: true
+  - type: input
+    id: valeur-affichee
+    attributes:
+      label: Valeur affichée
+      description: Recopiez la valeur telle qu'elle apparaît, avec son libellé et la date du badge « Données au … » de la page.
+      placeholder: "ex. « 12 345 € » — badge « Données au JJ/MM/AAAA »"
+    validations:
+      required: true
+  - type: input
+    id: valeur-attendue
+    attributes:
+      label: Valeur attendue
+      description: La valeur que la source officielle publie (ou « absente » si la donnée ne devrait pas s'afficher).
+    validations:
+      required: true
+  - type: textarea
+    id: source-officielle
+    attributes:
+      label: Source officielle à l'appui
+      description: >-
+        URL du producteur (data.gouv.fr, HATVP, DILA, Assemblée, Sénat, CNCCFP, OFGL, DGFiP…)
+        qui permet de vérifier la valeur attendue, et si possible le champ ou la ligne exacte.
+        Sans source opposable, l'issue ne peut pas être instruite.
+      placeholder: "https://www.data.gouv.fr/… — champ « montant », ligne de l’acheteur concerné"
+    validations:
+      required: true
+  - type: textarea
+    id: contexte
+    attributes:
+      label: Contexte (facultatif)
+      description: Tout ce qui aide au diagnostic — depuis quand, sur quelles autres pages, hypothèse d'explication.
+    validations:
+      required: false
