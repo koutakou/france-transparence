@@ -6,7 +6,8 @@ import {
   HEBERGEUR_NATURE_SERVICE,
 } from "@/lib/hebergeur";
 import { CONTACT_EMAIL, CONTACT_ISSUES_URL } from "@/lib/site";
-import { metadonneesPage } from "@/lib/seo";
+import { JsonLd } from "@/components/JsonLd";
+import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
 /**
  * Page /donnees-personnelles — information des personnes concernées.
@@ -37,11 +38,32 @@ import { metadonneesPage } from "@/lib/seo";
  * une donnée de déploiement, et les mentions légales en publient la même.
  */
 
+// Chemin, titre et description nommés UNE FOIS : les métadonnées et le
+// balisage JSON-LD décrivent la même page, ils ne peuvent donc pas la
+// décrire différemment le jour où l'un des deux est retouché.
+const CHEMIN = "/donnees-personnelles/";
+const TITRE = "Données personnelles";
+const DESCRIPTION =
+  "Visiteurs : aucun cookie ni traceur, mais des journaux de serveur — finalités, base légale, durées. Personnes figurant dans les données publiées : information de l'article 14 du RGPD. Droits et réclamation CNIL.";
+
 export const metadata: Metadata = metadonneesPage({
-  chemin: "/donnees-personnelles/",
-  titre: "Données personnelles",
-  description:
-    "Visiteurs : aucun cookie ni traceur, mais des journaux de serveur — finalités, base légale, durées. Personnes figurant dans les données publiées : information de l'article 14 du RGPD. Droits et réclamation CNIL.",
+  chemin: CHEMIN,
+  titre: TITRE,
+  description: DESCRIPTION,
+});
+
+// `WebPage` NU, et c'est délibéré : schema.org ne connaît aucun type de
+// politique de confidentialité (`privacyPolicy` n'y est qu'une PROPRIÉTÉ
+// d'`Organization`, pointant vers l'URL d'une page comme celle-ci). Il n'y a
+// donc rien de plus précis à annoncer sans inventer. Le balisage sert ici ce
+// qu'il sait servir : le fil d'Ariane, seul de ces nœuds que Google restitue
+// visiblement, sur une page que les personnes concernées doivent pouvoir
+// retrouver depuis un résultat de recherche.
+const BALISAGE = jsonLdPage({
+  chemin: CHEMIN,
+  nom: TITRE,
+  description: DESCRIPTION,
+  ariane: [{ nom: "Accueil", chemin: "/" }, { nom: TITRE }],
 });
 
 /** Style commun des liens de la page. */
@@ -57,6 +79,7 @@ export default function PageDonneesPersonnelles() {
 
   return (
     <section className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+      <JsonLd donnees={BALISAGE} />
       <header className="flex flex-col gap-2">
         <h1 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
           Données personnelles

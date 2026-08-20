@@ -25,7 +25,8 @@ import {
   getRegions,
 } from "@/lib/queries/collectivites";
 import { getDonneesElectionsInline } from "@/lib/queries/elections";
-import { metadonneesPage } from "@/lib/seo";
+import { JsonLd } from "@/components/JsonLd";
+import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
 /**
  * Page STATIQUE (site pré-rendu quotidiennement) : tous les agrégats sont
@@ -34,11 +35,37 @@ import { metadonneesPage } from "@/lib/seo";
  * fragments /data/* (docs/deploiement/DECISION.md).
  */
 
+// Chemin, titre et description nommés UNE FOIS : les métadonnées et le
+// balisage JSON-LD décrivent la même page, ils ne peuvent donc pas la
+// décrire différemment le jour où l'un des deux est retouché.
+const CHEMIN = "/collectivites/";
+const TITRE = "Finances locales";
+const DESCRIPTION =
+  "Comptes des communes, départements et régions : dépenses par habitant, dotations de l’État — données OFGL datées.";
+
 export const metadata: Metadata = metadonneesPage({
-  chemin: "/collectivites/",
-  titre: "Finances locales",
-  description:
-    "Comptes des communes, départements et régions : dépenses par habitant, dotations de l’État — données OFGL datées.",
+  chemin: CHEMIN,
+  titre: TITRE,
+  description: DESCRIPTION,
+});
+
+// `WebPage` : un tableau de bord, comme /depenses ou /marches — le même
+// moule, au mot près.
+//
+// PAS de `Dataset` : la page n'offre aucun téléchargement. Les fragments
+// /data/collectivites/*.json qu'elle charge au geste ne sont pas des exports
+// publiés mais la mécanique interne des graphiques — les annoncer en
+// `DataDownload` désignerait comme jeu de données ce qui n'est qu'un détail
+// d'implémentation, susceptible de changer de forme au prochain build.
+//
+// PAS de `spatialCoverage` non plus : la propriété existe bien sur une
+// `CreativeWork`, mais « France » n'apprendrait rien qu'un consommateur ne
+// lise déjà dans la langue, le nom du site et le contenu de la page.
+const BALISAGE = jsonLdPage({
+  chemin: CHEMIN,
+  nom: TITRE,
+  description: DESCRIPTION,
+  ariane: [{ nom: "Accueil", chemin: "/" }, { nom: TITRE }],
 });
 
 /** Titre de sous-bloc (dans une Card). */
@@ -255,6 +282,7 @@ export default async function PageCollectivites() {
 
   return (
     <div className="flex flex-col gap-6">
+      <JsonLd donnees={BALISAGE} />
       {/* ------------------------------------------------ en-tête honnête */}
       <header className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">

@@ -15,16 +15,40 @@ import {
   type TrainvieFait,
   type VerrousCadaData,
 } from "@/lib/queries/frais";
-import { metadonneesPage } from "@/lib/seo";
+import { JsonLd } from "@/components/JsonLd";
+import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
 // Rendu statique : la donnée ne change qu'à l'ingestion, le site est
 // reconstruit après chaque ingestion (docs/deploiement/DECISION.md).
 
+// Chemin, titre et description nommés UNE FOIS : les métadonnées et le
+// balisage JSON-LD décrivent la même page, ils ne peuvent donc pas la
+// décrire différemment le jour où l'un des deux est retouché.
+const CHEMIN = "/frais/";
+const TITRE = "Frais & train de vie";
+const DESCRIPTION =
+  "Indemnités, frais de mandat et train de vie des responsables publics : les barèmes publics, les agrégats de contrôle — et ce que la loi ne publie pas.";
+
 export const metadata: Metadata = metadonneesPage({
-  chemin: "/frais/",
-  titre: "Frais & train de vie",
-  description:
-    "Indemnités, frais de mandat et train de vie des responsables publics : les barèmes publics, les agrégats de contrôle — et ce que la loi ne publie pas.",
+  chemin: CHEMIN,
+  titre: TITRE,
+  description: DESCRIPTION,
+});
+
+// `WebPage` : un tableau de bord, comme /depenses, /marches ou /financement —
+// le même moule, au mot près.
+//
+// PAS de `Dataset` : la page n'offre aucun téléchargement (elle affiche des
+// barèmes et des agrégats, chacun avec le lien vers SA source officielle),
+// et les exports du site sont déjà décrits, au complet, par le `DataCatalog`
+// de /donnees. PAS de `dateModified` non plus : les faits affichés viennent
+// de sources aux rythmes différents (LFI annuelle, barèmes DGCL, rapports de
+// la Cour des comptes), et leur fraîcheur est dite à l'écran, fait par fait.
+const BALISAGE = jsonLdPage({
+  chemin: CHEMIN,
+  nom: TITRE,
+  description: DESCRIPTION,
+  ariane: [{ nom: "Accueil", chemin: "/" }, { nom: TITRE }],
 });
 
 /* ------------------------------------------------------------------ */
@@ -467,6 +491,7 @@ export default async function FraisPage() {
 
   return (
     <section className="flex flex-col gap-6">
+      <JsonLd donnees={BALISAGE} />
       {/* ------------------------------- En-tête ------------------------------- */}
       <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="max-w-3xl">

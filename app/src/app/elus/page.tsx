@@ -20,7 +20,8 @@ import {
   type ScrutinLigne,
 } from "@/lib/queries/elus";
 import type { MetaSource } from "@/lib/db";
-import { metadonneesPage } from "@/lib/seo";
+import { JsonLd } from "@/components/JsonLd";
+import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
 /**
  * Page STATIQUE (site pré-rendu quotidiennement) : agrégats et premiers
@@ -29,11 +30,37 @@ import { metadonneesPage } from "@/lib/seo";
  * (docs/deploiement/DECISION.md).
  */
 
+// Chemin, titre et description nommés UNE FOIS : les métadonnées et le
+// balisage JSON-LD décrivent la même page, ils ne peuvent donc pas la
+// décrire différemment le jour où l'un des deux est retouché.
+const CHEMIN = "/elus/";
+const TITRE = "Élus & institutions";
+const DESCRIPTION =
+  "Députés, sénateurs, maires et présidents d’exécutifs locaux : mandats, groupes, votes nominaux et déclarations HATVP, à partir des données officielles datées.";
+
 export const metadata: Metadata = metadonneesPage({
-  chemin: "/elus/",
-  titre: "Élus & institutions",
-  description:
-    "Députés, sénateurs, maires et présidents d’exécutifs locaux : mandats, groupes, votes nominaux et déclarations HATVP, à partir des données officielles datées.",
+  chemin: CHEMIN,
+  titre: TITRE,
+  description: DESCRIPTION,
+});
+
+// `CollectionPage` et non `WebPage` : cette page est la PORTE D'ENTRÉE des
+// 1 053 fiches individuelles /elus/[id], chacune balisée `ProfilePage` +
+// `Person`. Le sous-type dit ce lien, que le fil d'Ariane des fiches affirme
+// déjà dans l'autre sens (« Accueil › Élus & institutions › <personne> »).
+//
+// AUCUN `ItemList` en revanche : le HTML ne porte que le premier écran des
+// tableaux (25 lignes), le reste se charge au geste depuis les fragments
+// /data/elus/*.json. Baliser une liste de 25 noms, ce serait annoncer comme
+// exhaustif un extrait ; la baliser en entier, ce serait baliser ce que la
+// page n'affiche pas. Les personnes, elles, sont décrites là où elles sont
+// vraiment décrites : sur leur fiche.
+const BALISAGE = jsonLdPage({
+  chemin: CHEMIN,
+  nom: TITRE,
+  description: DESCRIPTION,
+  type: "CollectionPage",
+  ariane: [{ nom: "Accueil", chemin: "/" }, { nom: TITRE }],
 });
 
 /** Premier écran des tableaux : le reste se charge au geste (fragments). */
@@ -118,6 +145,7 @@ export default async function PageElus() {
 
   return (
     <div className="flex flex-col gap-6">
+      <JsonLd donnees={BALISAGE} />
       <section className="flex flex-col gap-3">
         <h1 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
           Élus &amp; institutions

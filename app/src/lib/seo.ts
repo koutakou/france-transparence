@@ -362,6 +362,34 @@ export function filAriane(
 }
 
 /**
+ * Les seuls types de page que le site sait décrire honnêtement. TOUS sont des
+ * sous-classes de `WebPage` : un consommateur qui ne connaît que le type
+ * parent ne perd rien, celui qui connaît le sous-type en apprend un peu plus.
+ *
+ * - `WebPage` — le cas général, celui de chaque tableau de bord ;
+ * - `CollectionPage` — une page dont l'objet est de DONNER ACCÈS à un
+ *   ensemble d'autres pages du site. C'est /elus/, porte d'entrée des fiches
+ *   individuelles, elles-mêmes balisées `ProfilePage` : la page de liste et
+ *   les fiches racontent alors la même chose, chacune à son niveau ;
+ * - `AboutPage` — une page qui parle DU SITE et non des données publiques :
+ *   les mentions légales, qui identifient l'éditeur et l'hébergeur.
+ *
+ * Liste volontairement FERMÉE, comme `TypeOpenGraph`. `FAQPage`, `QAPage` ou
+ * `NewsArticle` exigent des propriétés obligatoires (couples question/réponse
+ * balisés, date de publication, auteur) qu'aucune page du site ne possède :
+ * les annoncer serait un échec de validation, et surtout une affirmation
+ * fausse.
+ *
+ * PAS de type pour /donnees-personnelles/ : schema.org n'a AUCUN type de
+ * politique de confidentialité — `privacyPolicy` n'y existe que comme
+ * PROPRIÉTÉ d'une `Organization`, pointant vers l'URL d'une telle page. La
+ * page reste donc une `WebPage` : il n'y a rien de plus vrai à en dire, et
+ * lui coller `AboutPage` ferait passer une information légale sur des
+ * personnes pour une présentation du site.
+ */
+export type TypePage = "WebPage" | "CollectionPage" | "AboutPage";
+
+/**
  * `WebPage` + `BreadcrumbList` — le balisage de base d'une page de tableau
  * de bord.
  *
@@ -405,11 +433,23 @@ export function jsonLdPage(page: {
    * SANS chemin (elle ne se lie pas à elle-même).
    */
   ariane: { nom: string; chemin?: string }[];
+  /**
+   * Sous-type de `WebPage` quand la page en est un cas PLUS PRÉCIS (voir
+   * `TypePage`). Omis — le cas des tableaux de bord, donc de la quasi-totalité
+   * du site — le balisage reste exactement celui qu'il a toujours été.
+   *
+   * Un paramètre facultatif plutôt qu'une fabrique par sous-type : les trois
+   * variantes ne diffèrent QUE par ce mot, tout le reste (identifiant, nom,
+   * description, rattachement au site, fil d'Ariane) est mot pour mot le même.
+   * Trois fabriques qui recopient ce corps, ce serait organiser leur
+   * divergence — exactement ce que ce module s'emploie à éviter ailleurs.
+   */
+  type?: TypePage;
 }): NoeudJsonLd {
   const url = urlAbsolue(page.chemin);
   return graphe([
     {
-      "@type": "WebPage",
+      "@type": page.type ?? "WebPage",
       "@id": `${url}#page`,
       url,
       name: page.nom,

@@ -10,7 +10,8 @@ import {
   HEBERGEUR_TELEPHONE_LIEN,
 } from "@/lib/hebergeur";
 import { CONTACT_EMAIL, CONTACT_ISSUES_URL, REPO_URL } from "@/lib/site";
-import { metadonneesPage } from "@/lib/seo";
+import { JsonLd } from "@/components/JsonLd";
+import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
 /**
  * Page /mentions-legales — obligations d'identification de la LCEN
@@ -28,11 +29,39 @@ import { metadonneesPage } from "@/lib/seo";
  * src/lib/hebergeur.ts, qui porte aussi la traçabilité de sa vérification.
  */
 
+// Chemin, titre et description nommés UNE FOIS : les métadonnées et le
+// balisage JSON-LD décrivent la même page, ils ne peuvent donc pas la
+// décrire différemment le jour où l'un des deux est retouché. La description
+// cite l'hébergeur RÉEL (src/lib/hebergeur.ts) : si la machine change, les
+// deux descriptions changent ensemble.
+const CHEMIN = "/mentions-legales/";
+const TITRE = "Mentions légales";
+const DESCRIPTION = `Site édité à titre non professionnel par un particulier (art. 1-1, II LCEN), hébergé par ${HEBERGEUR_MENTION}. Contact, droit de réponse et licences du site.`;
+
 export const metadata: Metadata = metadonneesPage({
-  chemin: "/mentions-legales/",
-  titre: "Mentions légales",
-  description:
-    `Site édité à titre non professionnel par un particulier (art. 1-1, II LCEN), hébergé par ${HEBERGEUR_MENTION}. Contact, droit de réponse et licences du site.`,
+  chemin: CHEMIN,
+  titre: TITRE,
+  description: DESCRIPTION,
+});
+
+// `AboutPage` : seule page du site dont l'objet est LE SITE LUI-MÊME — qui
+// l'édite, qui l'héberge, comment le joindre — et non les données publiques
+// qu'il met en scène. C'est un sous-type de `WebPage`, donc rien n'est perdu
+// pour un consommateur qui l'ignore.
+//
+// AUCUN nœud `Organization` ici, alors que la page nomme l'hébergeur : le
+// balisage décrirait ALORS L'HÉBERGEUR comme l'entité de cette page, et
+// l'éditeur — un particulier qui use du régime d'anonymat de l'art. 1-1, II
+// LCEN — ne peut pas davantage être balisé sans le nommer. Le seul nœud
+// d'identité du site, le `Project` de l'accueil, n'est pas une personne
+// morale : le poser en `mainEntity` de mentions légales laisserait croire à
+// un éditeur constitué, ce que la page dit précisément ne pas être le cas.
+const BALISAGE = jsonLdPage({
+  chemin: CHEMIN,
+  nom: TITRE,
+  description: DESCRIPTION,
+  type: "AboutPage",
+  ariane: [{ nom: "Accueil", chemin: "/" }, { nom: TITRE }],
 });
 
 /** Style commun des liens externes de la page. */
@@ -41,6 +70,7 @@ const LIEN = "underline decoration-dotted underline-offset-2 hover:text-ink";
 export default function PageMentionsLegales() {
   return (
     <section className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+      <JsonLd donnees={BALISAGE} />
       <header className="flex flex-col gap-2">
         <h1 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
           Mentions légales

@@ -20,7 +20,8 @@ import {
   type CroisementLobbyingMarches,
   type TitulaireLobbyiste,
 } from "@/lib/queries/croisement-lobbying-marches";
-import { metadonneesPage } from "@/lib/seo";
+import { JsonLd } from "@/components/JsonLd";
+import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 import {
   getDonneesLobbying,
   type FourchetteBudget,
@@ -40,11 +41,39 @@ import {
 // Rendu statique : la donnée ne change qu'à l'ingestion, le site est
 // reconstruit après chaque ingestion (docs/deploiement/DECISION.md).
 
+// Chemin, titre et description nommés UNE FOIS : les métadonnées et le
+// balisage JSON-LD décrivent la même page, ils ne peuvent donc pas la
+// décrire différemment le jour où l'un des deux est retouché.
+const CHEMIN = "/lobbying/";
+const TITRE = "Lobbying";
+const DESCRIPTION =
+  "Le répertoire des représentants d'intérêts de la HATVP : activités déclarées, budgets, institutions visées, entités en défaut de déclaration, et les marchés publics dont ces représentants d'intérêts sont titulaires — constats officiels repris tels quels, datés et sourcés.";
+
 export const metadata: Metadata = metadonneesPage({
-  chemin: "/lobbying/",
-  titre: "Lobbying",
-  description:
-    "Le répertoire des représentants d'intérêts de la HATVP : activités déclarées, budgets, institutions visées, entités en défaut de déclaration, et les marchés publics dont ces représentants d'intérêts sont titulaires — constats officiels repris tels quels, datés et sourcés.",
+  chemin: CHEMIN,
+  titre: TITRE,
+  description: DESCRIPTION,
+});
+
+// `WebPage` : un tableau de bord, comme /depenses ou /marches — le même
+// moule, au mot près.
+//
+// PAS de `Dataset`, alors même que la page CITE l'export
+// /api/lobbying-marches.json : elle le cite dans une phrase, elle ne
+// l'offre pas au téléchargement, et cet export est DÉJÀ décrit au complet
+// (licence, distribution, dateModified) par le `DataCatalog` de /donnees. Le
+// redéclarer ici avec un sous-ensemble de propriétés, ce serait organiser la
+// divergence des deux descriptions du même fichier.
+//
+// PAS de nœud pour les entités du répertoire non plus : ce sont des
+// organisations réelles, dont la page ne montre qu'un classement des vingt
+// premières. Les baliser reviendrait à faire du site la source d'un profilage
+// que la HATVP publie déjà, elle, avec ses propres identifiants.
+const BALISAGE = jsonLdPage({
+  chemin: CHEMIN,
+  nom: TITRE,
+  description: DESCRIPTION,
+  ariane: [{ nom: "Accueil", chemin: "/" }, { nom: TITRE }],
 });
 
 /** Toggle « Vue tableau » — la jumelle WCAG de chaque graphique (DATAVIZ §7/§9). */
@@ -897,6 +926,7 @@ export default async function LobbyingPage() {
 
   return (
     <section className="flex flex-col gap-6">
+      <JsonLd donnees={BALISAGE} />
       {/* ── En-tête ─────────────────────────────────────────────────── */}
       <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="max-w-2xl">
