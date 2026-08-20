@@ -14,6 +14,7 @@ import {
   type AidePubliqueAnnee,
   type CampagneTopDepense,
   type DecisionDetail,
+  type DecretAidePublique,
   type PartiTopProduits,
 } from "@/lib/queries/financement";
 
@@ -52,7 +53,7 @@ function graviteUi(g: string): { gravite: Gravite; libelle: string } {
   return { gravite: "attention", libelle: "Info" };
 }
 
-/** Montant en millions d'euros, décimales maîtrisées (`70,3 M€`, `64,26 M€`). */
+/** Montant en millions d'euros, décimales maîtrisées (`66,44 M€`, `64,26 M€`). */
 function enMillions(v: number, decimales = 1): string {
   return `${formatNombre(v / 1e6, decimales)} M€`;
 }
@@ -105,7 +106,7 @@ export default async function FinancementPage() {
     topProduits,
     ressources2024,
     aideEvolution,
-    aide2026,
+    decretsAide,
     campagnes,
     decisionsFamilles,
     decisionsDetail,
@@ -136,6 +137,32 @@ export default async function FinancementPage() {
   );
 
   const aide2024 = aideEvolution.find((a) => a.exercice === 2024) ?? null;
+  const aide2021 = aideEvolution.find((a) => a.exercice === 2021) ?? null;
+  const aide2022 = aideEvolution.find((a) => a.exercice === 2022) ?? null;
+  const aide2023 = aideEvolution.find((a) => a.exercice === 2023) ?? null;
+
+  // ── Enveloppes légales (décrets) vs aide inscrite aux comptes ──────────
+  // Deux natures de données. L'enveloppe est le montant national ouvert par
+  // décret ; l'aide « inscrite aux comptes » est un cumul de déclarations de
+  // partis, où une même aide peut être comptée deux fois. Les juxtaposer sans
+  // le dire fabriquait une baisse de 8,6 % là où les décrets donnent −3,3 %.
+  const decret2024 = decretsAide.find((d) => d.annee === 2024) ?? null;
+  const decretRecent =
+    decretsAide.length > 0 ? decretsAide[decretsAide.length - 1] : null;
+  /** Évolution décret à décret — la seule comparaison de même nature. */
+  const ecartDecrets =
+    decret2024 && decretRecent && decretRecent.annee !== decret2024.annee
+      ? ((decretRecent.montant_total_eur - decret2024.montant_total_eur) /
+          decret2024.montant_total_eur) *
+        100
+      : null;
+  /** Écart 2024 entre ce que les partis déclarent et ce que le décret ouvre. */
+  const ecartDeclareEnveloppe2024 =
+    aide2024 && decret2024 ? aide2024.aide_f1_f2 - decret2024.montant_total_eur : null;
+  const ecartDeclareEnveloppe2024Pct =
+    ecartDeclareEnveloppe2024 !== null && decret2024
+      ? (ecartDeclareEnveloppe2024 / decret2024.montant_total_eur) * 100
+      : null;
   /** Comptes effectivement déposés = candidats − dispensés − absences (règle de la vue). */
   const comptesDeposes =
     campagnes.nb_candidats - campagnes.nb_dispenses_depot - campagnes.nb_absences_depot;
@@ -187,6 +214,9 @@ export default async function FinancementPage() {
       </header>
 
       {/* ── KPI ─────────────────────────────────────────────────────── */}
+      {/* Les deux tuiles « Enveloppe légale » se lisent décret à décret : ce
+          sont les seules de même nature. La tuile « Aide inscrite aux comptes »
+          porte un libellé qui dit exactement ce qu'elle mesure. */}
       <StatStrip
         stats={[
           {
@@ -194,13 +224,13 @@ export default async function FinancementPage() {
             valeur: enMillions(kpi.produits2024),
             montantVedette: true,
           },
+          ...decretsAide.map((d) => ({
+            label: `Enveloppe légale ${d.annee} (décret)`,
+            valeur: enMillions(d.montant_total_eur, 2),
+          })),
           {
-            label: "Aide publique 2024 (fractions 1 + 2)",
-            valeur: aide2024 ? enMillions(aide2024.aide_f1_f2) : "non publié",
-          },
-          {
-            label: "Aide publique 2026 (décret n° 2026-149)",
-            valeur: aide2026 ? enMillions(aide2026.montant_total_eur, 2) : "non publié",
+            label: "Aide inscrite aux comptes 2024 par les partis",
+            valeur: aide2024 ? enMillions(aide2024.aide_f1_f2, 2) : "non publié",
           },
           {
             label: "Partis ayant déposé leurs comptes (2024)",
@@ -208,6 +238,58 @@ export default async function FinancementPage() {
           },
         ]}
       />
+
+      {/* ── Pourquoi ces trois montants ne se comparent pas ─────────────── */}
+      {decret2024 && aide2024 && (
+        <div className="max-w-3xl rounded-xl border border-card-border bg-card p-4 text-[13px] leading-relaxed text-ink-secondary">
+          <p>
+            Ces montants ne sont pas de même nature.{" "}
+            <strong className="font-semibold text-ink">L&apos;enveloppe légale</strong>{" "}
+            est le montant national ouvert par décret ;{" "}
+            <strong className="font-semibold text-ink">
+              l&apos;aide inscrite aux comptes
+            </strong>{" "}
+            est la somme de ce que {formatNombre(kpi.depots2024)} partis ont
+            déclaré avoir perçu — une même aide peut y figurer deux fois,
+            chez la structure qui la perçoit et chez celle à qui elle est
+            reversée. En 2024, les déclarations dépassent l&apos;enveloppe de{" "}
+            {ecartDeclareEnveloppe2024 !== null
+              ? enMillions(ecartDeclareEnveloppe2024, 2)
+              : "—"}
+            {ecartDeclareEnveloppe2024Pct !== null
+              ? ` (${formatPct(ecartDeclareEnveloppe2024Pct, 1, true)})`
+              : ""}
+            .
+          </p>
+          {ecartDecrets !== null && decretRecent && (
+            <p className="mt-2">
+              Comparer l&apos;aide déclarée de 2024 à l&apos;enveloppe{" "}
+              {decretRecent.annee} donnerait{" "}
+              {formatPct(
+                ((decretRecent.montant_total_eur - aide2024.aide_f1_f2) /
+                  aide2024.aide_f1_f2) *
+                  100,
+                1,
+                true,
+              )}
+              , alors que la comparaison décret à décret ({decret2024.annee} →{" "}
+              {decretRecent.annee}) donne {formatPct(ecartDecrets, 1, true)}.
+            </p>
+          )}
+          <p className="mt-2">
+            La série déclarée suit l&apos;ordre de grandeur des enveloppes en
+            2021 ({aide2021 ? enMillions(aide2021.aide_f1_f2, 2) : "—"}) et 2022
+            ({aide2022 ? enMillions(aide2022.aide_f1_f2, 2) : "—"}), puis change
+            de niveau en 2023 ({aide2023 ? enMillions(aide2023.aide_f1_f2, 2) : "—"})
+            et s&apos;y maintient en 2024 ({enMillions(aide2024.aide_f1_f2, 2)}).
+            Cette datation de la rupture est établie ; sa cause ne l&apos;est
+            pas. Une piste à vérifier : la structure « ENSEMBLE ! (MAJORITÉ
+            PRÉSIDENTIELLE) » apparaît dans les comptes en 2023 et y déclare une
+            aide publique du même ordre que le décalage constaté. Ce n&apos;est
+            qu&apos;une hypothèse : elle n&apos;est pas démontrée ici.
+          </p>
+        </div>
+      )}
       {comptesHorsEuros.nb > 0 && (
         <p className="text-xs text-ink-muted">
           {comptesHorsEuros.nb} comptes de l&apos;exercice{" "}
@@ -291,24 +373,31 @@ export default async function FinancementPage() {
       </Card>
 
       {/* ── Évolution de l'aide publique ─────────────────────────────── */}
+      {/* La courbe et le tableau ci-dessous affichent du DÉCLARÉ, et rien
+          d'autre : y injecter les enveloppes des décrets fabriquerait une
+          série mixte, illisible et fausse. */}
       <Card
-        titre="Aide publique aux partis — évolution 2021-2024"
-        sousTitre="Aide publique (1re + 2e fractions) telle qu'inscrite dans les comptes déposés, par exercice."
+        titre="Aide inscrite aux comptes des partis — évolution 2021-2024"
+        sousTitre="Somme des aides publiques (1re + 2e fractions) déclarées par les partis dans leurs comptes déposés, par exercice — un cumul de déclarations, et non l'enveloppe nationale fixée par décret."
         droite={badgePartis}
       >
         <LineChart
           labels={aideEvolution.map((a) => String(a.exercice))}
           series={[
             {
-              nom: "Aide publique (fractions 1 + 2)",
+              nom: "Aide inscrite aux comptes (fractions 1 + 2)",
               valeurs: aideEvolution.map((a) => a.aide_f1_f2),
             },
           ]}
           formatValeur={(v) => enMillions(v)}
           largeur={720}
           hauteur={240}
-          ariaLabel="Évolution de l'aide publique aux partis de 2021 à 2024"
+          ariaLabel="Évolution de l'aide publique inscrite aux comptes des partis de 2021 à 2024"
         />
+        <p className="mt-2 text-xs text-ink-muted">
+          Série de déclarations : le changement de niveau visible en 2023 ne
+          correspond à aucune hausse de l&apos;enveloppe fixée par décret.
+        </p>
         <div className="mt-3">
           <DataTable<AidePubliqueAnnee>
             colonnes={[
@@ -325,27 +414,53 @@ export default async function FinancementPage() {
         </div>
       </Card>
 
-      {/* ── Aide publique 2026 (décret) ──────────────────────────────── */}
-      {aide2026 && metaDecret && (
+      {/* ── Enveloppes légales fixées par décret ─────────────────────── */}
+      {decretsAide.length > 0 && metaDecret && (
         <Card
-          titre="Aide publique 2026 — décret"
-          sousTitre={aide2026.perimetre}
+          titre="Enveloppes légales de l'aide publique aux partis"
+          sousTitre="Montant national ouvert par décret, une ligne par décret consulté — aucune année n'est reconduite ni interpolée."
           droite={
             <FreshnessBadge
               dateDonnees={metaDecret.date_donnees}
-              source="JORF — décret n° 2026-149"
+              source="JORF — décrets d'aide publique"
               frequence={metaDecret.frequence}
-              url={aide2026.source_url}
+              url={decretRecent?.source_url ?? metaDecret.url}
             />
           }
         >
-          <p className="text-[26px] font-semibold leading-tight text-ink">
-            {formatNombre(aide2026.montant_total_eur, 2)} €
-          </p>
-          <p className="mt-2 text-[13px] text-ink-secondary">
-            {aide2026.reference}. Répartition par parti non publiée en données
-            exploitables — l&apos;aide effectivement perçue par chaque parti
-            figure dans ses comptes déposés (exercices 2021-2024 ci-dessus).
+          <div className="flex flex-col gap-4">
+            {decretsAide.map((d: DecretAidePublique) => (
+              <div key={d.annee} className="flex flex-col gap-1">
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span className="text-[26px] font-semibold leading-tight text-ink">
+                    {formatNombre(d.montant_total_eur, 2)} €
+                  </span>
+                  <span className="text-[13px] text-ink-secondary">
+                    Enveloppe {d.annee} — {d.perimetre.toLowerCase()}
+                  </span>
+                </div>
+                <p className="text-[13px] text-ink-secondary">
+                  <a
+                    href={d.source_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline decoration-dotted underline-offset-2 hover:text-ink"
+                  >
+                    {d.reference}
+                  </a>
+                  {d.fraction1_eur === null && d.fraction2_eur === null
+                    ? " — le détail fraction par fraction n'est pas publié en données exploitables."
+                    : ""}
+                </p>
+                {d.note && <p className="text-xs text-ink-muted">{d.note}</p>}
+              </div>
+            ))}
+          </div>
+          <p className="mt-4 text-[13px] text-ink-secondary">
+            La répartition par parti n&apos;est pas publiée en données
+            exploitables : l&apos;aide effectivement inscrite aux comptes de
+            chaque parti figure dans les comptes déposés (exercices 2021-2024
+            ci-dessus), qui relèvent d&apos;une autre nature de donnée.
           </p>
         </Card>
       )}

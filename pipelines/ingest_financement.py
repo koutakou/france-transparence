@@ -15,12 +15,26 @@ Sources (docs/SOURCES.md ; docs/recherche/04-elus-integrite.md §5, §5 bis, §6
   (double encodage UTF-8→cp1252, ex. « ErgÃ¼n ») réparé champ par champ,
   valeur de saisie « Choisir une nuance déjà enregistrée... » → NULL ;
   4 010 candidats, publication data.gouv du 29/07/2025.
-- S37 — décret n° 2026-149 du 03/03/2026 (JO du 04/03/2026) : aide publique
-  2026 = 64 262 871,05 €. AUCUN fichier exploitable par parti n'existe
-  (tableau dans le corps du décret, Légifrance anti-bot, pas de CSV — vérifié
-  le 19/08/2026) → seul le TOTAL national est inséré, en fait sourcé ;
-  la répartition par parti reste en v2 (SOURCES.md S37). L'aide perçue par
-  parti et par exercice reste lisible dans partis_comptes (2021-2024).
+- S37 — décrets annuels d'aide publique aux partis : enveloppe NATIONALE
+  fixée par décret, une ligne par décret réellement consulté (2024 et 2026 ;
+  aucune autre année n'est inscrite tant qu'elle n'est pas sourcée). AUCUN
+  fichier exploitable par parti n'existe (tableau dans le corps du décret,
+  Légifrance anti-bot, pas de CSV — constat reconduit le 20/08/2026) → seul
+  le TOTAL national est inséré ; la répartition par parti reste en v2
+  (SOURCES.md S37). L'aide perçue par parti et par exercice reste lisible
+  dans partis_comptes (2021-2024).
+
+  ATTENTION — deux grandeurs de nature différente, à ne jamais juxtaposer
+  comme si elles étaient comparables :
+  * l'ENVELOPPE du décret = le montant national ouvert par l'État ;
+  * la somme des aides INSCRITES AUX COMPTES par les partis (partis_comptes,
+    colonnes 102-103) = un cumul de déclarations.
+  Les deux séries coïncident en 2021 (66,19 M€) et 2022 (66,13 M€) puis
+  divergent en 2023 (70,33 M€) et 2024 (70,28 M€) : une même aide peut être
+  déclarée à la fois par la structure qui la perçoit et par celle à qui elle
+  est reversée. La DATATION de la rupture est établie ; sa cause ne l'est
+  pas — l'apparition en 2023 de « ENSEMBLE ! (MAJORITÉ PRÉSIDENTIELLE) »
+  (19,52 M€ en 2023, 19,47 M€ en 2024) est une hypothèse, pas un fait.
 
 Tables créées (idempotentes, rejouables à volonté) :
 - partis : référentiel — id ('PARTI-<code_cnccfp>', clé partagée avec
@@ -34,15 +48,21 @@ Tables créées (idempotentes, rejouables à volonté) :
   cotisations_elus, aide_publique_f1, aide_publique_f2,
   autres_aides_publiques, contributions_recues (d'autres partis),
   charges_total, resultat.
-- campagnes_2024 : 1 ligne = candidat — candidat_id, nom (civilité incluse,
-  tel que publié), scrutin, circonscription, departement, code_departement,
+- campagnes_2024 : 1 ligne = candidat — candidat_id, nom (civilité incluse ;
+  casse réparée par normaliser_casse_nom, marqueur « (*) » sorti du nom vers
+  la colonne marqueur_etoile), marqueur_etoile (0/1 — signification NON
+  documentée dans le jeu de données CNCCFP),
+  scrutin, circonscription, departement, code_departement,
   nuance, depenses_declarees, depenses_retenues, recettes_declarees,
   recettes_retenues, remboursement_etat (colonne « RFE » = remboursement
   forfaitaire de l'État), decision (code CNCCFP brut : A, AM, AR, ARM, ARR,
   ARRR, ARRRM, R, AD, HD, DD — les suffixes sont conservés tels quels),
   decision_famille (normalisation mécanique documentée dans FAMILLES_DECISION).
-- partis_aide_2026 : faits sourcés — annee, montant_total_eur, perimetre,
-  reference, source_url, note.
+- partis_aide_annuelle : enveloppes légales sourcées, 1 ligne par décret
+  consulté — annee, montant_total_eur, fraction1_eur, fraction2_eur (NULL si
+  le décret n'a pas été dépouillé fraction par fraction), perimetre,
+  reference, source_url, note. Remplace l'ancienne table mono-année
+  partis_aide_2026 (supprimée par le schéma).
 - alertes (table PARTAGÉE entre pipelines — CREATE TABLE IF NOT EXISTS,
   schéma : id, type, gravite, titre, detail, regle, base_legale, source_url,
   date_calcul). Seuls les types de CE pipeline sont effacés puis recalculés :
@@ -100,10 +120,53 @@ URL_DATASET_LEG2024 = f"https://www.data.gouv.fr/datasets/{SLUG_LEG2024}/"
 EXERCICES = (2021, 2022, 2023, 2024)
 MAX_AGE_HEURES = 7 * 24  # données annuelles figées : cache 7 jours
 
-# Décret annuel d'aide publique (S37) — faits sourcés, cf. docstring.
-AIDE_2026_TOTAL_EUR = 64_262_871.05
-AIDE_2026_REFERENCE = "Décret n° 2026-149 du 3 mars 2026 (JO du 04/03/2026)"
-AIDE_2026_URL = "https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000053613045"
+# Décrets annuels d'aide publique (S37) — enveloppe NATIONALE, un enregistrement
+# par décret réellement consulté. On n'inscrit AUCUNE année non sourcée : la
+# série est volontairement trouée (2021, 2022, 2023, 2025 absents).
+#
+# `fraction1_eur`/`fraction2_eur` restent None tant que le décret n'a pas été
+# dépouillé fraction par fraction (le tableau est dans le corps du texte).
+DECRETS_AIDE_PUBLIQUE: tuple[dict, ...] = (
+    {
+        "annee": 2024,
+        "montant_total_eur": 66_438_848.34,
+        "fraction1_eur": None,
+        "fraction2_eur": None,
+        "perimetre": "Enveloppe nationale, 1re + 2nde fractions",
+        "reference": "Décret n° 2024-77 du 2 février 2024",
+        "source_url": (
+            "https://www.legifrance.gouv.fr/search"
+            "?fonds=JORF&tab_selection=jorf&query=d%C3%A9cret%20n%C2%B0%202024-77"
+        ),
+        "note": (
+            "Montant repris du diagnostic interne du projet ; le texte du "
+            "décret n'a PAS pu être re-vérifié sur Légifrance (HTTP 403 "
+            "anti-bot au 20/08/2026), et l'identifiant JORFTEXT n'a pas été "
+            "résolu — d'où un lien de recherche Légifrance plutôt qu'un lien "
+            "direct. À confirmer sur le texte publié. Cette enveloppe n'est "
+            "PAS comparable à la somme des aides inscrites aux comptes 2024 "
+            "par les partis (70 275 372,28 € sur 575 comptes) : la seconde "
+            "est un cumul de déclarations, où une même aide peut être comptée "
+            "deux fois."
+        ),
+    },
+    {
+        "annee": 2026,
+        "montant_total_eur": 64_262_871.05,
+        "fraction1_eur": None,
+        "fraction2_eur": None,
+        "perimetre": "Enveloppe nationale, 1re + 2nde fractions",
+        "reference": "Décret n° 2026-149 du 3 mars 2026 (JO du 04/03/2026)",
+        "source_url": "https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000053613045",
+        "note": (
+            "Répartition par parti non publiée en données exploitables "
+            "(tableau dans le corps du décret, Légifrance anti-bot — constat "
+            "du 19/08/2026, SOURCES.md S37) : extraction par parti = v2. "
+            "L'aide perçue par parti figure dans partis_comptes (exercices "
+            "2021-2024), qui relève d'une autre nature de donnée."
+        ),
+    },
+)
 
 # Colonnes utiles du CSV « comptes des partis » (indices 0-based vérifiés sur
 # les 4 fichiers 2021-2024, en-têtes identiques). L'en-tête contient des noms
@@ -205,6 +268,10 @@ CREATE INDEX IF NOT EXISTS idx_partis_comptes_exercice ON partis_comptes(exercic
 CREATE TABLE IF NOT EXISTS campagnes_2024 (
     candidat_id        TEXT PRIMARY KEY,
     nom                TEXT NOT NULL,
+    -- Marqueur « (*) » accolé au nom dans le CSV CNCCFP : sorti du nom pour
+    -- ne pas polluer l'identité, conservé ici. Sa SIGNIFICATION n'est pas
+    -- documentée dans le jeu de données (aucune légende publiée).
+    marqueur_etoile    INTEGER NOT NULL DEFAULT 0,
     scrutin            TEXT,
     circonscription    TEXT NOT NULL,
     departement        TEXT,
@@ -220,9 +287,16 @@ CREATE TABLE IF NOT EXISTS campagnes_2024 (
 );
 CREATE INDEX IF NOT EXISTS idx_campagnes_2024_decision ON campagnes_2024(decision_famille);
 
-CREATE TABLE IF NOT EXISTS partis_aide_2026 (
+-- Ancienne table mono-année, remplacée par partis_aide_annuelle : elle
+-- laissait croire qu'il n'existait qu'un seul décret opposable, ce qui
+-- poussait à comparer 2026 (décret) à 2024 (déclarations des partis).
+DROP TABLE IF EXISTS partis_aide_2026;
+
+CREATE TABLE IF NOT EXISTS partis_aide_annuelle (
     annee             INTEGER PRIMARY KEY,
     montant_total_eur REAL NOT NULL,
+    fraction1_eur     REAL,
+    fraction2_eur     REAL,
     perimetre         TEXT NOT NULL,
     reference         TEXT NOT NULL,
     source_url        TEXT NOT NULL,
@@ -285,6 +359,111 @@ def reparer_mojibake(texte: str) -> str:
             return paire
 
     return _MOJIBAKE_RE.sub(_reparer_paire, texte)
+
+
+_MAJ_ASCII = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+_MIN_ASCII = frozenset("abcdefghijklmnopqrstuvwxyz")
+
+
+def _est_minuscule_accentuee(caractere: str) -> bool:
+    """Minuscule NON ASCII (é, è, ï, ô, ç…) — le symptôme de la casse cassée."""
+    return (
+        caractere.isalpha()
+        and caractere.islower()
+        and caractere not in _MIN_ASCII
+    )
+
+
+def _normaliser_token(token: str) -> str:
+    """Répare la casse d'UN token. Voir normaliser_casse_nom pour la règle."""
+    # Famille 1 — patronyme en capitales dont les accents sont restés en bas
+    # de casse (« ELéLOUé-VALMAR »). Le garde-fou « aucune minuscule ASCII »
+    # est ce qui protège « ACQUAVIVA », « Jean-Félix », « Agnès », « de »,
+    # « van », « d'Ornano », « 12éme »… : dès qu'une minuscule ASCII est
+    # présente, le token est une graphie normale et n'est pas touché.
+    if len(token) >= 3 and not any(c in _MIN_ASCII for c in token):
+        majuscules = sum(1 for c in token if c in _MAJ_ASCII)
+        if majuscules >= 2 and any(_est_minuscule_accentuee(c) for c in token):
+            # .upper() est Unicode-aware en Python 3 : « ELéLOUé » → « ELÉLOUÉ ».
+            return token.upper()
+    # Famille 2 — prénom entièrement en bas de casse ouvert par une minuscule
+    # accentuée (« éric », « émilie », « édouard »). Un prénom bas de casse à
+    # initiale ASCII (« de », « van ») n'est PAS concerné : ce sont des
+    # particules, leur bas de casse est la graphie correcte.
+    if token and _est_minuscule_accentuee(token[0]) and token == token.lower():
+        return token[0].upper() + token[1:]
+    return token
+
+
+def normaliser_casse_nom(texte: str) -> str:
+    """Répare la casse des noms de personnes livrés cassés par la CNCCFP.
+
+    Défaut PRÉSENT DANS LA SOURCE (prouvé au niveau octet : le CSV contient
+    « M. EL\xe9LOU\xe9-VALMAR », soit 0xE9 = « é » minuscule cp1252, là où
+    « É » majuscule serait 0xC9). Ce n'est donc PAS un mojibake : aucun « Ã »
+    n'est en jeu et `reparer_mojibake` ne voit même pas le motif — les deux
+    fonctions traitent deux défauts distincts et se complètent.
+
+    Deux familles, réparées token par token :
+    1. token d'au moins 3 caractères, ≥ 2 majuscules ASCII, ≥ 1 minuscule
+       accentuée et AUCUNE minuscule ASCII → passage en capitales ;
+    2. token entièrement en bas de casse ouvert par une minuscule accentuée
+       → capitalisation de la seule initiale.
+
+    Tout le reste est rendu à l'identique : « M. ACQUAVIVA Jean-Félix »,
+    « Mme FIRMIN LE BODO Agnès », « Mme de COSSé BRISSAC Céline » (seul
+    « COSSé » bouge, « de » est conservé), les noms composés et les
+    particules ne sont jamais touchés.
+    """
+    if not texte:
+        return texte
+    # split/join sur l'espace simple : les séparateurs sont préservés tels
+    # quels, rien n'est perdu ni réécrit hors des tokens eux-mêmes.
+    return " ".join(_normaliser_token(t) for t in texte.split(" "))
+
+
+_MARQUEUR_ETOILE_RE = re.compile(r"\s*\(\*\)\s*$")
+
+
+def extraire_marqueur_etoile(nom: str) -> tuple[str, bool]:
+    """Sort le marqueur « (*) » suffixé au nom. → (nom_net, marqueur_present).
+
+    51 noms du CSV comptes de campagne portent ce suffixe. Le jeu de données
+    ne publie AUCUNE légende : sa signification n'est pas documentée. Il est
+    donc retiré du nom (il n'en fait pas partie) et conservé à part, pour
+    être restitué tel quel, avec cette réserve, dans le détail de l'alerte.
+    """
+    net = _MARQUEUR_ETOILE_RE.sub("", nom)
+    return (net.strip(), net != nom)
+
+
+# ---------------------------------------------------------------------------
+# Format monétaire français (même convention que app/src/lib/format.ts)
+# ---------------------------------------------------------------------------
+
+#: Espace fine insécable — séparateur de milliers ET espace avant l'unité.
+ESPACE_FINE = "\u202f"
+
+
+def formater_euros(valeur: float | None, decimales: int = 2) -> str:
+    """Montant → « 19 474 807 € » / « 1 234,56 € », ou « non renseigné ».
+
+    Convention identique au front (docs/DATAVIZ.md §4) : espace fine
+    insécable U+202F en séparateur de milliers et devant l'unité, virgule
+    décimale, décimales supprimées quand elles sont nulles.
+
+    `None` ne devient JAMAIS « 0 € » : une donnée absente est rendue
+    « non renseigné ». Un zéro réel, lui, reste un zéro et s'affiche « 0 € ».
+    """
+    if valeur is None:
+        return "non renseigné"
+    arrondi = round(float(valeur), decimales)
+    if arrondi == int(arrondi):
+        corps = f"{int(arrondi):,}".replace(",", ESPACE_FINE)
+    else:
+        corps = f"{arrondi:,.{decimales}f}".replace(",", "\x00")
+        corps = corps.replace(".", ",").replace("\x00", ESPACE_FINE)
+    return corps + ESPACE_FINE + "€"
 
 
 _SIGLE_RE = re.compile(r"\(([^()]{2,12})\)\s*$")
@@ -429,7 +608,11 @@ def parser_partis(brut: bytes, millesime: int) -> list[dict]:
         resultat.append(
             {
                 "code": code,
-                "nom": champs[1].strip(),
+                # même normalisation de casse que les noms de personnes, par
+                # symétrie (aucun nom de parti n'est modifié dans le corpus
+                # 2021-2024 : le garde-fou « aucune minuscule ASCII » protège
+                # « 12éme », « 8ème », « SoCARRIÈRES »…).
+                "nom": normaliser_casse_nom(champs[1].strip()),
                 "unite": champs[2].strip(),
                 "exercice": ex_lu,
                 "millesime": millesime,
@@ -473,6 +656,10 @@ def parser_campagnes(brut: bytes) -> list[dict]:
     lignes de garde avant l'en-tête (6 dans le fichier publié — détectées,
     pas comptées en dur), mojibake réparé champ par champ, « - » = None,
     nuance « Choisir une nuance… » (artefact de saisie) → None.
+
+    Deux traitements du nom en plus (constats du 20/08/2026) : casse réparée
+    (normaliser_casse_nom — défaut du CSV source, distinct du mojibake) et
+    marqueur « (*) » sorti du nom vers un champ dédié.
     """
     texte, encodage = decoder_campagnes(brut)
     log.info("comptes de campagne : encodage retenu = %s", encodage)
@@ -508,10 +695,17 @@ def parser_campagnes(brut: bytes) -> list[dict]:
         if nuance and nuance.startswith(NUANCE_PLACEHOLDER):
             nuance = None
         decision = champs[75].strip()
+        # Le nom subit DEUX traitements distincts et cumulatifs : réparation
+        # du mojibake (déjà faite ci-dessus sur tous les champs) puis
+        # réparation de la casse, défaut présent tel quel dans le CSV source.
+        nom, marqueur_etoile = extraire_marqueur_etoile(
+            normaliser_casse_nom(champs[1].strip())
+        )
         resultat.append(
             {
                 "candidat_id": champs[0].strip(),
-                "nom": champs[1].strip(),
+                "nom": nom,
+                "marqueur_etoile": marqueur_etoile,
                 "scrutin": champs[2].strip() or None,
                 "circonscription": champs[3].strip(),
                 "departement": champs[4].strip() or None,
@@ -535,7 +729,20 @@ def parser_campagnes(brut: bytes) -> list[dict]:
 
 
 def creer_tables(conn) -> None:
+    """Crée/migre les tables du pipeline. Rejouable sur une base existante."""
     conn.executescript(_SCHEMA)
+    # `CREATE TABLE IF NOT EXISTS` n'ajoute pas de colonne à une table déjà
+    # présente : la colonne marqueur_etoile est posée explicitement sur les
+    # bases antérieures (migration idempotente).
+    colonnes = {
+        r["name"] for r in conn.execute("PRAGMA table_info(campagnes_2024)")
+    }
+    if "marqueur_etoile" not in colonnes:
+        conn.execute(
+            "ALTER TABLE campagnes_2024 "
+            "ADD COLUMN marqueur_etoile INTEGER NOT NULL DEFAULT 0"
+        )
+        log.info("migration : colonne campagnes_2024.marqueur_etoile ajoutée")
     conn.commit()
 
 
@@ -619,15 +826,16 @@ def charger_campagnes(conn, lignes: list[dict]) -> int:
         conn.executemany(
             """
             INSERT INTO campagnes_2024
-                (candidat_id, nom, scrutin, circonscription, departement,
-                 code_departement, nuance, depenses_declarees, depenses_retenues,
-                 recettes_declarees, recettes_retenues, remboursement_etat,
-                 decision, decision_famille)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (candidat_id, nom, marqueur_etoile, scrutin, circonscription,
+                 departement, code_departement, nuance, depenses_declarees,
+                 depenses_retenues, recettes_declarees, recettes_retenues,
+                 remboursement_etat, decision, decision_famille)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (
-                    l["candidat_id"], l["nom"], l["scrutin"], l["circonscription"],
+                    l["candidat_id"], l["nom"], int(l["marqueur_etoile"]),
+                    l["scrutin"], l["circonscription"],
                     l["departement"], l["code_departement"], l["nuance"],
                     l["depenses_declarees"], l["depenses_retenues"],
                     l["recettes_declarees"], l["recettes_retenues"],
@@ -639,29 +847,32 @@ def charger_campagnes(conn, lignes: list[dict]) -> int:
     return len(lignes)
 
 
-def charger_aide_2026(conn) -> None:
-    """Fait sourcé S37 : total national 2026 seul (cf. docstring module)."""
+def charger_decrets_aide(conn) -> int:
+    """Enveloppes légales sourcées (S37) → partis_aide_annuelle. → nb de lignes.
+
+    Une ligne par décret réellement consulté, et RIEN d'autre : aucune année
+    n'est interpolée ni reconduite. Ne pas confondre avec partis_comptes, qui
+    porte l'aide déclarée par les partis (autre nature de donnée).
+    """
     with conn:
-        conn.execute("DELETE FROM partis_aide_2026")
-        conn.execute(
+        conn.execute("DELETE FROM partis_aide_annuelle")
+        conn.executemany(
             """
-            INSERT INTO partis_aide_2026
-                (annee, montant_total_eur, perimetre, reference, source_url, note)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO partis_aide_annuelle
+                (annee, montant_total_eur, fraction1_eur, fraction2_eur,
+                 perimetre, reference, source_url, note)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (
-                2026,
-                AIDE_2026_TOTAL_EUR,
-                "Total national, 1ère + 2nde fractions",
-                AIDE_2026_REFERENCE,
-                AIDE_2026_URL,
-                "Répartition par parti non publiée en données exploitables "
-                "(tableau dans le corps du décret, Légifrance anti-bot — "
-                "constat du 19/08/2026, SOURCES.md S37) : extraction par "
-                "parti = v2. L'aide perçue par parti figure dans "
-                "partis_comptes (exercices 2021-2024).",
-            ),
+            [
+                (
+                    d["annee"], d["montant_total_eur"], d["fraction1_eur"],
+                    d["fraction2_eur"], d["perimetre"], d["reference"],
+                    d["source_url"], d["note"],
+                )
+                for d in DECRETS_AIDE_PUBLIQUE
+            ],
         )
+    return len(DECRETS_AIDE_PUBLIQUE)
 
 
 def creer_vues(conn) -> None:
@@ -775,6 +986,49 @@ def creer_vues(conn) -> None:
 # ---------------------------------------------------------------------------
 
 
+#: Les quatre postes monétaires d'un compte de campagne. La condition
+#: « compte sans montant » est CONJONCTIVE sur ces quatre postes : un seul
+#: poste à zéro ne prouve rien (152 comptes ont des dépenses > 0 et un
+#: remboursement à 0 — un vrai zéro, juridiquement obligatoire pour un compte
+#: rejeté ; 47 comptes réformés ont un écart de 0 € — un vrai zéro aussi).
+POSTES_COMPTE_CAMPAGNE = (
+    "depenses_declarees",
+    "depenses_retenues",
+    "recettes_declarees",
+    "remboursement_etat",
+)
+
+
+def compte_sans_montant(ligne) -> bool:
+    """Vrai si les QUATRE postes monétaires sont à zéro et tous non NULL.
+
+    Un compte de campagne intégralement à zéro n'est pas un candidat qui n'a
+    rien dépensé : c'est l'absence de compte exploitable, souvent le motif du
+    rejet. Le CSV CNCCFP distingue bien le vide du zéro (une même ligne peut
+    avoir 46 champs vides sur 76 tout en portant des « 0 » littéraux) : ce
+    zéro-là est écrit par la source, il n'est pas un NULL perdu à
+    l'ingestion. Publier « dépenses déclarées : 0 € » sous le nom d'une
+    personne serait donc une affirmation de fait fausse.
+    """
+    valeurs = [ligne[poste] for poste in POSTES_COMPTE_CAMPAGNE]
+    return all(v is not None and v == 0 for v in valeurs)
+
+
+def legende_marqueur_etoile(marqueur) -> str:
+    """Légende du marqueur « (*) », ou chaîne vide s'il est absent.
+
+    Le marqueur est restitué au lecteur (il figure dans la source), mais
+    accompagné de la seule chose vraie à son sujet : le jeu de données ne
+    publie aucune légende.
+    """
+    if not marqueur:
+        return ""
+    return (
+        " — le nom est suivi du marqueur « (*) » dans le fichier CNCCFP ; "
+        "sa signification n'est pas documentée dans le jeu de données."
+    )
+
+
 def calculer_alertes(conn, url_avis_2024: str | None) -> int:
     """Recalcule les alertes de CE pipeline (types effacés puis réinsérés)."""
     quand = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -792,8 +1046,9 @@ def calculer_alertes(conn, url_avis_2024: str | None) -> int:
     )
     base_a5 = "Code électoral, contrôle des comptes de campagne par la CNCCFP (art. L.52-15)."
     for c in conn.execute(
-        """SELECT candidat_id, nom, circonscription, depenses_declarees,
-                  depenses_retenues, remboursement_etat, decision
+        """SELECT candidat_id, nom, marqueur_etoile, circonscription,
+                  depenses_declarees, depenses_retenues, recettes_declarees,
+                  remboursement_etat, decision
            FROM campagnes_2024
            WHERE decision_famille IN ('rejete', 'approuve_apres_reformation')
            ORDER BY candidat_id"""
@@ -801,13 +1056,26 @@ def calculer_alertes(conn, url_avis_2024: str | None) -> int:
         rejet = famille_decision(c["decision"]) == "rejete"
         dd, dr = c["depenses_declarees"], c["depenses_retenues"]
         ecart = (dd - dr) if (dd is not None and dr is not None) else None
-        detail = (
+        entete = (
             f"{c['nom']} ({c['circonscription']}) — décision {c['decision']} ; "
-            f"dépenses déclarées : {dd if dd is not None else 'n.c.'} € ; "
-            f"retenues : {dr if dr is not None else 'n.c.'} € ; "
-            + (f"écart : {round(ecart, 2)} € ; " if ecart is not None else "")
-            + f"remboursement État : {c['remboursement_etat'] if c['remboursement_etat'] is not None else 'n.c.'} €"
         )
+        if compte_sans_montant(c):
+            corps = (
+                "aucun montant renseigné : tous les postes du compte sont à "
+                "zéro dans le fichier CNCCFP (dépenses déclarées, dépenses "
+                "retenues, recettes déclarées et remboursement de l'État). "
+                "Cette absence de compte exploitable est fréquemment le motif "
+                "même de la décision ; elle ne signifie PAS que le candidat "
+                "n'a rien dépensé."
+            )
+        else:
+            corps = (
+                f"dépenses déclarées : {formater_euros(dd)} ; "
+                f"retenues : {formater_euros(dr)} ; "
+                + (f"écart : {formater_euros(ecart)} ; " if ecart is not None else "")
+                + f"remboursement État : {formater_euros(c['remboursement_etat'])}"
+            )
+        detail = entete + corps + legende_marqueur_etoile(c["marqueur_etoile"])
         if rejet:
             alertes.append(
                 (
@@ -831,7 +1099,7 @@ def calculer_alertes(conn, url_avis_2024: str | None) -> int:
     regle_dep = (
         f"Aide publique (1ère + 2nde fractions + autres aides publiques) "
         f"≥ {SEUIL_DEPENDANCE_RATIO:.0%} des produits totaux ET produits totaux "
-        f"≥ {SEUIL_DEPENDANCE_PRODUITS:,.0f} €, dernier exercice publié, "
+        f"≥ {formater_euros(SEUIL_DEPENDANCE_PRODUITS)}, dernier exercice publié, "
         "comptes en euros (SOURCES.md §4, alerte A4 — indicateur de structure "
         "de financement, pas une infraction)."
     )
@@ -856,8 +1124,16 @@ def calculer_alertes(conn, url_avis_2024: str | None) -> int:
                 f"FIN-PARTI-DEP-{p['exercice']}-{p['id']}",
                 "financement_parti_dependance_aide", "info",
                 f"Parti financé à {ratio:.0%} par l'aide publique — {p['nom']}",
-                f"Exercice {p['exercice']} : aide publique {round(p['aide'], 2)} € "
-                f"pour {round(p['produits_total'], 2)} € de produits totaux "
+                # ATTENTION — le motif « (ratio X.X%) » est une CLÉ DE TRI :
+                # app/src/lib/queries/financement.ts classe ces alertes par
+                # CAST(substr(detail, instr(detail,'(ratio ') + 7) AS REAL).
+                # Le point décimal doit rester un POINT : SQLite lit
+                # CAST('92,7%' AS REAL) = 92.0 et perdrait la décimale. Ce
+                # fragment est donc laissé tel quel, seuls les montants en
+                # euros passent par le formateur français.
+                f"Exercice {p['exercice']} : aide publique "
+                f"{formater_euros(p['aide'])} pour "
+                f"{formater_euros(p['produits_total'])} de produits totaux "
                 f"(ratio {ratio:.1%}).",
                 regle_dep, base_a4, URL_DATASET_PARTIS, quand,
             )
@@ -936,7 +1212,7 @@ def main() -> int:
         lignes_campagnes = parser_campagnes(chemin_campagnes.read_bytes())
         nb_candidats = charger_campagnes(conn, lignes_campagnes)
 
-        charger_aide_2026(conn)
+        nb_decrets = charger_decrets_aide(conn)
         creer_vues(conn)
         nb_alertes = calculer_alertes(conn, ressources["avis_2024"])
 
@@ -964,29 +1240,44 @@ def main() -> int:
             date_donnees="2024-07-07",
             lignes=nb_candidats,
             notes="Scrutin des 30/06 et 07/07/2024, CSV publié le 29/07/2025 "
-                  "(cp1252, 6 lignes de garde, mojibake réparé). Municipales "
-                  "2026 : aucun dataset au 19/08/2026, publication attendue "
-                  "fin 2026/2027 — à surveiller.",
+                  "(cp1252, 6 lignes de garde, mojibake réparé). Casse des "
+                  "noms réparée à l'ingestion : le CSV source livre "
+                  "« M. EL\xe9LOU\xe9-VALMAR » (0xE9 = « é » minuscule) — "
+                  "défaut de la source, pas du pipeline. Marqueur « (*) » "
+                  "(51 noms) sorti du nom, signification non documentée par "
+                  "la CNCCFP. Municipales 2026 : aucun dataset au 19/08/2026, "
+                  "publication attendue fin 2026/2027 — à surveiller.",
         )
+        dernier_decret = max(DECRETS_AIDE_PUBLIQUE, key=lambda d: d["annee"])
         db.upsert_meta(
             conn,
             source_id="S37",
-            nom="Décret annuel d'aide publique aux partis (2026)",
-            url=AIDE_2026_URL,
+            nom="Décrets annuels d'aide publique aux partis (enveloppe nationale)",
+            url=dernier_decret["source_url"],
             licence="Texte officiel (JORF)",
             frequence="annuelle",
             date_donnees="2026-03-03",
-            lignes=1,
-            notes="Décret n° 2026-149 du 03/03/2026 : 64 262 871,05 € en "
-                  "2 fractions. Total seul (tableau par parti non publié en "
-                  "données ; Légifrance anti-bot) — répartition par parti = v2.",
+            lignes=nb_decrets,
+            notes="Enveloppes NATIONALES fixées par décret, "
+                  + ", ".join(
+                      f"{d['annee']} : {formater_euros(d['montant_total_eur'])}"
+                      for d in DECRETS_AIDE_PUBLIQUE
+                  )
+                  + ". Totaux seuls (tableau par parti non publié en données ; "
+                  "Légifrance anti-bot) — répartition par parti = v2. Le "
+                  "décret n° 2024-77 n'a pas pu être re-vérifié sur Légifrance "
+                  "(HTTP 403 au 20/08/2026) : valeur reprise du diagnostic "
+                  "interne, à confirmer. Ces enveloppes ne sont PAS "
+                  "comparables aux aides inscrites aux comptes des partis "
+                  "(partis_comptes), qui sont des déclarations cumulées.",
         )
 
         duree = time.monotonic() - depart
         log.info(
             "OK en %.1f s — %d partis, %d lignes de comptes (2021-2024), "
-            "%d candidats législatives 2024, %d alertes, aide 2026 : total seul",
-            duree, nb_partis, nb_comptes, nb_candidats, nb_alertes,
+            "%d candidats législatives 2024, %d alertes, %d décret(s) d'aide "
+            "publique (totaux nationaux seuls)",
+            duree, nb_partis, nb_comptes, nb_candidats, nb_alertes, nb_decrets,
         )
         conn.close()
         return 0

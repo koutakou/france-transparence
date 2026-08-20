@@ -2,13 +2,21 @@
  * Requêtes du module Financement de la vie politique :
  * - S25 : comptes des partis déposés à la CNCCFP (exercices 2021-2024) ;
  * - S29 : comptes de campagne des législatives 2024 ;
- * - S37 : décret annuel d'aide publique aux partis (2026).
+ * - S37 : décrets annuels d'aide publique aux partis (enveloppes NATIONALES,
+ *   une ligne par décret consulté — 2024 et 2026).
+ *
+ * ATTENTION, deux grandeurs distinctes coexistent ici et ne se comparent pas :
+ * l'ENVELOPPE fixée par décret (partis_aide_annuelle) et la somme des aides
+ * INSCRITES AUX COMPTES par les partis (partis_comptes / v_partis_aide_publique_evolution,
+ * un cumul de déclarations). Les deux séries coïncident en 2021-2022 puis
+ * divergent à partir de 2023.
  *
  * Chaque requête a été rejouée telle quelle via
- * `sqlite3 "file:data/france.db?mode=ro"` le 19/08/2026 (valeurs de
+ * `sqlite3 "file:data/france.db?mode=ro"` le 20/08/2026 (valeurs de
  * contrôle : 575 dépôts 2024, produits totaux 208 620 190,81 €, aide
- * publique F1+F2 2024 = 70 275 372,28 €, aide 2026 = 64 262 871,05 €,
- * 4 010 candidats, taux de rejet 0,0271, 85 alertes rejet).
+ * inscrite aux comptes F1+F2 2024 = 70 275 372,28 €, enveloppes des décrets
+ * 2024 = 66 438 848,34 € et 2026 = 64 262 871,05 €, 4 010 candidats,
+ * taux de rejet 0,0271, 85 alertes rejet).
  *
  * Convention « base absente » : `getDonneesFinancement()` renvoie `null`
  * tant que `make ingest` n'a pas produit la base.
@@ -57,10 +65,17 @@ export type AidePubliqueAnnee = {
   nb_partis_aides: number;
 };
 
-/** Ligne unique de partis_aide_2026 (décret n° 2026-149). */
-export type AidePublique2026 = {
+/**
+ * Ligne de `partis_aide_annuelle` : l'ENVELOPPE nationale d'une année, telle
+ * que fixée par un décret réellement consulté. À ne pas confondre avec
+ * `AidePubliqueAnnee`, qui agrège des déclarations de partis.
+ */
+export type DecretAidePublique = {
   annee: number;
   montant_total_eur: number;
+  /** NULL tant que le décret n'a pas été dépouillé fraction par fraction. */
+  fraction1_eur: number | null;
+  fraction2_eur: number | null;
   perimetre: string;
   reference: string;
   source_url: string;
@@ -146,8 +161,10 @@ export type DonneesFinancement = {
   comptesHorsEuros: { nb: number; exercice_min: number | null; exercice_max: number | null };
   topProduits: PartiTopProduits[];
   ressources2024: RessourcesParType | null;
+  /** Aide INSCRITE AUX COMPTES par les partis, par exercice (déclarations). */
   aideEvolution: AidePubliqueAnnee[];
-  aide2026: AidePublique2026 | null;
+  /** Enveloppes légales, une par décret consulté, année croissante. */
+  decretsAide: DecretAidePublique[];
   campagnes: CampagnesAgregats;
   decisionsFamilles: DecisionFamille[];
   decisionsDetail: DecisionDetail[];
@@ -212,9 +229,11 @@ export function getDonneesFinancement(): DonneesFinancement | null {
     .prepare("SELECT * FROM v_partis_aide_publique_evolution")
     .all() as AidePubliqueAnnee[];
 
-  const aide2026 =
-    (db.prepare("SELECT * FROM partis_aide_2026").get() as AidePublique2026 | undefined) ??
-    null;
+  // Tous les décrets sourcés, et eux seuls : la table n'est jamais complétée
+  // par interpolation, la série est volontairement trouée.
+  const decretsAide = db
+    .prepare("SELECT * FROM partis_aide_annuelle ORDER BY annee")
+    .all() as DecretAidePublique[];
 
   const campagnes = db
     .prepare("SELECT * FROM v_campagnes_2024_agregats")
@@ -299,7 +318,7 @@ export function getDonneesFinancement(): DonneesFinancement | null {
     topProduits,
     ressources2024,
     aideEvolution,
-    aide2026,
+    decretsAide,
     campagnes,
     decisionsFamilles,
     decisionsDetail,

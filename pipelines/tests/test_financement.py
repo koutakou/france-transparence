@@ -10,6 +10,8 @@ Les fixtures sont des EXTRAITS OCTET POUR OCTET des fichiers publiés
 - extrait-comptes-partis-2023.csv : 4 partis dont 2 en XPF et 1 sans unité.
 """
 
+import re
+import string
 from pathlib import Path
 
 import pytest
@@ -138,6 +140,137 @@ def test_reparer_mojibake():
     assert fin.reparer_mojibake("M. TOPARSLAN ErgÃ¼n") == "M. TOPARSLAN Ergün"
     assert fin.reparer_mojibake("déjÃ\xa0 enregistrée") == "déjà enregistrée"
     assert fin.reparer_mojibake("Ain - 1re circonscription") == "Ain - 1re circonscription"
+
+
+# ---------------------------------------------------------------------------
+# Casse des noms : un défaut de la SOURCE, distinct du mojibake
+# ---------------------------------------------------------------------------
+
+#: Noms cassés relevés dans le CSV publié (octets cp1252 : 0xE9 = « é »
+#: minuscule là où « É » majuscule serait 0xC9) → forme réparée attendue.
+CASSE_A_REPARER = {
+    "M. ELéLOUé-VALMAR Loïc": "M. ELÉLOUÉ-VALMAR Loïc",
+    "Mme PRIé Lola": "Mme PRIÉ Lola",
+    "M. DAUBIé Romain": "M. DAUBIÉ Romain",
+    "Mme DAUFèS-ROUX Catherine": "Mme DAUFÈS-ROUX Catherine",
+    "Mme MOGHIR NAïMA": "Mme MOGHIR NAÏMA",
+    "Mme éTORé-MANIKA Edwina": "Mme ÉTORÉ-MANIKA Edwina",
+    # famille 2 — prénom entièrement en bas de casse à initiale accentuée
+    "M. LAHY éric": "M. LAHY Éric",
+    "Mme CHALAS émilie": "Mme CHALAS Émilie",
+    "M. BAUDE édouard": "M. BAUDE Édouard",
+    # les deux familles dans le même nom
+    "M. BéNARD édouard": "M. BÉNARD Édouard",
+}
+
+#: Graphies LÉGITIMES : la réparation ne doit RIEN y changer. C'est le
+#: garde-fou « aucune minuscule ASCII dans le token » qui les protège.
+CASSE_A_NE_PAS_TOUCHER = (
+    "M. ACQUAVIVA Jean-Félix",
+    "Mme FIRMIN LE BODO Agnès",
+    "Mme de COSSÉ BRISSAC Céline",       # particule « de » conservée
+    "M. van der WEYDEN Éric",            # particules néerlandaises
+    "M. d'ORNANO Michel",                # élision
+    "Mme SAINT-PÉ Séverine",
+    "M. TOPARSLAN Ergün",                # déjà réparé par reparer_mojibake
+    "Mme LEBOUCHER Elise",
+    "M. BRETON Xavier",
+    "LE 12éme EN ACTION",                # parti : « 12éme » a des minuscules ASCII
+    "SoCARRIÈRES",
+    "ENSEMBLE ! (MAJORITÉ PRÉSIDENTIELLE)",
+    "RASSEMBLEMENT NATIONAL",
+    "",
+)
+
+
+def test_normaliser_casse_nom_repare():
+    for casse, attendu in CASSE_A_REPARER.items():
+        assert fin.normaliser_casse_nom(casse) == attendu, casse
+
+
+def test_normaliser_casse_nom_ne_touche_pas_aux_graphies_legitimes():
+    for nom in CASSE_A_NE_PAS_TOUCHER:
+        assert fin.normaliser_casse_nom(nom) == nom, nom
+
+
+def test_normaliser_casse_nom_est_idempotente():
+    for casse, attendu in CASSE_A_REPARER.items():
+        assert fin.normaliser_casse_nom(attendu) == attendu
+        assert fin.normaliser_casse_nom(fin.normaliser_casse_nom(casse)) == attendu
+
+
+def test_normaliser_casse_nom_et_mojibake_sont_deux_defauts_distincts():
+    """`reparer_mojibake` ne voit même pas le motif : aucun « Ã »/« Â »."""
+    casse = "M. ELéLOUé-VALMAR Loïc"
+    assert fin.reparer_mojibake(casse) == casse          # inopérant, comme prévu
+    assert fin.normaliser_casse_nom(casse) != casse      # l'autre fonction agit
+    # et réciproquement : la casse ne défait pas le mojibake
+    assert fin.normaliser_casse_nom("M. TOPARSLAN ErgÃ¼n") == "M. TOPARSLAN ErgÃ¼n"
+
+
+def test_extraire_marqueur_etoile():
+    assert fin.extraire_marqueur_etoile("Mme YADAN Caroline (*)") == (
+        "Mme YADAN Caroline",
+        True,
+    )
+    assert fin.extraire_marqueur_etoile("Mme DORé-LUCAS Marie Madeleine (*)") == (
+        "Mme DORé-LUCAS Marie Madeleine",
+        True,
+    )
+    # sans marqueur : le nom est rendu tel quel
+    assert fin.extraire_marqueur_etoile("M. BRETON Xavier") == (
+        "M. BRETON Xavier",
+        False,
+    )
+    # une étoile qui n'est pas le marqueur suffixé n'est pas touchée
+    assert fin.extraire_marqueur_etoile("M. (*) DUPONT") == ("M. (*) DUPONT", False)
+
+
+def test_legende_marqueur_etoile_dit_qu_elle_n_est_pas_documentee():
+    legende = fin.legende_marqueur_etoile(1)
+    assert "(*)" in legende
+    assert "n'est pas documentée" in legende
+    assert fin.legende_marqueur_etoile(0) == ""
+
+
+# ---------------------------------------------------------------------------
+# Format monétaire : une donnée absente n'est jamais rendue en zéro
+# ---------------------------------------------------------------------------
+
+FINE = "\u202f"
+
+
+def test_formater_euros():
+    assert fin.formater_euros(19474807.0) == f"19{FINE}474{FINE}807{FINE}€"
+    assert fin.formater_euros(773.0) == f"773{FINE}€"
+    assert fin.formater_euros(1234.56) == f"1{FINE}234,56{FINE}€"
+    assert fin.formater_euros(-83.0) == f"-83{FINE}€"
+    # séparateur de milliers ET espace avant l'unité : espace fine insécable,
+    # même convention que app/src/lib/format.ts (jamais d'espace ordinaire).
+    assert " " not in fin.formater_euros(19474807.0)
+    # plus aucun point décimal anglo-saxon
+    assert "." not in fin.formater_euros(1234.56)
+
+
+def test_formater_euros_distingue_absence_et_zero():
+    """Le cœur de la correction : None n'est PAS 0."""
+    assert fin.formater_euros(None) == "non renseigné"
+    assert fin.formater_euros(0.0) == f"0{FINE}€"
+    assert fin.formater_euros(0) != fin.formater_euros(None)
+
+
+def test_compte_sans_montant_est_conjonctif():
+    """Un seul poste à zéro ne suffit pas — sinon on écraserait de vrais zéros."""
+    zero = dict.fromkeys(fin.POSTES_COMPTE_CAMPAGNE, 0.0)
+    assert fin.compte_sans_montant(zero) is True
+    # 152 comptes réels : dépenses > 0 et remboursement à 0 (vrai zéro,
+    # juridiquement obligatoire pour un compte rejeté)
+    remb_zero = dict(zero, depenses_declarees=773.0, depenses_retenues=773.0,
+                     recettes_declarees=773.0)
+    assert fin.compte_sans_montant(remb_zero) is False
+    # un NULL quelque part : la règle ne se déclenche pas non plus
+    avec_null = dict(zero, depenses_retenues=None)
+    assert fin.compte_sans_montant(avec_null) is False
 
 
 # ---------------------------------------------------------------------------
@@ -275,20 +408,215 @@ def test_alertes_campagnes_et_partis(conn):
     assert total == nb + 1  # + l'alerte de l'autre pipeline
 
 
+def _tokens_a_casse_cassee(nom: str) -> list[str]:
+    """Détecteur INDÉPENDANT de la fonction testée (règle réécrite à la main).
+
+    Un token est « cassé » s'il mélange des capitales ASCII et des minuscules
+    accentuées sans aucune minuscule ASCII, ou s'il est entièrement en bas de
+    casse en commençant par une minuscule accentuée.
+    """
+    maj = set(string.ascii_uppercase)
+    minu = set(string.ascii_lowercase)
+
+    def accentuee_min(c: str) -> bool:
+        return c.isalpha() and c.islower() and c not in minu
+
+    casses = []
+    for t in nom.split(" "):
+        sans_min_ascii = not any(c in minu for c in t)
+        if (
+            len(t) >= 3
+            and sans_min_ascii
+            and sum(1 for c in t if c in maj) >= 2
+            and any(accentuee_min(c) for c in t)
+        ):
+            casses.append(t)
+        elif t and accentuee_min(t[0]) and t == t.lower():
+            casses.append(t)
+    return casses
+
+
+def test_apres_ingestion_aucun_nom_a_casse_cassee(conn):
+    """Non-régression : zéro nom cassé en base après chargement réel."""
+    lignes = fin.parser_campagnes(FIX_CAMPAGNES.read_bytes())
+    fin.charger_campagnes(conn, lignes)
+    noms = [r["nom"] for r in conn.execute("SELECT nom FROM campagnes_2024")]
+    casses = {n: _tokens_a_casse_cassee(n) for n in noms}
+    assert not any(casses.values()), {k: v for k, v in casses.items() if v}
+    # les deux familles de la fixture sont bien réparées
+    assert "Mme PRIÉ Lola" in noms      # « Mme PRIé Lola » dans le CSV publié
+    assert "M. LAHY Éric" in noms       # « M. LAHY éric » dans le CSV publié
+    # … et les noms sains sont identiques au caractère près
+    assert "M. BRETON Xavier" in noms
+    assert "Mme LEBOUCHER Elise" in noms
+    assert "M. TOPARSLAN Ergün" in noms  # mojibake réparé, casse inchangée
+
+
+def test_marqueur_etoile_sorti_du_nom_et_stocke(conn):
+    lignes = fin.parser_campagnes(FIX_CAMPAGNES.read_bytes())
+    marquee = dict(lignes[0], candidat_id="999999999",
+                   nom="Mme YADAN Caroline", marqueur_etoile=True,
+                   decision="R", decision_famille="rejete")
+    fin.charger_campagnes(conn, lignes + [marquee])
+    ligne = conn.execute(
+        "SELECT nom, marqueur_etoile FROM campagnes_2024 WHERE candidat_id = '999999999'"
+    ).fetchone()
+    assert ligne["nom"] == "Mme YADAN Caroline"   # le marqueur n'est plus dans le nom
+    assert ligne["marqueur_etoile"] == 1
+    # aucun nom ne porte plus « (*) »
+    assert conn.execute(
+        "SELECT COUNT(*) AS n FROM campagnes_2024 WHERE nom LIKE '%(*)%'"
+    ).fetchone()["n"] == 0
+    fin.calculer_alertes(conn, None)
+    detail = conn.execute(
+        "SELECT detail FROM alertes WHERE id = 'FIN-CAMP-REJ-999999999'"
+    ).fetchone()["detail"]
+    assert "(*)" in detail and "n'est pas documentée" in detail
+
+
 # ---------------------------------------------------------------------------
-# Faits sourcés 2026
+# Montants des alertes : format français, et l'absence n'est pas un zéro
 # ---------------------------------------------------------------------------
 
 
-def test_aide_2026_total_seul(conn):
-    fin.charger_aide_2026(conn)
-    fin.charger_aide_2026(conn)  # idempotent
-    lignes = conn.execute("SELECT * FROM partis_aide_2026").fetchall()
-    assert len(lignes) == 1
-    assert lignes[0]["annee"] == 2026
-    assert lignes[0]["montant_total_eur"] == 64262871.05
-    assert "2026-149" in lignes[0]["reference"]
-    assert lignes[0]["source_url"].startswith("https://www.legifrance.gouv.fr/jorf/id/")
+def _charger_corpus_alertes(conn):
+    lignes = fin.parser_campagnes(FIX_CAMPAGNES.read_bytes())
+    # compte intégralement à zéro : 55 cas réels sur les 85 rejets publiés —
+    # absence de compte exploitable, souvent le motif même du rejet.
+    tout_zero = dict(
+        lignes[0], candidat_id="900000001", nom="M. SANSCOMPTE Jean",
+        depenses_declarees=0.0, depenses_retenues=0.0, recettes_declarees=0.0,
+        recettes_retenues=0.0, remboursement_etat=0.0,
+        decision="R", decision_famille="rejete",
+    )
+    fin.charger_campagnes(conn, lignes + [tout_zero])
+    fin.charger_partis(conn, {2024: fin.parser_partis(FIX_PARTIS_2024.read_bytes(), 2024)})
+    fin.calculer_alertes(conn, None)
+
+
+def test_alerte_compte_tout_a_zero_ne_publie_pas_de_montant(conn):
+    _charger_corpus_alertes(conn)
+    detail = conn.execute(
+        "SELECT detail FROM alertes WHERE id = 'FIN-CAMP-REJ-900000001'"
+    ).fetchone()["detail"]
+    assert "aucun montant renseigné" in detail
+    assert "tous les postes du compte sont à zéro" in detail
+    assert "ne signifie PAS que le candidat n'a rien dépensé" in detail
+    # surtout : aucun montant chiffré n'est affirmé
+    assert "0 €" not in detail
+    assert "0.0" not in detail
+    assert "€" not in detail  # aucun montant n'est affirmé du tout
+
+
+def test_alerte_remboursement_zero_legitime_garde_son_zero(conn):
+    """KOUASSI : dépenses > 0, remboursement 0 € — un VRAI zéro, à conserver."""
+    _charger_corpus_alertes(conn)
+    detail = conn.execute(
+        "SELECT detail FROM alertes WHERE id = 'FIN-CAMP-REJ-202409066'"
+    ).fetchone()["detail"]
+    assert f"dépenses déclarées : 773{FINE}€" in detail
+    assert f"remboursement État : 0{FINE}€" in detail
+    assert "aucun montant renseigné" not in detail
+
+
+def test_aucun_montant_serialise_a_l_anglo_saxonne(conn):
+    _charger_corpus_alertes(conn)
+    details = [
+        r["detail"]
+        for r in conn.execute(
+            "SELECT detail FROM alertes WHERE type LIKE 'financement_%'"
+        )
+        if r["detail"]
+    ]
+    assert details
+    for d in details:
+        assert ".0 €" not in d
+        assert not re.search(r"\d\.\d+\s*€", d), d
+        assert not re.search(r"\d \d{3}\s*€", d), d  # espace ordinaire interdite
+
+
+def test_regle_de_dependance_en_format_francais(conn):
+    """La règle affichée au public suit la même convention que les montants."""
+    _charger_corpus_alertes(conn)
+    regle = conn.execute(
+        "SELECT regle FROM alertes WHERE type = 'financement_parti_dependance_aide' LIMIT 1"
+    ).fetchone()["regle"]
+    assert f"1{FINE}000{FINE}000{FINE}€" in regle
+    assert "1,000,000" not in regle
+
+
+def test_motif_ratio_conserve_mot_pour_mot_et_reste_triable(conn):
+    """PIÈGE : `(ratio ` est une clé de tri SQL côté front — à ne pas casser.
+
+    app/src/lib/queries/financement.ts ordonne les alertes de dépendance par
+    CAST(substr(detail, instr(detail,'(ratio ') + 7) AS REAL) : le séparateur
+    décimal doit rester un POINT (SQLite lit '92,7' comme 92.0).
+    """
+    _charger_corpus_alertes(conn)
+    lignes = conn.execute(
+        """SELECT detail,
+                  CAST(substr(detail, instr(detail, '(ratio ') + 7) AS REAL) AS cle
+           FROM alertes
+           WHERE type = 'financement_parti_dependance_aide'
+           ORDER BY cle DESC, id"""
+    ).fetchall()
+    assert lignes
+    for l in lignes:
+        assert "(ratio " in l["detail"]
+        assert re.search(r"\(ratio \d+\.\d%\)\.", l["detail"]), l["detail"]
+        assert l["cle"] > 0  # la clé de tri est bien numérique, pas 0
+    assert [l["cle"] for l in lignes] == sorted(
+        (l["cle"] for l in lignes), reverse=True
+    )
+
+
+# ---------------------------------------------------------------------------
+# Enveloppes légales sourcées (décrets)
+# ---------------------------------------------------------------------------
+
+
+def test_decrets_aide_publique_table_annuelle(conn):
+    """Une ligne par décret RÉELLEMENT consulté — aucune année inventée."""
+    assert fin.charger_decrets_aide(conn) == 2
+    fin.charger_decrets_aide(conn)  # idempotent
+    lignes = conn.execute(
+        "SELECT * FROM partis_aide_annuelle ORDER BY annee"
+    ).fetchall()
+    assert [l["annee"] for l in lignes] == [2024, 2026]
+    par_annee = {l["annee"]: l for l in lignes}
+    assert par_annee[2024]["montant_total_eur"] == 66438848.34
+    assert "2024-77" in par_annee[2024]["reference"]
+    assert par_annee[2026]["montant_total_eur"] == 64262871.05
+    assert "2026-149" in par_annee[2026]["reference"]
+    # fractions non dépouillées → NULL, jamais 0
+    for l in lignes:
+        assert l["fraction1_eur"] is None
+        assert l["fraction2_eur"] is None
+        assert l["source_url"].startswith("https://www.legifrance.gouv.fr/")
+
+
+def test_decret_2024_porte_sa_reserve_de_verification(conn):
+    """La valeur 2024 n'a pas été re-vérifiée sur Légifrance : ça doit se lire."""
+    fin.charger_decrets_aide(conn)
+    note = conn.execute(
+        "SELECT note FROM partis_aide_annuelle WHERE annee = 2024"
+    ).fetchone()["note"]
+    assert "403" in note and "à confirmer" in note.lower()
+
+
+def test_ancienne_table_mono_annee_supprimee(conn):
+    """partis_aide_2026 laissait comparer un décret à des déclarations."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS partis_aide_2026 (annee INTEGER PRIMARY KEY)"
+    )
+    conn.commit()
+    fin.creer_tables(conn)  # rejoue le schéma : le DROP doit passer
+    restantes = {
+        r["name"]
+        for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+    }
+    assert "partis_aide_2026" not in restantes
+    assert "partis_aide_annuelle" in restantes
 
 
 # ---------------------------------------------------------------------------

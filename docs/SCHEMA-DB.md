@@ -598,14 +598,20 @@ CREATE TABLE campagnes_2024 (
     decision_famille   TEXT NOT NULL
 );
 CREATE INDEX idx_campagnes_2024_decision ON campagnes_2024(decision_famille);
-CREATE TABLE partis_aide_2026 (
+CREATE TABLE partis_aide_annuelle (
     annee             INTEGER PRIMARY KEY,
     montant_total_eur REAL NOT NULL,
+    fraction1_eur     REAL,          -- NULL = non dépouillée dans le décret consulté
+    fraction2_eur     REAL,
     perimetre         TEXT NOT NULL,
     reference         TEXT NOT NULL,
     source_url        TEXT NOT NULL,
     note              TEXT
 );
+-- Une ligne par décret RÉELLEMENT consulté : aucune année n'est interpolée.
+-- Remplace partis_aide_2026, qui ne portait qu'une année et faisait passer
+-- pour comparables l'enveloppe nationale et la somme des aides déclarées par
+-- les partis dans leurs comptes — deux grandeurs de nature différente.
 CREATE VIEW v_partis_top_produits AS
             SELECT p.id AS parti_id, p.code_cnccfp, p.nom, p.sigle, c.exercice,
                    c.produits_total, c.charges_total, c.resultat,
@@ -828,7 +834,7 @@ CREATE TABLE trainvie_opacites (
 - marches_a_venir : 4060 lignes
 - meta_sources : 25 lignes
 - partis : 718 lignes
-- partis_aide_2026 : 1 lignes
+- partis_aide_annuelle : 2 lignes
 - partis_comptes : 2179 lignes
 - ref_departements : 101 lignes
 - ref_villes : 184 lignes
