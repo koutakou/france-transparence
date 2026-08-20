@@ -53,7 +53,7 @@ La base `data/france.db` (447 Mo, 51 tables) est gitignorée : elle se reconstru
 make ingest-<source>
 ```
 
-avec `<source>` parmi les pipelines déclarés dans la variable `PIPELINES` du `Makefile`, qui fait autorité : `referentiels`, `budget_mensuel`, `budget_structure`, `decp`, `boamp`, `approch`, `jorf`, `parlement`, `integrite`, `hatvp_declarations`, `lobbying`, `financement`, `collectivites`, `elections`, `trainvie`, `cada`.
+avec `<source>` parmi les pipelines déclarés dans la variable `PIPELINES` du `Makefile`, qui fait autorité : `referentiels`, `budget_mensuel`, `budget_structure`, `decp`, `boamp`, `approch`, `jorf`, `parlement`, `integrite`, `hatvp_declarations`, `lobbying`, `financement`, `collectivites`, `elections`, `trainvie`, `cada`, `registre_ue`.
 
 ## Tests
 
@@ -85,7 +85,7 @@ Détails : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | `/marches` | Commande publique | 586 229 marchés consolidés (quotidien, notifications J-1, consolidation légale ≤ 2 mois), 9 011 appels d'offres en cours (BOAMP, jour même), 4 060 achats à venir (APProch). |
 | `/elus` | Élus & institutions | 36 018 élus (RNE du 11/08/2026, trimestriel) dont 577 députés et 348 sénateurs (open data AN/Sénat/Datan, quotidien). |
 | `/elus/[id]` | Fiche élu | 1 053 fiches statiques (parlementaires et présidences d'exécutifs départementaux/régionaux — les autres élus restent dans les listes et agrégats) : mandats, 30 derniers votes sur les 8 434 scrutins AN (dernier : 21/07/2026, vacances parlementaires), scores Datan crédités, lien HATVP. |
-| `/lobbying` | Lobbying | 4 067 entités inscrites au répertoire HATVP (quotidien, données au 18/08/2026) ; dépenses déclarées par exercice annuel, en fourchettes. |
+| `/lobbying` | Lobbying | Répertoire HATVP des représentants d'intérêts (quotidien) : entités inscrites, activités déclarées, dépenses par exercice annuel en fourchettes, croisement avec les marchés publics. Puis, dans un bloc **cloisonné** en fin de page, le registre de transparence de l'Union européenne (quotidien) : organisations inscrites, dont celles à siège en France. Deux registres, deux cadres juridiques — jamais fusionnés, jamais comparés. |
 | `/financement` | Financement politique | Comptes des partis, exercice 2024 (publié le 10/02/2026 — le dernier possible) ; comptes de campagne des législatives 2024, 4 010 candidats (municipales 2026 : publication attendue fin 2026/2027). |
 | `/frais` | Frais & train de vie | 56 faits chiffrés sourcés (barèmes au 01/01/2026, contrôles exercice 2024, Élysée audité 2024) + 8 opacités documentées — pas de notes de frais : elles ne sont ni publiées ni communicables. **Carte des verrous** : 60 941 avis et conseils de la CADA de 1984 à 2024, dépouillés en agrégats (qui refuse, sur quel fondement, et dans quel sens la commission tranche), avec les 28 mois de retard de versement de la source affichés en clair. |
 | `/collectivites` | Finances locales | Comptes OFGL 2025 (provisoires, chargés en juillet 2026), dotations DGF 2018-2026, carte en €/habitant. |
@@ -127,7 +127,7 @@ Assumées et affichées dans l'interface — l'honnêteté est le principe produ
 - **Notes de frais parlementaires** : ni publiées ni communicables (ord. 58-1100, CE mars 2025, refus écrits AN/Sénat du 11/06/2026) → le module Frais & train de vie est pédagogique : barèmes exacts, contrôles agrégés, opacités documentées.
 - **Montants d'accords-cadres** : ce sont des maximums contractuels, pas des paiements — libellés « marchés notifiés », jamais « dépensé ».
 - **DECP** : latence légale de publication jusqu'à 2 mois — mention « en cours de consolidation » partout où le flux apparaît.
-- **Lobbying** : la donnée HATVP ne sépare pas AN et Sénat (« Parlement » agrégé) et les dépenses sont déclarées par exercice annuel.
+- **Lobbying** : la donnée HATVP ne sépare pas AN et Sénat (« Parlement » agrégé) et les dépenses sont déclarées par exercice annuel. Le registre européen, lui, ne publie aucun identifiant national d'entreprise (ni SIREN, ni TVA) : aucun rapprochement automatique n'est possible entre les deux registres, et aucun n'est tenté.
 - **Comptes locaux 2025** : provisoires (chargés en juillet 2026, ~97 communes manquantes jusqu'en décembre 2026).
 - **Outre-mer** : hors rendu de la carte v1 (présent dans les tableaux et agrégats).
 - **Scrutins du Sénat** : non ingérés en v1 (dump Dosleg prévu en v2).

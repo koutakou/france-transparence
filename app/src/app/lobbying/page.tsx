@@ -29,6 +29,13 @@ import {
   type TopEntite,
   type TrimestreActivites,
 } from "@/lib/queries/lobbying";
+import { OrganisationsRegistreUe } from "@/components/client/OrganisationsRegistreUe";
+import {
+  getDonneesRegistreUe,
+  type CategorieUe,
+  type CoutUe,
+  type DonneesRegistreUe,
+} from "@/lib/queries/registre-ue";
 
 // Rendu statique : la donnée ne change qu'à l'ingestion, le site est
 // reconstruit après chaque ingestion (docs/deploiement/DECISION.md).
@@ -533,9 +540,301 @@ function SectionCroisement({
 }
 
 /**
+ * Registre de transparence de l'Union européenne (source S40) — bloc
+ * CLOISONNÉ, rendu après tout ce qui précède et séparé de lui par une
+ * frontière explicite.
+ *
+ * Pourquoi un cloisonnement, et pas un module fusionné : le registre de
+ * l'Union et le répertoire français de la HATVP sont deux registres
+ * distincts, adossés à deux cadres juridiques distincts (accord
+ * interinstitutionnel du 20/05/2021 ; loi « Sapin II » du 09/12/2016). Ils
+ * n'ont ni le même périmètre d'inscription, ni les mêmes obligations
+ * déclaratives, ni la même unité de coût. Les mêler produirait des totaux
+ * qui ne mesurent rien.
+ *
+ * Ce que ce composant s'interdit, littéralement :
+ *   - additionner un chiffre de l'UE et un chiffre de la HATVP ;
+ *   - diviser l'un par l'autre — les deux compteurs de contexte sont posés
+ *     CÔTE À CÔTE, chacun avec son périmètre écrit en toutes lettres, et
+ *     aucun pourcentage n'est calculé entre eux ;
+ *   - nommer une personne physique : les travailleurs indépendants inscrits
+ *     au registre sont comptés, jamais listés, et l'écart est affiché.
+ *
+ * Aucune organisation listée ici n'est en tort : l'inscription à un registre
+ * de transparence est une démarche de conformité, obligatoire pour accéder
+ * aux institutions de l'Union.
+ */
+function SectionRegistreUe({ donnees }: { donnees: DonneesRegistreUe }) {
+  const { meta, totalInscrits, france, compteurs, paysTete } = donnees;
+
+  const badgeUe = (
+    <FreshnessBadge
+      dateDonnees={meta.date_donnees}
+      source="Registre de transparence de l'UE"
+      frequence={meta.frequence}
+      url={meta.url}
+      mention="export quotidien, date lue dans le fichier"
+    />
+  );
+
+  const rangFrance =
+    paysTete.findIndex((p) => p.pays === "FRANCE") + 1 || null;
+
+  return (
+    <>
+      {/* ── Frontière entre les deux registres ───────────────────────── */}
+      <div className="mt-4 flex items-center gap-3" role="separator">
+        <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+          Autre registre · autre cadre juridique
+        </span>
+        <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+      </div>
+
+      <Card
+        titre="Registre de transparence de l'Union européenne"
+        sousTitre={`Registre commun du Parlement européen et de la Commission (accord interinstitutionnel du 20 mai 2021) : l'inscription y conditionne l'accès des représentants d'intérêts aux institutions de l'Union. Export quotidien des organisations inscrites, daté du ${formatDateFr(meta.date_donnees)} par le fichier lui-même.`}
+        droite={badgeUe}
+      >
+        <div className="flex flex-col gap-4">
+          {/* Le cadrage passe AVANT les chiffres : sans lui, le bloc se lit
+              comme la suite du répertoire HATVP, ce qu'il n'est pas. */}
+          <div className="rounded-xl border border-card-border bg-raised p-4">
+            <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+              Pourquoi ce bloc est séparé du reste de la page
+            </h3>
+            <p className="text-xs leading-relaxed text-ink-secondary">
+              Tout ce qui précède vient du{" "}
+              <strong className="font-medium text-ink">
+                répertoire français des représentants d&apos;intérêts
+              </strong>{" "}
+              tenu par la HATVP (loi « Sapin II » du 9 décembre 2016). Ce bloc
+              vient d&apos;un{" "}
+              <strong className="font-medium text-ink">
+                autre registre, celui de l&apos;Union européenne
+              </strong>
+              , adossé à un autre cadre juridique. Les deux n&apos;ont ni le
+              même périmètre d&apos;inscription, ni les mêmes obligations
+              déclaratives, ni la même définition des coûts déclarés : les
+              montants de l&apos;un ne se comparent pas à ceux de l&apos;autre
+              et ne s&apos;additionnent pas. Aucun rapprochement automatique
+              n&apos;est possible par ailleurs — l&apos;export européen ne
+              publie aucun identifiant national d&apos;entreprise, d&apos;aucun
+              pays : ni SIREN, ni numéro de TVA. Aucune organisation
+              n&apos;est ici mise en cause : s&apos;inscrire à un registre de
+              transparence est une obligation de conformité, pas un
+              manquement.
+            </p>
+          </div>
+
+          <StatStrip
+            stats={[
+              {
+                label: "Organisations inscrites (tous pays)",
+                valeur: formatNombre(totalInscrits),
+              },
+              {
+                label: "Dont siège en France",
+                valeur: formatNombre(france.total),
+              },
+              {
+                label: "Rang de la France par nombre d'inscrits",
+                valeur: rangFrance ? `${rangFrance}ᵉ` : "—",
+              },
+              {
+                label: "Inscrits français déclarant une fourchette de coûts",
+                valeur: formatNombre(france.avecCout),
+              },
+            ]}
+          />
+
+          {/* ── DEUX COMPTEURS, JAMAIS UN RATIO ──────────────────────── */}
+          <div className="rounded-xl border border-card-border bg-card p-4">
+            <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+              Deux registres, deux compteurs
+            </h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-card-border bg-raised p-3">
+                <p className="text-lg font-semibold tabular-nums text-ink">
+                  {formatNombre(compteurs.hatvpNiveauEuropeen)}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-ink-secondary">
+                  entités du{" "}
+                  <strong className="font-medium text-ink">
+                    répertoire français (HATVP)
+                  </strong>{" "}
+                  — sur {formatNombre(compteurs.hatvpTotal)} inscrites —
+                  déclarent exercer leur activité de représentation
+                  d&apos;intérêts à un niveau « Européen ». C&apos;est une case
+                  d&apos;une déclaration française.
+                </p>
+              </div>
+              <div className="rounded-lg border border-card-border bg-raised p-3">
+                <p className="text-lg font-semibold tabular-nums text-ink">
+                  {formatNombre(compteurs.ueSiegeFrance)}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-ink-secondary">
+                  organisations à{" "}
+                  <strong className="font-medium text-ink">
+                    siège en France
+                  </strong>{" "}
+                  sont inscrites au{" "}
+                  <strong className="font-medium text-ink">
+                    registre de l&apos;Union
+                  </strong>{" "}
+                  — sur {formatNombre(compteurs.ueTotal)} inscrites, tous pays.
+                  C&apos;est une inscription à Bruxelles.
+                </p>
+              </div>
+            </div>
+            <p className="mt-3 text-xs leading-relaxed text-ink-muted">
+              Ces deux nombres sont posés côte à côte, et pas l&apos;un sur
+              l&apos;autre :{" "}
+              <strong className="font-medium text-ink">
+                ils ne recouvrent pas le même ensemble
+              </strong>
+              . Une organisation peut relever des deux registres, d&apos;un
+              seul, ou d&apos;aucun — une entreprise étrangère inscrite à
+              Bruxelles n&apos;a aucune raison de figurer au répertoire
+              français, et une association qui ne s&apos;adresse qu&apos;à des
+              responsables publics français n&apos;a aucune raison de
+              s&apos;inscrire à Bruxelles. En faire un rapport, un taux ou un
+              écart n&apos;aurait aucun sens : ce serait diviser deux mesures
+              d&apos;objets différents.
+            </p>
+          </div>
+
+          <BarList
+            items={paysTete.map((p) => ({
+              libelle: p.pays,
+              valeur: p.nb_organisations,
+            }))}
+            formatValeur={(v) => formatNombre(v)}
+            largeurLibelle="38%"
+          />
+          <p className="text-xs leading-relaxed text-ink-muted">
+            Pays du siège social déclaré, cinq premiers par nombre
+            d&apos;inscrits, sous le libellé anglais du registre. Le siège
+            n&apos;est pas le lieu d&apos;activité : une part des
+            organisations domiciliées en Belgique sont les bureaux bruxellois
+            d&apos;organisations d&apos;autres pays.
+          </p>
+
+          <VueTableau>
+            <DataTable<CategorieUe>
+              colonnes={[
+                {
+                  cle: "categorie",
+                  entete: "Catégorie d'inscription (libellé natif)",
+                },
+                {
+                  cle: "nb_france",
+                  entete: "Inscrits à siège en France",
+                  type: "nombre",
+                },
+              ]}
+              lignes={donnees.categoriesFrance}
+              cleLigne={(l) => l.categorie}
+            />
+          </VueTableau>
+        </div>
+      </Card>
+
+      {/* ── Coûts déclarés au registre de l'Union ─────────────────────── */}
+      <Card
+        titre="Coûts annuels déclarés au registre de l'Union"
+        sousTitre={`Organisations à siège en France par fourchette de coûts annuels consacrés aux activités de représentation d'intérêts auprès des institutions de l'Union — fourchettes natives du registre, telles que publiées. ${formatNombre(france.avecCout)} des ${formatNombre(france.total)} inscrits français en déclarent une.`}
+        droite={badgeUe}
+      >
+        <DataTable<CoutUe>
+          colonnes={[
+            { cle: "fourchette", entete: "Fourchette de coûts annuels (libellé natif)" },
+            {
+              cle: "nb_france",
+              entete: "Organisations à siège en France",
+              type: "nombre",
+            },
+          ]}
+          lignes={donnees.coutsFrance}
+          cleLigne={(l) => l.fourchette}
+          hauteurMax="20rem"
+        />
+        <p className="mt-2 text-xs leading-relaxed text-ink-muted">
+          Ces fourchettes ne sont{" "}
+          <strong className="font-medium text-ink">jamais sommées</strong> : la
+          somme de bornes déclaratives ne serait pas un montant. Elles ne se
+          comparent pas non plus aux fourchettes de dépenses du répertoire
+          HATVP présentées plus haut — ce sont deux déclarations distinctes,
+          faites à deux autorités distinctes, sur deux périmètres
+          d&apos;activité distincts. Une organisation qui déclare des coûts
+          dans les deux registres ne déclare pas deux fois la même dépense, et
+          rien ne permet de savoir dans quelle mesure elles se recouvrent.
+        </p>
+      </Card>
+
+      {/* ── Domaines d'intérêt et liste nominative ────────────────────── */}
+      <Card
+        titre="Organisations françaises inscrites au registre de l'Union"
+        sousTitre={`${formatNombre(france.nominatives)} organisations à siège en France, tri alphabétique. Les ${formatNombre(france.personnesPhysiques)} inscrits français de la catégorie « Self-employed individuals » sont des personnes physiques : ils sont comptés dans les ${formatNombre(france.total)} inscrits français, mais ne sont pas nommés ici.`}
+        droite={badgeUe}
+      >
+        <div className="flex flex-col gap-4">
+          <div>
+            <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+              Domaines d&apos;intérêt les plus déclarés (organisations françaises)
+            </h3>
+            <BarList
+              items={donnees.domainesFrance.map((d) => ({
+                libelle: d.domaine,
+                valeur: d.nb_france,
+              }))}
+              formatValeur={(v) => formatNombre(v)}
+              largeurLibelle="45%"
+            />
+            <p className="mt-2 text-xs text-ink-muted">
+              Domaines déclarés par l&apos;organisation elle-même, huit
+              premiers. Une organisation en déclare plusieurs : les lignes ne
+              se cumulent pas.
+            </p>
+          </div>
+
+          <OrganisationsRegistreUe
+            premieres={donnees.organisationsFrance}
+            total={france.nominatives}
+          />
+
+          <p className="text-xs leading-relaxed text-ink-muted">
+            Figurer à ce registre n&apos;est en rien un reproche : c&apos;est la
+            condition posée par le Parlement européen et la Commission pour
+            rencontrer leurs responsables, et l&apos;inscription y est publique
+            par construction. La colonne des coûts reprend la fourchette
+            déclarée pour le dernier exercice clos publié par le registre ;
+            « — » signifie qu&apos;aucune fourchette n&apos;y figure, jamais
+            qu&apos;elle serait nulle. Source :{" "}
+            <a
+              href={meta.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
+            >
+              export XML du registre de transparence de l&apos;Union
+            </a>{" "}
+            — réutilisation autorisée par la décision 2011/833/UE.
+          </p>
+        </div>
+      </Card>
+    </>
+  );
+}
+
+/**
  * Lobbying — répertoire des représentants d'intérêts (HATVP, loi
  * « Sapin II »). Données 100 % réelles de data/france.db (source S4),
  * mises à jour quotidiennement par le pipeline.
+ *
+ * La page se termine par un bloc CLOISONNÉ consacré au registre de
+ * transparence de l'Union européenne (source S40) : autre registre, autre
+ * cadre juridique, jamais fusionné avec ce qui précède.
  */
 export default async function LobbyingPage() {
   const donnees = getDonneesLobbying();
@@ -588,6 +887,11 @@ export default async function LobbyingPage() {
   // source marchés n'est pas ingérée, `null` — la section disparaît au lieu
   // d'afficher un croisement à une seule source, qui ne voudrait rien dire.
   const croisement = getCroisementLobbyingMarches();
+
+  // Registre de transparence de l'UE (S40). Facultatif de la même manière :
+  // `null` tant que la source n'est pas ingérée — le bloc disparaît plutôt
+  // que d'afficher des compteurs vides.
+  const registreUe = getDonneesRegistreUe();
 
   return (
     <section className="flex flex-col gap-6">
@@ -809,6 +1113,9 @@ export default async function LobbyingPage() {
           baseLegale={alerteDefauts?.base_legale ?? null}
         />
       )}
+
+      {/* ── Registre de transparence de l'UE (S40) — bloc cloisonné ───── */}
+      {registreUe && <SectionRegistreUe donnees={registreUe} />}
     </section>
   );
 }
