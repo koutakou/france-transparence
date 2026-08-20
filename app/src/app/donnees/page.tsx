@@ -10,6 +10,7 @@ import {
   getDerniereIngestion,
   getDerniereIngestionParIds,
   getLicences,
+  type Fraicheur,
   type NiveauFraicheur,
   type SourceCataloguee,
 } from "@/lib/queries/donnees";
@@ -27,8 +28,9 @@ export const metadata: Metadata = {
 
 /**
  * Page /donnees — « Données & exports », le manifeste de méthode du projet :
- * 1. le tableau de fraîcheur central (meta_sources + badge de fraîcheur
- *    relative, règle simple documentée) ;
+ * 1. le tableau de fraîcheur central (meta_sources + badge de fraîcheur,
+ *    un seuil calibré par source, règle et provenance des seuils
+ *    documentées sous le tableau) ;
  * 2. périmètre « argent public » et promesses marketing NON tenables avec la
  *    donnée réelle (docs/SOURCES.md §2 encart + §3) ;
  * 3. licences réellement présentes en base et crédits obligatoires ;
@@ -41,27 +43,67 @@ export const metadata: Metadata = {
 /* ---------------------------------------------------------------- */
 
 const NIVEAUX: Record<NiveauFraicheur, { jeton: string; libelle: string }> = {
-  verte: { jeton: "var(--status-good)", libelle: "À jour" },
-  orange: { jeton: "var(--status-warning)", libelle: "À surveiller" },
-  rouge: { jeton: "var(--status-critical)", libelle: "En retard" },
-  millesime: { jeton: "var(--viz-autre)", libelle: "Millésime" },
+  a_jour: { jeton: "var(--status-good)", libelle: "À jour" },
+  a_surveiller: { jeton: "var(--status-warning)", libelle: "À surveiller" },
+  en_retard: { jeton: "var(--status-serious)", libelle: "En retard" },
+  attente_edition: {
+    jeton: "var(--status-critical)",
+    libelle: "En attente d’une édition",
+  },
+  non_calibre: { jeton: "var(--viz-autre)", libelle: "Seuil non calibré" },
 };
 
+/** « 678 jours », « 2 jours ouvrés » — l'unité est celle du seuil de la source. */
+function libelleAge(f: Fraicheur): string {
+  const pluriel = f.ageJours >= 2 ? "s" : "";
+  const unite = f.unite === "jo" ? `jour${pluriel} ouvré${pluriel}` : `jour${pluriel}`;
+  return `${formatNombre(f.ageJours)} ${unite}`;
+}
+
+/** Seuil affiché avec son unité (« 850 j », « 20 j ouvrés »). */
+function libelleSeuil(f: Fraicheur, jours: number): string {
+  return `${formatNombre(jours)} ${f.unite === "jo" ? "j ouvrés" : "j"}`;
+}
+
+/**
+ * La phrase exacte derrière le badge — factuelle et datée.
+ *
+ * Pour une source en attente, elle ne dit RIEN de l'avenir ni de
+ * l'intention de l'éditeur : seulement qu'aucune édition plus récente
+ * n'était parue à la date du build. C'est le seul fait vérifiable.
+ */
+function phraseFraicheur(s: SourceCataloguee): string {
+  const f = s.fraicheur;
+  const donneesAu = `Données au ${formatDateFr(s.date_donnees)}`;
+  if (f.niveau === "non_calibre") {
+    return `${donneesAu}, soit ${libelleAge(f)}. Aucun seuil n’est calibré pour cette source : son état n’est pas évalué.`;
+  }
+  const seuils = `seuils calibrés pour cette source : ${libelleSeuil(f, f.seuilRetardJours ?? 0)} (à surveiller) / ${libelleSeuil(f, f.seuilAlerteJours ?? 0)} (alerte)`;
+  if (f.niveau === "attente_edition") {
+    return `${donneesAu}. Aucune édition plus récente n’a été publiée à ce jour — ${libelleAge(f)}, ${seuils}.`;
+  }
+  return `${donneesAu}, soit ${libelleAge(f)} — ${seuils}.`;
+}
+
 function BadgeFraicheur({ source }: { source: SourceCataloguee }) {
-  const { niveau, ageJours, periodeJours } = source.fraicheur;
-  const n = NIVEAUX[niveau];
-  const detail =
-    niveau === "millesime"
-      ? `Âge de la donnée : ${ageJours} j — millésime, pas d'âge attendu pertinent (décalage structurel documenté)`
-      : `Âge de la donnée : ${ageJours} j — période attendue : ${periodeJours} j`;
+  const f = source.fraicheur;
+  const n = NIVEAUX[f.niveau];
+  const detaille = f.niveau === "en_retard" || f.niveau === "attente_edition";
   return (
-    <span className="inline-flex items-center gap-1.5 whitespace-nowrap" title={detail}>
-      <span
-        aria-hidden="true"
-        className="inline-block size-2 rounded-full"
-        style={{ background: n.jeton }}
-      />
-      <span className="text-ink-secondary">{n.libelle}</span>
+    <span className="inline-flex flex-col gap-0.5" title={phraseFraicheur(source)}>
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+        <span
+          aria-hidden="true"
+          className="inline-block size-2 shrink-0 rounded-full"
+          style={{ background: n.jeton }}
+        />
+        <span className="text-ink-secondary">{n.libelle}</span>
+      </span>
+      {detaille && (
+        <span className="whitespace-nowrap pl-3.5 text-[11px] text-ink-muted">
+          {libelleAge(f)}
+        </span>
+      )}
     </span>
   );
 }
@@ -231,6 +273,18 @@ export default async function PageDonnees() {
 
   const totalLignes = sources.reduce((s, x) => s + x.lignes, 0);
 
+  /* Synthèse de fraîcheur, en tête du tableau : combien de sources sont à
+     jour au regard de LEUR seuil, et lesquelles attendent une édition plus
+     récente. Ce que l'open data ne contient pas se documente ; ça se dit
+     sobrement, daté, avec l'ancienneté — sans rien affirmer de l'avenir. */
+  const compte = (n: NiveauFraicheur) =>
+    sources.filter((s) => s.fraicheur.niveau === n).length;
+  const nbAJour = compte("a_jour");
+  const nbASurveiller = compte("a_surveiller");
+  const nbEnRetard = compte("en_retard");
+  const nbNonCalibre = compte("non_calibre");
+  const enAttente = sources.filter((s) => s.fraicheur.niveau === "attente_edition");
+
   /* Balisage `DataCatalog` + `Dataset` : dates de modification et couvertures
      temporelles LUES EN BASE — un balisage qui affirmerait une fraîcheur que
      la donnée n'a pas serait pire que pas de balisage du tout. */
@@ -274,6 +328,39 @@ export default async function PageDonnees() {
         titre="Les sources de ce dashboard"
         sousTitre="meta_sources — chaque source porte sa date de données réelle, sa date d'ingestion, sa fréquence promise et sa licence"
       >
+        <div className="mb-4 flex flex-col gap-2 text-[13px] leading-relaxed text-ink-secondary">
+          <p>
+            <strong className="text-ink">
+              {formatNombre(nbAJour)} source{nbAJour > 1 ? "s" : ""} sur{" "}
+              {formatNombre(sources.length)}
+            </strong>{" "}
+            {nbAJour > 1 ? "sont à jour" : "est à jour"} au regard du seuil calibré
+            pour chacune
+            {nbASurveiller > 0 ? `, ${nbASurveiller} à surveiller` : ""}
+            {nbEnRetard > 0 ? `, ${nbEnRetard} en retard` : ""}
+            {nbNonCalibre > 0 ? `, ${nbNonCalibre} sans seuil calibré` : ""}
+            {enAttente.length > 0
+              ? `, ${enAttente.length} en attente d’une édition plus récente`
+              : ""}
+            .
+          </p>
+          {enAttente.length > 0 && (
+            <ul className="flex flex-col gap-1.5">
+              {enAttente.map((s) => (
+                <li
+                  key={s.source_id}
+                  className="border-l pl-3"
+                  style={{ borderColor: "var(--viz-grid)" }}
+                >
+                  <span className="text-ink">{s.nom}</span>{" "}
+                  <span className="text-[11px] text-ink-muted">({s.source_id})</span>{" "}
+                  — données au {formatDateFr(s.date_donnees)} ; aucune édition plus
+                  récente n’a été publiée à ce jour ({libelleAge(s.fraicheur)}).
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
         <DataTable
           colonnes={[
             {
@@ -331,23 +418,49 @@ export default async function PageDonnees() {
             <span className="font-semibold text-ink-secondary">
               Règle du badge de fraîcheur
             </span>{" "}
-            — âge de la donnée (aujourd’hui − date des données) comparé à la
-            période P de la fréquence promise (quotidienne 1 j, hebdomadaire 7 j,
-            mensuelle 30 j, trimestrielle 91 j)&nbsp;: «&nbsp;à jour&nbsp;» si
-            âge ≤ 2×P + 2 j (marge de publication), «&nbsp;à surveiller&nbsp;»
-            si âge ≤ 4×P + 7 j, «&nbsp;en retard&nbsp;» au-delà. Les sources à
-            millésime (annuelle, par scrutin, statique, continue, à parution)
-            n’ont pas d’âge attendu pertinent&nbsp;: leur décalage est
-            structurel et documenté (ex. subventions aux associations&nbsp;:
-            versements 2023, dernier millésime publié) — le pipeline vérifie à
-            chaque ingestion qu’il tient le dernier millésime.
+            — l’âge de la donnée (aujourd’hui − date des données) est comparé
+            à <strong className="text-ink-secondary">deux seuils calibrés pour
+            cette source-là</strong>, et non à sa fréquence promise&nbsp;:
+            «&nbsp;à jour&nbsp;» sous le premier seuil, «&nbsp;à
+            surveiller&nbsp;» entre les deux, «&nbsp;en retard&nbsp;» au-delà
+            du second, «&nbsp;en attente d’une édition&nbsp;» quand le
+            dépassement excède à son tour la largeur de la bande de
+            surveillance. Une règle générique tirée du mot
+            «&nbsp;quotidienne&nbsp;» ou «&nbsp;annuelle&nbsp;» ne peut pas
+            marcher&nbsp;: l’Assemblée nationale ne vote pas pendant la trêve
+            estivale (un mois sans scrutin n’est pas un retard), et les
+            subventions aux associations sont publiées 12 à 13 mois après la
+            clôture de l’exercice (un âge de deux ans y est normal). Cinq
+            sources publiées les jours ouvrés (Journal officiel, BOAMP,
+            marchés publics, lobbying HATVP, APProch) ont leur âge compté en
+            jours ouvrés.
           </p>
           <p>
-            Un badge «&nbsp;à surveiller&nbsp;» ou «&nbsp;en retard&nbsp;»
-            signale un écart à la fréquence promise, pas forcément une
-            panne&nbsp;: le flux amont peut être réellement en pause (ex.
-            scrutins AN&nbsp;: dernier scrutin le 21/07/2026, vacances
-            parlementaires).
+            <span className="font-semibold text-ink-secondary">
+              D’où viennent ces seuils
+            </span>{" "}
+            — du même référentiel que la supervision du serveur
+            (<code className="rounded bg-raised px-1 py-0.5">fraicheur.conf</code>,
+            une ligne par source, calibrée sur l’historique de publication
+            réellement observé et sur les décalages documentés par les
+            pipelines). Ce fichier n’étant lisible ni par le processus qui
+            construit le site, ni dans un dépôt fraîchement cloné,
+            l’application en embarque une copie&nbsp;:{" "}
+            <code className="rounded bg-raised px-1 py-0.5">
+              app/src/lib/queries/donnees.ts
+            </code>
+            , où le point de synchronisation des deux est documenté. Les deux
+            se modifient ensemble.
+          </p>
+          <p>
+            <span className="font-semibold text-ink-secondary">
+              «&nbsp;En attente d’une édition&nbsp;» décrit la source, pas le
+              site
+            </span>{" "}
+            — à cette date, aucune édition plus récente n’a été publiée en
+            amont. Ce n’est ni une panne du dashboard, ni un pronostic&nbsp;:
+            l’édition suivante peut paraître à tout moment, et la première
+            ingestion qui la trouve la publiera.
           </p>
         </div>
       </Card>
