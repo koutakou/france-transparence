@@ -137,7 +137,7 @@ export default async function PageDepenses() {
             Exécution budgétaire publiée chaque mois par la DGFiP&nbsp;: les
             montants sont des cumuls depuis le 1er janvier, comparés à la même
             période de l&apos;année précédente. Ces situations paraissent avec
-            environ six semaines de latence — dernière publiée&nbsp;:{" "}
+            cinq à sept semaines de latence — dernière publiée&nbsp;:{" "}
             {formatDateFr(kpis.dateFinMois)}.
           </p>
         </div>
