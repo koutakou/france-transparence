@@ -321,6 +321,62 @@ def test_qualite_montants_ecrit_une_seule_ligne(tmp_path, resultat):
         conn.close()
 
 
+def test_drapeau_suspect_se_decompose_en_trois_classes(resultat):
+    """Le drapeau `montant_suspect` recouvre TROIS situations distinctes.
+
+    /marches les compte séparément, parce qu'elles ne se valent pas :
+    'aberrant' = la source a repéré ET redressé la saisie (le montant compté
+    est déjà le montant corrigé) ; 'suspect' = elle signale sans corriger (le
+    montant déclaré est conservé tel quel) ; anomalie NULL = c'est notre seul
+    écrêtage qui lève le drapeau. Ce test fige la partition sur laquelle la
+    page s'appuie : exhaustive, sans recouvrement, et recomposant exactement
+    le `nb_suspects` publié.
+    """
+    duck, _ = resultat
+    plafond = ingest_decp.PLAFOND_ECRETAGE_EUR
+    classes = {
+        r[0]: (r[1], r[2])
+        for r in duck.execute(
+            """
+            SELECT coalesce(montant_anomalie, '(écrêtage seul)') AS classe,
+                   count(*), sum(montant_ecrete)
+            FROM recents WHERE montant_suspect = 1
+            GROUP BY classe
+            """
+        ).fetchall()
+    }
+    # Fixture : l'accord-cadre géant (signalé, non corrigé, donc écrêté au
+    # plafond) et l'aberrant (redressé par la source à 115 k€).
+    assert classes == {
+        "suspect": (1, pytest.approx(plafond)),
+        "aberrant": (1, pytest.approx(115_000.0)),
+    }
+
+    # La partition recompose exactement le compteur publié.
+    nb_suspects = duck.execute(
+        "SELECT nb_suspects FROM t_qualite_montants"
+    ).fetchone()[0]
+    assert sum(nb for nb, _ in classes.values()) == nb_suspects
+
+    # Exhaustivité dans l'autre sens : aucun marché non drapeauté ne relève
+    # d'une des trois classes (sinon la décomposition en oublierait).
+    assert duck.execute(
+        f"""
+        SELECT count(*) FROM recents
+        WHERE montant_suspect = 0
+          AND (montant_anomalie IS NOT NULL OR montant_retenu > {plafond})
+        """
+    ).fetchone()[0] == 0
+
+    # Le redressement de la source ramène l'aberrant SOUS le plafond : il
+    # n'est donc pas écrêté — le confondre avec un montant non expliqué
+    # gonflerait le compteur sans rien apporter au total.
+    assert duck.execute(
+        "SELECT count(*) FROM recents "
+        "WHERE montant_anomalie = 'aberrant' AND ecrete"
+    ).fetchone()[0] == 0
+
+
 def test_ecretes_totaux_depassent_le_sous_total_departemental(resultat):
     """Le compte d'écrêtés de la qualité couvre TOUS les acheteurs.
 

@@ -15,7 +15,9 @@
  * - decp_qualite_montants (1 ligne) dit ce que vaut le total 12 mois : part
  *   plafonnée, part marquée suspecte, total sans écrêtage. La borne basse
  *   « hors suspects » n'est PAS « le vrai montant » (drapeau non audité
- *   ligne à ligne).
+ *   ligne à ligne) ; le drapeau lui-même est décomposé ici en trois classes
+ *   (corrigé à la source / signalé non corrigé / écrêté seul), sur la même
+ *   fenêtre, cf. `chargerDecompositionSuspects`.
  *
  * BOAMP : ao_en_cours est un instantané quotidien — on re-filtre TOUJOURS
  * annulee = 0 ET date_limite_reponse > datetime('now') à la requête.
@@ -110,6 +112,34 @@ export type QualiteMontants = {
   plafond: number;
 };
 
+/**
+ * Décomposition du drapeau `montant_suspect` sur la MÊME fenêtre 12 mois que
+ * `decp_qualite_montants`. Le drapeau agrège trois situations que le
+ * compteur unique confond, alors qu'elles n'ont pas la même valeur :
+ *
+ * - `aberrant` : la source a elle-même repéré ET corrigé la saisie
+ *   (montant_rationalise) — le montant affiché est déjà le montant redressé,
+ *   le drapeau ne signale plus qu'une trace d'historique ;
+ * - `suspect` : la source signale l'anomalie mais ne corrige rien — le
+ *   montant déclaré est conservé tel quel, c'est là que porte l'incertitude ;
+ * - non classé au-delà du plafond : aucune anomalie signalée à la source,
+ *   c'est NOTRE écrêtage à 100 M€ qui lève le drapeau.
+ *
+ * Les montants sont écrêtés comme dans les agrégats (`least`, NULL préservé),
+ * donc directement comparables au total affiché.
+ */
+export type DecompositionSuspects = {
+  /** Corrigés à la source : le montant retenu est déjà le montant redressé. */
+  nbAberrants: number;
+  montantAberrants: number | null;
+  /** Signalés à la source mais NON corrigés : incertitude réelle. */
+  nbSuspectsSource: number;
+  montantSuspectsSource: number | null;
+  /** Non signalés par la source, drapeau levé par l'écrêtage seul. */
+  nbHorsPlafond: number;
+  montantHorsPlafond: number | null;
+};
+
 export type FamilleAO = {
   famille: string;
   famille_libelle: string | null;
@@ -170,6 +200,10 @@ export type DonneesMarches = {
   /** Ce que vaut le total 12 mois : parts écrêtée et suspecte. `null` si la
    *  table n'a pas encore été produite par le pipeline. */
   qualiteMontants: QualiteMontants | null;
+  /** Ce que le drapeau « suspect » recouvre réellement : corrigé à la
+   *  source / signalé non corrigé / écrêté seul. `null` si la fenêtre 12 mois
+   *  n'a pas pu être reconstituée à l'unité près (rien n'est alors deviné). */
+  decompositionSuspects: DecompositionSuspects | null;
   departements: DepartementAgg[];
   serieMensuelle: MoisAgg[]; // 36 mois, ordre chronologique
   topAcheteurs: TopAcheteur[];
@@ -189,6 +223,95 @@ export type DonneesMarches = {
 /* ------------------------------------------------------------------ */
 /* Chargement                                                          */
 /* ------------------------------------------------------------------ */
+
+/** Connexion better-sqlite3 ouverte (getDb() non nul). */
+type Db = NonNullable<ReturnType<typeof getDb>>;
+
+/** Décalages de jour essayés pour retrouver la fenêtre (cf. ci-dessous). */
+const DECALAGES_FENETRE = ["+0 day", "-1 day", "+1 day"] as const;
+
+/**
+ * Décompose le drapeau `montant_suspect` sur la fenêtre 12 mois exacte de
+ * `decp_qualite_montants`.
+ *
+ * POURQUOI ce détour : la coupe des 12 mois n'est stockée nulle part en base
+ * (le pipeline la calcule à partir du jour d'ingestion, cf. ingest_decp.py) ;
+ * `MAX(date_notification)`, antérieur de quelques jours, la retrouverait
+ * décalée. On repart donc du jour d'ingestion de la source S1, à ± 1 jour
+ * près (`date_ingestion` est horodaté UTC quand la fenêtre est calculée en
+ * heure locale : une ingestion de nuit décale la date d'un jour).
+ *
+ * Le candidat n'est retenu QUE s'il reconstitue à l'unité près le nombre de
+ * marchés ET le nombre de suspects déjà publiés par `decp_qualite_montants`,
+ * et que les trois classes recomposent exactement ce total. Sinon la
+ * fonction renvoie `null` : la page retombe alors sur le compteur unique
+ * plutôt que d'afficher une décomposition portant sur une autre population.
+ * On ne réconcilie que des ENTIERS — comparer des sommes de flottants
+ * calculées par deux moteurs (DuckDB puis SQLite) n'aurait aucun sens.
+ */
+function chargerDecompositionSuspects(
+  db: Db,
+  qualite: QualiteMontants | null,
+  s1: MetaSource | undefined,
+): DecompositionSuspects | null {
+  const jour = s1?.date_ingestion?.slice(0, 10);
+  if (!qualite || !jour) return null;
+
+  const requete = db.prepare(
+    `SELECT COUNT(*)                                        AS nb_fenetre,
+            SUM(CASE WHEN montant_suspect = 1 THEN 1 ELSE 0 END) AS nb_suspects,
+            SUM(CASE WHEN montant_suspect = 1
+                      AND montant_anomalie = 'aberrant' THEN 1 ELSE 0 END)
+                                                            AS nb_aberrants,
+            SUM(CASE WHEN montant_suspect = 1
+                      AND montant_anomalie = 'aberrant'
+                     THEN min(montant_retenu, :plafond) END) AS montant_aberrants,
+            SUM(CASE WHEN montant_suspect = 1
+                      AND montant_anomalie = 'suspect' THEN 1 ELSE 0 END)
+                                                            AS nb_suspects_source,
+            SUM(CASE WHEN montant_suspect = 1
+                      AND montant_anomalie = 'suspect'
+                     THEN min(montant_retenu, :plafond) END) AS montant_suspects_source,
+            SUM(CASE WHEN montant_suspect = 1
+                      AND montant_anomalie IS NULL THEN 1 ELSE 0 END)
+                                                            AS nb_hors_plafond,
+            SUM(CASE WHEN montant_suspect = 1
+                      AND montant_anomalie IS NULL
+                     THEN min(montant_retenu, :plafond) END) AS montant_hors_plafond
+       FROM decp_marches
+      WHERE date_notification > date(:jour, :decalage, '-12 months')`,
+  );
+
+  for (const decalage of DECALAGES_FENETRE) {
+    const l = requete.get({ plafond: qualite.plafond, jour, decalage }) as {
+      nb_fenetre: number;
+      nb_suspects: number;
+      nb_aberrants: number;
+      montant_aberrants: number | null;
+      nb_suspects_source: number;
+      montant_suspects_source: number | null;
+      nb_hors_plafond: number;
+      montant_hors_plafond: number | null;
+    };
+    const somme = l.nb_aberrants + l.nb_suspects_source + l.nb_hors_plafond;
+    if (
+      l.nb_fenetre !== qualite.nb_marches ||
+      l.nb_suspects !== qualite.nb_suspects ||
+      somme !== qualite.nb_suspects
+    ) {
+      continue;
+    }
+    return {
+      nbAberrants: l.nb_aberrants,
+      montantAberrants: l.montant_aberrants,
+      nbSuspectsSource: l.nb_suspects_source,
+      montantSuspectsSource: l.montant_suspects_source,
+      nbHorsPlafond: l.nb_hors_plafond,
+      montantHorsPlafond: l.montant_hors_plafond,
+    };
+  }
+  return null;
+}
 
 /**
  * Charge tout le nécessaire de la page /marches en une passe.
@@ -253,6 +376,18 @@ export function chargerDonneesMarches(
          FROM decp_qualite_montants WHERE id = 1`,
       )
       .get() as QualiteMontants | undefined) ?? null;
+
+  // Ce que le drapeau « suspect » recouvre : la source a-t-elle déjà corrigé
+  // (classe 'aberrant'), signalé sans corriger (classe 'suspect'), ou le
+  // drapeau vient-il de notre seul écrêtage ? Mesuré le 20/08/2026 sur la
+  // fenêtre publiée : 890 corrigés à la source, 5 242 signalés non corrigés,
+  // 115 non classés au-delà du plafond — 6 247 au total, soit exactement le
+  // nb_suspects de decp_qualite_montants.
+  const decompositionSuspects = chargerDecompositionSuspects(
+    db,
+    qualiteMontants,
+    metaPar("S1"),
+  );
 
   // Carte : 107 départements, montants déjà écrêtés, NULL = aucun montant
   // connu. Vérifié : Paris (75) 37,55 Md€ / 15 838 marchés.
@@ -400,6 +535,7 @@ export function chargerDonneesMarches(
       marchesAVenir: aVenir.nb,
     },
     qualiteMontants,
+    decompositionSuspects,
     departements,
     serieMensuelle,
     topAcheteurs,

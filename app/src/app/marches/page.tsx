@@ -142,8 +142,15 @@ export default async function PageMarches() {
     );
   }
 
-  const { meta, kpis, serieMensuelle, familles, alertes, qualiteMontants } =
-    donnees;
+  const {
+    meta,
+    kpis,
+    serieMensuelle,
+    familles,
+    alertes,
+    qualiteMontants,
+    decompositionSuspects,
+  } = donnees;
 
   /* ---- « Ce que vaut ce total » : parts écrêtée et suspecte du KPI héros.
      Le chiffre affiché n'est PAS modifié — on lui ajoute son contexte.
@@ -160,6 +167,18 @@ export default async function PageMarches() {
   const partSuspecte =
     qm && totalQm && qm.montant_suspects !== null
       ? (100 * qm.montant_suspects) / totalQm
+      : null;
+
+  /* ---- Ce que le drapeau « suspect » recouvre. Un compteur unique met dans
+     le même sac ce que la source a DÉJÀ corrigé et ce qu'elle signale sans
+     rien corriger : deux choses de valeur très différente. On les compte
+     séparément, chacune avec sa propre somme mesurée — aucun ratio n'est
+     reconstitué à partir de l'autre. `null` (fenêtre non reconstituée) →
+     le compteur unique reste affiché seul, comme avant. */
+  const ds = decompositionSuspects;
+  const partAberrants =
+    ds && totalQm && ds.montantAberrants !== null
+      ? (100 * ds.montantAberrants) / totalQm
       : null;
 
   /* ---- KPI : tendances 12 derniers mois de la série mensuelle ---- */
@@ -316,6 +335,61 @@ export default async function PageMarches() {
                 source, ou montant au-delà du plafond) et apportent{" "}
                 {qm.montant_suspects !== null ? formatEuros(qm.montant_suspects) : "—"}
                 {partSuspecte !== null && <>, soit {formatPct(partSuspecte)} du total</>}.
+                {ds !== null && (
+                  <>
+                    {" "}
+                    Ce drapeau unique recouvre trois situations qui ne se valent
+                    pas :
+                    <ul className="mt-1.5 flex flex-col gap-1.5 border-l border-card-border pl-3">
+                      <li>
+                        <strong className="font-medium text-ink">
+                          {formatNombre(ds.nbSuspectsSource)} marchés
+                        </strong>{" "}
+                        sont signalés par la source{" "}
+                        <strong className="font-medium text-ink">
+                          sans être corrigés
+                        </strong>{" "}
+                        : le montant déclaré est conservé tel quel et compte
+                        pour{" "}
+                        {ds.montantSuspectsSource !== null
+                          ? formatEuros(ds.montantSuspectsSource)
+                          : "—"}
+                        . C’est là, et seulement là, que porte l’incertitude
+                        sur le total.
+                      </li>
+                      <li>
+                        <strong className="font-medium text-ink">
+                          {formatNombre(ds.nbAberrants)} marchés
+                        </strong>{" "}
+                        ont été classés aberrants{" "}
+                        <strong className="font-medium text-ink">
+                          et déjà redressés par la source
+                        </strong>{" "}
+                        : c’est le montant corrigé qui est compté, pour{" "}
+                        {ds.montantAberrants !== null
+                          ? formatEuros(ds.montantAberrants)
+                          : "—"}
+                        {partAberrants !== null && (
+                          <>, soit {formatPct(partAberrants, 2)} du total</>
+                        )}
+                        . Le drapeau garde la trace de la correction ; il ne dit
+                        pas que le chiffre affiché serait faux.
+                      </li>
+                      <li>
+                        <strong className="font-medium text-ink">
+                          {formatNombre(ds.nbHorsPlafond)} marchés
+                        </strong>{" "}
+                        ne sont signalés par aucune anomalie : leur drapeau
+                        vient de notre seul écrêtage, leur montant dépassant le
+                        plafond. Ils sont comptés au plafond, pour{" "}
+                        {ds.montantHorsPlafond !== null
+                          ? formatEuros(ds.montantHorsPlafond)
+                          : "—"}
+                        .
+                      </li>
+                    </ul>
+                  </>
+                )}
               </li>
               <li>
                 En les écartant tous, il reste{" "}
@@ -326,7 +400,12 @@ export default async function PageMarches() {
                 <strong className="font-medium text-ink">borne basse</strong>, et
                 non comme le montant réel : le drapeau « suspect » n’a pas été
                 vérifié marché par marché, il écarte donc aussi des montants
-                exacts.
+                exacts
+                {ds !== null && (
+                  <> — à commencer par les {formatNombre(ds.nbAberrants)} déjà
+                  redressés à la source</>
+                )}
+                .
               </li>
               <li>
                 Sans aucun écrêtage, la somme brute des montants déclarés
