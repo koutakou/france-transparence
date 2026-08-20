@@ -224,9 +224,15 @@ function Rubrique({ rubrique, chargeur }: { rubrique: RubriqueDeclaree; chargeur
 
   return (
     <div className="mt-4 first:mt-0">
-      <h4 className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-secondary">
+      {/* h3 et non h4 : ces rubriques sont les enfants directs du h2
+          « Intérêts déclarés » de la fiche, sans niveau intermédiaire. Un h4
+          sautait le h3 et rompait la séquence des titres — un lecteur d'écran
+          qui navigue de titre en titre y perd le fil, et l'audit heading-order
+          le relevait sur les 1 053 fiches. Le style ne change pas, seul le
+          niveau sémantique. */}
+      <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-secondary">
         {rubrique.libelle}
-      </h4>
+      </h3>
       {rubrique.lignes.length === 0 ? (
         // `neant === 1` est un FAIT déclaré ; `null` est un silence de la
         // source, sur lequel on ne dit rien plutôt que d'inventer.

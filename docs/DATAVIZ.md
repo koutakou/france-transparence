@@ -32,10 +32,10 @@ Tout graphique référence ces custom properties, jamais un hex en dur dans le J
   --border-card:    rgba(148, 178, 224, 0.12);  /* bordure subtile des cartes */
   --border-raised:  rgba(148, 178, 224, 0.18);  /* bordure des tooltips */
 
-  /* Encres (texte) — contraste mesuré sur la carte #0f1d33 */
-  --ink-primary:   #e8eef8;    /* 14,5:1 — valeurs, titres */
-  --ink-secondary: #a9b7cc;    /* 8,3:1 — libellés, légendes */
-  --ink-muted:     #7286a3;    /* 4,55:1 — axes, ticks. MINIMUM pour du texte */
+  /* Encres (texte) — contraste mesuré sur le PIRE fond, --surface-hover #1a2b47 */
+  --ink-primary:   #e8eef8;    /* 12,2:1 — valeurs, titres */
+  --ink-secondary: #a9b7cc;    /* 6,98:1 — libellés, légendes */
+  --ink-muted:     #8798b1;    /* 4,83:1 — axes, ticks. MINIMUM pour du texte */
 
   /* Chrome graphique (non-donnée : discret par construction) */
   --viz-grid:      #1e2f4d;    /* lignes de grille, filet 1px plein */
@@ -78,6 +78,26 @@ Tout graphique référence ces custom properties, jamais un hex en dur dans le J
   --font-ui: system-ui, -apple-system, "Segoe UI", sans-serif; /* partout, héros compris */
 }
 ```
+
+> **Sur quel fond se mesure un contraste — la question qui a fait passer un jeton sous le seuil.**
+> Ce document annonçait ses ratios d'encre « mesurés sur la carte `#0f1d33` ». C'est le fond le
+> plus SOMBRE des trois sur lesquels du texte apparaît, donc le plus flatteur. Or les mêmes
+> encres servent sur `--surface-raised` (`#16263f`) et sur `--surface-hover` (`#1a2b47`), plus
+> clairs : le contraste réel y est plus faible que le chiffre annoncé.
+>
+> `--ink-muted` en a fait les frais. Annoté « 4,55:1 — MINIMUM pour du texte », il ne valait
+> que **4,09:1** sur `raised` et **3,82:1** sur `hover`, sous le seuil AA de 4,5:1 — un audit
+> Lighthouse sur la version en ligne l'a relevé sur quatre pages. Il vaut désormais `#8798b1`,
+> soit **4,83:1 sur le pire fond**.
+>
+> **Règle : une encre destinée à du texte se calibre sur le fond le plus CLAIR où elle peut
+> apparaître.** Les ratios des jetons d'ENCRE ci-dessus sont donc désormais donnés contre
+> `--surface-hover`.
+>
+> Les jetons de STATUT gardent leurs ratios mesurés sur la carte, et c'est volontaire : ils ne
+> colorent que des pastilles, jamais du texte (`AlertItem.tsx` le dit et s'y tient — le libellé
+> d'une alerte critique reste en encre, précisément parce que `--status-critical` est à 3,51:1).
+> Un contraste de pastille relève de la règle « éléments non textuels » (3:1), pas de AA.
 
 En SVG/Recharts, les custom properties passent directement :
 `<Line stroke="var(--viz-serie-1)" />`, `<Bar fill="var(--viz-serie-2)" />`.

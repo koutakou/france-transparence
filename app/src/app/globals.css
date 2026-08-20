@@ -18,10 +18,24 @@
   --border-card:    rgba(148, 178, 224, 0.12);  /* bordure subtile des cartes */
   --border-raised:  rgba(148, 178, 224, 0.18);  /* bordure des tooltips */
 
-  /* Encres (texte) — contraste mesuré sur la carte #0f1d33 */
-  --ink-primary:   #e8eef8;    /* 14,5:1 — valeurs, titres */
-  --ink-secondary: #a9b7cc;    /* 8,3:1 — libellés, légendes */
-  --ink-muted:     #7286a3;    /* 4,55:1 — axes, ticks. MINIMUM pour du texte */
+  /* Encres (texte) — contraste mesuré sur le PIRE fond, --surface-hover #1a2b47.
+   *
+   * Ce point de référence a changé, et c'est une correction, pas un détail. Les
+   * ratios annotés ici l'étaient sur la carte #0f1d33 ; or ces encres servent
+   * aussi sur --surface-raised et --surface-hover, plus CLAIRS, où le contraste
+   * est donc PLUS FAIBLE. --ink-muted en a fait les frais : annoté « 4,55:1,
+   * MINIMUM pour du texte », il ne valait que 4,09:1 sur raised et 3,82:1 sur
+   * hover — sous le seuil AA de 4,5:1. Lighthouse le relevait sur quatre pages.
+   *
+   * Règle qui en découle : une encre destinée à du texte se calibre sur le fond
+   * le plus CLAIR où elle peut apparaître, jamais sur celui où elle est le plus
+   * flatteuse. Les jetons de STATUT plus bas gardent leurs ratios mesurés sur la
+   * carte : ils ne portent que des pastilles, jamais de texte — c'est écrit dans
+   * AlertItem.tsx et c'est délibéré.
+   */
+  --ink-primary:   #e8eef8;    /* 12,2:1 — valeurs, titres */
+  --ink-secondary: #a9b7cc;    /* 6,98:1 — libellés, légendes */
+  --ink-muted:     #8798b1;    /* 4,83:1 — axes, ticks. MINIMUM pour du texte */
 
   /* Chrome graphique (non-donnée : discret par construction) */
   --viz-grid:      #1e2f4d;    /* lignes de grille, filet 1px plein */
