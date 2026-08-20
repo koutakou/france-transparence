@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
@@ -353,6 +354,17 @@ export default async function PageDepenses() {
             seul budget général — total général&nbsp;:{" "}
             {enMd(ministeres.totalCp, 1)} de CP bruts.
           </p>
+          <p className="mt-2 text-sm text-ink-secondary">
+            La même source se déplie mission par mission&nbsp;:{" "}
+            <Link
+              href="/depenses/destination/"
+              className="underline decoration-[var(--viz-grid)] underline-offset-2 transition-colors hover:decoration-current"
+            >
+              explorer le budget 2025 par destination
+            </Link>{" "}
+            — 46 missions, leurs programmes, actions et sous-actions, et la
+            ventilation par titre (nature de la dépense).
+          </p>
         </Card>
       )}
 
@@ -406,6 +418,13 @@ export default async function PageDepenses() {
             cleLigne={(l, i) => `${l.siren ?? "sans-siren"}-${i}`}
           />
           <p className="mt-3 text-xs text-ink-muted">
+            Le premier bénéficiaire, «&nbsp;ASS INTERNATIONALE DE
+            DEVELOPPEMEN&nbsp;» (libellé tronqué dans la source), est
+            l&apos;Association internationale de développement, le guichet du
+            groupe Banque mondiale qui finance les pays à faible revenu&nbsp;:
+            la ligne retrace la contribution française à cette institution,
+            versée via le programme 110 («&nbsp;Aide économique et financière
+            au développement&nbsp;», mission Aide publique au développement).
             SIREN absent («&nbsp;—&nbsp;»)&nbsp;: bénéficiaire sans SIREN dans
             la source (ex. organismes internationaux). Le champ
             «&nbsp;associations&nbsp;» s&apos;entend au sens large du jaune

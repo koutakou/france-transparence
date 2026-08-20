@@ -388,3 +388,345 @@ export function getSubventionsAssociations(limite = 10): SubventionsAssociations
     })),
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* Exploration descendante de S21 (destination 2025)                   */
+/* mission → programme → action → sous-action, et ventilation par titre */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Libellés des titres de la nomenclature LOLF (art. 5) — la source S21 ne
+ * publie que le numéro. Intitulés alignés sur les lignes de niveau 2 de S13
+ * (`budget_mensuel`, catégorie « Dépenses »), vérifiées en base — à
+ * l'accentuation près (« l'Etat » y est publié sans accent).
+ */
+export const LIBELLES_TITRES: Record<string, string> = {
+  "1": "Dotation des pouvoirs publics",
+  "2": "Dépenses de personnel",
+  "3": "Dépenses de fonctionnement",
+  "4": "Charges de la dette de l'État",
+  "5": "Dépenses d'investissement",
+  "6": "Dépenses d'intervention",
+  "7": "Dépenses d'opérations financières",
+};
+
+/** Libellés des quatre types de budget de S21 (nomenclature LOLF). */
+export const LIBELLES_TYPEBUDGET: Record<string, string> = {
+  BG: "Budget général",
+  BA: "Budgets annexes",
+  CAS: "Comptes d'affectation spéciale",
+  CCF: "Comptes de concours financiers",
+};
+
+/**
+ * Slug d'URL d'une mission, dérivé de son libellé (« Aide publique au
+ * développement » → « aide-publique-au-developpement »). Les 46 libellés de
+ * mission de S21 sont distincts, donc les slugs aussi (vérifié en base) ;
+ * `getSlugsMissions()` échoue au build si cette propriété se perdait.
+ */
+export function slugMission(libelle: string): string {
+  return libelle
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+export interface TitreDestination2025 {
+  /** Numéro de titre LOLF (« 1 » à « 7 »). */
+  titre: string;
+  /** Libellé LOLF — `null` si un numéro inconnu apparaissait dans la source. */
+  libelle: string | null;
+  /** CP bruts (€). */
+  cp: number;
+  /** AE brutes (€). */
+  ae: number;
+}
+
+export interface TitresDestination2025 {
+  etiquette: string;
+  /** Total CP bruts tous budgets (€) — testé : 823,0 Md€. */
+  totalCp: number;
+  titres: TitreDestination2025[];
+}
+
+/**
+ * Ventilation par nature (titre LOLF) des CP et AE bruts du PLF 2025,
+ * tous budgets confondus (S21). Testé (CP) : intervention 282,28 Md€,
+ * personnel 225,81, opérations financières 161,49, dette 54,92,
+ * fonctionnement 73,34, investissement 24,05, pouvoirs publics 1,16.
+ */
+export function getTitresDestination2025(): TitresDestination2025 | null {
+  const db = getDb();
+  if (!db) return null;
+  const lignes = db
+    .prepare(
+      `SELECT titre,
+              SUM(credit_de_paiement) AS cp,
+              SUM(autorisation_engagement) AS ae,
+              MAX(etiquette_montants) AS etiquette
+         FROM budget_destination_2025
+        WHERE titre IS NOT NULL
+        GROUP BY titre
+        ORDER BY SUM(credit_de_paiement) DESC`,
+    )
+    .all() as { titre: string; cp: number; ae: number; etiquette: string }[];
+  if (lignes.length === 0) return null;
+  return {
+    etiquette: lignes[0].etiquette,
+    totalCp: lignes.reduce((somme, l) => somme + l.cp, 0),
+    titres: lignes.map((l) => ({
+      titre: l.titre,
+      libelle: LIBELLES_TITRES[l.titre] ?? null,
+      cp: l.cp,
+      ae: l.ae,
+    })),
+  };
+}
+
+export interface MissionDestination2025 {
+  /** Code mission de la source (« DA », « YD »…). */
+  mission: string;
+  libelle: string;
+  /** Slug d'URL de la page de détail (`/depenses/destination/<slug>/`). */
+  slug: string;
+  /** Type de budget (« BG », « BA », « CAS », « CCF »). */
+  typebudget: string;
+  cp: number;
+  ae: number;
+  nbProgrammes: number;
+}
+
+export interface MissionsDestination2025Liste {
+  etiquette: string;
+  totalCp: number;
+  /** Les 46 missions, CP décroissants. */
+  missions: MissionDestination2025[];
+}
+
+/**
+ * Liste complète des missions de S21 (46, vérifié), CP bruts décroissants,
+ * pour l'index de l'exploration par destination. Testé : Remboursements et
+ * dégrèvements 147,14 Md€ (BG), Avances aux collectivités territoriales
+ * 134,09 (CCF), Enseignement scolaire 88,82 (BG), Pensions 68,48 (CAS).
+ */
+export function getMissionsDestination2025Liste(): MissionsDestination2025Liste | null {
+  const db = getDb();
+  if (!db) return null;
+  const lignes = db
+    .prepare(
+      `SELECT mission, libelle_mission, typebudget,
+              SUM(credit_de_paiement) AS cp,
+              SUM(autorisation_engagement) AS ae,
+              COUNT(DISTINCT programme) AS nb_programmes,
+              MAX(etiquette_montants) AS etiquette
+         FROM budget_destination_2025
+        WHERE mission IS NOT NULL
+        GROUP BY mission
+        ORDER BY SUM(credit_de_paiement) DESC`,
+    )
+    .all() as {
+    mission: string;
+    libelle_mission: string;
+    typebudget: string;
+    cp: number;
+    ae: number;
+    nb_programmes: number;
+    etiquette: string;
+  }[];
+  if (lignes.length === 0) return null;
+  return {
+    etiquette: lignes[0].etiquette,
+    totalCp: lignes.reduce((somme, l) => somme + l.cp, 0),
+    missions: lignes.map((l) => ({
+      mission: l.mission,
+      libelle: l.libelle_mission,
+      slug: slugMission(l.libelle_mission),
+      typebudget: l.typebudget,
+      cp: l.cp,
+      ae: l.ae,
+      nbProgrammes: l.nb_programmes,
+    })),
+  };
+}
+
+/**
+ * Slugs des missions pour `generateStaticParams` — vérifie leur unicité :
+ * deux libellés qui produiraient le même slug rendraient une page
+ * silencieusement inaccessible, on préfère un échec de build explicite.
+ */
+export function getSlugsMissions(): string[] {
+  const liste = getMissionsDestination2025Liste();
+  if (!liste) return [];
+  const slugs = liste.missions.map((m) => m.slug);
+  if (new Set(slugs).size !== slugs.length) {
+    throw new Error("Slugs de mission non uniques dans budget_destination_2025");
+  }
+  return slugs;
+}
+
+export interface SousActionDestination {
+  /** Code source (« 103-01-02 »). */
+  sousAction: string;
+  libelle: string;
+  cp: number;
+  ae: number;
+}
+
+export interface ActionDestination {
+  /** Code source (« 103-01 »). */
+  action: string;
+  libelle: string;
+  cp: number;
+  ae: number;
+  /**
+   * Sous-actions publiées pour cette action — la nomenclature n'en définit
+   * pas partout : tableau VIDE quand l'action n'est pas subdivisée (la page
+   * s'arrête alors au niveau action, sans rien inventer).
+   */
+  sousActions: SousActionDestination[];
+}
+
+export interface ProgrammeDestination {
+  programme: string;
+  libelle: string;
+  cp: number;
+  ae: number;
+  actions: ActionDestination[];
+}
+
+export interface ArbreMission {
+  mission: string;
+  libelle: string;
+  slug: string;
+  typebudget: string;
+  etiquette: string;
+  cp: number;
+  ae: number;
+  /** Ministères de rattachement (une mission peut en croiser plusieurs). */
+  ministeres: string[];
+  /** Ventilation par titre LOLF de la mission, CP décroissants. */
+  titres: TitreDestination2025[];
+  programmes: ProgrammeDestination[];
+}
+
+/**
+ * Arbre complet d'une mission : programme → action → sous-action (quand la
+ * nomenclature en définit), plus la ventilation par titre. Montants = CP et
+ * AE BRUTS du PLF 2025 (projet), agrégés depuis les 2 404 lignes de S21.
+ * Testé : mission « Pensions » (CAS) 68,48 Md€ de CP sur 3 programmes,
+ * dont 65,14 Md€ pour le programme 741 « Pensions civiles et militaires de
+ * retraite et allocations temporaires d'invalidité ».
+ */
+export function getArbreMission(slug: string): ArbreMission | null {
+  const db = getDb();
+  if (!db) return null;
+  const missions = db
+    .prepare(
+      `SELECT DISTINCT mission, libelle_mission FROM budget_destination_2025
+        WHERE mission IS NOT NULL`,
+    )
+    .all() as { mission: string; libelle_mission: string }[];
+  const cible = missions.find((m) => slugMission(m.libelle_mission) === slug);
+  if (!cible) return null;
+
+  const lignes = db
+    .prepare(
+      `SELECT typebudget, libelle_ministere, etiquette_montants,
+              programme, libelle_programme, action, libelle_action,
+              sous_action, libelle_sous_action, titre,
+              autorisation_engagement AS ae, credit_de_paiement AS cp
+         FROM budget_destination_2025
+        WHERE mission = ?
+        ORDER BY programme, action, sous_action`,
+    )
+    .all(cible.mission) as {
+    typebudget: string;
+    libelle_ministere: string | null;
+    etiquette_montants: string;
+    programme: string;
+    libelle_programme: string;
+    action: string;
+    libelle_action: string;
+    sous_action: string | null;
+    libelle_sous_action: string | null;
+    titre: string | null;
+    ae: number;
+    cp: number;
+  }[];
+  if (lignes.length === 0) return null;
+
+  const programmes = new Map<string, ProgrammeDestination>();
+  const actionsParCle = new Map<string, ActionDestination>();
+  const sousParCle = new Map<string, SousActionDestination>();
+  const titres = new Map<string, { cp: number; ae: number }>();
+  const ministeres = new Set<string>();
+  let cpTotal = 0;
+  let aeTotal = 0;
+
+  for (const l of lignes) {
+    cpTotal += l.cp;
+    aeTotal += l.ae;
+    if (l.libelle_ministere) ministeres.add(l.libelle_ministere);
+    if (l.titre) {
+      const t = titres.get(l.titre) ?? { cp: 0, ae: 0 };
+      t.cp += l.cp;
+      t.ae += l.ae;
+      titres.set(l.titre, t);
+    }
+    let prog = programmes.get(l.programme);
+    if (!prog) {
+      prog = { programme: l.programme, libelle: l.libelle_programme, cp: 0, ae: 0, actions: [] };
+      programmes.set(l.programme, prog);
+    }
+    prog.cp += l.cp;
+    prog.ae += l.ae;
+    const cleAction = `${l.programme}|${l.action}`;
+    let action = actionsParCle.get(cleAction);
+    if (!action) {
+      action = { action: l.action, libelle: l.libelle_action, cp: 0, ae: 0, sousActions: [] };
+      actionsParCle.set(cleAction, action);
+      prog.actions.push(action);
+    }
+    action.cp += l.cp;
+    action.ae += l.ae;
+    // Le grain de S21 est (sous-)action × catégorie : une même sous-action
+    // apparaît sur plusieurs lignes, on agrège au lieu de dupliquer.
+    if (l.sous_action !== null && l.libelle_sous_action !== null) {
+      const cleSous = `${cleAction}|${l.sous_action}`;
+      let sous = sousParCle.get(cleSous);
+      if (!sous) {
+        sous = { sousAction: l.sous_action, libelle: l.libelle_sous_action, cp: 0, ae: 0 };
+        sousParCle.set(cleSous, sous);
+        action.sousActions.push(sous);
+      }
+      sous.cp += l.cp;
+      sous.ae += l.ae;
+    }
+  }
+
+  const triCp = <T extends { cp: number }>(xs: T[]) => [...xs].sort((a, b) => b.cp - a.cp);
+  return {
+    mission: cible.mission,
+    libelle: cible.libelle_mission,
+    slug,
+    typebudget: lignes[0].typebudget,
+    etiquette: lignes[0].etiquette_montants,
+    cp: cpTotal,
+    ae: aeTotal,
+    ministeres: [...ministeres].sort((a, b) => a.localeCompare(b, "fr")),
+    titres: triCp(
+      [...titres.entries()].map(([titre, t]) => ({
+        titre,
+        libelle: LIBELLES_TITRES[titre] ?? null,
+        cp: t.cp,
+        ae: t.ae,
+      })),
+    ),
+    programmes: triCp([...programmes.values()]).map((p) => ({
+      ...p,
+      actions: triCp(p.actions).map((a) => ({ ...a, sousActions: triCp(a.sousActions) })),
+    })),
+  };
+}
