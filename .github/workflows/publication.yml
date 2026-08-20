@@ -73,16 +73,31 @@ jobs:
             echo "ingestion=si-cache-vide" >> "$GITHUB_OUTPUT"
           fi
 
+      # Le préfixe de cache porte l'EMPREINTE DES PIPELINES. C'est ce qui évite
+      # la panne suivante, constatée le 20/08/2026 : une proposition de fusion
+      # qui ajoutait une table a restauré la base mise en cache par le cycle de
+      # la veille — donc l'ANCIEN schéma — et le build est mort sur
+      # « no such table: partis_aide_annuelle ». Le même échec attendait main
+      # après la fusion.
+      #
+      # Le schéma de data/france.db est produit par pipelines/*.py et par rien
+      # d'autre : si l'un d'eux change, l'empreinte change, aucun cache ne
+      # correspond, et le job retombe sur l'ingestion complète — ce que le
+      # `if:` de l'étape suivante prévoit déjà. Les tests sont volontairement
+      # hors de l'empreinte (pipelines/*.py, pas pipelines/**/*.py) : ils ne
+      # produisent aucun schéma, et les inclure ferait rejouer 90 s d'ingestion
+      # à chaque test ajouté.
       - name: Restaurer la dernière base en cache
         if: steps.mode.outputs.ingestion != 'oui'
         id: cache-db
         uses: actions/cache/restore@v4
         with:
           path: data/france.db
-          # clé volontairement introuvable : on veut le restore-keys → la base la plus récente
+          # clé volontairement introuvable : on veut le restore-keys → la base
+          # la plus récente PARMI CELLES DU MÊME SCHÉMA
           key: france-db-introuvable
           restore-keys: |
-            france-db-
+            france-db-${{ hashFiles('pipelines/*.py') }}-
 
       - uses: actions/setup-python@v5
         if: steps.mode.outputs.ingestion == 'oui' || steps.cache-db.outputs.cache-matched-key == ''
@@ -117,7 +132,9 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: data/france.db
-          key: france-db-${{ github.run_id }}
+          # Même empreinte que le restore-keys ci-dessus : une base n'est
+          # réutilisable que par un code qui produit le même schéma.
+          key: france-db-${{ hashFiles('pipelines/*.py') }}-${{ github.run_id }}
 
       - uses: actions/setup-node@v4
         with:
