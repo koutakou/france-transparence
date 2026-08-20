@@ -1,4 +1,6 @@
-# Schéma de la base data/france.db — généré le 19/08/2026 16:16 après make ingest
+# Schéma de la base data/france.db — généré le 19/08/2026 16:16 après make ingest,
+# complété le 20/08/2026 (renommage collectivites_communes → collectivites_communes_top200 ;
+# tables collectivites_communes_series et collectivites_communes_strates, comptages du 20/08)
 
 ```
 CREATE TABLE meta_sources (
@@ -738,7 +740,7 @@ CREATE TABLE collectivites_conseils_departementaux (
     population    INTEGER,
     PRIMARY KEY (code_dep, exercice, agregat)
 );
-CREATE TABLE collectivites_communes (
+CREATE TABLE collectivites_communes_top200 (
     code_insee          TEXT NOT NULL,
     nom                 TEXT NOT NULL,
     dep_code            TEXT,
@@ -751,6 +753,27 @@ CREATE TABLE collectivites_communes (
     inv_euros_par_hab   REAL,
     exercice            INTEGER NOT NULL,
     PRIMARY KEY (code_insee, exercice)
+);
+CREATE TABLE collectivites_communes_series (
+    code_insee         TEXT NOT NULL,
+    nom                TEXT NOT NULL,
+    siren              TEXT,
+    tranche_population TEXT,      -- strate OFGL codée '0'..'10' (population au 01/01/2025)
+    epci_nom           TEXT,      -- groupement à fiscalité propre 2025 (NULL si isolée)
+    exercice           INTEGER NOT NULL,
+    agregat            TEXT NOT NULL,
+    montant            REAL,
+    euros_par_hab      REAL,
+    population         INTEGER,
+    PRIMARY KEY (code_insee, exercice, agregat)
+);
+CREATE TABLE collectivites_communes_strates (
+    tranche_population    TEXT NOT NULL,   -- strate OFGL codée '0'..'10'
+    exercice              INTEGER NOT NULL,
+    agregat               TEXT NOT NULL,
+    mediane_euros_par_hab REAL,
+    nb_communes           INTEGER,         -- effectif de la strate (budgets principaux)
+    PRIMARY KEY (tranche_population, exercice, agregat)
 );
 CREATE TABLE dotations_dgf (
     niveau      TEXT NOT NULL CHECK (niveau IN ('national', 'departement', 'commune')),
@@ -803,7 +826,9 @@ CREATE TABLE trainvie_opacites (
 - budget_mensuel : 4212 lignes
 - budget_vert : 1816 lignes
 - campagnes_2024 : 4010 lignes
-- collectivites_communes : 200 lignes
+- collectivites_communes_series : 3200 lignes
+- collectivites_communes_strates : 176 lignes
+- collectivites_communes_top200 : 200 lignes
 - collectivites_conseils_departementaux : 13170 lignes
 - collectivites_departements : 101 lignes
 - collectivites_regions : 1990 lignes

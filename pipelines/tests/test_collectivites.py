@@ -1,9 +1,11 @@
 """Tests P11 finances locales (OFGL) : transformations pures sur extraits
 RÉELS des exports du 19/08/2026 (fixtures : Hautes-Alpes complet + Marseille +
 Fleury-devant-Douaumont, village « mort pour la France » à 0 habitant ; DGF
-2026 : Territoire de Belfort complet + Lyon + Paris écrêtée à 0 €) +
-intégration réseau (@pytest.mark.reseau, contrôles de la recherche 06 et
-pipeline complet sur base jetable FT_DB_PATH)."""
+2026 : Territoire de Belfort complet + Lyon + Paris écrêtée à 0 € ; séries
+communales 2018-2025 : Marseille + Gap ; médianes de strate : export agrégé
+serveur complet, extraits du 20/08/2026) + intégration réseau
+(@pytest.mark.reseau, contrôles de la recherche 06 et pipeline complet sur
+base jetable FT_DB_PATH)."""
 
 from __future__ import annotations
 
@@ -20,6 +22,8 @@ from pipelines import ingest_collectivites as p11
 FIXTURES = Path(__file__).parent / "fixtures"
 COMMUNES = FIXTURES / "ofgl_communes_2025_extrait.csv"
 DGF = FIXTURES / "ofgl_dgf_2026_extrait.csv"
+SERIES = FIXTURES / "ofgl_communes_series_extrait.csv"
+STRATES = FIXTURES / "ofgl_strates_extrait.csv"
 
 
 def _en_ligne() -> bool:
@@ -92,6 +96,58 @@ def test_top_communes_exclut_les_communes_sans_population():
 
 
 # ---------------------------------------------------------------------------
+# Séries communales 2018-2025 (top 200) et médianes de strate
+# ---------------------------------------------------------------------------
+
+
+def test_series_communes_marseille_2018_2025():
+    """Extrait réel du 20/08/2026 : Marseille, 8 exercices × 2 agrégats —
+    fonctionnement 2018 = 953 555 238,57 € (1 096,27 €/hab) et 2025 =
+    1 339 679 971,72 € (1 516,39 €/hab, la valeur déjà contrôlée par la
+    recherche 06 §1). Strate '10' (≥ 100 000 hab), EPCI publié par l'OFGL."""
+    ser = p11.series_communes([SERIES], ["13055", "05061"])
+    assert len(ser) == 2 * 8 * 2  # 2 communes × 8 exercices × 2 agrégats
+    marseille_fonct = [
+        l for l in ser if l[0] == "13055" and l[6] == p11.AGREGAT_FONCT
+    ]
+    assert [l[5] for l in marseille_fonct] == list(range(2018, 2026))
+    d2018, d2025 = marseille_fonct[0], marseille_fonct[-1]
+    assert d2018[7] == pytest.approx(953_555_238.57)
+    assert d2018[8] == pytest.approx(1096.27, abs=0.01)
+    assert d2025[7] == pytest.approx(1_339_679_971.72)
+    assert d2025[8] == pytest.approx(1516.39, abs=0.01)
+    assert (d2025[1], d2025[2], d2025[3]) == ("Marseille", "211300553", "10")
+    assert d2025[4] == "Métropole d'Aix-Marseille-Provence"
+    assert d2025[9] == 883_466
+
+
+def test_series_communes_restreintes_au_perimetre_demande():
+    """Seules les communes de la liste passée sortent — le périmètre est
+    celui du top 200, jamais élargi par un export trop généreux."""
+    ser = p11.series_communes([SERIES], ["13055"])
+    assert {l[0] for l in ser} == {"13055"}
+    assert len(ser) == 8 * 2
+
+
+def test_medianes_strates_export_agrege_serveur():
+    """Export agrégé par l'API OFGL (20/08/2026) : 11 strates × 8 exercices
+    × 2 agrégats = 176 lignes ; strate '10' (≥ 100 000 hab), fonctionnement
+    2024 : médiane 1 358,92 €/hab sur 43 communes."""
+    st = p11.medianes_strates(STRATES)
+    assert len(st) == 11 * 8 * 2
+    assert {l[0] for l in st} == {str(i) for i in range(11)}
+    ligne = next(
+        l for l in st if l[0] == "10" and l[1] == 2024 and l[2] == p11.AGREGAT_FONCT
+    )
+    assert ligne[3] == pytest.approx(1358.92, abs=0.01)
+    assert ligne[4] == 43
+    for _tranche, exercice, _agregat, mediane, nb in st:
+        assert 2018 <= exercice <= 2025
+        assert mediane is not None and 0 < mediane < 10_000
+        assert nb > 0
+
+
+# ---------------------------------------------------------------------------
 # DGF (dotations-communes, format long variable/valeur)
 # ---------------------------------------------------------------------------
 
@@ -152,9 +208,12 @@ def test_charger_est_idempotent(tmp_path):
     piv = p11.pivot_dgf_communes(DGF)
     dgf_deps = p11.agreger_dgf_departements(piv)
     dgf_grandes = p11.communes_dgf_retenues(piv, seuil_pop=20_000, n=1)
+    series_com = p11.series_communes([SERIES], ["13055", "05061"])
+    strates = p11.medianes_strates(STRATES)
     # Ligne nationale réelle (group_by joué le 19/08/2026) : DGF communes 2026.
     dgf_nat = [(2026, 12_884_248_752.0, None, None, 34_961)]
-    args = (conn, deps, communes, [], [], dgf_nat, dgf_deps, dgf_grandes)
+    args = (conn, deps, communes, [], [], dgf_nat, dgf_deps, dgf_grandes,
+            series_com, strates)
 
     comptes1 = p11.charger(*args)
     conn.commit()
@@ -165,9 +224,35 @@ def test_charger_est_idempotent(tmp_path):
     assert n == len(deps)
     n = conn.execute("SELECT count(*) FROM dotations_dgf").fetchone()[0]
     assert n == 1 + len(dgf_deps) + len(dgf_grandes)
+    n = conn.execute("SELECT count(*) FROM collectivites_communes_series").fetchone()[0]
+    assert n == len(series_com)
+    n = conn.execute("SELECT count(*) FROM collectivites_communes_strates").fetchone()[0]
+    assert n == len(strates)
     entite = conn.execute("SELECT * FROM entites WHERE id = 'COLL-COM-13055'").fetchone()
     assert (entite["type"], entite["siren"], entite["departement"]) == (
         "collectivite", "211300553", "13")
+    conn.close()
+
+
+def test_charger_retire_l_ancienne_table_collectivites_communes(tmp_path):
+    """Migration du renommage d'août 2026 : une base construite avant porte
+    encore `collectivites_communes` (200 lignes sous un nom qui promettait
+    les ~34 900 communes de France) — `charger` la retire pour que la base
+    ne contienne plus que `collectivites_communes_top200`."""
+    conn = db.init_db(chemin=tmp_path / "migration.db")
+    conn.execute("CREATE TABLE collectivites_communes (code_insee TEXT PRIMARY KEY)")
+    conn.commit()
+    p11.charger(conn, [], [], [], [], [], [], [])
+    conn.commit()
+    tables = {
+        l[0]
+        for l in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'collectivites_communes%'"
+        )
+    }
+    assert "collectivites_communes" not in tables
+    assert {"collectivites_communes_top200", "collectivites_communes_series",
+            "collectivites_communes_strates"} <= tables
     conn.close()
 
 
@@ -228,8 +313,24 @@ def test_pipeline_complet_sur_base_jetable(tmp_path, monkeypatch):
         "SELECT count(*) FROM collectivites_departements WHERE exercice = 2025"
     ).fetchone()[0]
     assert n_dep == 101
-    n_com = conn.execute("SELECT count(*) FROM collectivites_communes").fetchone()[0]
+    n_com = conn.execute("SELECT count(*) FROM collectivites_communes_top200").fetchone()[0]
     assert n_com == p11.TOP_COMMUNES
+    n_ser = conn.execute(
+        "SELECT count(DISTINCT code_insee) FROM collectivites_communes_series"
+    ).fetchone()[0]
+    assert n_ser == p11.TOP_COMMUNES
+    n_marseille = conn.execute(
+        "SELECT count(*) FROM collectivites_communes_series"
+        " WHERE code_insee = '13055' AND agregat = ?",
+        (p11.AGREGAT_FONCT,),
+    ).fetchone()[0]
+    assert n_marseille == p11.EXERCICE_COMPTES - p11.SERIE_DEBUT + 1
+    n_strates = conn.execute(
+        "SELECT count(*) FROM collectivites_communes_strates"
+    ).fetchone()[0]
+    assert n_strates == 11 * (p11.EXERCICE_COMPTES - p11.SERIE_DEBUT + 1) * len(
+        p11.AGREGATS_COMMUNES
+    )
     lyon = conn.execute(
         "SELECT dgf_montant FROM dotations_dgf"
         " WHERE niveau = 'commune' AND code = '69123' AND exercice = 2026"

@@ -8,6 +8,7 @@ import { LineChart } from "@/components/ui/LineChart";
 import { Money } from "@/components/ui/Money";
 import { ParticipationElectorale } from "@/components/client/ParticipationElectorale";
 import { SeriesCollectivites } from "@/components/client/SeriesCollectivites";
+import { SeriesCommunes } from "@/components/client/SeriesCommunes";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { TableTronquee } from "@/components/client/TableTronquee";
 import { formatEuros, formatNombre } from "@/lib/format";
@@ -204,7 +205,8 @@ export default async function PageCollectivites() {
         : null,
   }));
 
-  // Grandes communes (top 50 par population).
+  // Grandes communes (top 200 par population — le tableau tronque
+  // l'affichage à 20, pas la donnée : chaque commune est sélectionnable).
   const lignesGrandesCommunes = grandesCommunes.map((c) => ({
     code: c.code_insee,
     nom: c.nom,
@@ -405,28 +407,31 @@ export default async function PageCollectivites() {
           titre="Grandes communes"
           sousTitre={
             grandesCommunes.length > 0
-              ? `Les ${grandesCommunes.length} communes les plus peuplées — exercice ${grandesCommunes[0].exercice} (provisoire)`
+              ? `Les ${grandesCommunes.length} communes les plus peuplées — exercice ${grandesCommunes[0].exercice} (provisoire), séries 2018-2025 au clic`
               : undefined
           }
           droite={badge(mentionComptes)}
         >
-          <TableTronquee
-            colonnes={[
-              { cle: "nom", entete: "Commune" },
-              { cle: "departement", entete: "Dép." },
-              { cle: "population", entete: "Population", type: "nombre" },
-              { cle: "fonctionnement_meur", entete: "Fonctionnement (M€)", type: "montant", decimales: 1 },
-              { cle: "fonct_euros_par_hab", entete: "Fonct. (€/hab)", type: "montant" },
-              { cle: "investissement_meur", entete: "Investissement (M€)", type: "montant", decimales: 1 },
-              { cle: "inv_euros_par_hab", entete: "Inv. (€/hab)", type: "montant" },
-            ]}
-            lignes={lignesGrandesCommunes}
-            cleChamp="code"
-            premierEcran={20}
-            libellePluriel="communes"
-            feminin
-            hauteurMax="420px"
-          />
+          <SeriesCommunes lignes={lignesGrandesCommunes} hauteurMax="420px" />
+          {/* Encadré méthode — cadre éditorial du module : aucune note,
+              aucun classement, aucun jugement ; la seule comparaison est la
+              médiane de strate, et une donnée absente reste absente. */}
+          <div className="mt-3 rounded-lg border border-card-border bg-raised p-3 text-[11px] leading-relaxed text-ink-muted">
+            <p className="mb-1 font-medium uppercase tracking-[0.04em]">Méthode</p>
+            <p>
+              Budget principal seul (les budgets annexes et les dépenses portées par
+              l&apos;intercommunalité n&apos;y figurent pas). Exercice {exerciceComptes}{" "}
+              provisoire : environ 97 communes manquent encore à la source — une commune
+              absente s&apos;affiche « donnée non disponible », jamais 0. La comparaison
+              proposée est la médiane des communes de la même strate démographique
+              (calculée par l&apos;API OFGL sur l&apos;ensemble des communes de France) :
+              un écart à la médiane de strate n&apos;est ni une faute ni un mérite —
+              strate, compétences transférées à l&apos;intercommunalité et
+              investissements ponctuels expliquent l&apos;essentiel des écarts.
+              L&apos;intercommunalité de la commune est mentionnée quand la source la
+              publie.
+            </p>
+          </div>
         </Card>
       </section>
 

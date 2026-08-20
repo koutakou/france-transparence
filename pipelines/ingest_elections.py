@@ -35,7 +35,7 @@ Tables produites (SQLite, possédées par ce pipeline, delete+insert idempotent)
   départements et collectivités). Colonnes : id_election, code_departement,
   libelle_departement, inscrits, votants, blancs, nuls, exprimes.
 - elections_participation_ville — 1 524 lignes, restreintes aux communes DÉJÀ
-  connues du site (`ref_villes` ∪ `collectivites_communes`, 234 au 20/08/2026 ;
+  connues du site (`ref_villes` ∪ `collectivites_communes_top200`, 234 au 20/08/2026 ;
   231 figurent aux municipales 2026 T1). Colonnes : id_election, code_commune,
   libelle_commune, code_departement, inscrits, votants, blancs, nuls, exprimes.
 
@@ -236,7 +236,7 @@ CREATE INDEX IF NOT EXISTS idx_elections_ville_commune
 
 
 def perimetre_communes(conn: sqlite3.Connection) -> list[str]:
-    """Communes DÉJÀ connues du site : `ref_villes` ∪ `collectivites_communes`.
+    """Communes DÉJÀ connues du site : `ref_villes` ∪ `collectivites_communes_top200`.
 
     234 codes INSEE au 20/08/2026 (184 villes de référence, 200 grandes
     communes OFGL, 150 en commun). Le pipeline n'élargit jamais ce périmètre :
@@ -247,7 +247,7 @@ def perimetre_communes(conn: sqlite3.Connection) -> list[str]:
         """
         SELECT code_insee FROM ref_villes
         UNION
-        SELECT code_insee FROM collectivites_communes
+        SELECT code_insee FROM collectivites_communes_top200
         """
     ).fetchall()
     return sorted(l[0] for l in lignes)

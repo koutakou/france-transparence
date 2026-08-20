@@ -155,7 +155,7 @@ export type DonneesElections = {
   scrutins: Scrutin[];
   /** Libellés par code (départements ET communes), une seule fois. */
   noms: Record<string, string>;
-  /** Communes suivies par le site (ref_villes ∪ collectivites_communes). */
+  /** Communes suivies par le site (ref_villes ∪ collectivites_communes_top200). */
   nbCommunesSuivies: number;
 };
 
@@ -239,7 +239,7 @@ export function getDonneesElections(): DonneesElections | null {
               e.inscrits, e.votants, e.blancs, e.nuls, e.exprimes
        FROM elections_participation_ville e
        LEFT JOIN (SELECT code_insee, nom FROM ref_villes
-                  UNION SELECT code_insee, nom FROM collectivites_communes) r
+                  UNION SELECT code_insee, nom FROM collectivites_communes_top200) r
               ON r.code_insee = e.code_commune
        ORDER BY e.id_election DESC, nom`,
     )
@@ -249,7 +249,7 @@ export function getDonneesElections(): DonneesElections | null {
       .prepare(
         `SELECT count(*) AS n FROM (
            SELECT code_insee FROM ref_villes
-           UNION SELECT code_insee FROM collectivites_communes)`,
+           UNION SELECT code_insee FROM collectivites_communes_top200)`,
       )
       .get() as { n: number }
   ).n;
@@ -304,7 +304,7 @@ export type DonneesElectionsInline = {
   meta: MetaSource;
   /** Libellés par code (départements ET communes), une seule fois. */
   noms: Record<string, string>;
-  /** Communes suivies par le site (ref_villes ∪ collectivites_communes). */
+  /** Communes suivies par le site (ref_villes ∪ collectivites_communes_top200). */
   nbCommunesSuivies: number;
   /** Les scrutins ingérés, du plus récent au plus ancien — SANS leurs lignes. */
   resumes: ScrutinResume[];

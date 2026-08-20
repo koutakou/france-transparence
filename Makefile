@@ -10,7 +10,7 @@ PY     := $(VENV)/bin/python
 # (les élus AN/Sénat sont créés avec leurs uid, integrite les complète par
 # nom+prénom+date de naissance puis ajoute maires/exécutifs) ; elections APRÈS
 # referentiels ET collectivites, dont il lit le périmètre (ref_departements
-# pour les libellés, ref_villes ∪ collectivites_communes pour les communes
+# pour les libellés, ref_villes ∪ collectivites_communes_top200 pour les communes
 # suivies) — placé avant lui, il n'aurait aucune commune à agréger ;
 # hatvp_declarations APRÈS integrite, dont il lit les élus appariables
 # (nom+prénom+date de naissance) — placé avant lui, il n'aurait aucune fiche

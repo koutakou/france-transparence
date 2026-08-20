@@ -266,7 +266,11 @@ export type GrandeCommune = {
   exercice: number;
 };
 
-/** Top 50 des communes par population, dernier exercice. */
+/**
+ * Les 200 communes les plus peuplées (tout le périmètre de la table
+ * top200), dernier exercice — le tableau de la page tronque l'affichage,
+ * pas la donnée : chaque commune doit être sélectionnable pour sa série.
+ */
 export function getGrandesCommunes(): GrandeCommune[] | null {
   const db = getDb();
   if (!db) return null;
@@ -275,10 +279,9 @@ export function getGrandesCommunes(): GrandeCommune[] | null {
       `SELECT code_insee, nom, dep_code, population,
               dep_fonctionnement AS fonctionnement, fonct_euros_par_hab,
               dep_investissement AS investissement, inv_euros_par_hab, exercice
-       FROM collectivites_communes
-       WHERE exercice = (SELECT MAX(exercice) FROM collectivites_communes)
-       ORDER BY population DESC
-       LIMIT 50`,
+       FROM collectivites_communes_top200
+       WHERE exercice = (SELECT MAX(exercice) FROM collectivites_communes_top200)
+       ORDER BY population DESC`,
     )
     .all() as GrandeCommune[];
 }
@@ -428,6 +431,102 @@ export function getToutesSeries(): ToutesSeries | null {
     )
     .all() as LigneSerie[];
   return { regions: regrouper(regions), departements: regrouper(departements) };
+}
+
+/* ------------------------------------------------------------------ */
+/* Fragment statique /data/collectivites/series-communes.json          */
+/* ------------------------------------------------------------------ */
+
+/** Un exercice d'une série communale — `null` = donnée absente de la
+ *  source (jamais 0 : une commune sans comptes n'a pas dépensé « 0 € »). */
+export type SerieCommuneAnnuelle = {
+  exercice: number;
+  fonct_hab: number | null;
+  inv_hab: number | null;
+  population: number | null;
+};
+
+export type SerieCommune = {
+  nom: string;
+  /** Strate démographique OFGL codée '0'..'10' (population au 01/01/2025). */
+  strate: string | null;
+  /** Intercommunalité (EPCI à fiscalité propre 2025) — null si non publiée. */
+  epci: string | null;
+  serie: SerieCommuneAnnuelle[];
+};
+
+export type MedianeStrateAnnuelle = {
+  exercice: number;
+  fonct_hab: number | null;
+  inv_hab: number | null;
+  /** Effectif de la strate (budgets principaux publiés cet exercice-là). */
+  nb_communes: number | null;
+};
+
+export type SeriesCommunes = {
+  /** Tous les exercices couverts (axe X commun), ordre chronologique. */
+  exercices: number[];
+  /** Séries par code INSEE (200 clés). */
+  communes: Record<string, SerieCommune>;
+  /** Médianes d'€/hab par strate ('0'..'10'), calculées par l'API OFGL
+   *  sur l'ensemble des communes — la seule comparaison honnête. */
+  strates: Record<string, MedianeStrateAnnuelle[]>;
+};
+
+/**
+ * Séries 2018-2025 des 200 communes + médianes de strate, en une passe —
+ * pré-générées dans un fragment statique chargé au premier clic sur une
+ * commune (le HTML de la page n'embarque aucune série).
+ */
+export function getSeriesCommunes(): SeriesCommunes | null {
+  const db = getDb();
+  if (!db) return null;
+  type LigneCommune = SerieCommuneAnnuelle & {
+    code: string;
+    nom: string;
+    strate: string | null;
+    epci: string | null;
+  };
+  const lignes = db
+    .prepare(
+      `SELECT code_insee AS code, nom,
+              tranche_population AS strate, epci_nom AS epci, exercice,
+              MAX(CASE WHEN agregat = 'Dépenses de fonctionnement' THEN euros_par_hab END) AS fonct_hab,
+              MAX(CASE WHEN agregat = 'Dépenses d''investissement' THEN euros_par_hab END) AS inv_hab,
+              MAX(population) AS population
+       FROM collectivites_communes_series
+       GROUP BY code_insee, exercice
+       ORDER BY code_insee, exercice`,
+    )
+    .all() as LigneCommune[];
+  const communes: Record<string, SerieCommune> = {};
+  const exercices = new Set<number>();
+  for (const { code, nom, strate, epci, ...annee } of lignes) {
+    (communes[code] ??= { nom, strate, epci, serie: [] }).serie.push(annee);
+    exercices.add(annee.exercice);
+  }
+  type LigneStrate = MedianeStrateAnnuelle & { strate: string };
+  const lignesStrates = db
+    .prepare(
+      `SELECT tranche_population AS strate, exercice,
+              MAX(CASE WHEN agregat = 'Dépenses de fonctionnement' THEN mediane_euros_par_hab END) AS fonct_hab,
+              MAX(CASE WHEN agregat = 'Dépenses d''investissement' THEN mediane_euros_par_hab END) AS inv_hab,
+              MAX(nb_communes) AS nb_communes
+       FROM collectivites_communes_strates
+       GROUP BY tranche_population, exercice
+       ORDER BY tranche_population, exercice`,
+    )
+    .all() as LigneStrate[];
+  const strates: Record<string, MedianeStrateAnnuelle[]> = {};
+  for (const { strate, ...annee } of lignesStrates) {
+    (strates[strate] ??= []).push(annee);
+    exercices.add(annee.exercice);
+  }
+  return {
+    exercices: [...exercices].sort((a, b) => a - b),
+    communes,
+    strates,
+  };
 }
 
 /* ------------------------------------------------------------------ */

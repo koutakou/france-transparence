@@ -45,6 +45,7 @@ Condensé des avertissements « pour le front » remontés par chaque pipeline a
 - Carte : `collectivites_departements(code_dep, …, euros_par_hab, population, nb_communes, exercice=2025)` ; €/hab = (fonct+inv)/pop ; min 1 055 (Orne), max 4 493 (Paris).
 - `dotations_dgf` : niveau='national' (2018-2026), 'departement' (2026), 'commune' (≥ 20 000 hab, rangs top/flop réels — Paris 0 € = écrêtement réel assumé).
 - Régions/départements en format long `(code, nom, siren, exercice, agregat, montant, euros_par_hab, population)` ; « Epargne brute » peut être négative (légitime).
+- Communes : `collectivites_communes_top200` (200 lignes, le nom porte le périmètre) ; séries 2018-2025 en format long `collectivites_communes_series` (3 200 lignes, fonctionnement/investissement, budgets principaux, avec strate `tranche_population` codée '0'..'10' et `epci_nom`) ; médianes d'€/hab par strate × exercice × agrégat dans `collectivites_communes_strates` (176 lignes, médiane calculée par l'API OFGL sur toutes les communes). Cadre éditorial : comparer UNIQUEMENT à la médiane de strate, aucun classement ni jugement ; un exercice absent s'affiche « donnée non disponible », jamais 0 (2025 provisoire, ~97 communes manquantes à la source).
 
 ## Référentiels (S27, S11, S35)
 - Carte : `data/geo/departements.geojson` (101 features, `properties.code` = `ref_departements.code`) ; projection Lambert-93 conique conforme (déjà dans MapFrance) ; **outre-mer hors rendu v1** (documenté).

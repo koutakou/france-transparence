@@ -29,10 +29,25 @@ Tables produites (SQLite, possédées par ce pipeline, delete+insert idempotent)
   d'Alsace, « 691 » = Métropole de Lyon, « 75 » = Ville de Paris ; Corse,
   Martinique, Guyane sont devenues des CTU → base régions) :
   code_dep, nom, siren, exercice, agregat, montant, euros_par_hab, population.
-- collectivites_communes — top 200 communes par population, exercice 2025 :
-  code_insee, nom, dep_code, dep_nom, siren, population,
+- collectivites_communes_top200 — top 200 communes par population (et RIEN
+  d'autre : le nom porte le périmètre, la France compte ~34 900 communes),
+  exercice 2025 : code_insee, nom, dep_code, dep_nom, siren, population,
   dep_fonctionnement, fonct_euros_par_hab, dep_investissement,
   inv_euros_par_hab, exercice.
+- collectivites_communes_series — les MÊMES 200 communes, série 2018-2025
+  en format long aligné sur les régions/départements, 2 agrégats
+  (fonctionnement, investissement), budgets principaux seuls. Exports CSV
+  filtrés par lots de codes INSEE (jamais le jeu entier) :
+  code_insee, nom, siren, tranche_population (strate OFGL '0'..'10',
+  population 2025), epci_nom, exercice, agregat, montant, euros_par_hab,
+  population.
+- collectivites_communes_strates — médianes d'€/habitant par strate
+  démographique (tranche_population) × exercice × agrégat, calculées PAR LE
+  SERVEUR OFGL (group_by + median() sur les ~34 900 budgets principaux,
+  ~176 lignes rapatriées) : la seule comparaison honnête pour une commune
+  est la médiane de sa strate, jamais un classement toutes tailles
+  confondues : tranche_population, exercice, agregat,
+  mediane_euros_par_hab, nb_communes.
 - dotations_dgf — DGF des communes (dotations-communes OFGL, 2018-2026) :
   niveau ('national' | 'departement' | 'commune'), code ('FR', code dép. ou
   code INSEE), nom, exercice, dgf_montant (€), population (Population INSEE),
@@ -47,8 +62,9 @@ Tables produites (SQLite, possédées par ce pipeline, delete+insert idempotent)
   COLL-COM-xxxxx.
 
 Module UI : « Finances locales » (carte départementale, fiches région/
-département avec séries par grande catégorie, grandes communes, dotations
-DGF) + carte de l'Accueil. Fraîcheur affichable : « Comptes 2025 provisoires
+département avec séries par grande catégorie, grandes communes avec séries
+2018-2025 comparées à la médiane de leur strate, dotations DGF) + carte de
+l'Accueil. Fraîcheur affichable : « Comptes 2025 provisoires
 (chargés juillet 2026 ; ~97 communes manquantes jusqu'en décembre 2026) » ·
 « Dotations de l'État : exercice 2026 ».
 
@@ -85,6 +101,15 @@ NB_TOP_FLOP = 20
 
 AGREGAT_FONCT = "Dépenses de fonctionnement"
 AGREGAT_INVEST = "Dépenses d'investissement"
+
+# Séries communales : les 2 agrégats restitués sur /collectivites (le front
+# les compare à la médiane de strate, en €/hab — pas d'autre agrégat tant
+# qu'aucun module ne le restitue).
+AGREGATS_COMMUNES = [AGREGAT_FONCT, AGREGAT_INVEST]
+# Taille des lots de codes INSEE par export filtré (doctrine « jamais
+# d'aspiration des bases complètes » : la clause `com_code in (...)` reste
+# courte et l'URL loin des limites usuelles).
+TAILLE_LOT_COMMUNES = 50
 
 # Grandes catégories ingérées pour les régions et départements (agrégats
 # OFGL, listés par group_by=agregat le 19/08/2026 — présents dans les deux
@@ -150,7 +175,7 @@ CREATE TABLE IF NOT EXISTS collectivites_conseils_departementaux (
     PRIMARY KEY (code_dep, exercice, agregat)
 );
 
-CREATE TABLE IF NOT EXISTS collectivites_communes (
+CREATE TABLE IF NOT EXISTS collectivites_communes_top200 (
     code_insee          TEXT NOT NULL,
     nom                 TEXT NOT NULL,
     dep_code            TEXT,
@@ -163,6 +188,29 @@ CREATE TABLE IF NOT EXISTS collectivites_communes (
     inv_euros_par_hab   REAL,
     exercice            INTEGER NOT NULL,
     PRIMARY KEY (code_insee, exercice)
+);
+
+CREATE TABLE IF NOT EXISTS collectivites_communes_series (
+    code_insee         TEXT NOT NULL,
+    nom                TEXT NOT NULL,
+    siren              TEXT,
+    tranche_population TEXT,      -- strate OFGL codée '0'..'10' (population au 01/01/2025)
+    epci_nom           TEXT,      -- groupement à fiscalité propre 2025 (NULL si isolée)
+    exercice           INTEGER NOT NULL,
+    agregat            TEXT NOT NULL,
+    montant            REAL,
+    euros_par_hab      REAL,
+    population         INTEGER,
+    PRIMARY KEY (code_insee, exercice, agregat)
+);
+
+CREATE TABLE IF NOT EXISTS collectivites_communes_strates (
+    tranche_population    TEXT NOT NULL,   -- strate OFGL codée '0'..'10'
+    exercice              INTEGER NOT NULL,
+    agregat               TEXT NOT NULL,
+    mediane_euros_par_hab REAL,
+    nb_communes           INTEGER,         -- effectif de la strate (budgets principaux)
+    PRIMARY KEY (tranche_population, exercice, agregat)
 );
 
 CREATE TABLE IF NOT EXISTS dotations_dgf (
@@ -188,6 +236,10 @@ _TYPES_COMMUNES = (
 _TYPES_SERIES_DEP = "{'exer':'VARCHAR','dep_code':'VARCHAR','siren':'VARCHAR'}"
 _TYPES_SERIES_REG = "{'exer':'VARCHAR','reg_code':'VARCHAR','siren':'VARCHAR'}"
 _TYPES_DGF = "{'exercice':'VARCHAR','code_insee':'VARCHAR','code_departement':'VARCHAR'}"
+_TYPES_SERIES_COM = (
+    "{'exer':'VARCHAR','com_code':'VARCHAR','siren':'VARCHAR','tranche_population':'VARCHAR'}"
+)
+_TYPES_STRATES = "{'tranche_population':'VARCHAR','exercice':'VARCHAR'}"
 
 
 # ---------------------------------------------------------------------------
@@ -195,8 +247,11 @@ _TYPES_DGF = "{'exercice':'VARCHAR','code_insee':'VARCHAR','code_departement':'V
 # ---------------------------------------------------------------------------
 
 
-def _url_export(dataset: str, where: str, select: str) -> str:
-    return f"{API}/{dataset}/exports/csv?" + urlencode({"where": where, "select": select})
+def _url_export(dataset: str, where: str, select: str, group_by: str | None = None) -> str:
+    params = {"where": where, "select": select}
+    if group_by:
+        params["group_by"] = group_by
+    return f"{API}/{dataset}/exports/csv?" + urlencode(params)
 
 
 def _liste_in(valeurs: list[str]) -> str:
@@ -205,7 +260,11 @@ def _liste_in(valeurs: list[str]) -> str:
 
 
 def telecharger_exports(session: requests.Session, max_age_heures: float = 12.0) -> dict[str, Path]:
-    """Rapatrie les 4 exports filtrés OFGL dans data/raw/ofgl/ (~15 Mo au total)."""
+    """Rapatrie les 5 exports filtrés OFGL dans data/raw/ofgl/ (~15 Mo au
+    total — l'export « strates » est agrégé PAR LE SERVEUR : ~176 lignes).
+
+    Les séries communales, elles, dépendent de la liste des 200 communes
+    (dérivée de l'export comptes) : `telecharger_series_communes`."""
     chemins: dict[str, Path] = {}
 
     where = (
@@ -246,6 +305,22 @@ def telecharger_exports(session: requests.Session, max_age_heures: float = 12.0)
     )
 
     where = (
+        f'year(exer)>={SERIE_DEBUT} and type_de_budget="Budget principal" '
+        f"and agregat in {_liste_in(AGREGATS_COMMUNES)}"
+    )
+    chemins["strates"] = telecharger(
+        _url_export(
+            "ofgl-base-communes",
+            where,
+            "median(euros_par_habitant) as mediane,count(*) as nb_communes",
+            group_by="tranche_population,year(exer) as exercice,agregat",
+        ),
+        f"ofgl/communes-strates-medianes-{SERIE_DEBUT}-{EXERCICE_COMPTES}.csv",
+        max_age_heures=max_age_heures,
+        session=session,
+    )
+
+    where = (
         f"year(exercice)={ANNEE_DGF_DETAIL} and variable in {_liste_in([VAR_DGF, VAR_POP])}"
     )
     chemins["dgf"] = telecharger(
@@ -258,6 +333,38 @@ def telecharger_exports(session: requests.Session, max_age_heures: float = 12.0)
         max_age_heures=max_age_heures,
         session=session,
     )
+    return chemins
+
+
+def telecharger_series_communes(
+    session: requests.Session,
+    codes_insee: list[str],
+    max_age_heures: float = 12.0,
+) -> list[Path]:
+    """Séries 2018-2025 des communes listées (le top 200), par lots de
+    `TAILLE_LOT_COMMUNES` codes INSEE — exports filtrés `com_code in (...)`,
+    JAMAIS le jeu ofgl-base-communes entier (21,9 M de lignes)."""
+    select = (
+        "exer,com_code,com_name,siren,tranche_population,epci_name,"
+        "agregat,montant,euros_par_habitant,ptot"
+    )
+    chemins: list[Path] = []
+    for i in range(0, len(codes_insee), TAILLE_LOT_COMMUNES):
+        lot = codes_insee[i : i + TAILLE_LOT_COMMUNES]
+        where = (
+            f'year(exer)>={SERIE_DEBUT} and type_de_budget="Budget principal" '
+            f"and agregat in {_liste_in(AGREGATS_COMMUNES)} "
+            f"and com_code in {_liste_in(lot)}"
+        )
+        chemins.append(
+            telecharger(
+                _url_export("ofgl-base-communes", where, select),
+                f"ofgl/communes-series-{SERIE_DEBUT}-{EXERCICE_COMPTES}"
+                f"-lot{i // TAILLE_LOT_COMMUNES:02d}.csv",
+                max_age_heures=max_age_heures,
+                session=session,
+            )
+        )
     return chemins
 
 
@@ -325,10 +432,14 @@ def verifier_fraicheur(session: requests.Session) -> dict[str, str]:
 # ---------------------------------------------------------------------------
 
 
-def _duck(chemin: str | Path, types: str) -> duckdb.DuckDBPyConnection:
+def _duck(
+    chemin: str | Path | list[str | Path], types: str
+) -> duckdb.DuckDBPyConnection:
+    chemins = chemin if isinstance(chemin, list) else [chemin]
+    liste = ", ".join(f"'{Path(c).as_posix()}'" for c in chemins)
     conn = duckdb.connect()
     conn.execute(
-        f"CREATE VIEW src AS SELECT * FROM read_csv('{Path(chemin).as_posix()}', "
+        f"CREATE VIEW src AS SELECT * FROM read_csv([{liste}], "
         f"delim=';', header=true, types={types})"
     )
     return conn
@@ -434,6 +545,62 @@ def series_conseils(chemin_csv: str | Path, niveau: str) -> list[tuple]:
         ).fetchall()
 
 
+def series_communes(
+    chemins_csv: list[str | Path], codes_retenus: list[str]
+) -> list[tuple]:
+    """Séries 2018-2025 des communes du top 200 (exports par lots), format
+    long aligné sur `series_conseils`.
+
+    Retour : [(code_insee, nom, siren, tranche_population, epci_nom,
+    exercice, agregat, montant, euros_par_hab, population)] — l'€/habitant
+    est celui calculé par l'OFGL (une ligne source par commune × exercice ×
+    agrégat en budget principal). Un exercice absent de la source reste
+    ABSENT (aucune ligne) : le front affiche « donnée non disponible »,
+    jamais 0.
+    """
+    retenus = set(codes_retenus)
+    with _duck(list(chemins_csv), _TYPES_SERIES_COM) as c:
+        lignes = c.execute(
+            """
+            SELECT com_code,
+                   any_value(com_name),
+                   any_value(siren),
+                   any_value(tranche_population),
+                   any_value(epci_name),
+                   CAST(substr(any_value(exer), 1, 4) AS INTEGER) AS exercice,
+                   agregat,
+                   round(sum(montant), 2),
+                   round(max(euros_par_habitant), 2),
+                   CAST(max(ptot) AS BIGINT)
+            FROM src
+            GROUP BY com_code, substr(exer, 1, 4), agregat
+            ORDER BY com_code, exercice, agregat
+            """
+        ).fetchall()
+    return [l for l in lignes if l[0] in retenus]
+
+
+def medianes_strates(chemin_csv: str | Path) -> list[tuple]:
+    """Médianes d'€/habitant par strate × exercice × agrégat (export agrégé
+    par le serveur OFGL : median() + count() sur les budgets principaux).
+
+    Retour : [(tranche_population, exercice, agregat,
+    mediane_euros_par_hab, nb_communes)].
+    """
+    with _duck(chemin_csv, _TYPES_STRATES) as c:
+        return c.execute(
+            """
+            SELECT tranche_population,
+                   CAST(exercice AS INTEGER),
+                   agregat,
+                   round(mediane, 2),
+                   CAST(nb_communes AS BIGINT)
+            FROM src
+            ORDER BY CAST(tranche_population AS INTEGER), exercice, agregat
+            """
+        ).fetchall()
+
+
 def pivot_dgf_communes(chemin_csv: str | Path) -> list[tuple]:
     """Pivote l'export dotations 2026 : une ligne par commune.
 
@@ -522,18 +689,34 @@ def charger(
     dgf_national: list[tuple],
     dgf_deps: list[tuple],
     dgf_grandes_communes: list[tuple],
+    series_com: list[tuple] = (),
+    strates: list[tuple] = (),
 ) -> dict[str, int]:
     """Delete+insert dans les tables possédées par le pipeline (idempotent),
     upsert des entités. Ne commite pas (le commit suit les contrôles)."""
+    # Migration : la table s'est appelée `collectivites_communes` jusqu'en
+    # août 2026 — le nom promettait les ~34 900 communes de France alors
+    # qu'elle en portait 200. Une base construite avant le renommage garde
+    # l'ancienne table : on la retire pour qu'elle ne trompe personne.
+    conn.execute("DROP TABLE IF EXISTS collectivites_communes")
     conn.executescript(_SCHEMA)
 
     conn.execute("DELETE FROM collectivites_departements")
     conn.executemany(
         "INSERT INTO collectivites_departements VALUES (?,?,?,?,?,?,?,?)", deps
     )
-    conn.execute("DELETE FROM collectivites_communes")
+    conn.execute("DELETE FROM collectivites_communes_top200")
     conn.executemany(
-        "INSERT INTO collectivites_communes VALUES (?,?,?,?,?,?,?,?,?,?,?)", communes
+        "INSERT INTO collectivites_communes_top200 VALUES (?,?,?,?,?,?,?,?,?,?,?)", communes
+    )
+    conn.execute("DELETE FROM collectivites_communes_series")
+    conn.executemany(
+        "INSERT INTO collectivites_communes_series VALUES (?,?,?,?,?,?,?,?,?,?)",
+        series_com,
+    )
+    conn.execute("DELETE FROM collectivites_communes_strates")
+    conn.executemany(
+        "INSERT INTO collectivites_communes_strates VALUES (?,?,?,?,?)", strates
     )
     conn.execute("DELETE FROM collectivites_regions")
     conn.executemany(
@@ -587,7 +770,9 @@ def charger(
 
     return {
         "collectivites_departements": len(deps),
-        "collectivites_communes": len(communes),
+        "collectivites_communes_top200": len(communes),
+        "collectivites_communes_series": len(series_com),
+        "collectivites_communes_strates": len(strates),
         "collectivites_regions": len(regions),
         "collectivites_conseils_departementaux": len(conseils_dep),
         "dotations_dgf": len(dgf_national) + len(dgf_deps) + len(dgf_grandes_communes),
@@ -612,24 +797,55 @@ def verifier(conn) -> None:
     if n:
         problemes.append(f"carte départementale : {n} €/hab hors de ]0 ; 10 000]")
 
-    n = un("SELECT count(*) FROM collectivites_communes")
+    n = un("SELECT count(*) FROM collectivites_communes_top200")
     if n != TOP_COMMUNES:
         problemes.append(f"top communes : {n} lignes ({TOP_COMMUNES} attendues)")
     n = un(
-        "SELECT count(*) FROM collectivites_communes"
+        "SELECT count(*) FROM collectivites_communes_top200"
         " WHERE fonct_euros_par_hab <= 0 OR fonct_euros_par_hab > 10000"
         "    OR inv_euros_par_hab < 0 OR inv_euros_par_hab > 10000"
     )
     if n:
         problemes.append(f"top communes : {n} €/hab aberrants")
     marseille = conn.execute(
-        "SELECT dep_fonctionnement, fonct_euros_par_hab FROM collectivites_communes"
+        "SELECT dep_fonctionnement, fonct_euros_par_hab FROM collectivites_communes_top200"
         " WHERE code_insee = '13055'"
     ).fetchone()
     if marseille is None:
         problemes.append("Marseille absente du top communes")
     elif not (1.0e9 < marseille[0] < 2.0e9 and 1000 < marseille[1] < 2500):
         problemes.append(f"Marseille hors plage attendue : {tuple(marseille)}")
+
+    nb_exercices = EXERCICE_COMPTES - SERIE_DEBUT + 1
+    n = un("SELECT count(DISTINCT code_insee) FROM collectivites_communes_series")
+    if n != TOP_COMMUNES:
+        problemes.append(f"séries communales : {n} communes ({TOP_COMMUNES} attendues)")
+    n = un(
+        "SELECT count(*) FROM collectivites_communes_series"
+        f" WHERE code_insee = '13055' AND agregat = '{AGREGAT_FONCT}'"
+    )
+    if n != nb_exercices:
+        problemes.append(
+            f"séries communales : Marseille a {n} exercices de fonctionnement"
+            f" ({nb_exercices} attendus)"
+        )
+    n = un(
+        "SELECT count(*) FROM collectivites_communes_series"
+        " WHERE euros_par_hab IS NULL OR euros_par_hab < 0 OR euros_par_hab > 10000"
+    )
+    if n:
+        problemes.append(f"séries communales : {n} €/hab hors de [0 ; 10 000]")
+
+    n = un("SELECT count(*) FROM collectivites_communes_strates")
+    if not 100 <= n <= 300:  # 11 strates × exercices × agrégats (~176)
+        problemes.append(f"médianes de strate : {n} lignes (~176 attendues)")
+    n = un(
+        "SELECT count(*) FROM collectivites_communes_strates"
+        " WHERE mediane_euros_par_hab IS NULL OR mediane_euros_par_hab <= 0"
+        "    OR mediane_euros_par_hab > 10000 OR nb_communes <= 0"
+    )
+    if n:
+        problemes.append(f"médianes de strate : {n} lignes invraisemblables")
 
     n = un(
         f"SELECT count(DISTINCT code_region) FROM collectivites_regions WHERE exercice = {EXERCICE_COMPTES}"
@@ -682,9 +898,19 @@ def executer() -> None:
     dgf_grandes = communes_dgf_retenues(dgf_communes)
     dgf_nat = dgf_nationale_par_annee(session)
 
+    # Séries communales : mêmes 200 communes que le top (la liste vient de
+    # l'export comptes, jamais d'une liste en dur), exports par lots.
+    codes_top = [c[0] for c in communes]
+    chemins_series = telecharger_series_communes(session, codes_top)
+    series_com = series_communes(chemins_series, codes_top)
+    strates = medianes_strates(chemins["strates"])
+
     conn = db.init_db()
     try:
-        comptes = charger(conn, deps, communes, regions, conseils, dgf_nat, dgf_deps, dgf_grandes)
+        comptes = charger(
+            conn, deps, communes, regions, conseils, dgf_nat, dgf_deps, dgf_grandes,
+            series_com, strates,
+        )
         verifier(conn)
         conn.commit()
         db.upsert_meta(
@@ -699,6 +925,9 @@ def executer() -> None:
             notes=(
                 f"Comptes {EXERCICE_COMPTES} provisoires (~97 communes manquantes jusqu'à déc. 2026) ; "
                 f"dotations DGF jusqu'à l'exercice {ANNEE_DGF_DETAIL}. "
+                f"Séries communales {SERIE_DEBUT}-{EXERCICE_COMPTES} (top {TOP_COMMUNES}, "
+                f"budgets principaux) et médianes d'€/hab par strate démographique "
+                f"(médiane calculée par l'API OFGL sur l'ensemble des communes). "
                 f"MAJ OFGL revérifiées ce jour : communes {fraicheur['ofgl-base-communes']}, "
                 f"départements {fraicheur['ofgl-base-departements']}, "
                 f"régions {fraicheur['ofgl-base-regions']}, "

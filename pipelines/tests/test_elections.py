@@ -321,16 +321,16 @@ def test_verifier_signale_un_libelle_departemental_manquant(tmp_path, resultat):
 
 
 def test_perimetre_communes_lit_les_deux_tables_du_site(tmp_path):
-    """Le périmètre est l'UNION de ref_villes et collectivites_communes, sans
+    """Le périmètre est l'UNION de ref_villes et collectivites_communes_top200, sans
     doublon — jamais une liste en dur dans le pipeline."""
     conn = db.init_db(chemin=tmp_path / "perimetre.db")
     try:
         conn.executescript(
             """
             CREATE TABLE ref_villes (code_insee TEXT PRIMARY KEY, nom TEXT);
-            CREATE TABLE collectivites_communes (code_insee TEXT PRIMARY KEY, nom TEXT);
+            CREATE TABLE collectivites_communes_top200 (code_insee TEXT PRIMARY KEY, nom TEXT);
             INSERT INTO ref_villes VALUES ('75056','Paris'), ('2A004','Ajaccio');
-            INSERT INTO collectivites_communes VALUES ('75056','Paris'), ('69123','Lyon');
+            INSERT INTO collectivites_communes_top200 VALUES ('75056','Paris'), ('69123','Lyon');
             """
         )
         conn.commit()

@@ -52,7 +52,7 @@ Colonnes : `id_election`, code et libellé de la collectivité, `inscrits`,
 tour) : municipales 2026 T1/T2, législatives 2024 T1/T2, européennes 2024,
 présidentielle 2022 T1/T2.
 
-**Périmètre communal** : `ref_villes` ∪ `collectivites_communes` = **234
+**Périmètre communal** : `ref_villes` ∪ `collectivites_communes_top200` = **234
 communes** au 20/08/2026. Le pipeline n'élargit jamais ce périmètre : une
 commune n'apparaît en résultats électoraux que si une autre page du site la
 connaît déjà. C'est ce qui borne la table ville à 1 524 lignes plutôt qu'aux
@@ -235,7 +235,7 @@ ligne n'est fabriquée, aucun taux à zéro n'est affiché.
 - Tout ratio absent s'affiche « — », jamais 0.
 - **Libellés** : les noms de départements viennent de `ref_departements`
   (résolus par le pipeline), ceux des communes du référentiel du site
-  (`ref_villes` ∪ `collectivites_communes`, résolus par la requête), avec repli
+  (`ref_villes` ∪ `collectivites_communes_top200`, résolus par la requête), avec repli
   sur le libellé de la source. Le ministère change la casse d'un scrutin à
   l'autre (« Aix-En-Provence » aux municipales 2026 T1, « Aix-en-Provence » au
   T2) et la même commune est nommée ailleurs sur `/collectivites` depuis ce
