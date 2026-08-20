@@ -39,6 +39,11 @@ on:
         default: true
   push:
     branches: [main]
+  # Une proposition de fusion doit être vérifiée AVANT d'atteindre main, pas
+  # après : c'est main qui alimente le serveur de production. Le job de
+  # publication Pages, lui, reste réservé aux pushes sur main (voir plus bas).
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
@@ -47,7 +52,9 @@ permissions:
   issues: write
 
 concurrency:
-  group: publication
+  # Par référence : une vérification de proposition de fusion ne doit ni
+  # bloquer ni être bloquée par le cycle quotidien de main.
+  group: publication-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -168,6 +175,9 @@ jobs:
 
   deployer:
     needs: construire
+    # Une proposition de fusion vérifie, elle ne publie pas : rien ne part sur
+    # GitHub Pages tant que le code n'est pas sur main.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -178,7 +188,9 @@ jobs:
 
   alerter:
     needs: [construire, deployer]
-    if: failure()
+    # Un échec sur une proposition de fusion est déjà visible sur la
+    # proposition elle-même : ouvrir une issue n'ajouterait que du bruit.
+    if: failure() && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Ouvrir ou commenter l'issue d'échec
