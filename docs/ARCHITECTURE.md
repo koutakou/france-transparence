@@ -1,7 +1,7 @@
 # ARCHITECTURE.md — France Transparence
 
 **Document de référence technique · Établi le 19/08/2026.**
-Complète `docs/SOURCES.md` (le *quoi* : 13 pipelines v1, 11 modules) et `docs/DATAVIZ.md` (le *comment visuel*). Ici : le *comment technique*.
+Complète `docs/SOURCES.md` (le *quoi* : le périmètre v1 de sources, 11 modules) et `docs/DATAVIZ.md` (le *comment visuel*). Ici : le *comment technique*.
 
 ---
 
@@ -29,7 +29,7 @@ france-transparence/
 │   ├── raw/                  # téléchargements bruts, cache (gitignoré)
 │   └── france.db             # LA base servie (produite par make ingest)
 ├── docs/
-│   ├── SOURCES.md            # référentiel des sources (13 pipelines v1)
+│   ├── SOURCES.md            # référentiel des sources (périmètre v1)
 │   ├── DATAVIZ.md            # jetons couleur + règles dataviz
 │   ├── ARCHITECTURE.md       # ce document
 │   └── recherche/            # rapports Phase 0 (01 à 09)

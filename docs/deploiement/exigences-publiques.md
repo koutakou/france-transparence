@@ -86,7 +86,7 @@ Références ANSSI : « Recommandations pour la mise en œuvre d'un site web : m
 - **Crédits et licences par source** : `app/src/app/donnees/page.tsx` affiche le catalogue des 25 sources avec **licence, date des données, date d'ingestion, fréquence, URL amont** (satisfait l'obligation LO 2.0 « source + date de dernière mise à jour »), plus un bloc « Licences et crédits » nominatif (DILA, HATVP, CNCCFP, ministère de l'Intérieur, AN, Sénat, OFGL, DGFiP, INSEE, IGN/Etalab, Datan avec méthodologie liée, decp-processing/Colin Maudry) et la doc de l'API locale (chaque réponse JSON porte un bloc `meta` : source, licence, dates).
 - **Fraîcheur mesurée et affichée** (exigence d'exactitude art. 5(1)(d)) : badge de fraîcheur par source avec règle documentée, décalages structurels assumés.
 - **Alertes nominatives déjà conformes aux bonnes pratiques CNIL** : « Déclaration non déposée » = **constat officiel HATVP repris tel quel** (statut natif de `liste.csv`, daté, URL de la page nominative HATVP, base légale citée) ; les « retards présumés » — la seule inférence maison — restent **agrégés, non nominatifs** ; défauts lobbying = liste officielle HATVP « flag public officiel, repris tel quel ». Minimisation : `/api/elus` sert des « champs publics uniquement ».
-- **Pas d'enrichissement hors open data** : les 13 pipelines ne consomment que les flux officiels listés ; rien issu des déclarations consultables en préfecture.
+- **Pas d'enrichissement hors open data** : les pipelines ne consomment que les flux officiels listés ; rien issu des déclarations consultables en préfecture.
 
 ## 3. Ce qui manque — actions concrètes fermées
 

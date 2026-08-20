@@ -3,6 +3,14 @@
 **Projet France Transparence · Document de référence de la suite du projet · Établi le 19 août 2026.**
 **Révisé le 19/08/2026 après critique de complétude (docs/recherche/10-critique-completude.md)** — corrections C1-C2, I1-I10 et mineures (M1, M3, M4, M6-M9) intégrées ; périmètre v1 inchangé (13 pipelines).
 
+> **Mise à jour du 20/08/2026 (soir).** Le périmètre a depuis dépassé la v1 : deux sources
+> classées v2 dans ce document ont été ingérées — **S15** (contenu des déclarations d'intérêts
+> HATVP, via `pipelines/ingest_hatvp_declarations.py`) et **S26** (participation électorale,
+> via `pipelines/ingest_elections.py`, agrégats commune/département, **sans aucune nuance
+> politique ni nom de candidat**). Les mentions de « 13 pipelines » ci-dessous décrivent le
+> périmètre v1 tel qu'arrêté le 19/08/2026 et sont conservées à ce titre : la liste qui fait
+> autorité est la variable `PIPELINES` du `Makefile`.
+
 Ce document synthétise les 9 rapports de la Phase 0 (`docs/recherche/01` à `09`), tous fondés sur des **appels réels effectués le 19/08/2026** (curl/API, codes HTTP constatés). Chaque affirmation de fraîcheur ou de volumétrie cite son rapport source entre parenthèses. Règle du projet : **données réelles uniquement, fraîcheur affichée et mesurée** — pas de promesse que les sources ne peuvent pas tenir.
 
 Contexte 2026 à garder en tête : LFI 2026 promulguée tardivement le 19/02/2026 et jamais publiée en données structurées (01-budget-etat.md) ; municipales des 15 et 22 mars 2026 intégrées au RNE et à la HATVP (04-elus-integrite.md) ; renouvellement sénatorial le 27/09/2026 et 17e législature paramétrable, jamais codée en dur (03-parlement.md).

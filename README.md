@@ -10,7 +10,7 @@ Dashboard web sur la transparence de la vie politique française : dépenses de 
 
 Export statique du dashboard, servi **directement par nginx** depuis un serveur dédié (Scaleway Dedibox, Ubuntu 22.04). **Aucun process Node en production** : le HTML est pré-rendu au build, nginx ne fait que servir des fichiers déjà écrits sur disque (et déjà compressés).
 
-Le site est reconstruit chaque matin vers 05:17 (heure de Paris) par le script serveur `ft-deploy`, déclenché par la minuterie systemd `ft-deploy.timer`. La publication est **tout ou rien** : mise à jour du dépôt → contrôle de l'identité de déploiement → ingestion des 13 pipelines → tests → build statique → contrôles de santé du site généré → **bascule atomique** du lien symbolique `current` vers la nouvelle release. Si une étape échoue, le lien ne bascule pas : l'ancienne version continue d'être servie sans interruption, et une alerte part. La fraîcheur affichée reste donc toujours celle de la base réellement construite.
+Le site est reconstruit chaque matin vers 05:17 (heure de Paris) par le script serveur `ft-deploy`, déclenché par la minuterie systemd `ft-deploy.timer`. La publication est **tout ou rien** : mise à jour du dépôt → contrôle de l'identité de déploiement → ingestion de tous les pipelines → tests → build statique → contrôles de santé du site généré → **bascule atomique** du lien symbolique `current` vers la nouvelle release. Si une étape échoue, le lien ne bascule pas : l'ancienne version continue d'être servie sans interruption, et une alerte part. La fraîcheur affichée reste donc toujours celle de la base réellement construite.
 
 Les cinq dernières releases sont conservées sur le serveur : `ft-rollback` revient à l'une d'elles en quelques secondes, sans rebuild.
 
@@ -21,7 +21,7 @@ make serve-static   # sert app/out/ sur http://localhost:3620
 
 L'ancienne adresse GitHub Pages ne sert plus le site : elle ne porte plus qu'une **page de redirection canonique** vers le domaine (`pages-redirection/`). Publier une copie intégrale du site sur les deux hôtes aurait fait vivre deux sites identiques en ligne et partagé l'autorité de référencement de chacune des ~1 066 pages entre deux domaines ; GitHub Pages ne sachant pas émettre de 301, la canonique et le rafraîchissement méta sont les seuls instruments disponibles.
 
-**La CI GitHub Actions ne publie plus le site**, et ce n'est pas une perte : elle valide chaque jour (cron 04:45 UTC) la chaîne complète — ingestion des 13 pipelines dans une base neuve, tests, build, contrôles de santé — dans un environnement neuf, **indépendant du serveur**. Si une source amont casse, on l'apprend là avant que le serveur ne rebuilde. Elle vérifie aussi chaque proposition de fusion **avant** qu'elle n'atteigne `main`, puisque c'est `main` qui alimente le serveur.
+**La CI GitHub Actions ne publie plus le site**, et ce n'est pas une perte : elle valide chaque jour (cron 04:45 UTC) la chaîne complète — ingestion de tous les pipelines dans une base neuve, tests, build, contrôles de santé — dans un environnement neuf, **indépendant du serveur**. Si une source amont casse, on l'apprend là avant que le serveur ne rebuilde. Elle vérifie aussi chaque proposition de fusion **avant** qu'elle n'atteigne `main`, puisque c'est `main` qui alimente le serveur.
 
 L'identité de déploiement est **paramétrable au build** : un fork change d'adresse sans toucher une ligne de source. `NEXT_PUBLIC_SITE_URL` (défaut `https://francetransparence.fr`) porte l'URL du site — canoniques, sitemap et `robots.txt` en sont dérivés (`app/src/app/robots.ts` génère le `robots.txt`, il n'y a plus de fichier statique), et les variables `NEXT_PUBLIC_HEBERGEUR_*` portent l'identité de l'hébergeur publiée dans les mentions légales (`app/src/lib/hebergeur.ts`).
 
@@ -53,7 +53,7 @@ La base `data/france.db` (447 Mo, 51 tables) est gitignorée : elle se reconstru
 make ingest-<source>
 ```
 
-avec `<source>` parmi les 13 pipelines : `referentiels`, `budget_mensuel`, `budget_structure`, `decp`, `boamp`, `approch`, `jorf`, `parlement`, `integrite`, `lobbying`, `financement`, `collectivites`, `trainvie`.
+avec `<source>` parmi les pipelines déclarés dans la variable `PIPELINES` du `Makefile`, qui fait autorité : `referentiels`, `budget_mensuel`, `budget_structure`, `decp`, `boamp`, `approch`, `jorf`, `parlement`, `integrite`, `lobbying`, `financement`, `collectivites`, `trainvie`.
 
 ## Tests
 

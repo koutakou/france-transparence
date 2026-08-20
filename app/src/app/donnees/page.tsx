@@ -660,16 +660,17 @@ export default async function PageDonnees() {
       >
         <div className="flex flex-col gap-3 text-[13px] leading-relaxed text-ink-secondary">
           <p>
-            Les 13 pipelines Python (référentiels, budget, marchés, BOAMP,
-            APProch, JO, Parlement, intégrité, lobbying, financement,
-            collectivités, train de vie) téléchargent les sources ouvertes et
+            Les pipelines Python (référentiels, budget, marchés, BOAMP,
+            APProch, JO, Parlement, intégrité, déclarations HATVP, lobbying,
+            financement, collectivités, élections, train de vie) téléchargent
+            les sources ouvertes et
             construisent l’unique base{" "}
             <code className="rounded bg-raised px-1 py-0.5 text-xs">data/france.db</code>{" "}
             (SQLite) — l’application ne fait aucun appel externe au runtime,
             elle ne lit que cette base.
           </p>
           <pre className="overflow-x-auto rounded-lg bg-raised p-3 text-xs leading-relaxed text-ink">
-            {`make ingest          # ingère les 13 pipelines → data/france.db
+            {`make ingest          # ingère tous les pipelines → data/france.db
 make ingest-jorf     # ré-ingère une seule source (ex. Journal officiel)
 make test            # tests des pipelines
 make dev             # lance l'application (port 3620)`}
