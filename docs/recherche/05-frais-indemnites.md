@@ -25,7 +25,13 @@ Les montants sont publiés et tenus à jour par les deux assemblées elles-même
 **Indemnités spéciales de fonction (mensuel brut, publiées)** :
 - AN : présidente 7 698,50 € ; questeurs 5 300,36 € ; vice-présidents 1 099,79 € ; présidents de commission / rapporteurs généraux 931,76 €.
 - Sénat : président 7 591,58 € ; questeurs 4 444,97 € ; présidents de groupe et de commission 2 184,30 €.
-- Plafond d'écrêtement des indemnités de mandats locaux cumulés : 2 965,98 €/mois (1,5 × indemnité de base).
+- Plafond d'écrêtement des indemnités de mandats locaux cumulés : 2 965,98 €/mois. Attention au
+  multiplicateur : le plafond légal de **1,5 × l'indemnité de base** porte sur le **total**,
+  indemnité parlementaire de base comprise (art. 4 de l'ordonnance n° 58-1210 du 13/12/1958). La
+  base occupant déjà 5 931,95 €, il reste **0,5 × la base** pour les seules indemnités locales,
+  soit les 2 965,98 € que publie l'Assemblée nationale. Écrire « 1,5 × l'indemnité de base » en
+  face de 2 965,98 € fait tomber le lecteur qui vérifie sur 8 897,93 € : les deux formulations
+  sont exactes, mais elles ne décrivent pas le même objet.
 
 **Moyens annexes publiés (montants d'enveloppes, pas de détail d'usage)** :
 - Crédit collaborateurs AN : **11 463 €/mois** (jusqu'à 5 collaborateurs), revalorisé comme la fonction publique.

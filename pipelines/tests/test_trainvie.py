@@ -82,6 +82,53 @@ def test_valeurs_cles_du_rapport_05(conn):
         assert ligne["valeur"] == pytest.approx(valeur), fait_id
 
 
+def test_ecretement_est_la_moitie_de_la_base_et_sa_note_le_dit(conn):
+    """Le plafond d'écrêtement vaut la MOITIÉ de l'indemnité de base.
+
+    L'article 4 de l'ordonnance n° 58-1210 plafonne à une fois et demie
+    l'indemnité de base le TOTAL — indemnité de base comprise. Les seules
+    indemnités locales en reçoivent donc la moitié. La note du fait a
+    longtemps annoncé « 1,5 fois l'indemnité parlementaire de base » en face
+    de 2 965,98 € : un lecteur qui refaisait le calcul tombait sur 8 897,93 €
+    et concluait à une erreur. Ce test verrouille les deux moitiés du piège —
+    l'arithmétique, et le fait que la note ne réattribue pas le multiplicateur
+    de 1,5 aux seules indemnités locales.
+    """
+    lignes = {
+        r["id"]: r
+        for r in conn.execute(
+            "SELECT id, valeur, notes FROM trainvie_faits "
+            "WHERE id IN ('ip-base', 'ip-ecretement-cumul')"
+        )
+    }
+    base = lignes["ip-base"]["valeur"]
+    ecretement = lignes["ip-ecretement-cumul"]
+
+    # Tolérance d'un centime, et elle est nécessaire : la demi-base vaut
+    # 2 965,975 €, que l'Assemblée nationale publie arrondi au supérieur
+    # (2 965,98 €) là où `round()` de Python, qui arrondit au pair, donne
+    # 2 965,97 €. Ce n'est pas un écart de données, c'est une convention
+    # d'arrondi — la figer au centime près ferait échouer le test sur la
+    # valeur pourtant officielle.
+    assert ecretement["valeur"] == pytest.approx(base / 2, abs=0.01), (
+        "le plafond n'est plus la moitié de l'indemnité de base : "
+        f"{ecretement['valeur']} contre {base / 2} attendus"
+    )
+
+    note = (ecretement["notes"] or "").lower()
+    assert note, "le fait d'écrêtement doit porter une note explicative"
+    assert "moiti" in note, (
+        "la note doit dire que les indemnités locales sont plafonnées à la "
+        f"moitié de l'indemnité de base ; elle dit : {ecretement['notes']!r}"
+    )
+    # « une fois et demie » reste légitime à condition de porter sur le total.
+    if "demie" in note or "1,5" in note:
+        assert "total" in note, (
+            "la note évoque le multiplicateur de 1,5 sans préciser qu'il porte "
+            f"sur le TOTAL : {ecretement['notes']!r}"
+        )
+
+
 # ---------------------------------------------------------------------------
 # Opacités
 # ---------------------------------------------------------------------------

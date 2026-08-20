@@ -218,7 +218,17 @@ FAITS: list[dict] = [
          valeur=2965.98, unite="euros_par_mois", periode="2026",
          institution="Assemblée nationale et Sénat",
          source_nom=SRC_AN_SITUATION, source_url=URL_AN_SITUATION,
-         date_source="2026-01", notes="1,5 fois l'indemnité parlementaire de base."),
+         date_source="2026-01",
+         # Le multiplicateur légal de 1,5 porte sur le TOTAL, indemnité de base
+         # comprise, et non sur les seules indemnités locales : la note disait
+         # « 1,5 fois l'indemnité parlementaire de base » en face de 2 965,98 €,
+         # ce qui envoyait sur 8 897,93 € quiconque refaisait le calcul. La base
+         # occupant déjà 5 931,95 €, il reste bien la moitié de cette base pour
+         # les mandats locaux. Les deux énoncés sont vrais, mais pas du même objet.
+         notes="Les indemnités de mandats locaux ne peuvent porter le total, "
+               "indemnité parlementaire de base comprise, au-delà d'une fois et "
+               "demie cette base : elles sont donc plafonnées à la moitié de "
+               "l'indemnité de base."),
     dict(id="isf-presidente-an", assiette="brut", categorie="indemnites_parlementaires",
          libelle="Indemnité spéciale de fonction de la présidente de l'Assemblée nationale",
          valeur=7698.50, unite="euros_par_mois", periode="2026",
