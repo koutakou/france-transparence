@@ -1,17 +1,30 @@
-# Publication France Transparence — https://koutakou.github.io/france-transparence/
+# Intégration continue France Transparence — https://francetransparence.fr/
+#
+# CE WORKFLOW NE PUBLIE PLUS LE SITE. Le site est servi depuis son propre
+# domaine (francetransparence.fr, export statique derrière nginx). En publier
+# une copie intégrale sur GitHub Pages mettait DEUX sites identiques en ligne :
+# contenu dupliqué, et autorité de référencement partagée entre deux domaines
+# pour chacune des ~1 066 pages. GitHub Pages ne sachant pas émettre de 301,
+# l'ancienne adresse est remplacée par une page de redirection unique
+# (pages-redirection/) portant une <link rel="canonical"> vers le domaine.
+#
+# Ce qui reste, et qui est précieux : la VALIDATION QUOTIDIENNE DU BUILD, dans
+# un environnement neuf et indépendant du serveur — ingestion complète des 13
+# pipelines, tests, build statique, contrôles de santé. Si une source amont
+# casse, on l'apprend ici avant que le serveur ne rebuilde.
 #
 # Trois déclencheurs :
 #   - cron quotidien 04:45 UTC (06:45 Paris l'été, 05:45 l'hiver) — après le lot
 #     nocturne du JO (~00h30 Paris) et les builds DECP quotidiens : ingestion
-#     complète (base NEUVE dans le runner éphémère) → tests → build → déploiement.
+#     complète (base NEUVE dans le runner éphémère) → tests → build → contrôles.
 #   - push sur main : rebuild du site en réutilisant la dernière base en cache
 #     (si aucune : ingestion complète). La fraîcheur affichée reste celle de la
 #     base réellement utilisée — honnête par construction.
 #   - déclenchement manuel (workflow_dispatch), ingestion forçable.
 #
-# Atomicité : le déploiement GitHub Pages remplace tout le site d'un coup.
-# Toute étape en échec = AUCUN déploiement : le site de la veille reste servi,
-# et une issue « publication-echec » est ouverte (ou commentée).
+# Toute étape en échec ouvre (ou commente) une issue « publication-echec ».
+# Le site en ligne, lui, ne dépend plus de ce workflow : il est publié par
+# `ft-deploy` sur le serveur, selon le même principe du tout-ou-rien.
 
 name: publication
 
@@ -109,12 +122,14 @@ jobs:
         run: npm ci
         working-directory: app
 
+      # Sans NEXT_PUBLIC_BASE_PATH : on valide la configuration RÉELLEMENT
+      # servie en production (site à la racine d'un domaine), pas celle d'une
+      # « project page » GitHub Pages qui n'est plus publiée.
       - name: Build statique
         run: npm run build
         working-directory: app
         env:
           FT_EXPORT: "1"
-          NEXT_PUBLIC_BASE_PATH: /france-transparence
           FRANCE_DB_PATH: ${{ github.workspace }}/data/france.db
 
       - name: Contrôles de santé du site généré
@@ -135,10 +150,21 @@ jobs:
           taille=$(du -sm app/out | cut -f1)
           echo "Taille du site : ${taille} Mo"
           test "$taille" -lt 950
+          # Référencement : une page sans canonique est une régression
+          # silencieuse — on la traite comme un échec de build.
+          sans_canonique=$(grep -rL 'rel="canonical"' --include=index.html app/out \
+            | grep -v -e '/404/' -e '/_not-found/' | wc -l)
+          echo "Pages sans <link rel=canonical> : $sans_canonique"
+          test "$sans_canonique" -eq 0
+          grep -q 'application/ld+json' app/out/index.html
+          grep -q 'application/ld+json' app/out/donnees/index.html
 
+      # Le site construit ci-dessus n'est PAS déployé : il n'a servi qu'à
+      # prouver que la chaîne complète tient. Seule la page de redirection
+      # part sur GitHub Pages.
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: app/out
+          path: pages-redirection
 
   deployer:
     needs: construire
