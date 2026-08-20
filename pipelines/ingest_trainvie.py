@@ -10,8 +10,15 @@ Tables créées (idempotent, contenu = constantes sourcées, aucune donnée fict
     id, categorie ('indemnites_parlementaires', 'frais_mandat', 'controles',
     'elysee', 'institutions', 'cabinets', 'elus_locaux'), libelle,
     valeur (> 0), unite ('euros', 'euros_par_mois', 'personnes', 'pourcent',
-    'deplacements', 'justificatifs'), periode (ex. '2026', '2024'),
-    institution, source_nom, source_url, date_source, notes.
+    'deplacements', 'justificatifs'), assiette ('brut', 'net' ou NULL),
+    periode (ex. '2026', '2024'), institution, source_nom, source_url,
+    date_source, notes.
+
+    `assiette` n'est jamais déduite : elle vaut 'brut' ou 'net' quand la
+    source le dit explicitement (barèmes AN et Sénat, barème DGCL, dont les
+    plafonds sont bruts), et NULL partout où la question n'a pas de sens —
+    enveloppes de frais, dotations budgétaires, effectifs, totaux. C'est ce
+    qui empêche la page de comparer un net à un brut sans le dire.
 
 - trainvie_opacites : un manque documenté (ce que le pouvoir ne publie pas).
     id, sujet, ce_qui_manque, base_du_refus, source_nom, source_url,
@@ -170,66 +177,66 @@ SRC_DGCL_BAREME = (
 #  source_nom, source_url, date_source, notes)
 FAITS: list[dict] = [
     # --- Indemnités parlementaires (barèmes publiés) ---------------------
-    dict(id="ip-total-brut", categorie="indemnites_parlementaires",
+    dict(id="ip-total-brut", assiette="brut", categorie="indemnites_parlementaires",
          libelle="Indemnité parlementaire mensuelle brute (base + résidence + fonction)",
          valeur=7637.39, unite="euros_par_mois", periode="2026",
          institution="Assemblée nationale et Sénat",
          source_nom=SRC_AN_SITUATION, source_url=URL_AN_SITUATION,
          date_source="2026-01",
          notes="Valeur au 01/01/2024, toujours en vigueur en 2026 ; identique députés/sénateurs."),
-    dict(id="ip-base", categorie="indemnites_parlementaires",
+    dict(id="ip-base", assiette="brut", categorie="indemnites_parlementaires",
          libelle="Indemnité de base", valeur=5931.95, unite="euros_par_mois",
          periode="2026", institution="Assemblée nationale et Sénat",
          source_nom=SRC_AN_SITUATION, source_url=URL_AN_SITUATION,
          date_source="2026-01", notes=None),
-    dict(id="ip-residence", categorie="indemnites_parlementaires",
+    dict(id="ip-residence", assiette="brut", categorie="indemnites_parlementaires",
          libelle="Indemnité de résidence (3 % de la base)", valeur=177.96,
          unite="euros_par_mois", periode="2026",
          institution="Assemblée nationale et Sénat",
          source_nom=SRC_AN_SITUATION, source_url=URL_AN_SITUATION,
          date_source="2026-01", notes=None),
-    dict(id="ip-fonction", categorie="indemnites_parlementaires",
+    dict(id="ip-fonction", assiette="brut", categorie="indemnites_parlementaires",
          libelle="Indemnité de fonction (25 % de base + résidence)", valeur=1527.48,
          unite="euros_par_mois", periode="2026",
          institution="Assemblée nationale et Sénat",
          source_nom=SRC_AN_SITUATION, source_url=URL_AN_SITUATION,
          date_source="2026-01", notes=None),
-    dict(id="ip-net-depute", categorie="indemnites_parlementaires",
+    dict(id="ip-net-depute", assiette="net", categorie="indemnites_parlementaires",
          libelle="Indemnité nette mensuelle avant impôt d'un député", valeur=5953.34,
          unite="euros_par_mois", periode="2026", institution="Assemblée nationale",
          source_nom=SRC_AN_SITUATION, source_url=URL_AN_SITUATION,
          date_source="2026-01", notes=None),
-    dict(id="ip-net-senateur", categorie="indemnites_parlementaires",
+    dict(id="ip-net-senateur", assiette="net", categorie="indemnites_parlementaires",
          libelle="Indemnité nette mensuelle avant impôt d'un sénateur", valeur=5676.12,
          unite="euros_par_mois", periode="2026", institution="Sénat",
          source_nom=SRC_SENAT_INDEMNITE, source_url=URL_SENAT_INDEMNITE,
          date_source="2026-08-19",
          notes="Net inférieur à celui d'un député (cotisation pension plus élevée) ; "
                "page consultée le 19/08/2026."),
-    dict(id="ip-ecretement-cumul", categorie="indemnites_parlementaires",
+    dict(id="ip-ecretement-cumul", assiette="brut", categorie="indemnites_parlementaires",
          libelle="Plafond d'écrêtement des indemnités de mandats locaux cumulés",
          valeur=2965.98, unite="euros_par_mois", periode="2026",
          institution="Assemblée nationale et Sénat",
          source_nom=SRC_AN_SITUATION, source_url=URL_AN_SITUATION,
          date_source="2026-01", notes="1,5 fois l'indemnité parlementaire de base."),
-    dict(id="isf-presidente-an", categorie="indemnites_parlementaires",
+    dict(id="isf-presidente-an", assiette="brut", categorie="indemnites_parlementaires",
          libelle="Indemnité spéciale de fonction de la présidente de l'Assemblée nationale",
          valeur=7698.50, unite="euros_par_mois", periode="2026",
          institution="Assemblée nationale",
          source_nom=SRC_AN_SITUATION, source_url=URL_AN_SITUATION,
          date_source="2026-01", notes="S'ajoute à l'indemnité parlementaire ; brut mensuel."),
-    dict(id="isf-questeur-an", categorie="indemnites_parlementaires",
+    dict(id="isf-questeur-an", assiette="brut", categorie="indemnites_parlementaires",
          libelle="Indemnité spéciale de fonction d'un questeur de l'Assemblée nationale",
          valeur=5300.36, unite="euros_par_mois", periode="2026",
          institution="Assemblée nationale",
          source_nom=SRC_AN_SITUATION, source_url=URL_AN_SITUATION,
          date_source="2026-01", notes=None),
-    dict(id="isf-president-senat", categorie="indemnites_parlementaires",
+    dict(id="isf-president-senat", assiette="brut", categorie="indemnites_parlementaires",
          libelle="Indemnité spéciale de fonction du président du Sénat",
          valeur=7591.58, unite="euros_par_mois", periode="2026", institution="Sénat",
          source_nom=SRC_SENAT_INDEMNITE, source_url=URL_SENAT_INDEMNITE,
          date_source="2026-08-19", notes="Page consultée le 19/08/2026."),
-    dict(id="isf-questeur-senat", categorie="indemnites_parlementaires",
+    dict(id="isf-questeur-senat", assiette="brut", categorie="indemnites_parlementaires",
          libelle="Indemnité spéciale de fonction d'un questeur du Sénat",
          valeur=4444.97, unite="euros_par_mois", periode="2026", institution="Sénat",
          source_nom=SRC_SENAT_INDEMNITE, source_url=URL_SENAT_INDEMNITE,
@@ -460,7 +467,7 @@ FAITS: list[dict] = [
          notes="Cabinet du Premier ministre : 6,3 M€ pour 494 personnes dont 75 membres."),
 
     # --- Élus locaux (barème DGCL au 01/01/2026, plafonds bruts mensuels) -
-    dict(id="local-ib1027", categorie="elus_locaux",
+    dict(id="local-ib1027", assiette="brut", categorie="elus_locaux",
          libelle="Indice brut terminal 1027 de la fonction publique (valeur mensuelle)",
          valeur=4110.52, unite="euros_par_mois", periode="2026",
          institution="Communes et EPCI",
@@ -468,53 +475,53 @@ FAITS: list[dict] = [
          date_source="2026-02-17",
          notes="Base de calcul de toutes les indemnités d'élus locaux "
                "(art. L. 2123-20 et s. CGCT)."),
-    dict(id="local-maire-moins-500", categorie="elus_locaux",
+    dict(id="local-maire-moins-500", assiette="brut", categorie="elus_locaux",
          libelle="Indemnité maximale d'un maire (commune de moins de 500 habitants)",
          valeur=1155.06, unite="euros_par_mois", periode="2026", institution="Communes",
          source_nom=SRC_DGCL_BAREME, source_url=URL_DGCL_BAREME_2026,
          date_source="2026-02-17", notes="28,1 % de l'IB 1027."),
-    dict(id="local-maire-500-999", categorie="elus_locaux",
+    dict(id="local-maire-500-999", assiette="brut", categorie="elus_locaux",
          libelle="Indemnité maximale d'un maire (500 à 999 habitants)",
          valeur=1820.96, unite="euros_par_mois", periode="2026", institution="Communes",
          source_nom=SRC_DGCL_BAREME, source_url=URL_DGCL_BAREME_2026,
          date_source="2026-02-17", notes="44,3 % de l'IB 1027."),
-    dict(id="local-maire-1000-3499", categorie="elus_locaux",
+    dict(id="local-maire-1000-3499", assiette="brut", categorie="elus_locaux",
          libelle="Indemnité maximale d'un maire (1 000 à 3 499 habitants)",
          valeur=2289.56, unite="euros_par_mois", periode="2026", institution="Communes",
          source_nom=SRC_DGCL_BAREME, source_url=URL_DGCL_BAREME_2026,
          date_source="2026-02-17", notes="55,7 % de l'IB 1027."),
-    dict(id="local-maire-3500-9999", categorie="elus_locaux",
+    dict(id="local-maire-3500-9999", assiette="brut", categorie="elus_locaux",
          libelle="Indemnité maximale d'un maire (3 500 à 9 999 habitants)",
          valeur=2396.44, unite="euros_par_mois", periode="2026", institution="Communes",
          source_nom=SRC_DGCL_BAREME, source_url=URL_DGCL_BAREME_2026,
          date_source="2026-02-17", notes="58,3 % de l'IB 1027."),
-    dict(id="local-maire-10000-19999", categorie="elus_locaux",
+    dict(id="local-maire-10000-19999", assiette="brut", categorie="elus_locaux",
          libelle="Indemnité maximale d'un maire (10 000 à 19 999 habitants)",
          valeur=2778.71, unite="euros_par_mois", periode="2026", institution="Communes",
          source_nom=SRC_DGCL_BAREME, source_url=URL_DGCL_BAREME_2026,
          date_source="2026-02-17", notes="67,6 % de l'IB 1027."),
-    dict(id="local-maire-20000-49999", categorie="elus_locaux",
+    dict(id="local-maire-20000-49999", assiette="brut", categorie="elus_locaux",
          libelle="Indemnité maximale d'un maire (20 000 à 49 999 habitants)",
          valeur=3699.47, unite="euros_par_mois", periode="2026", institution="Communes",
          source_nom=SRC_DGCL_BAREME, source_url=URL_DGCL_BAREME_2026,
          date_source="2026-02-17", notes="90 % de l'IB 1027."),
-    dict(id="local-maire-50000-99999", categorie="elus_locaux",
+    dict(id="local-maire-50000-99999", assiette="brut", categorie="elus_locaux",
          libelle="Indemnité maximale d'un maire (50 000 à 99 999 habitants)",
          valeur=4521.58, unite="euros_par_mois", periode="2026", institution="Communes",
          source_nom=SRC_DGCL_BAREME, source_url=URL_DGCL_BAREME_2026,
          date_source="2026-02-17", notes="110 % de l'IB 1027."),
-    dict(id="local-maire-100000-plus", categorie="elus_locaux",
+    dict(id="local-maire-100000-plus", assiette="brut", categorie="elus_locaux",
          libelle="Indemnité maximale d'un maire (100 000 habitants et plus)",
          valeur=5960.26, unite="euros_par_mois", periode="2026", institution="Communes",
          source_nom=SRC_DGCL_BAREME, source_url=URL_DGCL_BAREME_2026,
          date_source="2026-02-17",
          notes="145 % de l'IB 1027, majoration possible de 40 % (dont Marseille, Lyon)."),
-    dict(id="local-adjoint-100000-max", categorie="elus_locaux",
+    dict(id="local-adjoint-100000-max", assiette="brut", categorie="elus_locaux",
          libelle="Indemnité maximale d'un adjoint au maire (100 000 habitants et plus, majorée)",
          valeur=2980.13, unite="euros_par_mois", periode="2026", institution="Communes",
          source_nom=SRC_DGCL_BAREME, source_url=URL_DGCL_BAREME_2026,
          date_source="2026-02-17", notes="Fourchette publiée : 2 712,95 € à 2 980,13 €."),
-    dict(id="local-conseiller-municipal", categorie="elus_locaux",
+    dict(id="local-conseiller-municipal", assiette="brut", categorie="elus_locaux",
          libelle="Indemnité maximale d'un conseiller municipal",
          valeur=246.63, unite="euros_par_mois", periode="2026", institution="Communes",
          source_nom=SRC_DGCL_BAREME, source_url=URL_DGCL_BAREME_2026,
@@ -637,6 +644,16 @@ CREATE TABLE IF NOT EXISTS trainvie_faits (
     libelle     TEXT NOT NULL,
     valeur      REAL NOT NULL CHECK (valeur > 0),
     unite       TEXT NOT NULL,
+    -- Assiette d'une rémunération : 'brut', 'net', ou NULL quand la question
+    -- ne se pose pas (enveloppe de frais, dotation, effectif, total).
+    -- POURQUOI cette colonne : les barèmes publiés mélangent les deux
+    -- assiettes sans le dire, et le module les affiche côte à côte. Un
+    -- sénateur touche 5 676,12 € NETS d'indemnité, un questeur du Sénat
+    -- 4 444,97 € BRUTS d'indemnité de fonction : sans qualification, la
+    -- page laisse conclure que le second gagne moins que le premier, ce
+    -- qui est faux. Aucune valeur n'est modifiée, seule l'assiette que la
+    -- source énonce est rendue explicite.
+    assiette    TEXT CHECK (assiette IS NULL OR assiette IN ('brut', 'net')),
     periode     TEXT NOT NULL,
     institution TEXT NOT NULL,
     source_nom  TEXT NOT NULL,
@@ -672,6 +689,19 @@ def ingester(conn: sqlite3.Connection | None = None) -> tuple[int, int]:
     fermer = conn is None
     conn = db.init_db(conn=conn)
     conn.executescript(_SCHEMA)
+    # `CREATE TABLE IF NOT EXISTS` n'ajoute pas de colonne à une table déjà
+    # présente, et la base servie survit d'un déploiement à l'autre : la
+    # colonne `assiette` est posée explicitement sur les bases antérieures
+    # (migration idempotente, même patron que campagnes_2024.marqueur_etoile).
+    colonnes = {r["name"] for r in conn.execute("PRAGMA table_info(trainvie_faits)")}
+    if "assiette" not in colonnes:
+        # SQLite ne sait pas attacher un CHECK à une colonne ajoutée après
+        # coup : la contrainte du schéma ne vaut que pour les bases neuves
+        # (CI, poste de développement). Le vocabulaire est de toute façon
+        # tenu par ce pipeline seul, et par les tests.
+        conn.execute("ALTER TABLE trainvie_faits ADD COLUMN assiette TEXT")
+        conn.commit()
+        log.info("migration : colonne trainvie_faits.assiette ajoutée")
     try:
         with conn:
             conn.execute("DELETE FROM trainvie_faits")
@@ -679,12 +709,16 @@ def ingester(conn: sqlite3.Connection | None = None) -> tuple[int, int]:
             conn.executemany(
                 """
                 INSERT INTO trainvie_faits
-                    (id, categorie, libelle, valeur, unite, periode, institution,
-                     source_nom, source_url, date_source, notes)
-                VALUES (:id, :categorie, :libelle, :valeur, :unite, :periode,
-                        :institution, :source_nom, :source_url, :date_source, :notes)
+                    (id, categorie, libelle, valeur, unite, assiette, periode,
+                     institution, source_nom, source_url, date_source, notes)
+                VALUES (:id, :categorie, :libelle, :valeur, :unite, :assiette,
+                        :periode, :institution, :source_nom, :source_url,
+                        :date_source, :notes)
                 """,
-                FAITS,
+                # `assiette` n'est renseignée que sur les rémunérations dont la
+                # source énonce l'assiette ; ailleurs elle reste absente plutôt
+                # que devinée.
+                [{"assiette": None, **fait} for fait in FAITS],
             )
             conn.executemany(
                 """

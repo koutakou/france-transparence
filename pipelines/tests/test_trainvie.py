@@ -148,6 +148,71 @@ def test_meta_source_s31(conn):
 
 
 # ---------------------------------------------------------------------------
+# Assiette brut / net — la comparaison implicite fausse
+# ---------------------------------------------------------------------------
+
+
+def test_assiette_du_vocabulaire_ferme(conn):
+    valeurs = {
+        r["assiette"] for r in conn.execute("SELECT DISTINCT assiette FROM trainvie_faits")
+    }
+    assert valeurs <= {None, "brut", "net"}
+
+
+def test_les_indemnites_parlementaires_portent_toutes_leur_assiette(conn):
+    """C'est la carte où le mélange est trompeur.
+
+    Les montants nets (ce que perçoit un parlementaire) et les barèmes bruts
+    (indemnités de fonction, indemnité de base) y sont affichés dans la même
+    colonne. Sans assiette, un lecteur conclut mécaniquement qu'un questeur
+    du Sénat (4 444,97 € bruts) gagne moins qu'un sénateur (5 676,12 € nets).
+    """
+    sans_assiette = [
+        r["id"]
+        for r in conn.execute(
+            "SELECT id FROM trainvie_faits "
+            "WHERE categorie = 'indemnites_parlementaires' AND assiette IS NULL"
+        )
+    ]
+    assert sans_assiette == []
+
+
+def test_les_deux_montants_nets_sont_bien_marques_nets(conn):
+    nets = {
+        r["id"]
+        for r in conn.execute("SELECT id FROM trainvie_faits WHERE assiette = 'net'")
+    }
+    assert nets == {"ip-net-depute", "ip-net-senateur"}
+
+
+def test_les_baremes_dgcl_sont_bruts(conn):
+    """La DGCL publie des plafonds BRUTS mensuels (en-tête du barème)."""
+    sans_assiette = [
+        r["id"]
+        for r in conn.execute(
+            "SELECT id FROM trainvie_faits "
+            "WHERE categorie = 'elus_locaux' AND assiette IS NOT 'brut'"
+        )
+    ]
+    assert sans_assiette == []
+
+
+def test_une_enveloppe_de_frais_n_a_pas_d_assiette(conn):
+    """Une avance de frais de mandat n'est ni brute ni nette : deviner une
+    assiette là où la question ne se pose pas serait aussi faux que l'omettre
+    là où elle se pose."""
+    avec_assiette = [
+        r["id"]
+        for r in conn.execute(
+            "SELECT id FROM trainvie_faits "
+            "WHERE categorie IN ('frais_mandat', 'institutions', 'cabinets', "
+            "'controles', 'elysee') AND assiette IS NOT NULL"
+        )
+    ]
+    assert avec_assiette == []
+
+
+# ---------------------------------------------------------------------------
 # Réseau (sources officielles vivantes)
 # ---------------------------------------------------------------------------
 
