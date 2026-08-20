@@ -60,3 +60,10 @@ Condensé des avertissements « pour le front » remontés par chaque pipeline a
 - Chaque page crée ses requêtes dans `app/src/lib/queries/<module>.ts` (fichier PAR module, jamais partagé entre agents).
 - Ne PAS toucher : layout.tsx, MainNav, globals.css, composants ui/* (signaler un besoin, ne pas modifier).
 - Vue tableau jumelle pour chaque graphique (règle DATAVIZ) ; deltas de dépense = neutres par défaut (upIsGood null).
+
+## Référencement et cartes de partage (rappels)
+Le raisonnement complet vit dans les commentaires de `app/src/lib/seo.ts` — ne rien réimplémenter ailleurs. Ce qui suit est ce qu'une page doit savoir.
+- Une page indexable appelle `metadonneesPage({ chemin, titre, description })` — jamais `alternates`/`openGraph` à la main : c'est ce passage unique qui garantit `canonical == og:url` (contrôlé par `ft-localiser`). Une fiche de personne appelle `metadonneesFicheProfil()` : même chose, plus `og:type=profile` et `profile:first_name`/`last_name` pris **tels qu'en base** (`elus.prenom`, `elus.nom`), jamais découpés d'un nom complet.
+- **Budget de 70 caractères** pour un titre, suffixe `— France Transparence` compris (`LONGUEUR_TITRE_PARTAGE`, `SUFFIXE_TITRE`) : X coupe là, Facebook vers 88. Un libellé de source trop long se raccourcit **dans les métadonnées seulement**, à la limite de mot (`tronqueMots()`) — le `<h1>` porte toujours le libellé entier. Cas de référence : les 46 missions de `budget_destination_2025`, dont un libellé fait 116 caractères.
+- JSON-LD : `jsonLdPage({ chemin, nom, description, ariane })` pose `WebPage` + `BreadcrumbList` (le fil d'Ariane est le seul balisage que Google restitue visiblement). Les jeux de données sont décrits **une seule fois**, par `jsonLdCatalogueDonnees()` sur /donnees : ne pas les redéclarer page par page. Aucun `dateModified` dans un balisage de page — la fraîcheur réelle est par source, elle s'affiche avec les FreshnessBadge.
+- L'image de partage est la constante `IMAGE_PARTAGE` de `seo.ts`, url **et** texte alternatif — la carte X la reprend en objet `{ url, alt }`, sans quoi `twitter:image:alt` disparaît (X ne retombe pas sur `og:image:alt`).
