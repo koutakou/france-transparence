@@ -1,0 +1,30 @@
+exercices_id;representants_id;date_debut;date_fin;exercice_sans_activite;nombre_activites;publicationCourante_dispenseDeclaration;publicationCourante_activitesRIE;declaration_incomplete;date_publication;exercice_sans_CA;montant_depense;nombre_salaries;publicationCourante_dateLd;publicationCourante_commentaire;chiffre_affaires;annee_debut;annee_fin;montant_depense_inf;montant_depense_sup;ca_inf;ca_sup
+0;0;2026-01-01;2026-12-31;False;0;False;False;False;;;;;;;;2026;2026;0;0.0;0;0.0
+1;0;2025-01-01;2025-12-31;False;0;False;False;True;;;;;;;;2025;2025;0;0.0;0;0.0
+45;10;2026-01-01;2026-12-31;False;0;False;False;False;;;;;;;;2026;2026;0;0.0;0;0.0
+46;10;2025-01-01;2025-12-31;False;14;False;False;False;2026-03-16;True;≥ 400 000 € et < 500 000 €;1.3;01-10-2023;;;2025;2025;400000;500000.0;0;0.0
+47;10;2024-01-01;2024-12-31;False;13;False;False;False;2025-03-31;True;≥ 400 000 € et < 500 000 €;1.3;01-10-2023;;;2024;2024;400000;500000.0;0;0.0
+48;10;2023-01-01;2023-12-31;False;11;False;False;False;2024-03-06;True;≥ 300 000 € et < 400 000 €;1.3;01-10-2023;;;2023;2023;300000;400000.0;0;0.0
+49;10;2022-01-01;2022-12-31;False;15;False;False;False;2023-03-21;True;≥ 200 000 € et < 300 000 €;6.0;;;;2022;2022;200000;300000.0;0;0.0
+50;10;2021-01-01;2021-12-31;False;13;False;False;False;2022-01-24;True;≥ 200 000 € et < 300 000 €;5.0;;;;2021;2021;200000;300000.0;0;0.0
+51;10;2020-01-01;2020-12-31;False;12;False;False;False;2021-03-27;True;≥ 200 000 € et < 300 000 €;7.0;;;;2020;2020;200000;300000.0;0;0.0
+52;10;2019-01-01;2019-12-31;False;8;False;False;False;2021-03-06;True;≥ 300 000 € et < 400 000 €;5.0;;;;2019;2019;300000;400000.0;0;0.0
+238;51;2024-01-01;2024-04-01;True;0;False;False;False;;;;;01-10-2023;;;2024;2024;0;0.0;0;0.0
+239;51;2023-01-01;2023-12-31;False;3;False;False;False;2024-04-16;False;≥ 10 000 € et < 25 000 €;0.3;01-10-2023;;< 100 000 €;2023;2023;10000;25000.0;0;100000.0
+240;51;2022-01-01;2022-12-31;False;2;False;False;False;2023-03-30;False;≥ 10 000 € et < 25 000 €;1.0;;;< 100 000 €;2022;2022;10000;25000.0;0;100000.0
+241;51;2021-01-01;2021-12-31;False;6;False;False;False;2022-03-16;False;≥ 25 000 € et < 50 000 €;1.0;;;< 100 000 €;2021;2021;25000;50000.0;0;100000.0
+242;51;2020-01-01;2020-12-31;False;4;False;False;False;2020-12-29;False;≥ 10 000 € et < 25 000 €;1.0;;;< 100 000 €;2020;2020;10000;25000.0;0;100000.0
+661;141;2026-01-01;2026-12-31;False;0;False;False;False;;;;;;;;2026;2026;0;0.0;0;0.0
+662;141;2025-01-01;2025-12-31;False;8;False;False;False;2026-03-26;True;≥ 10 000 € et < 25 000 €;1.0;01-10-2023;montant correspondant à quote part cotisation au MEDEF national. Actions RI par présidence et élu(e)s pour le MEDEF Alsace;;2025;2025;10000;25000.0;0;0.0
+663;141;2024-01-01;2024-12-31;False;3;False;False;False;2025-03-29;True;≥ 10 000 € et < 25 000 €;1.0;01-10-2023;montant correspondant à quote part cotisation au MEDEF national. Actions RI par présidence et élu(e)s pour le MEDEF Alsace;;2024;2024;10000;25000.0;0;0.0
+664;141;2023-01-01;2023-12-31;False;2;False;False;False;2024-03-29;True;< 10 000 €;1.0;01-10-2023;;;2023;2023;0;10000.0;0;0.0
+665;141;2022-01-01;2022-12-31;False;2;False;False;False;2023-03-30;True;< 10 000 €;1.0;;;;2022;2022;0;10000.0;0;0.0
+666;141;2021-01-01;2021-12-31;True;0;False;False;False;2022-03-29;True;< 10 000 €;0.0;;;;2021;2021;0;10000.0;0;0.0
+667;141;2020-01-01;2020-12-31;True;0;False;False;False;2021-03-30;True;< 10 000 €;0.0;;;;2020;2020;0;10000.0;0;0.0
+668;141;2019-01-01;2019-12-31;True;0;False;False;False;2020-08-17;True;< 10 000 €;0.0;;;;2019;2019;0;10000.0;0;0.0
+3496;642;2026-01-01;2026-12-31;False;0;False;False;False;;;;;;;;2026;2026;0;0.0;0;0.0
+3497;642;2025-01-01;2025-12-31;False;0;False;False;True;2026-04-08;;;;;;;2025;2025;0;0.0;0;0.0
+3498;642;2024-01-01;2024-12-31;False;0;False;False;False;;;;;;;;2024;2024;0;0.0;0;0.0
+3499;642;2023-01-01;2023-12-31;True;0;False;False;False;;;;;01-10-2023;;;2023;2023;0;0.0;0;0.0
+3500;642;2022-01-01;2022-12-31;False;0;False;False;False;2023-05-02;False;< 10 000 €;1.0;;;≥ 100 000 € et < 500 000 €;2022;2022;0;10000.0;100000;500000.0
+3501;642;2021-01-01;2021-12-31;False;1;False;False;False;2022-03-30;False;< 10 000 €;1.0;;;≥ 100 000 € et < 500 000 €;2021;2021;0;10000.0;100000;500000.0

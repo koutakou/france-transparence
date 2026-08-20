@@ -1,0 +1,247 @@
+# Intégration continue France Transparence — https://francetransparence.fr/
+#
+# CE WORKFLOW NE PUBLIE PLUS LE SITE. Le site est servi depuis son propre
+# domaine (francetransparence.fr, export statique derrière nginx). En publier
+# une copie intégrale sur GitHub Pages mettait DEUX sites identiques en ligne :
+# contenu dupliqué, et autorité de référencement partagée entre deux domaines
+# pour chacune des ~1 066 pages. GitHub Pages ne sachant pas émettre de 301,
+# l'ancienne adresse est remplacée par une page de redirection unique
+# (pages-redirection/) portant une <link rel="canonical"> vers le domaine.
+#
+# Ce qui reste, et qui est précieux : la VALIDATION QUOTIDIENNE DU BUILD, dans
+# un environnement neuf et indépendant du serveur — ingestion complète des 13
+# pipelines, tests, build statique, contrôles de santé. Si une source amont
+# casse, on l'apprend ici avant que le serveur ne rebuilde.
+#
+# Trois déclencheurs :
+#   - cron quotidien 04:45 UTC (06:45 Paris l'été, 05:45 l'hiver) — après le lot
+#     nocturne du JO (~00h30 Paris) et les builds DECP quotidiens : ingestion
+#     complète (base NEUVE dans le runner éphémère) → tests → build → contrôles.
+#   - push sur main : rebuild du site en réutilisant la dernière base en cache
+#     (si aucune : ingestion complète). La fraîcheur affichée reste celle de la
+#     base réellement utilisée — honnête par construction.
+#   - déclenchement manuel (workflow_dispatch), ingestion forçable.
+#
+# Toute étape en échec ouvre (ou commente) une issue « publication-echec ».
+# Le site en ligne, lui, ne dépend plus de ce workflow : il est publié par
+# `ft-deploy` sur le serveur, selon le même principe du tout-ou-rien.
+
+name: publication
+
+on:
+  schedule:
+    - cron: "45 4 * * *"
+  workflow_dispatch:
+    inputs:
+      ingestion:
+        description: "Ingestion complète (base neuve) ; sinon réutilise la base en cache"
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+  # Une proposition de fusion doit être vérifiée AVANT d'atteindre main, pas
+  # après : c'est main qui alimente le serveur de production. Le job de
+  # publication Pages, lui, reste réservé aux pushes sur main (voir plus bas).
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  issues: write
+
+concurrency:
+  # Par référence : une vérification de proposition de fusion ne doit ni
+  # bloquer ni être bloquée par le cycle quotidien de main.
+  group: publication-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  construire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Mode d'exécution
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] || { [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.ingestion }}" = "true" ]; }; then
+            echo "ingestion=oui" >> "$GITHUB_OUTPUT"
+          else
+            echo "ingestion=si-cache-vide" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Le préfixe de cache porte l'EMPREINTE DES PIPELINES. C'est ce qui évite
+      # la panne suivante, constatée le 20/08/2026 : une proposition de fusion
+      # qui ajoutait une table a restauré la base mise en cache par le cycle de
+      # la veille — donc l'ANCIEN schéma — et le build est mort sur
+      # « no such table: partis_aide_annuelle ». Le même échec attendait main
+      # après la fusion.
+      #
+      # Le schéma de data/france.db est produit par pipelines/*.py et par rien
+      # d'autre : si l'un d'eux change, l'empreinte change, aucun cache ne
+      # correspond, et le job retombe sur l'ingestion complète — ce que le
+      # `if:` de l'étape suivante prévoit déjà. Les tests sont volontairement
+      # hors de l'empreinte (pipelines/*.py, pas pipelines/**/*.py) : ils ne
+      # produisent aucun schéma, et les inclure ferait rejouer 90 s d'ingestion
+      # à chaque test ajouté.
+      - name: Restaurer la dernière base en cache
+        if: steps.mode.outputs.ingestion != 'oui'
+        id: cache-db
+        uses: actions/cache/restore@v4
+        with:
+          path: data/france.db
+          # clé volontairement introuvable : on veut le restore-keys → la base
+          # la plus récente PARMI CELLES DU MÊME SCHÉMA
+          key: france-db-introuvable
+          restore-keys: |
+            france-db-${{ hashFiles('pipelines/*.py') }}-
+
+      - uses: actions/setup-python@v5
+        if: steps.mode.outputs.ingestion == 'oui' || steps.cache-db.outputs.cache-matched-key == ''
+        with:
+          python-version: "3.14"
+
+      - name: Ingestion complète (base neuve du jour)
+        id: ingestion
+        if: steps.mode.outputs.ingestion == 'oui' || steps.cache-db.outputs.cache-matched-key == ''
+        run: |
+          make venv PYTHON=python3
+          make ingest PYTHON=python3
+
+      - name: Tests pipelines (pytest)
+        if: steps.ingestion.outcome == 'success'
+        run: make test PYTHON=python3
+
+      - name: Consolider la base (checkpoint WAL → fichier unique)
+        if: steps.ingestion.outcome == 'success'
+        run: |
+          python3 - <<'EOF'
+          import sqlite3
+          c = sqlite3.connect("data/france.db")
+          c.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+          c.execute("PRAGMA journal_mode=DELETE")
+          c.close()
+          EOF
+          ls -lh data/france.db
+
+      - name: Mettre la base en cache
+        if: steps.ingestion.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: data/france.db
+          # Même empreinte que le restore-keys ci-dessus : une base n'est
+          # réutilisable que par un code qui produit le même schéma.
+          key: france-db-${{ hashFiles('pipelines/*.py') }}-${{ github.run_id }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Dépendances app
+        run: npm ci
+        working-directory: app
+
+      # Sans NEXT_PUBLIC_BASE_PATH : on valide la configuration RÉELLEMENT
+      # servie en production (site à la racine d'un domaine), pas celle d'une
+      # « project page » GitHub Pages qui n'est plus publiée.
+      - name: Build statique
+        run: npm run build
+        working-directory: app
+        env:
+          FT_EXPORT: "1"
+          FRANCE_DB_PATH: ${{ github.workspace }}/data/france.db
+
+      - name: Contrôles de santé du site généré
+        run: |
+          set -eu
+          test -f app/out/index.html
+          grep -q "France Transparence" app/out/index.html
+          python3 - <<'EOF'
+          import json, pathlib, sys
+          meta = json.loads(pathlib.Path("app/out/api/meta.json").read_text())
+          brut = json.dumps(meta)
+          assert "genere_le" in brut, "meta.json sans champ genere_le"
+          print("meta.json OK :", str(meta)[:200])
+          EOF
+          nb_fiches=$(find app/out/elus -mindepth 1 -maxdepth 1 -type d | wc -l)
+          echo "Fiches élus générées : $nb_fiches"
+          test "$nb_fiches" -ge 900
+          taille=$(du -sm app/out | cut -f1)
+          echo "Taille du site : ${taille} Mo"
+          test "$taille" -lt 950
+          # Référencement : une page sans canonique est une régression
+          # silencieuse — on la traite comme un échec de build.
+          sans_canonique=$(grep -rL 'rel="canonical"' --include=index.html app/out \
+            | grep -v -e '/404/' -e '/_not-found/' | wc -l)
+          echo "Pages sans <link rel=canonical> : $sans_canonique"
+          test "$sans_canonique" -eq 0
+          grep -q 'application/ld+json' app/out/index.html
+          grep -q 'application/ld+json' app/out/donnees/index.html
+          # Identité de déploiement — le site est servi à la racine de
+          # francetransparence.fr. L'ancienne adresse GitHub Pages ne doit plus
+          # apparaître NULLE PART dans l'export : une canonique, un lien de
+          # sitemap ou une carte de partage qui la porte encore renvoie les
+          # moteurs vers un site qui n'existe plus. (La page de redirection de
+          # pages-redirection/ la cite légitimement, mais elle n'est pas dans
+          # l'export : elle est envoyée telle quelle sur GitHub Pages.)
+          echo "Références résiduelles à l'ancienne adresse GitHub Pages :"
+          if grep -rl 'koutakou\.github\.io' app/out; then
+            echo "ÉCHEC : l'export contient encore koutakou.github.io" >&2
+            exit 1
+          fi
+          echo "  aucune"
+          # robots.txt est GÉNÉRÉ (app/src/app/robots.ts) à partir de SITE_URL :
+          # s'il disparaît de l'export, ou s'il annonce un sitemap qui n'est pas
+          # celui du site, l'indexation part de travers en silence.
+          test -f app/out/robots.txt
+          cat app/out/robots.txt
+          grep -qx 'Sitemap: https://francetransparence\.fr/sitemap\.xml' app/out/robots.txt
+
+      # Le site construit ci-dessus n'est PAS déployé : il n'a servi qu'à
+      # prouver que la chaîne complète tient. Seule la page de redirection
+      # part sur GitHub Pages.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages-redirection
+
+  deployer:
+    needs: construire
+    # Une proposition de fusion vérifie, elle ne publie pas : rien ne part sur
+    # GitHub Pages tant que le code n'est pas sur main. Et la condition porte
+    # sur la RÉFÉRENCE, pas seulement sur l'événement : un `workflow_dispatch`
+    # lancé à la main sur une branche de chantier — c'est la façon normale de
+    # jouer la chaîne complète, ingestion comprise, avant de fusionner — ne
+    # doit rien publier non plus.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  alerter:
+    needs: [construire, deployer]
+    # Un échec sur une proposition de fusion est déjà visible sur la
+    # proposition elle-même : ouvrir une issue n'ajouterait que du bruit.
+    if: failure() && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ouvrir ou commenter l'issue d'échec
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          corps="Le run [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) du $(date -u +%F) a échoué (événement : ${{ github.event_name }}). Le site en ligne reste celui du dernier déploiement réussi — la fraîcheur affichée sur /donnees reste exacte d'elle-même."
+          existante=$(gh issue list --repo "${{ github.repository }}" --label publication-echec --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existante" ]; then
+            gh issue comment "$existante" --repo "${{ github.repository }}" --body "$corps"
+          else
+            gh issue create --repo "${{ github.repository }}" --title "Échec de la publication quotidienne" --label publication-echec --body "$corps" \
+              || gh issue create --repo "${{ github.repository }}" --title "Échec de la publication quotidienne" --body "$corps"
+          fi
