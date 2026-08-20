@@ -215,10 +215,18 @@ def test_approch_api_contrat_projets_futurs():
 
 
 def test_limite_plausible_accepte_les_ecarts_reels():
-    """La distribution réelle des écarts s'arrête à 10 ans : tout doit passer."""
+    """Cas réels relevés en production : tout doit passer.
+
+    Le 15 ans pile est le SAD paru le 03/08/2025 et ouvert jusqu'au
+    01/09/2040 — un avis parfaitement légitime, qui se trouvait exactement
+    sur l'ancien couperet de 15 ans. Le 18 ans garde la marge rendue par
+    ECART_MAX_LIMITE_ANNEES : un SAD n'a pas de durée maximale légale, le
+    prochain peut aller plus loin sans cesser d'être valable.
+    """
     assert ingest_boamp._limite_plausible("2025-06-26", "2025-07-23")
     assert ingest_boamp._limite_plausible("2024-03-24", "2034-04-15")  # 10 ans
-    assert ingest_boamp._limite_plausible("2025-08-03", "2040-08-01")  # 15 ans pile
+    assert ingest_boamp._limite_plausible("2025-08-03", "2040-09-01")  # 15 ans, cas réel
+    assert ingest_boamp._limite_plausible("2025-08-03", "2043-09-01")  # 18 ans
 
 
 def test_limite_plausible_rejette_les_millesimes_fautifs():

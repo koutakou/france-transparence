@@ -8,7 +8,7 @@ Le plafond `/records` (offset+limit ≤ 10 000) est contourné partout par
 Tables produites (réécriture complète à chaque run, en transaction) :
 
 - ao_en_cours — appels d'offres dont la date limite de réponse est future
-  ET plausible (écart parution → limite ≤ 15 ans, cf.
+  ET plausible (écart parution → limite ≤ 20 ans, cf.
   ECART_MAX_LIMITE_ANNEES) :
     idweb (PK), objet, acheteur, nature, nature_libelle, famille,
     famille_libelle, type_marche (JSON), type_procedure, procedure_libelle,
@@ -227,11 +227,20 @@ def extraire_montant(donnees_texte: str | None) -> tuple[float | None, str | Non
 # 17 avis à échéance impossible (« 7017-07-24 », « 2924-04-15 » — un chiffre
 # de mille frappé de travers), dont deux parus en 2017 et 2018 encore
 # comptés comme « en cours » neuf ans plus tard dans le compteur public.
-# POURQUOI 15 ans et pas moins : la distribution réelle des écarts s'arrête
-# net à 10 ans (8 avis), puis plus rien jusqu'à 15 — le seuil tombe dans une
-# bande vide, il ne peut donc écarter aucun avis légitime, y compris les
-# accords-cadres et concessions les plus longs.
-ECART_MAX_LIMITE_ANNEES = 15
+# POURQUOI 20 ans, et pas 15 comme à l'origine : le seuil avait été posé à 15
+# parce que la distribution s'arrêtait alors net à 10 ans, laissant une bande
+# vide entre 11 et 15 — « le seuil ne peut donc écarter aucun avis légitime ».
+# Cette justification a cessé d'être vraie. La distribution mesurée le
+# 20/08/2026 est 15 ans → 1 avis, 11 ans → 1, 10 ans → 14, 9 ans → 2 : la
+# bande n'est plus vide, et un avis réel est venu se poser EXACTEMENT sur le
+# couperet — un système d'acquisition dynamique paru le 03/08/2025 et ouvert
+# jusqu'au 01/09/2040. Un SAD n'a pas de durée maximale légale, contrairement
+# à l'accord-cadre : rien n'empêche le suivant d'aller à 16 ou 18 ans, et il
+# serait alors écarté en silence (un simple log.warning) d'un compteur public.
+# Le garde-fou vise des millésimes frappés de travers — « 7017 », « 2924 »,
+# soit des écarts de plusieurs siècles. 20 ans les arrête tout aussi
+# sûrement que 15, en rendant au seuil la marge qu'il avait perdue.
+ECART_MAX_LIMITE_ANNEES = 20
 
 
 def _limite_plausible(parution: str, limite: str) -> bool:
