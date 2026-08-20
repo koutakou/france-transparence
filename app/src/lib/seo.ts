@@ -246,6 +246,54 @@ export function metadonneesFicheProfil(page: {
 }
 
 /* ------------------------------------------------------------------ */
+/* Longueur des titres de partage                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Suffixe que le gabarit de titre du layout racine (« %s — France
+ * Transparence ») ajoute à CHAQUE titre de page, `og:title` compris. Il
+ * consomme 22 des caractères disponibles : une page qui compose son titre
+ * sous contrainte de longueur doit le décompter, sinon elle mesure la moitié
+ * du texte que verront Facebook et X.
+ */
+export const SUFFIXE_TITRE = ` — ${NOM_SITE}`;
+
+/**
+ * Longueur maximale VISÉE d'un titre de partage, suffixe compris.
+ *
+ * 70 caractères : c'est là que X coupe. Facebook coupe plus tard (~88) — se
+ * caler sur le plus strict des deux évite d'avoir deux règles, et un titre
+ * court n'a jamais été un défaut sur une carte de partage. Ce n'est PAS une
+ * limite technique : rien ne casse au-delà, la fin du titre disparaît
+ * simplement de l'aperçu, souvent en plein milieu d'un mot.
+ */
+export const LONGUEUR_TITRE_PARTAGE = 70;
+
+/**
+ * Tronque `texte` à `max` caractères AU PLUS, ellipse comprise, À LA LIMITE
+ * DE MOT.
+ *
+ * Couper au caractère près donne « Avances aux collectivités territo… » : le
+ * lecteur bute sur un mot qui n'existe pas. On recule donc jusqu'à la
+ * dernière espace, puis on retire la ponctuation devenue orpheline (« , » et
+ * « : » qui n'annoncent plus rien). Un mot unique plus long que la limite
+ * n'ayant aucune limite de mot où reculer, il est coupé au caractère — c'est
+ * le seul cas où l'on n'a pas le choix.
+ *
+ * L'ellipse est le caractère « … » (U+2026) et non trois points : un
+ * caractère au lieu de trois, dans un budget qui se compte au caractère.
+ */
+export function tronqueMots(texte: string, max: number): string {
+  const propre = texte.trim();
+  if (propre.length <= max) return propre;
+  // `max - 1` : l'ellipse occupe la dernière place.
+  const brut = propre.slice(0, max - 1);
+  const derniereEspace = brut.lastIndexOf(" ");
+  const garde = derniereEspace > 0 ? brut.slice(0, derniereEspace) : brut;
+  return `${garde.replace(/[\s,;:.\-–—'’]+$/u, "")}…`;
+}
+
+/* ------------------------------------------------------------------ */
 /* Identité du site (accueil)                                          */
 /* ------------------------------------------------------------------ */
 

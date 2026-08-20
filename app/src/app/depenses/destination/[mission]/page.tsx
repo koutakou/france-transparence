@@ -14,7 +14,13 @@ import {
   LIBELLES_TYPEBUDGET,
   type ActionDestination,
 } from "@/lib/queries/depenses";
-import { jsonLdPage, metadonneesPage } from "@/lib/seo";
+import {
+  jsonLdPage,
+  LONGUEUR_TITRE_PARTAGE,
+  metadonneesPage,
+  SUFFIXE_TITRE,
+  tronqueMots,
+} from "@/lib/seo";
 
 /**
  * Page statique d'une mission (S21) : programme → action → sous-action en
@@ -48,13 +54,44 @@ function descriptionMission(libelle: string): string {
   return `Mission « ${libelle} » du PLF 2025 : programmes, actions et sous-actions, crédits de paiement et autorisations d'engagement, ventilation par titre.`;
 }
 
+/**
+ * Titre des MÉTADONNÉES (`<title>` et `og:title`) — le seul endroit du site
+ * où le libellé de mission peut être raccourci. Le `<h1>` de la page, lui,
+ * porte toujours le nom entier : à l'écran, on doit pouvoir lire de quelle
+ * mission il s'agit.
+ *
+ * POURQUOI. Le gabarit du layout ajoute « — France Transparence » (22
+ * caractères) à tout titre. « Mission « Avances aux collectivités
+ * territoriales et aux collectivités régies par les articles 73, 74 et 76 de
+ * la Constitution » — budget 2025 — France Transparence » faisait ainsi 164
+ * caractères : X coupe vers 70, Facebook vers 88 — la carte de partage
+ * s'arrêtait en plein milieu du nom de la mission, et deux missions
+ * différentes pouvaient donner deux cartes identiques.
+ *
+ * DÉGRADATION PROGRESSIVE, du plus riche au plus pauvre : on sacrifie
+ * d'abord le complément « — budget 2025 » (l'année reste dans la
+ * description, dans le fil d'Ariane et à l'écran), et le nom de la mission
+ * n'est coupé qu'en dernier recours, à la limite de mot. Un titre court est
+ * préférable à un titre coupé au milieu d'un mot ; un nom de mission entier
+ * est préférable à un complément d'année.
+ */
+function titreMission(libelle: string): string {
+  const budget = LONGUEUR_TITRE_PARTAGE - SUFFIXE_TITRE.length;
+  const complet = `Mission « ${libelle} » — budget 2025`;
+  if (complet.length <= budget) return complet;
+  const sansAnnee = `Mission « ${libelle} »`;
+  if (sansAnnee.length <= budget) return sansAnnee;
+  // Ce qui reste au libellé une fois « Mission «  » » décompté (12 signes).
+  return `Mission « ${tronqueMots(libelle, budget - "Mission «  »".length)} »`;
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { mission } = await params;
   const arbre = getArbreMission(mission);
   return metadonneesPage({
     chemin: `/depenses/destination/${mission}/`,
     ...(arbre && {
-      titre: `Mission « ${arbre.libelle} » — budget 2025`,
+      titre: titreMission(arbre.libelle),
       description: descriptionMission(arbre.libelle),
     }),
   });
@@ -141,7 +178,9 @@ export default async function PageMission({ params }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Le `name` du balisage porte le libellé ENTIER, comme le <h1>. */}
+      {/* Le `name` du balisage porte le libellé ENTIER, comme le <h1> —
+          seul le titre des métadonnées est raccourci, et pour la seule
+          raison qu'une carte de partage a une largeur. */}
       <JsonLd
         donnees={jsonLdPage({
           chemin: `/depenses/destination/${mission}/`,
