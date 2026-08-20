@@ -1,35 +1,52 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
-import { CONTACT_ISSUES_URL } from "@/lib/site";
+import { CONTACT_EMAIL, CONTACT_ISSUES_URL } from "@/lib/site";
 
 /**
- * Page /donnees-personnelles — information générale prévue par l'article 14
- * du RGPD, fournie au titre de la dérogation « effort disproportionné » de
- * l'art. 14(5)(b) : informer individuellement plus de 36 000 élus serait
- * disproportionné, la mesure appropriée est cette page publique
- * (docs/deploiement/exigences-publiques.md §1.2, reco CNIL juin 2024).
+ * Page /donnees-personnelles — information des personnes concernées.
  *
- * Références vérifiées le 19/08/2026 :
- * - GitHub Pages, journalisation des IP des visiteurs : « When a GitHub
- *   Pages site is visited, the visitor's IP address is logged and stored
- *   for security purposes » —
- *   https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages#data-collection
- * - GitHub General Privacy Statement :
- *   https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement
+ * Elle couvre DEUX traitements distincts, qu'il ne faut pas mélanger :
+ *
+ *   A. les VISITEURS du site — journaux du serveur web (art. 13 RGPD :
+ *      l'éditeur collecte lui-même la donnée, auprès de la personne) ;
+ *   B. les PERSONNES FIGURANT DANS LES DONNÉES republiées (élus, candidats,
+ *      représentants d'intérêts) — art. 14 RGPD, données non collectées
+ *      auprès d'elles, information collective fournie au titre de la
+ *      dérogation « effort disproportionné » de l'art. 14(5)(b) : informer
+ *      individuellement plus de 36 000 élus serait disproportionné
+ *      (docs/deploiement/exigences-publiques.md §1.2, reco CNIL juin 2024).
+ *
+ * Références du volet A, vérifiées le 20/08/2026 sur la machine elle-même
+ * (le site n'est plus hébergé sur une plateforme tierce : les journaux sont
+ * ceux d'un nginx administré par l'éditeur, qui en est donc responsable) :
+ * - /etc/nginx/nginx.conf : log_format `main` (IP complète) -> access.log ;
+ *   map $ip_pseudonyme + log_format `audience` (IP tronquée /24 en IPv4,
+ *   /48 en IPv6) -> audience.log ;
+ * - /etc/logrotate.d/nginx : access.log et error.log, `rotate 52` (jours) ;
+ * - /etc/logrotate.d/nginx-audience : audience.log, `rotate 400` (jours).
+ * Toute modification de ces fichiers doit être répercutée ici : une durée de
+ * conservation publiée qui ne correspond plus à la réalité est un manquement.
  */
 
 export const metadata: Metadata = {
   alternates: { canonical: "/donnees-personnelles/" },
   title: "Données personnelles",
   description:
-    "Information prévue par l'article 14 du RGPD : finalité, base légale, catégories de données de responsables publics republiées, droits des personnes — et zéro collecte sur les visiteurs.",
+    "Visiteurs : aucun cookie ni traceur, mais des journaux de serveur — finalités, base légale, durées. Personnes figurant dans les données publiées : information de l'article 14 du RGPD. Droits et réclamation CNIL.",
 };
 
 /** Style commun des liens de la page. */
 const LIEN = "underline decoration-dotted underline-offset-2 hover:text-ink";
 
 export default function PageDonneesPersonnelles() {
+  /** Adresse de contact, cliquable — définie une seule fois, dans site.ts. */
+  const contactEmail = (
+    <a href={`mailto:${CONTACT_EMAIL}`} className={LIEN}>
+      {CONTACT_EMAIL}
+    </a>
+  );
+
   return (
     <section className="mx-auto flex w-full max-w-3xl flex-col gap-6">
       <header className="flex flex-col gap-2">
@@ -37,35 +54,149 @@ export default function PageDonneesPersonnelles() {
           Données personnelles
         </h1>
         <p className="text-sm text-ink-secondary">
-          Information générale prévue par l&apos;article 14 du règlement (UE)
-          2016/679 (RGPD), fournie au titre de son article 14(5)(b) : ce site
-          republie des données publiques concernant plusieurs dizaines de
-          milliers de responsables publics, que cette page informe
-          collectivement.
+          Cette page décrit{" "}
+          <strong className="text-ink">deux traitements distincts</strong>, qui
+          n&apos;ont ni les mêmes personnes concernées, ni les mêmes finalités,
+          ni les mêmes durées :
         </p>
+        <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm text-ink-secondary">
+          <li>
+            <strong className="text-ink">A. les visiteurs du site</strong> —
+            aucun cookie ni traceur, mais des journaux tenus par le serveur web
+            (information prévue par l&apos;article 13 du règlement (UE)
+            2016/679, dit RGPD) ;
+          </li>
+          <li>
+            <strong className="text-ink">
+              B. les personnes figurant dans les données publiées
+            </strong>{" "}
+            — élus, candidats, représentants d&apos;intérêts : republication de
+            données publiques (information collective prévue par
+            l&apos;article 14 du RGPD, fournie au titre de son
+            article 14(5)(b)).
+          </li>
+        </ul>
       </header>
 
       <Card titre="Responsable du traitement">
-        <p className="text-sm leading-relaxed text-ink-secondary">
-          L&apos;éditeur du site, particulier non professionnel (voir les{" "}
-          <Link href="/mentions-legales" className={LIEN}>
-            mentions légales
-          </Link>
-          ), est responsable du traitement. Il est joignable via le canal de
-          contact du site :{" "}
-          <a
-            href={CONTACT_ISSUES_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={LIEN}
-          >
-            les issues GitHub du dépôt
-          </a>{" "}
-          (une adresse e-mail dédiée sera ajoutée prochainement).
-        </p>
+        <div className="flex flex-col gap-3 text-sm leading-relaxed text-ink-secondary">
+          <p>
+            Pour ces deux traitements, le responsable est{" "}
+            <strong className="text-ink">l&apos;éditeur du site</strong>,
+            particulier non professionnel (voir les{" "}
+            <Link href="/mentions-legales" className={LIEN}>
+              mentions légales
+            </Link>
+            ). Le site n&apos;est pas hébergé sur une plateforme tierce : il est
+            servi par un serveur dédié, situé en France, que l&apos;éditeur
+            administre lui-même. C&apos;est donc lui, et non l&apos;hébergeur,
+            qui répond des journaux décrits ci-dessous.
+          </p>
+          <p>
+            Il est joignable par e-mail à {contactEmail} — une demande qui
+            concerne une personne n&apos;a pas à être rendue publique.
+          </p>
+        </div>
       </Card>
 
-      <Card titre="Finalité et base légale">
+      <Card
+        titre="A. Visiteurs : aucun traceur, mais des journaux de serveur"
+        sousTitre="Information de l'article 13 du RGPD"
+      >
+        <div className="flex flex-col gap-3 text-sm leading-relaxed text-ink-secondary">
+          <p>
+            Le site ne dépose <strong className="text-ink">rien</strong> sur
+            l&apos;appareil de ses visiteurs : zéro cookie, zéro traceur, zéro
+            stockage local, pas de compte, pas de formulaire. Il n&apos;appelle
+            aucun service tiers depuis le navigateur et n&apos;embarque aucun
+            script de mesure d&apos;audience. Aucun bandeau de consentement
+            n&apos;est requis : l&apos;article 82 de la loi Informatique et
+            Libertés ne vise que les accès et les inscriptions dans
+            l&apos;équipement du visiteur, et il n&apos;y en a aucun.
+          </p>
+          <p>
+            <strong className="text-ink">
+              Le serveur web, en revanche, tient des journaux d&apos;accès.
+            </strong>{" "}
+            Ils enregistrent, pour chaque requête : une adresse IP, la date et
+            l&apos;heure, l&apos;adresse de la page demandée, le code de
+            réponse, le volume transmis, la page d&apos;origine éventuelle et
+            l&apos;identifiant du navigateur (<em>User-Agent</em>). Une adresse
+            IP est une donnée à caractère personnel ; ces journaux relèvent donc
+            du RGPD. Il y en a{" "}
+            <strong className="text-ink">deux, séparés à dessein</strong> :
+          </p>
+          <ul className="flex list-disc flex-col gap-1.5 pl-5">
+            <li>
+              <strong className="text-ink">
+                Un journal de sécurité, à adresse IP complète
+              </strong>{" "}
+              (<code>access.log</code>, ainsi que le journal d&apos;erreurs).
+              Finalité : la{" "}
+              <strong className="text-ink">sécurité du service</strong> —
+              détecter et bloquer les attaques (blocage automatique des adresses
+              abusives), analyser un incident. Conservation :{" "}
+              <strong className="text-ink">52 jours</strong>, puis suppression
+              automatique.
+            </li>
+            <li>
+              <strong className="text-ink">
+                Un journal d&apos;audience, à adresse IP tronquée
+              </strong>{" "}
+              (<code>audience.log</code>) : les derniers chiffres de
+              l&apos;adresse sont remplacés par un zéro au moment même de
+              l&apos;écriture (un quart d&apos;adresse en IPv4, la moitié en
+              IPv6), de sorte que le fichier ne permet plus de remonter à un
+              abonné. Finalité : la{" "}
+              <strong className="text-ink">
+                mesure d&apos;audience du site
+              </strong>
+              , sous forme exclusivement statistique et agrégée — c&apos;est le
+              seul journal que lit l&apos;outil de statistiques. Conservation :{" "}
+              <strong className="text-ink">400 jours</strong>, cette durée plus
+              longue étant permise par la pseudonymisation ; elle sert à
+              comparer une année à la suivante.
+            </li>
+          </ul>
+          <p>
+            <strong className="text-ink">Base légale</strong> — l&apos;intérêt
+            légitime (art. 6(1)(f) RGPD) : assurer la sécurité d&apos;un service
+            en accès libre, et en connaître la fréquentation. La journalisation
+            est également une mesure de sécurité au sens de l&apos;article 32 du
+            RGPD. La conservation retenue est délibérément inférieure à la
+            fourchette de six mois à un an admise par la CNIL pour les journaux
+            (délibération n° 2021-122 du 14 octobre 2021).
+          </p>
+          <p>
+            <strong className="text-ink">Destinataires</strong> —{" "}
+            <strong className="text-ink">aucun</strong>. Les journaux ne quittent
+            pas le serveur : ils ne sont ni sauvegardés à l&apos;extérieur, ni
+            transmis à un tiers, ni croisés avec un autre fichier. Seul
+            l&apos;éditeur y accède, par une connexion d&apos;administration.
+            L&apos;hébergeur fournit la machine et n&apos;exploite pas ces
+            données pour son compte. Rien de tout cela n&apos;est transféré hors
+            de l&apos;Union européenne ; seuls les courriels envoyés à
+            l&apos;adresse de contact ci-dessus transitent par la messagerie
+            Proton, en Suisse — pays reconnu comme offrant un niveau de
+            protection adéquat par la Commission européenne.
+          </p>
+          <p>
+            <strong className="text-ink">
+              Aucun profilage, aucune décision automatisée à l&apos;égard
+              d&apos;une personne
+            </strong>{" "}
+            — les journaux ne servent jamais à suivre un individu ni à établir un
+            profil. Les statistiques produites sont agrégées et ne contiennent
+            aucune adresse IP. Le seul traitement automatisé est le blocage
+            temporaire d&apos;une adresse qui attaque le serveur.
+          </p>
+        </div>
+      </Card>
+
+      <Card
+        titre="B. Données publiées : finalité et base légale"
+        sousTitre="Information de l'article 14 du RGPD"
+      >
         <div className="flex flex-col gap-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             <strong className="text-ink">Finalité</strong> — l&apos;information
@@ -85,7 +216,7 @@ export default function PageDonneesPersonnelles() {
         </div>
       </Card>
 
-      <Card titre="Données traitées et personnes concernées">
+      <Card titre="B. Données traitées et personnes concernées">
         <div className="flex flex-col gap-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             Le site traite exclusivement des{" "}
@@ -120,58 +251,51 @@ export default function PageDonneesPersonnelles() {
         </div>
       </Card>
 
-      <Card titre="Visiteurs : aucune collecte">
-        <div className="flex flex-col gap-3 text-sm leading-relaxed text-ink-secondary">
-          <p>
-            Le site ne collecte <strong className="text-ink">aucune donnée
-            sur ses visiteurs</strong> : zéro cookie, zéro traceur,
-            pas de mesure d&apos;audience, pas de compte, pas de formulaire.
-            Il n&apos;appelle aucun service tiers depuis le navigateur.
-            Aucun bandeau de consentement n&apos;est donc requis.
-          </p>
-          <p>
-            Seuls subsistent les journaux techniques de l&apos;hébergeur :
-            GitHub Pages enregistre l&apos;adresse IP des visiteurs à des fins
-            de sécurité (traitement opéré par GitHub, Inc. — voir la{" "}
-            <a
-              href="https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages#data-collection"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={LIEN}
-            >
-              documentation GitHub Pages
-            </a>{" "}
-            et la{" "}
-            <a
-              href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={LIEN}
-            >
-              politique de confidentialité de GitHub
-            </a>
-            ).
-          </p>
-        </div>
-      </Card>
-
       <Card titre="Vos droits">
         <div className="flex flex-col gap-3 text-sm leading-relaxed text-ink-secondary">
           <p>
-            Toute personne concernée dispose des droits d&apos;accès
-            (art. 15 RGPD), de rectification (art. 16) et d&apos;opposition
-            (art. 21), dans les limites que la liberté d&apos;information
-            apporte au droit à l&apos;effacement (art. 17(3)(a)). Les demandes
-            se font via{" "}
+            <strong className="text-ink">
+              Si vous figurez dans les données publiées
+            </strong>{" "}
+            (volet B) — vous disposez des droits d&apos;accès (art. 15 RGPD), de
+            rectification (art. 16) et d&apos;opposition (art. 21), dans les
+            limites que la liberté d&apos;information apporte au droit à
+            l&apos;effacement (art. 17(3)(a)).
+          </p>
+          <p>
+            <strong className="text-ink">
+              Si vous êtes visiteur du site
+            </strong>{" "}
+            (volet A) — vous disposez, sur les journaux, des droits d&apos;accès
+            (art. 15), de rectification (art. 16), d&apos;effacement (art. 17),
+            de limitation (art. 18) et d&apos;opposition (art. 21), cette
+            dernière pouvant être écartée pour ce qui relève strictement de la
+            sécurité du service. Une demande doit préciser la ou les adresses IP
+            concernées et la période : sans cela, la recherche est impossible et
+            l&apos;éditeur n&apos;est pas tenu de collecter des informations
+            supplémentaires pour vous identifier (art. 11 RGPD). Le journal
+            d&apos;audience, dont les adresses sont tronquées, ne permet par
+            construction d&apos;identifier personne.
+          </p>
+          <p>
+            <strong className="text-ink">Comment exercer ces droits</strong> —
+            les demandes se font par e-mail à {contactEmail}, et sont
+            traitées sous un mois (art. 12(3) RGPD). Rien n&apos;oblige à
+            passer par un canal public pour exercer un droit.
+          </p>
+          <p>
+            Les <strong className="text-ink">signalements d&apos;erreur</strong>{" "}
+            qui ne portent pas sur des données personnelles (chiffre faux, lien
+            mort, source mal citée) restent les bienvenus sur{" "}
             <a
               href={CONTACT_ISSUES_URL}
               target="_blank"
               rel="noopener noreferrer"
               className={LIEN}
             >
-              les issues GitHub du dépôt
-            </a>{" "}
-            et sont traitées sous un mois (art. 12(3) RGPD).
+              les issues publiques du dépôt
+            </a>
+            .
           </p>
           <p>
             <strong className="text-ink">Période électorale</strong> — les
@@ -179,7 +303,9 @@ export default function PageDonneesPersonnelles() {
             représentants sont traitées en priorité, sous 48 heures.
           </p>
           <p>
-            Toute personne peut également adresser une réclamation à la CNIL :{" "}
+            Toute personne peut également adresser une réclamation à
+            l&apos;autorité de contrôle, la Commission nationale de
+            l&apos;informatique et des libertés (CNIL) :{" "}
             <a
               href="https://www.cnil.fr/"
               target="_blank"
