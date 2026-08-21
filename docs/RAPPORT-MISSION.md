@@ -70,10 +70,10 @@ Non matérialisés en lignes d'alertes : les signaux marchés du plan initial (A
 
 ## 5. Méthode
 
-- **Orchestrateur pur + ~30 sous-agents** : 9 agents de recherche (un par axe, rapports `docs/recherche/01-09`), 1 agent de synthèse (SOURCES.md), 1 critique de complétude (2 findings critiques et 10 importants, tous appliqués), 11 agents pipelines (pour 13 pipelines), 1 agent design system (19 composants UI conformes au guide DATAVIZ), 8 agents pages (12 pages + API), plus des agents de correctifs.
+- **Travail découpé en ~30 lots à périmètres disjoints** : 9 lots de recherche (un par axe, rapports `docs/recherche/01-09`), 1 lot de synthèse (SOURCES.md), 1 revue de complétude (2 constats critiques et 10 importants, tous appliqués), 11 lots pipelines (pour 13 pipelines), 1 lot design system (19 composants UI conformes au guide DATAVIZ), 8 lots pages (12 pages + API), plus des lots de correctifs.
 - **Les fichiers sont la mémoire partagée** : JOURNAL.md (décisions numérotées), STATUS.md, docs/SOURCES.md, docs/NOTES-FRONT.md et docs/SCHEMA-DB.md servent de contrats entre agents ; aucun agent ne dépend de la mémoire d'un autre.
-- **Épreuves sur bases jetables** : chaque pipeline a été développé et éprouvé sur une base temporaire (`FT_DB_PATH`) ; la base servie n'a été remplie que par l'orchestrateur, via un `make ingest` réel séquentiel.
-- **Vérification par appels réels systématiques** : aucune source documentée sans code HTTP constaté le jour même (curl/WebFetch) ; SQL des pages testé sur la base réelle en lecture seule ; build de production et smoke tests HTTP joués par l'orchestrateur en fin de chaque vague.
+- **Épreuves sur bases jetables** : chaque pipeline a été développé et éprouvé sur une base temporaire (`FT_DB_PATH`) ; la base servie n'a été remplie que par un `make ingest` réel séquentiel.
+- **Vérification par appels réels systématiques** : aucune source documentée sans code HTTP constaté le jour même (curl/WebFetch) ; SQL des pages testé sur la base réelle en lecture seule ; build de production et smoke tests HTTP joués en fin de chaque vague.
 
 ---
 
@@ -111,7 +111,7 @@ Documentées dans docs/SOURCES.md §5, aucune ne conditionne un module ingéré 
 
 | Indicateur | Valeur |
 |---|---|
-| Sous-agents mobilisés | ~30 (9 recherche + 1 synthèse + 1 critique + 11 pipelines + 1 design system + 8 pages + correctifs) |
+| Lots de travail | ~30 (9 recherche + 1 synthèse + 1 revue de complétude + 11 pipelines + 1 design system + 8 pages + correctifs) |
 | Pipelines d'ingestion | 13 (`make ingest-<source>`) |
 | Tests pytest | 150/150 verts (marqueur `reseau` pour l'intégration) |
 | Base | `data/france.db` : 447 Mo, 51 tables, 25 sources tracées dans `meta_sources` |

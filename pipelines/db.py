@@ -26,7 +26,7 @@ def _chemin_db() -> Path:
     """Chemin de la base : FT_DB_PATH (env) sinon data/france.db.
 
     FT_DB_PATH sert aux épreuves des pipelines sur base jetable ; la base
-    servie n'est remplie que par l'orchestrateur (`make ingest`).
+    servie n'est remplie que par `make ingest`.
     """
     env = os.environ.get("FT_DB_PATH")
     return Path(env) if env else CHEMIN_DB
