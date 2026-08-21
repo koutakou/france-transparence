@@ -19,7 +19,9 @@
  * `decp_marches.titulaire_siret` ne contient PAS « le » titulaire mais le
  * plus petit SIRET du marché (`min(titulaire_id)` dans
  * pipelines/ingest_decp.py) : s'y limiter perdrait tout co-titulaire dont
- * le SIRET n'est pas le plus petit — ~1 100 marchés. On déplie donc
+ * le SIRET n'est pas le plus petit — de l'ordre du millier de marchés du
+ * croisement, l'écart est mesuré dans docs/CROISEMENT-LOBBYING-MARCHES.md
+ * et n'a rien de négligeable. On déplie donc
  * `titulaires_json` (la liste complète, [{siret, nom}, …]) avec json_each.
  *
  * ── Sémantique des montants (identique au module /marches) ────────────
@@ -47,8 +49,9 @@
  *
  * ── Performance ───────────────────────────────────────────────────────
  * Le build pré-rend 1 000+ pages : ces requêtes sont jouées UNE fois, pour
- * /lobbying et pour /api/lobbying-marches.json. Mesuré sur la base réelle
- * (469 Mo, 585 503 marchés, 662 340 lignes titulaires) : ~2,4 s au total.
+ * /lobbying et pour /api/lobbying-marches.json. Sur la base réelle, de
+ * quelques centaines de Mo et de plusieurs centaines de milliers de
+ * marchés, l'ensemble tient en quelques secondes.
  * Deux pièges de plan de requête, tous deux vérifiés en EXPLAIN QUERY PLAN :
  * 1. la liste des SIREN du répertoire doit être une SOUS-REQUÊTE et non la
  *    table `lobby_entites` (qui n'a pas d'index sur `identifiant_national`) :
@@ -58,10 +61,14 @@
  *    tête) : laissé libre, SQLite met la liste des SIREN en boucle externe
  *    et rejoue json_each 3 746 fois.
  *
- * Requêtes rejouées telles quelles via `sqlite3 mode=ro` le 20/08/2026
- * (valeurs de contrôle : 3 746 SIREN distincts au répertoire, 435 d'entre
- * eux titulaires de 11 174 marchés hors accords-cadres pour 18,32 Md€,
- * borne basse hors montants suspects 12,04 Md€, 27 en défaut de déclaration).
+ * ── Fenêtre ───────────────────────────────────────────────────────────
+ * Le croisement porte sur `decp_marches`, soit les 24 derniers mois à la
+ * date de NOTIFICATION INITIALE du marché (un avenant ne le redate pas et
+ * ne le fait pas rentrer dans la fenêtre) ; les montants et les titulaires
+ * sont ceux de la version courante. Ce n'est donc pas un historique, et
+ * les effectifs comme les montants dérivent à chaque ingestion : les
+ * valeurs du jour sont celles qu'affiche /lobbying et qu'exporte
+ * /api/lobbying-marches.json.
  */
 import { getDb, type MetaSource } from "@/lib/db";
 

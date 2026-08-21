@@ -168,7 +168,7 @@ const POSTES: { poste: string; donnee: string; publie: string }[] = [
     donnee:
       "Les dépenses de l'État ne sont pas géolocalisées en open data.",
     publie:
-      "Deux cartes libellées pour ce qu'elles sont : les marchés publics notifiés sur 30 jours (coordonnées natives) et les finances locales en €/habitant.",
+      "Deux cartes libellées pour ce qu'elles sont : les marchés publics notifiés sur 12 mois, agrégés par département et signalés au chef-lieu, et les finances locales en €/habitant.",
   },
   {
     poste: "Montants des marchés",
@@ -263,7 +263,7 @@ const EXPORTS: ExportJson[] = [
     motsCles: ["marchés publics", "commande publique", "DECP", "acheteurs publics", "France"],
     chemin: "/api/marches-agregats.json",
     description:
-      "Agrégats de marchés publics pré-calculés à l'ingestion : par département (12 mois, montants écrêtés à 100 M€/marché) et par mois (36 mois).",
+      "Agrégats de marchés publics pré-calculés à l'ingestion : par département (12 mois, montants écrêtés à 100 M€/marché) et par mois (36 mois). Chaque marché est compté à la date de sa notification initiale, un avenant ne le redate pas.",
   },
   {
     cle: "lobbying-marches",

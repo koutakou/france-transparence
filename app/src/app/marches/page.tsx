@@ -262,7 +262,14 @@ export default async function PageMarches() {
           une latence légale jusqu’à 2&nbsp;mois : les fenêtres récentes sont
           structurellement incomplètes. Les montants d’accords-cadres sont des
           <strong className="font-medium text-ink"> maximums</strong>, pas du
-          dépensé.
+          dépensé. Un marché est daté de sa{" "}
+          <strong className="font-medium text-ink">
+            notification initiale
+          </strong>{" "}
+          — un avenant ne le redate pas — et toutes les fenêtres de cette page
+          (30&nbsp;jours, 12&nbsp;mois, 36&nbsp;mois) portent sur cette date ;
+          les montants et les titulaires affichés sont, eux, ceux de la
+          version courante du marché.
         </p>
       </section>
 
@@ -477,7 +484,7 @@ export default async function PageMarches() {
       {/* ---------------------------------------------------------- */}
       <Card
         titre="Série mensuelle"
-        sousTitre="36 derniers mois civils — les 2 derniers mois sont incomplets (latence légale de publication ≤ 2 mois)"
+        sousTitre="36 derniers mois civils, chaque marché rangé au mois de sa notification initiale (un avenant ne le redate pas) — les 2 derniers mois sont incomplets (latence légale de publication ≤ 2 mois)"
         droite={badgeS1}
       >
         <SerieMensuelleMarches serie={serieMensuelle} />

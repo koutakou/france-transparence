@@ -2,6 +2,13 @@
  * Requêtes de la page « Marchés publics » (/marches) — module DECP (S1),
  * BOAMP (S2) et APProch (S9). Lecture seule sur data/france.db via getDb().
  *
+ * Datation d'un marché (pipelines/ingest_decp.py) : `date_notification` est
+ * la date de la notification INITIALE du marché — un avenant ultérieur ne
+ * le redate pas. TOUTES les fenêtres de ce fichier portent sur elle : le
+ * 12 mois des agrégats, le 36 mois de la série, le « 30 derniers jours »
+ * calculé ici sur decp_marches. Les ATTRIBUTS (montant, titulaires, objet,
+ * procédure) sont ceux de la version courante du marché.
+ *
  * Sémantique des montants (pipelines/ingest_decp.py, fiche S1) :
  * - montant_retenu = montant_rationalise si présent, sinon montant (valeur
  *   à afficher) ; les AGRÉGATS (decp_agg_*, decp_top_*, decp_repartition)
@@ -330,8 +337,10 @@ export function chargerDonneesMarches(
   const metaPar = (id: string) => meta.find((m) => m.source_id === id);
 
   // KPI 12 mois : totaux des agrégats précalculés (fenêtre 12 mois du
-  // pipeline, écrêtés) — dimension 'procedure' couvre 100 % des marchés.
-  // Vérifié : 298 065 marchés / 271,31 Md€ le 19/08/2026.
+  // pipeline sur la notification initiale, montants écrêtés) — la
+  // dimension 'procedure' couvre 100 % des marchés. Nombre et montant
+  // dérivent à chaque ingestion : aucune valeur de contrôle n'est figée
+  // ici, celle du jour est celle qu'affiche la page.
   const total12m = db
     .prepare(
       `SELECT SUM(nb_marches) AS nb, SUM(montant_total) AS montant
@@ -339,7 +348,10 @@ export function chargerDonneesMarches(
     )
     .get() as { nb: number | null; montant: number | null };
 
-  // Vérifié : 19 619 marchés notifiés sur les 30 derniers jours (19/08/2026).
+  // 30 jours glissants sur la date de NOTIFICATION INITIALE : un marché
+  // ancien modifié hier n'y entre pas. Fenêtre récente, donc la plus
+  // exposée à la latence légale de publication (≤ 2 mois) — elle est
+  // structurellement incomplète, et le compte varie d'un jour à l'autre.
   const nb30j = db
     .prepare(
       `SELECT COUNT(*) AS nb FROM decp_marches
@@ -363,10 +375,11 @@ export function chargerDonneesMarches(
 
   // Qualité du total 12 mois. Le compte d'écrêtés vient d'ICI et non de
   // SUM(nb_marches_ecretes) FROM decp_agg_departement, qui n'en couvre que
-  // les acheteurs à département connu (402 contre 404 sur l'ensemble).
-  // Vérifié le 20/08/2026 : 297 323 marchés, 270,88 Md€ écrêtés ; 404
-  // marchés au-delà du plafond pour 40,40 Md€ ; 6 247 marchés suspects
-  // pour 81,29 Md€ ; 189,59 Md€ hors suspects ; 469,45 Md€ sans écrêtage.
+  // les acheteurs à département connu, et en laisse donc échapper
+  // quelques-uns à chaque ingestion.
+  // Tous ces compteurs portent sur la même fenêtre 12 mois que
+  // decp_repartition et dérivent à chaque ingestion : ils sont lus en
+  // base, jamais recopiés ici.
   const qualiteMontants =
     (db
       .prepare(
@@ -379,10 +392,10 @@ export function chargerDonneesMarches(
 
   // Ce que le drapeau « suspect » recouvre : la source a-t-elle déjà corrigé
   // (classe 'aberrant'), signalé sans corriger (classe 'suspect'), ou le
-  // drapeau vient-il de notre seul écrêtage ? Mesuré le 20/08/2026 sur la
-  // fenêtre publiée : 890 corrigés à la source, 5 242 signalés non corrigés,
-  // 115 non classés au-delà du plafond — 6 247 au total, soit exactement le
-  // nb_suspects de decp_qualite_montants.
+  // drapeau vient-il de notre seul écrêtage ? Les trois classes doivent
+  // recomposer EXACTEMENT le nb_suspects de decp_qualite_montants —
+  // c'est la condition de retenue de la fenêtre (cf. la fonction), et le
+  // seul contrôle qui vaille : les effectifs, eux, dérivent.
   const decompositionSuspects = chargerDecompositionSuspects(
     db,
     qualiteMontants,
@@ -390,7 +403,7 @@ export function chargerDonneesMarches(
   );
 
   // Carte : 107 départements, montants déjà écrêtés, NULL = aucun montant
-  // connu. Vérifié : Paris (75) 37,55 Md€ / 15 838 marchés.
+  // connu.
   const departements = db
     .prepare(
       `SELECT departement_code, departement_nom, nb_marches, montant_total,
@@ -399,16 +412,18 @@ export function chargerDonneesMarches(
     )
     .all() as DepartementAgg[];
 
-  // Série mensuelle 36 mois. Vérifié : 2023-09 → 2026-08,
-  // juillet 2026 = 27 185 marchés / 29,64 Md€.
+  // Série mensuelle : 36 mois civils, chaque marché rangé au mois de sa
+  // notification INITIALE (un avenant ne le déplace pas de mois). Les
+  // deux derniers mois sont structurellement incomplets — latence légale
+  // de publication ≤ 2 mois.
   const serieMensuelle = db
     .prepare(
       "SELECT mois, nb_marches, montant_total FROM decp_agg_mois ORDER BY mois",
     )
     .all() as MoisAgg[];
 
-  // Tops 12 mois. Vérifiés : Réseau des acheteurs hospitaliers 12,33 Md€ ;
-  // SFR 2,70 Md€ (montants répartis entre co-titulaires côté titulaires).
+  // Tops 12 mois — côté titulaires, le montant du marché est réparti
+  // entre co-titulaires (la source ne le ventile pas).
   const topAcheteurs = db
     .prepare(
       `SELECT rang, siret, nom, nb_marches, montant_total
@@ -422,8 +437,8 @@ export function chargerDonneesMarches(
     )
     .all() as TopTitulaire[];
 
-  // Répartition par procédure (12 mois) — valeur NULL = non renseigné.
-  // Vérifié : Procédure adaptée 160 375 ; NULL 507.
+  // Répartition par procédure (12 mois) — valeur NULL = non renseigné,
+  // catégorie à afficher telle quelle et non à masquer.
   const repartitionProcedure = db
     .prepare(
       `SELECT valeur, nb_marches, montant_total FROM decp_repartition

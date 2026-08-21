@@ -104,10 +104,9 @@ Mesuré le 21/08/2026 sur le parquet du 20/08 (3 240 022 lignes,
 1 827 781 uid) : dater les marchés à leur ligne courante décale la date de
 314 173 d'entre eux, toujours vers le futur (0 vers le passé), dont 307 517
 (97,9 %) vers un autre mois. À cette date, la fenêtre 36 mois compte
-777 054 marchés, les 12 mois 213 283 et les 30 derniers jours 5 894 ; datés
-à leur ligne courante, ces mêmes marchés en donneraient respectivement
-861 849 (dont 217 827, soit 25,3 %, rangés dans le mauvais mois), 297 323
-et 16 065.
+777 054 marchés et les 12 mois 213 283 ; datés à leur ligne courante, ces
+mêmes marchés en donneraient respectivement 861 849 (dont 217 827, soit
+25,3 %, rangés dans le mauvais mois) et 297 323.
 
 Autres règles héritées de la fiche S1 : le dédoublonnage se fait par GROUP BY
 uid ; marchés sans aucune date de notification, ou dont la notification

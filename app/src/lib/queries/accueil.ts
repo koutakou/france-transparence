@@ -14,6 +14,9 @@
  * - budget_destination_2025 : CP BRUTS (non comparables aux dépenses nettes) ;
  * - decp_agg_departement : fenêtre 12 mois, montants déjà écrêtés
  *   (plafond 100 M€/marché), NULL = aucun montant connu (≠ 0) ;
+ * - decp_marches.date_notification = date de la notification INITIALE du
+ *   marché (un avenant ne le redate pas) : le KPI « 30 j » ci-dessous
+ *   compte des marchés nouvellement notifiés, pas des marchés modifiés ;
  * - ao_en_cours : snapshot → re-filtrer date_limite_reponse au moment de la
  *   requête (`datetime()` pour normaliser l'ISO `+00:00`), annulee = 0 ;
  * - alertes : gravités haute/moyenne/info, règle + base légale à afficher.
@@ -287,6 +290,7 @@ export function getDonneesAccueil(): DonneesAccueil | null {
 
   /* --- KPI (fenêtres relatives à la requête ; page force-dynamic) --- */
   const kpis: KpisAccueil = {
+    // 30 jours glissants sur la notification INITIALE (cf. rappels ci-dessus).
     marches30j: (
       db
         .prepare(

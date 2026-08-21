@@ -6,6 +6,11 @@
  *   à 100 M€/marché, montant_total NULL = aucun montant connu) ;
  * - mois : decp_agg_mois (36 mois glissants).
  *
+ * Les deux fenêtres portent sur la date de NOTIFICATION INITIALE du marché
+ * (un avenant ne le redate pas) : c'est ce qui décide du département et du
+ * mois où un marché est compté, donc une précision que le réutilisateur ne
+ * peut pas deviner du fichier — d'où sa reprise dans meta.description.
+ *
  * Mentions obligatoires reprises dans meta (montants d'accords-cadres =
  * maximums, latence légale ≤ 2 mois, crédit decp-processing).
  *
@@ -28,7 +33,7 @@ export async function GET() {
   return NextResponse.json({
     meta: {
       description:
-        "Agrégats DECP par département (12 mois, montants écrêtés à 100 M€/marché ; NULL = aucun montant connu) et par mois (36 mois). Marchés notifiés = engagements contractuels, pas des paiements ; montants d'accords-cadres = maximums ; latence légale de publication jusqu'à 2 mois (données en cours de consolidation). Snapshot statique régénéré à chaque build.",
+        "Agrégats DECP par département (12 mois, montants écrêtés à 100 M€/marché ; NULL = aucun montant connu) et par mois (36 mois). Datation : chaque marché est compté à la date de sa notification INITIALE — un avenant ultérieur ne le redate pas et ne le change pas de mois ; les montants sont ceux de sa version courante. Marchés notifiés = engagements contractuels, pas des paiements ; montants d'accords-cadres = maximums ; latence légale de publication jusqu'à 2 mois (données en cours de consolidation). Snapshot statique régénéré à chaque build.",
       credit:
         "Consolidation communautaire decp-processing (Colin Maudry) — à créditer en cas de réutilisation.",
       source: s1

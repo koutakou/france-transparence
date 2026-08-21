@@ -10,6 +10,7 @@ Condensé des avertissements « pour le front » remontés par chaque pipeline a
 - `subventions_associations` : versements **2023** (décalage structurel de 2 ans, le dire).
 
 ## Marchés publics (S1) et annonces (S2, S9)
+- **Datation** : `decp_marches.date_notification` est la date de la notification **initiale** du marché (`min(dateNotification)` sur toutes ses lignes, avenants compris) — un avenant ne redate pas le marché et ne le change pas de mois. Toutes les fenêtres portent sur elle : détail 24 mois, agrégats 12 mois, série 36 mois, et le « 30 derniers jours » que le front calcule lui-même. Les attributs affichés (montant, titulaires, objet, procédure) sont ceux de la **version courante**. À dire au visiteur partout où une fenêtre est annoncée.
 - Carte : `decp_agg_departement(departement_code, departement_nom, nb_marches, montant_total, nb_marches_ecretes)` — codes '01'…'2A'/'2B'…'988' ; `montant_total` déjà écrêté (plafond 100 M€/marché) ; NULL = aucun montant connu (ne pas afficher 0).
 - `decp_agg_mois` (36 mois), `decp_top_acheteurs`/`decp_top_titulaires` (12 mois, montant réparti entre co-titulaires), `decp_repartition` (dimension ∈ {procedure, nature}, valeur NULL = non renseigné), `decp_derniers_marches` (200, J-1).
 - Mentions obligatoires : crédit consolidation decp-processing (C. Maudry), montants d'accords-cadres = **maximums**, latence légale ≤ 2 mois.

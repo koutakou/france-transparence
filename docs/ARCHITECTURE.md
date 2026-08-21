@@ -60,7 +60,9 @@ Sources officielles (HTTP, licences ouvertes)
       ▼
 data/raw/<source>/…              (brut, jetable, gitignoré)
       │  transformation : DuckDB pour les gros Parquet/CSV
-      │  (dédup uid, donneesActuelles=true, encodages cp1252/ISO-8859-1),
+      │  (dédup uid, attributs pris sur donneesActuelles=true mais date du
+      │   marché = min(dateNotification) sur toutes ses lignes,
+      │   encodages cp1252/ISO-8859-1),
       │  Python pur pour JSON/XML petits et moyens
       ▼
 data/france.db                   (SQLite, WAL ; tables métier par pipeline)

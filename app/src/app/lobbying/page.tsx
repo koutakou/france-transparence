@@ -325,8 +325,9 @@ function SectionCroisement({
             correspondant. Marchés notifiés = engagements contractuels, pas des
             paiements. Fenêtre couverte par la source DECP au{" "}
             {formatDateFr(metaS1.date_donnees)} : les 24 derniers mois environ,
-            avec une latence légale de publication pouvant aller jusqu&apos;à
-            deux mois.
+            comptés à la date de notification initiale des marchés — un
+            avenant ne les redate pas —, avec une latence légale de
+            publication pouvant aller jusqu&apos;à deux mois.
           </p>
 
           {/* « Ce que vaut ce total » — même grille de lecture que /marches :

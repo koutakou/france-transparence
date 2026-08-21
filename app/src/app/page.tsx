@@ -381,7 +381,8 @@ export default async function Accueil() {
             />
             <p className="mt-2 text-[11px] leading-relaxed text-ink-muted">
               Consolidation DECP&nbsp;: decp-processing (C.&nbsp;Maudry) —
-              latence légale de publication ≤&nbsp;2&nbsp;mois.
+              latence légale de publication ≤&nbsp;2&nbsp;mois. Marchés datés
+              de leur notification initiale, un avenant ne les redate pas.
             </p>
             <LienModule href="/marches" libelle="Voir les marchés publics" />
           </Card>
