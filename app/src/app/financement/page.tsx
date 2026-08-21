@@ -653,8 +653,8 @@ export default async function FinancementPage() {
       </Card>
 
       <p className="text-xs text-ink-muted">
-        Municipales 2026 : comptes de campagne non publiés à ce jour —
-        instruction CNCCFP en cours, publication attendue fin 2026/2027.
+        Municipales 2026 : aucun compte de campagne n’est publié à ce jour —
+        l’instruction de la CNCCFP est en cours.
       </p>
     </section>
   );

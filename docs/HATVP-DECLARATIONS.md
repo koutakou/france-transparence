@@ -64,8 +64,8 @@ reste visible plutôt que d'être effacé.
 ## 2. Licence et fondement de la publication
 
 La licence `fr-lo` est la **Licence Ouverte Etalab**, sans clause de partage à
-l'identique : nos propres restitutions restent republiables en LO 2.0, ce qui
-est la promesse du site.
+l'identique : nos propres restitutions restent republiables en LO 2.0, licence
+sous laquelle le site republie ses agrégats.
 
 La publication amont elle-même découle des lois n° 2013-906 et n° 2013-907 du
 11 octobre 2013 relatives à la transparence de la vie publique, qui rendent

@@ -89,7 +89,7 @@ FREQUENCE = "quotidienne"
 DOSSIER_RAW = RAW_DIR / "lobbying"
 
 # Fichiers du zip réellement exploités (les autres vues — dirigeants,
-# collaborateurs, clients, affiliations, bénéficiaires — sont du périmètre v2).
+# collaborateurs, clients, affiliations, bénéficiaires — ne sont pas ingérées).
 FICHIERS_REQUIS = (
     "1_informations_generales.csv",
     "6_niveaux_intervention.csv",

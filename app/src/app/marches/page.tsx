@@ -191,7 +191,7 @@ export default async function PageMarches() {
 
   /* ---- Carte : montants par département (NULL écarté, jamais 0).
      Codes à 2 caractères = métropole + Corse, le périmètre réellement
-     rendu par la carte (v1) : l'échelle de la légende ne doit décrire
+     rendu par la carte : l'échelle de la légende ne doit décrire
      que ce qui est affiché — l'outre-mer reste lisible dans le tableau. */
   const valeursCarte: Record<string, number> = {};
   for (const d of donnees.departements) {
@@ -444,8 +444,8 @@ export default async function PageMarches() {
             />
             <p className="mt-2 text-xs leading-relaxed text-ink-muted">
               « Donnée manquante » = aucun montant connu pour le département
-              (jamais confondu avec 0&nbsp;€). Outre-mer hors rendu carte en
-              v1 — les valeurs figurent dans le tableau. Montants écrêtés à
+              (jamais confondu avec 0&nbsp;€). Outre-mer hors rendu carte&nbsp;:
+              les valeurs figurent dans le tableau. Montants écrêtés à
               100&nbsp;M€ par marché.
             </p>
           </div>

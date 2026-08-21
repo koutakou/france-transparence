@@ -20,7 +20,7 @@ Sources (docs/SOURCES.md ; docs/recherche/04-elus-integrite.md §5, §5 bis, §6
   aucune autre année n'est inscrite tant qu'elle n'est pas sourcée). AUCUN
   fichier exploitable par parti n'existe (tableau dans le corps du décret,
   Légifrance anti-bot, pas de CSV — constat reconduit le 20/08/2026) → seul
-  le TOTAL national est inséré ; la répartition par parti reste en v2
+  le TOTAL national est inséré ; la répartition par parti n'est pas ingérée
   (SOURCES.md S37). L'aide perçue par parti et par exercice reste lisible
   dans partis_comptes (2021-2024).
 
@@ -157,7 +157,7 @@ DECRETS_AIDE_PUBLIQUE: tuple[dict, ...] = (
         "note": (
             "Répartition par parti non publiée en données exploitables "
             "(tableau dans le corps du décret, Légifrance anti-bot — constat "
-            "du 19/08/2026, SOURCES.md S37) : extraction par parti = v2. "
+            "du 19/08/2026, SOURCES.md S37) : elle n'est donc pas ingérée. "
             "L'aide perçue par parti figure dans partis_comptes (exercices "
             "2021-2024), qui relève d'une autre nature de donnée."
         ),
@@ -1373,8 +1373,8 @@ def main() -> int:
             date_donnees="2024-12-31",
             lignes=nb_comptes,
             notes="Exercices 2021-2024 ; l'exercice 2024 (dernier possible, "
-                  "dépôt N+1, publication N+2) est paru le 10/02/2026 ; "
-                  "exercice 2025 attendu ~T1 2027. 2 lignes en XPF et 1 sans "
+                  "dépôt N+1, publication N+2) est paru le 10/02/2026 et reste "
+                  "le plus récent publié. 2 lignes en XPF et 1 sans "
                   "unité (2023) exclues des agrégats en euros.",
         )
         db.upsert_meta(
@@ -1392,8 +1392,8 @@ def main() -> int:
                   "« M. EL\xe9LOU\xe9-VALMAR » (0xE9 = « é » minuscule) — "
                   "défaut de la source, pas du pipeline. Marqueur « (*) » "
                   "(51 noms) sorti du nom, signification non documentée par "
-                  "la CNCCFP. Municipales 2026 : aucun dataset au 19/08/2026, "
-                  "publication attendue fin 2026/2027 — à surveiller.",
+                  "la CNCCFP. Municipales 2026 : aucun dataset publié au "
+                  "19/08/2026, instruction CNCCFP en cours.",
         )
         dernier_decret = max(DECRETS_AIDE_PUBLIQUE, key=lambda d: d["annee"])
         db.upsert_meta(
@@ -1411,7 +1411,7 @@ def main() -> int:
                       for d in DECRETS_AIDE_PUBLIQUE
                   )
                   + ". Totaux seuls (tableau par parti non publié en données ; "
-                  "Légifrance anti-bot) — répartition par parti = v2. Le "
+                  "Légifrance anti-bot) — répartition par parti non ingérée. Le "
                   "décret n° 2024-77 a été re-vérifié sur Légifrance le "
                   "20/08/2026 (JORFTEXT000049085148) : total confirmé. Ces "
                   "enveloppes ne sont PAS "

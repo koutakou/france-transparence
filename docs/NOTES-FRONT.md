@@ -34,7 +34,7 @@ Condensé des avertissements « pour le front » remontés par chaque pipeline a
 - 316 alertes `lobbying_defaut_declaration` (flag natif HATVP).
 
 ## Financement politique (S25, S29)
-- Top produits 2024 : PCF 31,6 M€, Renaissance 19,49, Ensemble! 19,47. Aide publique par les comptes : 66,2 → 70,3 M€ (2021→2024) ; aide 2026 = total national seul (64,26 M€, décret 2026-149), répartition par parti inexistante en données (v2).
+- Top produits 2024 : PCF 31,6 M€, Renaissance 19,49, Ensemble! 19,47. Aide publique par les comptes : 66,2 → 70,3 M€ (2021→2024) ; aide 2026 = total national seul (64,26 M€, décret 2026-149), répartition par parti inexistante en données.
 - Écarter `unite='XPF'` des agrégats € ; réformation parfois À LA HAUSSE (retenu > déclaré — réel) ; municipales 2026 non publiées (instruction en cours, fin 2026/2027).
 
 ## Frais & train de vie (S31)
@@ -48,7 +48,7 @@ Condensé des avertissements « pour le front » remontés par chaque pipeline a
 - Communes : `collectivites_communes_top200` (200 lignes, le nom porte le périmètre) ; séries 2018-2025 en format long `collectivites_communes_series` (3 200 lignes, fonctionnement/investissement, budgets principaux, avec strate `tranche_population` codée '0'..'10' et `epci_nom`) ; médianes d'€/hab par strate × exercice × agrégat dans `collectivites_communes_strates` (176 lignes, médiane calculée par l'API OFGL sur toutes les communes). Cadre éditorial : comparer UNIQUEMENT à la médiane de strate, aucun classement ni jugement ; un exercice absent s'affiche « donnée non disponible », jamais 0 (2025 provisoire, ~97 communes manquantes à la source).
 
 ## Référentiels (S27, S11, S35)
-- Carte : `data/geo/departements.geojson` (101 features, `properties.code` = `ref_departements.code`) ; projection Lambert-93 conique conforme (déjà dans MapFrance) ; **outre-mer hors rendu v1** (documenté).
+- Carte : `data/geo/departements.geojson` (101 features, `properties.code` = `ref_departements.code`) ; projection Lambert-93 conique conforme (déjà dans MapFrance) ; **outre-mer hors rendu** (documenté).
 - Points : `ref_villes` (184 : préfectures `est_prefecture=1` + villes > 50 000 hab), (lon, lat).
 - `entites` : 20 ministères Lecornu II (RefOrgaAdminEtat DILA 19/08) + 7 institutions + 314 collectivités + 718 partis.
 

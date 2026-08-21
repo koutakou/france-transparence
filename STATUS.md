@@ -8,5 +8,5 @@
 - **Identité de déploiement paramétrable au build** : `NEXT_PUBLIC_SITE_URL` (défaut `https://francetransparence.fr`) d'où dérivent canoniques, sitemap et `robots.txt` généré (`app/src/app/robots.ts` ; plus de `app/public/robots.txt`) ; `NEXT_PUBLIC_HEBERGEUR_*` pour l'identité publiée dans les mentions légales (`app/src/lib/hebergeur.ts`). Un fork change d'adresse sans toucher une ligne de source.
 - **Repo public** : https://github.com/koutakou/france-transparence (main). Un push sur `main` ne publie plus rien tout seul : la production se met à jour au cycle suivant de `ft-deploy` (ou par un `ft-deploy` lancé à la main sur le serveur).
 - **Exploitation** : docs/deploiement/RUNBOOK.md (serveur, de bout en bout) ; décision et limites : docs/deploiement/DECISION.md ; ce qui exige encore un humain : docs/ACTIONS-HUMAINES.md.
-- **v1 locale intacte** : `make dev` (SSR local, port 3620), `make ingest`, `make test` (suite pytest complète), `make build-static`/`serve-static` (export identique à la prod).
-- **Reprise éventuelle** : lire JOURNAL.md + docs/deploiement/DECISION.md + RUNBOOK.md — le site tourne seul ; toute suite = v2 (pistes : docs/RAPPORT-MISSION.md §7).
+- **Chaîne locale intacte** : `make dev` (SSR local, port 3620), `make ingest`, `make test` (suite pytest complète), `make build-static`/`serve-static` (export identique à la prod).
+- **Reprise éventuelle** : lire JOURNAL.md + docs/deploiement/DECISION.md + RUNBOOK.md — le site tourne seul ; ce qui n'est pas ingéré à ce jour est listé dans docs/RAPPORT-MISSION.md §7.

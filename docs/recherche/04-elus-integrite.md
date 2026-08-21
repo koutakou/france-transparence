@@ -120,7 +120,7 @@
 ## 5. CNCCFP — Comptes des partis politiques — EXPLOITABLE DIRECT — exercice 2024 publié le 10/02/2026
 
 - **Dataset** : `https://www.data.gouv.fr/datasets/comptes-des-partis-et-groupements-politiques/` (org. CNCCFP, 40 ressources, licence ouverte). Vérifié par API le 19/08/2026.
-- **Série** : CSV pour les exercices **2021 à 2024**, XLSX/ODS pour 2014-2020, PDF (avis JO) pour chaque exercice. Comptes déposés au 30 juin N+1, publiés début N+2 → **l'exercice 2024 est le plus récent possible** (publié 10/02/2026) ; exercice 2025 attendu ~T1 2027.
+- **Série** : CSV pour les exercices **2021 à 2024**, XLSX/ODS pour 2014-2020, PDF (avis JO) pour chaque exercice. Comptes déposés au 30 juin N+1, publiés début N+2 → **l'exercice 2024 est le plus récent publié** (paru le 10/02/2026).
 - **URL testée** : `https://static.data.gouv.fr/resources/comptes-des-partis-et-groupements-politiques/20260210-110641/comptes-partis-exercice-2024.csv` → 200, **298 078 o**, **576 lignes (575 partis), 166 colonnes**.
 - **Colonnes décisives (positions vérifiées)** : bilan complet + compte de résultat dont
   `101 Cotisations_des_adherents ; 102 Cotisations_des_elus ; 103 Aide_publique_1ere_fraction ; 104 Aide_publique_2nde_fraction ; 105 Autres_aides_publiques ; 106 Dons_de_personne_physique ; 109 Contributions_financieres_de_partis_ou_groupements_politiques ; 117 Contributions_versees_aux_candidats`
@@ -147,7 +147,7 @@
   202408090;M. BRETON Xavier;202401075;Ain - 1re circonscription;Ain;1;Les Républicains;21571;...;A
   ```
 - **Pièges MAJEURS (constatés)** : fichier en **cp1252/ISO-8859-1 avec CRLF**, **6 lignes quasi vides avant l'en-tête** (ligne 7), et mojibake résiduel (« mise Ã  disposition ») : ingestion = `skiprows=6, sep=';', encoding='cp1252'` + nettoyage des libellés. Pas de dataset « dons aux candidats » nominatif (interdit — seuls les agrégats par compte sont publics).
-- **Municipales mars 2026 : AUCUN dataset au 19/08/2026** — normal : dépôt des comptes ~fin mai 2026, instruction CNCCFP en cours, publication attendue fin 2026/2027. À surveiller sur l'organisation CNCCFP de data.gouv.
+- **Municipales mars 2026 : AUCUN dataset au 19/08/2026** — normal : dépôt des comptes ~fin mai 2026, instruction CNCCFP en cours. Rien n'est publié sur l'organisation CNCCFP de data.gouv à cette date.
 - **Verdict : EXPLOITABLE AVEC EFFORT.** Module : « Argent des campagnes » (coût par voix, remboursements, comptes rejetés/réformés).
 
 ---

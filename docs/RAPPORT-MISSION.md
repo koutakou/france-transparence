@@ -6,7 +6,7 @@
 
 ## 1. Résumé exécutif
 
-Construit en une journée : un dashboard de transparence de la vie politique française alimenté à 100 % par des données publiques réelles — 13 pipelines Python ingèrent 25 sources officielles dans une base SQLite unique de 447 Mo (51 tables), servie par une app Next.js 16 de 12 pages et 6 routes API. L'honnêteté est le principe produit : la fraîcheur de chaque donnée est stockée en base (`meta_sources`) et affichée sur chaque page, le « en direct » qu'un tableau de bord de la dépense publique laisse spontanément attendre a été remplacé par les fréquences réelles des sources (quotidienne à annuelle), et ce que l'open data ne contient pas est documenté comme un fait (8 opacités sourcées). Chaque source a été testée par appels HTTP réels avant d'être documentée ; chaque volumétrie affichée vient d'un comptage en base, pas d'une promesse. État final vérifié : `make ingest` réel vert, 150/150 tests pytest, build de production vert (19 routes), 15 routes servies en HTTP 200, 12 captures d'écran validées.
+Construit en une journée : un dashboard de transparence de la vie politique française alimenté à 100 % par des données publiques réelles — 13 pipelines Python ingèrent 25 sources officielles dans une base SQLite unique de 447 Mo (51 tables), servie par une app Next.js 16 de 12 pages et 6 routes API. L'honnêteté est le principe produit : la fraîcheur de chaque donnée est stockée en base (`meta_sources`) et affichée sur chaque page, aucune source publique française ne diffusant la dépense de l'État en continu, chaque page porte la fréquence réelle de ses sources (quotidienne à annuelle), et ce que l'open data ne contient pas est documenté comme un fait (8 opacités sourcées). Chaque source a été testée par appels HTTP réels avant d'être documentée ; chaque volumétrie affichée vient d'un comptage en base. État final vérifié : `make ingest` réel vert, 150/150 tests pytest, build de production vert (19 routes), 15 routes servies en HTTP 200, 12 captures d'écran validées.
 
 ---
 
@@ -22,7 +22,7 @@ Les 12 pages, leurs sources, la fraîcheur affichée et les volumes constatés e
 | `/elus` Élus & institutions | S5 (AN), S6 (Sénat), S7 (Datan), S17 (RNE), S14 (HATVP) | AN/Sénat/Datan au 19/08 (quotidien) ; RNE au 11/08/2026 (trimestriel) | **36 018 élus** fusionnés sans doublon (dont 577 députés, 348 sénateurs ; conseillers municipaux en agrégats) ; RNE brut 37 041 lignes |
 | `/elus/[id]` Fiche élu | S5, S7, S14 | dernier scrutin AN : n° 8434 du 21/07/2026 (vacances parlementaires) | votes nominaux sur 8 434 scrutins ; scores Datan crédités avec méthode ; lien direct vers la déclaration HATVP |
 | `/lobbying` Lobbying | S4 (HATVP AGORA) | « répertoire quotidien, données au 18/08/2026 ; dépenses par exercice annuel » | **4 067 entités** (3 692 actives) ; 41 601 activités détaillées sur 24 mois (112 450 historiques en agrégats) ; budgets en fourchettes, pression par ministère/institution ciblés |
-| `/financement` Financement politique | S25, S29 (CNCCFP), S37 | « exercice 2024, publié le 10/02/2026 — le dernier possible » ; « législatives 2024 ; municipales 2026 attendues fin 2026/2027 » | 2 179 lignes de comptes 2021-2024 (718 partis au référentiel) ; top produits 2024 : PCF 31,6 M€, Renaissance 19,49 M€, Ensemble! 19,47 M€ ; 4 010 comptes de campagne ; aide publique 2026 : 64 262 871,05 € (décret 2026-149) |
+| `/financement` Financement politique | S25, S29 (CNCCFP), S37 | « exercice 2024, publié le 10/02/2026 — le dernier possible » ; « législatives 2024 ; aucun dataset municipales 2026 à ce jour » | 2 179 lignes de comptes 2021-2024 (718 partis au référentiel) ; top produits 2024 : PCF 31,6 M€, Renaissance 19,49 M€, Ensemble! 19,47 M€ ; 4 010 comptes de campagne ; aide publique 2026 : 64 262 871,05 € (décret 2026-149) |
 | `/frais` Frais & train de vie | S31 (corpus officiel) | « à parution » — barèmes au 01/01/2026, contrôles exercice 2024, Élysée exercice 2024 audité (le 2025 non paru) | **56 faits** chiffrés, chacun avec source/URL/date (indemnité parlementaire 7 637,39 € brut, DFP 7 238,04 €, AFM 6 600 €, Élysée : 94 déplacements = 20,1 M€, mission Pouvoirs publics 1,14 Md€) + **8 opacités** documentées |
 | `/collectivites` Finances locales | S16 (OFGL), S27 (géo/INSEE) | « comptes 2025 provisoires (chargés juillet 2026, ~97 communes manquantes jusqu'en décembre) ; dotations 2026 » | 16 079 lignes agrégées (101 départements, régions, CD) ; 618 lignes de DGF 2018-2026 ; €/habitant de 1 055 (Orne) à 4 493 (Paris) |
 | `/documents` Journal officiel | S3 (DILA JORFSIMPLE) | « JO du jour, disponible vers 00h30 » (le JO ne paraît pas tous les jours — assumé) | **2 778 textes** sur les 30 derniers JO ; JO du 19/08/2026 : 83 textes dont 5 lois et 41 nominations |
@@ -31,19 +31,19 @@ Les 12 pages, leurs sources, la fraîcheur affichée et les volumes constatés e
 
 ---
 
-## 3. Le temps réel attendu, non tenable — et ce qui le remplace
+## 3. Ce que la donnée publique ne contient pas — et ce qui est publié à la place
 
-Un tableau de bord de la dépense publique laisse spontanément attendre un temps réel qui n'existe dans aucune donnée publique française. Chaque impossibilité a été prouvée par des appels réels le 19/08/2026 (docs/SOURCES.md §3), puis reformulée :
+Aucune source publique française ne diffuse la dépense de l'État en continu. Chaque limite a été prouvée par des appels réels le 19/08/2026 (docs/SOURCES.md §3) ; point par point, ce que la donnée contient réellement et ce que le site publie :
 
-1. **« Dépenses de l'État aujourd'hui » avec variation vs veille** — aucun dataset Chorus n'existe (recherche = 0 résultat ; Data-État « réservé aux agents autorisés »). Meilleure fraîcheur réelle : exécution mensuelle DGFiP, ~6 semaines de décalage (données au 30/06/2026 vues le 19/08). → Compteur « depuis le 1er janvier », badge daté, variation vs même période 2025.
-2. **Flux « dernières dépenses en direct » à la minute** — même absence de paiements temps réel. → Deux flux réels et datés : marchés notifiés (J-1, « en cours de consolidation ») et textes au JO (jour même, lot nocturne ~00h30).
-3. **Module « Notes de frais » en flux** — les justificatifs parlementaires ne sont ni publiés ni communicables : ordonnance 58-1100 (Parlement hors CADA), confirmée par le Conseil d'État en mars 2025, refus écrits des deux chambres le 11/06/2026 ; frais de représentation des ministres jamais publiés. → Module « Frais & train de vie » : barèmes exacts 2026, enveloppes (DFP/AFM), contrôles agrégés (déontologue AN : 84 reversements pour 276 335 €), sous-module Élysée (seul train de vie audité en détail, Cour des comptes), et la « boîte noire » : l'opacité elle-même est traitée comme une information.
-4. **Top ministères « aujourd'hui »** — le niveau mission/programme mensuel n'existe qu'en PDF derrière un anti-bot (SME : HTTP 403 Cloudflare constaté) ; l'API mensuelle n'a que 26 lignes par grands titres. → Répartition mensuelle par nature + répartition annuelle par mission (PLF 2026, mention obligatoire « PLF » : la LFI 2026, promulguée le 19/02/2026, n'a jamais été publiée en données).
-5. **Carte des « dépenses en direct »** — les dépenses de l'État ne sont pas géolocalisées en open data ; les marchés publics le sont nativement. → Carte réelle des marchés notifiés et carte des finances locales en €/habitant, libellées comme telles.
-6. **Bandeau « transactions »** — les DECP sont des engagements contractuels (montants maximums), pas des paiements. → Libellé « marchés notifiés », montants rationalisés et écrêtés, jamais « dépensé ».
+1. **Dépenses de l'État au jour le jour** — aucun dataset Chorus n'existe (recherche = 0 résultat ; Data-État « réservé aux agents autorisés »). Meilleure fraîcheur réelle : exécution mensuelle DGFiP, ~6 semaines de décalage (données au 30/06/2026 vues le 19/08). → Compteur « depuis le 1er janvier », badge daté, variation vs même période 2025.
+2. **Flux de dépenses à la minute** — même absence de paiements temps réel. → Deux flux réels et datés : marchés notifiés (J-1, « en cours de consolidation ») et textes au JO (jour même, lot nocturne ~00h30).
+3. **Notes de frais** — les justificatifs parlementaires ne sont ni publiés ni communicables : ordonnance 58-1100 (Parlement hors CADA), confirmée par le Conseil d'État en mars 2025, refus écrits des deux chambres le 11/06/2026 ; frais de représentation des ministres jamais publiés. → Module « Frais & train de vie » : barèmes exacts 2026, enveloppes (DFP/AFM), contrôles agrégés (déontologue AN : 84 reversements pour 276 335 €), sous-module Élysée (seul train de vie audité en détail, Cour des comptes), et la « boîte noire » : l'opacité elle-même est traitée comme une information.
+4. **Dépense par ministère** — le niveau mission/programme mensuel n'existe qu'en PDF derrière un anti-bot (SME : HTTP 403 Cloudflare constaté) ; l'API mensuelle n'a que 26 lignes par grands titres. → Répartition mensuelle par nature + répartition annuelle par mission (PLF 2026, mention obligatoire « PLF » : la LFI 2026, promulguée le 19/02/2026, n'a jamais été publiée en données).
+5. **Géolocalisation des dépenses de l'État** — les dépenses de l'État ne sont pas géolocalisées en open data ; les marchés publics le sont nativement. → Carte réelle des marchés notifiés et carte des finances locales en €/habitant, libellées comme telles.
+6. **« Transactions »** — les DECP sont des engagements contractuels (montants maximums), pas des paiements. → Libellé « marchés notifiés », montants rationalisés et écrêtés, jamais « dépensé ».
 7. **Horodatage à la minute** — toutes les sources publient par lots (JO : 1 lot nocturne ; DECP : build quotidien ; HATVP déclarations : hebdomadaire). → Horodatage au jour de publication, latence connue affichée.
 
-Attentes tenables, tenues telles quelles : appels d'offres en cours (BOAMP jour même), recherche globale, compteur d'élus, alertes transparence.
+Ce que les sources permettent vraiment, publié tel quel : appels d'offres en cours (BOAMP jour même), recherche globale, compteur d'élus, alertes transparence.
 
 ---
 
@@ -62,7 +62,7 @@ Attentes tenables, tenues telles quelles : appels d'offres en cours (BOAMP jour 
 | `financement_parti_dependance_aide` | 5 | info | Aide publique ≥ 75 % des produits ET produits ≥ 1 M€, dernier exercice publié — indicateur de structure, pas une infraction | Loi 88-227 du 11/03/1988 |
 | `financement_parti_prive_aide` | 1 | info | Avis annuel CNCCFP (publié au JO en PDF seulement, détecté via le pipeline JORF) | Loi 88-227 du 11/03/1988 |
 
-Non matérialisés en lignes d'alertes en v1 : les signaux marchés du plan initial (A6-A10 de SOURCES.md §4) — la qualité DECP est traitée dans les données elles-mêmes (champ natif `montant_anomalie`, écrêtage des agrégats à 100 M€/marché, montant NULL jamais affiché 0) ; le moniteur de fraîcheur (A11) est porté par la page `/donnees`, qui confronte la date réelle des données ingérées à la fréquence promise de chaque source. S'y ajoutent les alertes documentaires du module Frais (8 opacités sourcées : refus AN/Sénat du 11/06/2026, rémunérations des cabinets disparues des jaunes depuis PLF 2024, etc.).
+Non matérialisés en lignes d'alertes : les signaux marchés du plan initial (A6-A10 de SOURCES.md §4) — la qualité DECP est traitée dans les données elles-mêmes (champ natif `montant_anomalie`, écrêtage des agrégats à 100 M€/marché, montant NULL jamais affiché 0) ; le moniteur de fraîcheur (A11) est porté par la page `/donnees`, qui confronte la date réelle des données ingérées à la fréquence déclarée par chaque source. S'y ajoutent les alertes documentaires du module Frais (8 opacités sourcées : refus AN/Sénat du 11/06/2026, rémunérations des cabinets disparues des jaunes depuis PLF 2024, etc.).
 
 ---
 
@@ -88,9 +88,9 @@ Exemples concrets où le chiffre facile a été remplacé par le chiffre vrai :
 
 ---
 
-## 7. Pistes v2
+## 7. Ce qui n'est pas ingéré à ce jour
 
-Documentées dans docs/SOURCES.md §5, aucune ne conditionne un module v1 :
+Documentées dans docs/SOURCES.md §5, aucune ne conditionne un module ingéré :
 
 - **Avis CADA** (CSV consolidé 198 Mo) → « carte des verrous juridiques » du module Frais : qui refuse quoi, administration par administration.
 - **Jaune « opérateurs de l'État » PLF 2026** → référentiel des agences (liste et catégories ; les crédits par opérateur n'existent pas en données).
@@ -98,10 +98,10 @@ Documentées dans docs/SOURCES.md §5, aucune ne conditionne un module v1 :
 - **Aides publiques aux entreprises** (~211 Md€/an, rapport Sénat 07/2025) : 0 dataset consolidé au 19/08/2026 → veille active + alerte documentaire.
 - **Scrutins du Sénat** : dump Dosleg (scrutins nominaux depuis 2006).
 - **Encarts outre-mer** sur les cartes (les DROM sont déjà dans les tableaux et agrégats).
-- **Comptes de campagne des municipales 2026** : à ingérer dès publication CNCCFP (attendue fin 2026/2027).
-- **Rapport Cour des comptes Élysée exercice 2025** : à parution (opacité dédiée en attendant).
+- **Comptes de campagne des municipales 2026** : aucun dataset publié au 19/08/2026 ; l'instruction CNCCFP est en cours.
+- **Rapport Cour des comptes Élysée exercice 2025** : non paru au 19/08/2026 (le dernier publié porte sur l'exercice 2024) ; une opacité dédiée le consigne.
 - **Page recherche dédiée** (l'API `/api/recherche` existe déjà).
-- Également : declarations.xml HATVP (patrimoine/intérêts détaillés), SME PDF (seul mission/programme mensuel), amendements et présence en commission AN, balances DGFiP en drill-down, veille RIE et export des avis de pantouflage HATVP, datasets PLF 2027 à leur sortie.
+- Également : declarations.xml HATVP (patrimoine/intérêts détaillés), SME PDF (seul mission/programme mensuel), amendements et présence en commission AN, balances DGFiP en drill-down, veille RIE et export des avis de pantouflage HATVP, datasets PLF 2027 (non publiés au 19/08/2026).
 
 ---
 
@@ -116,7 +116,7 @@ Documentées dans docs/SOURCES.md §5, aucune ne conditionne un module v1 :
 | Volumes phares | 586 229 marchés · 36 018 élus · 12 930 dossiers HATVP · 4 067 entités lobbying · 2 778 textes JO (30 derniers JO) · 1 590 alertes · 56 faits + 8 opacités train de vie |
 | App | 12 pages + 6 routes API ; build de production vert, 19 routes ; 15 routes vérifiées HTTP 200 ; 12 captures validées (docs/screenshots/) |
 | Commits | 8 sur `main` (le huitième — clôture — embarque captures d'écran, correctifs UI, README et ce rapport) |
-| Sources documentées | 39 cataloguées (S1-S39) + 18 écartées sur preuve dans SOURCES.md ; 25 tracées en base (v1) |
+| Sources documentées | 39 cataloguées (S1-S39) + 18 écartées sur preuve dans SOURCES.md ; 25 tracées en base (périmètre ingéré) |
 
 ---
 
@@ -129,7 +129,7 @@ Documentées dans docs/SOURCES.md §5, aucune ne conditionne un module v1 :
 ### Pourquoi GitHub Pages (docs/deploiement/DECISION.md)
 
 - **Fait décisif : la seule voie exécutable sans action humaine** (docs/deploiement/machine-locale.md et plateformes.md). Seul GitHub est authentifié sur la machine (`koutakou`) ; toutes les plateformes à disque persistant exigent compte + CB en 2026 (tier gratuit Fly mort, Railway « post-paid », Render crons sans disque, Koyeb volumes « testing only », Clever FS incompatible better-sqlite3) ; le VPS OVH 51.83.96.83 est injoignable (ping OK, ports 24533/22/80/443 fermés) et koutakou.fr a expiré (AFNIC : NOT FOUND).
-- **Cohérence produit statique-quotidien** : les données ne changent qu'à l'ingestion — le HTML pré-rendu est le cache parfait, servi par le CDN Fastly de Pages (HTTPS, HSTS préchargé sur \*.github.io) ; les `force-dynamic` posés partout en v1 étaient déjà un contresens relevé par l'audit (audit-app.md).
+- **Cohérence produit statique-quotidien** : les données ne changent qu'à l'ingestion — le HTML pré-rendu est le cache parfait, servi par le CDN Fastly de Pages (HTTPS, HSTS préchargé sur \*.github.io) ; les `force-dynamic` posés partout à l'origine étaient déjà un contresens relevé par l'audit (audit-app.md).
 - **Atomicité structurelle** : un déploiement Pages remplace tout le site d'un coup — pas de bascule de base à orchestrer, pas d'état intermédiaire possible.
 - Alternatives écartées sur preuve (plateformes.md) : Hetzner CX33 (8,49 € HT/mois, meilleur VPS mais compte + CB = humain requis — documenté comme montée en gamme), OVHcloud VPS-2 (commande panier manuelle), serverless (bundle Vercel 250 Mo vs base 447 Mo, crons ≤ 30 min vs ingestion 25-60 min).
 
@@ -151,7 +151,7 @@ Méthode : tables et dataviz converties en composants client alimentés par des 
 - **Recherche côté client** : l'API `/api/recherche` (non statifiable) est remplacée par un index JSON pré-généré de ~1 Mo (1 038 402 o : 36 018 élus + 1 059 entités routables), chargé à la première frappe, recherche locale insensible aux accents et à la casse. Les 5 autres routes API deviennent des exports statiques `.json` datés (`meta.json` porte `genere_le`) qui jettent au build si la base manque — jamais de snapshot vide déployé.
 - **Façade publique** : mentions légales (LCEN/SREN, éditeur non professionnel anonyme, hébergeur GitHub vérifié), page données personnelles (art. 14 RGPD, zéro collecte visiteurs), robots.txt, sitemap **1 066 URLs** (100 % en trailing slash), favicons + image OG réellement rasterisés, 404 française.
 - **CSP portée par `<meta http-equiv>`** (Pages n'autorise aucun header custom), limites documentées : `unsafe-inline` exigé par l'hydratation Next en export, `frame-ancestors` ignoré en meta — risque clickjacking résiduel faible, assumé dans DECISION.md.
-- **Footer corrigé : Licence Ouverte 2.0 seule** — la mention ODbL du footer v1 était inexacte et a été retirée : les 25 sources tracées sont toutes sous Licence Ouverte.
+- **Footer corrigé : Licence Ouverte 2.0 seule** — la mention ODbL du footer d'origine était inexacte et a été retirée : les 25 sources tracées sont toutes sous Licence Ouverte.
 
 Build export intégral vert (décision 22) : zéro route dynamique, 1 053 fiches SSG, site 232 Mo, 12 pages < 500 Ko, 150/150 pytest.
 
@@ -172,7 +172,7 @@ Rien n'était bloqué sans elles : rachat d'un domaine (koutakou.fr expiré, red
 Toutes les vérifications ont été faites **depuis l'extérieur, sur https://koutakou.github.io/france-transparence/ en production** :
 
 - **23 routes en HTTP 200** (12 pages + fiche élu + 2 pages légales + 5 exports `/api/*.json` + index de recherche + robots.txt + sitemap.xml + og.png), TTFB 0,16-0,30 s, chaque page < 500 Ko brut ; URL inexistante → 404. Compression réelle servie par le CDN (ex. `/elus/` : 184 423 → 24 064 octets).
-- **Zéro cookie** (aucun `Set-Cookie` constaté — la conformité « zéro traceur » est vérifiée en production, pas seulement promise), CSP présente dans le HTML, redirection 301 HTTP→HTTPS systématique. Limites de plateforme constatées et assumées : Pages ne sert ni HSTS ni `X-Content-Type-Options` (et `github.io` ne figure plus dans la liste de préchargement HSTS de Chromium — vérifié dans le fichier amont) ; détail et mitigations dans docs/deploiement/DECISION.md.
+- **Zéro cookie** (aucun `Set-Cookie` constaté — la conformité « zéro traceur » est vérifiée en production, pas seulement déclarée), CSP présente dans le HTML, redirection 301 HTTP→HTTPS systématique. Limites de plateforme constatées et assumées : Pages ne sert ni HSTS ni `X-Content-Type-Options` (et `github.io` ne figure plus dans la liste de préchargement HSTS de Chromium — vérifié dans le fichier amont) ; détail et mitigations dans docs/deploiement/DECISION.md.
 - **Vérité des données servies** : compteur 240,54 Md€ au 30/06/2026 sur l'accueil public, `genere_le` du build dans meta.json, 37 champs de dates au 18-19/08 dans le catalogue des sources, page /documents au JO du 19/08/2026 ; volumes d'ingestion du runner identiques au local (586 229 marchés DECP, notification max J-1).
 - **Screenshots Playwright du site public** (desktop 1440 px et mobile 390 px, docs/screenshots/public/) revus : cohérence visuelle des pages et conformité à docs/DATAVIZ.md vérifiées. La passe mobile a révélé des débordements horizontaux sur 6 pages (jusqu'à 831 px sur /elus) → correctif `195cc20` (causes racines : slot `droite` non rétrécissable des Cards, grilles `lg:` sans piste mobile explicite, `sr-only` absolu ancré hors scroller) → **re-mesure publique : 14/14 pages à 0 px de débordement en 390 px**, desktop inchangé.
 - **Recherche côté client testée en production** : « vallaud » → lien direct vers la fiche `/elus/PA719930/`, zéro erreur console sur l'ensemble des pages capturées.

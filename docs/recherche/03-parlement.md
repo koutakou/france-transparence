@@ -145,7 +145,7 @@ Les questions portent le **ministère interrogé** et la date/présence de répo
 
 ### NosDéputés.fr — figé sur la 16e législature
 
-- Site vivant (HTTP 200) mais **bandeau vérifié le 19/08/2026** : « Ce site présente les travaux des députés de la **précédente législature**. NosDéputés.fr reviendra d'ici quelques mois avec une nouvelle version pour les députés élus en 2024. » — promesse non tenue plus de deux ans après.
+- Site vivant (HTTP 200) mais **bandeau vérifié le 19/08/2026** : « Ce site présente les travaux des députés de la **précédente législature**. NosDéputés.fr reviendra d'ici quelques mois avec une nouvelle version pour les députés élus en 2024. » — annonce faite il y a plus de deux ans, restée sans suite à ce jour.
 - Tests API réels : `https://www.nosdeputes.fr/deputes/json` → HTTP 200 mais mandats clos au **09/06/2024** (`ancien_depute: 1`) ; `https://www.nosdeputes.fr/deputes/enmandat/json` → **0 député** ; `https://www.nosdeputes.fr/synthese/2026-06/json` → `{}` vide.
 - Regards Citoyens avait annoncé dès 2022 chercher un repreneur ([regardscitoyens.org](https://www.regardscitoyens.org/nosdeputes-fr-cest-reparti-pour-un-dernier-tour/)).
 - Les indicateurs de présence (semaines de présence, interventions) qui faisaient sa valeur **n'existent nulle part ailleurs en API pour la 17e législature**.

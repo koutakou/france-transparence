@@ -127,7 +127,7 @@ Page officielle senat.fr (WebFetch OK) :
 ### 4.3 Frais de représentation des ministres : opacité quasi totale
 - Enveloppes annuelles connues **uniquement** par réponses aux questions écrites et par la presse (Next INpact, 23/07/2019 ; Observatoire de l'éthique publique) : **150 000 €/an** (ministre), **120 000 €** (ministre délégué), **100 000 €** (secrétaire d'État), attribuées par le cabinet du Premier ministre.
 - **Aucun texte réglementaire publié** ne fixe ces enveloppes (recommandation OEP d'un décret jamais suivie), **aucune publication de l'usage** ; réponse officielle : Chorus ne permet pas d'extraire le détail par traitement automatisé standard.
-- Différence clef avec le Parlement : les ministères sont des administrations soumises au CRPA — les documents sont **communicables sur demande CADA au cas par cas** (jurisprudence CE 2023 sur les notes de frais), mais rien n'est publié spontanément et les demandes (Next, 2018-2019) sont restées largement sans effet.
+- Différence clef avec le Parlement : les ministères sont des administrations soumises au CRPA — les documents sont **communicables sur demande CADA au cas par cas** (jurisprudence CE 2023 sur les notes de frais), mais rien n'est publié d'office et les demandes (Next, 2018-2019) sont restées largement sans effet.
 
 ### 4.4 Voyages ministériels
 - **Aucune publication systématique** des coûts de déplacements des ministres (avions ETEC, déplacements officiels). Seuls existent : des règles de prise en charge pour les agents (arrêtés 2024-2025, Légifrance), des révélations ponctuelles (presse, questions écrites), et l'audit annuel de la Cour des comptes **pour les seuls déplacements présidentiels** (cf. § 5). Poste entièrement « non publié ».
@@ -151,7 +151,7 @@ Page officielle senat.fr (WebFetch OK) :
 - **Trésorerie** : 4,49 M€ au 01/01/2025 (rapport sénatorial PLF 2026).
 
 ### Ce qui n'est pas publié
-- **Le rapport sur l'exercice 2025 n'est PAS paru au 19 août 2026** (l'URL type renvoie 302 vers l'accueil ccomptes.fr ; aucune trace en recherche). Publication attendue dans les prochains mois — à re-vérifier.
+- **Le rapport sur l'exercice 2025 n'est PAS paru au 19 août 2026** (l'URL type renvoie 302 vers l'accueil ccomptes.fr ; aucune trace en recherche) : le dernier rapport publié porte sur l'exercice 2024 (18/07/2025).
 - Pas de données infra-annuelles ni d'open data : un rapport PDF par an, ~12-18 mois après les dépenses. L'Élysée lui-même ne publie pas de page budget à jour (elysee.fr/la-presidence/le-budget-de-l-elysee : **404 testé**).
 - Notes de frais individuelles (président, conseillers) : non publiées ; l'Élysée est une administration (CADA applicable en théorie).
 
@@ -280,15 +280,15 @@ irfm_2017: { net_mensuel: 5372.80, supprimee: "loi 2017-1339 du 15/09/2017, effe
 
 ## 10. Conséquences pour le module « Notes de frais »
 
-1. **Le flux « en direct » qu'un tel module laisse spontanément attendre est infaisable en données réelles françaises** : aucune note de frais du pouvoir national n'est publiée, et pour le Parlement elle n'est même pas communicable (ord. 58-1100 ; refus explicites du 11/06/2026). L'honnêteté du dashboard impose de le dire tel quel.
+1. **Aucun flux de notes de frais n'existe en données publiques françaises** : aucune note de frais du pouvoir national n'est publiée, et pour le Parlement elle n'est même pas communicable (ord. 58-1100 ; refus explicites du 11/06/2026). L'honnêteté du dashboard impose de le dire tel quel.
 2. Le module devient **pédagogique et documentaire** : (a) les enveloppes exactes 2026 par élu (DFP/AFM, indemnités) ; (b) les résultats agrégés des contrôles (chiffres §9) ; (c) la chronologie IRFM→DFP ; (d) la carte des verrous juridiques (qui est communicable, qui ne l'est pas — le contraste CE 2023 élus locaux vs Parlement est très parlant) ; (e) le compteur des demandes citoyennes refusées (HATVP 2018, Next 2019, Transparence Citoyenne 2026).
-3. **Une vraie exception exploitable : l'Élysée.** Le rapport annuel de la Cour des comptes permet un sous-module riche (coût par déplacement présidentiel, réceptions, masse salariale, trajectoire dotation/charges 2019-2024) — à mettre à jour à la parution du rapport exercice 2025 (pas paru au 19/08/2026).
+3. **Une vraie exception exploitable : l'Élysée.** Le rapport annuel de la Cour des comptes permet un sous-module riche (coût par déplacement présidentiel, réceptions, masse salariale, trajectoire dotation/charges 2019-2024) ; le dernier rapport publié porte sur l'exercice 2024, celui de l'exercice 2025 n'est pas paru au 19/08/2026.
 4. Benchmark utile en une ligne : le Royaume-Uni (IPSA) publie chaque note de frais individuelle des députés — c'est le modèle que la HATVP citait dès 2018.
 
 ---
 
 ## 11. Points à re-vérifier périodiquement
-- Parution du rapport Cour des comptes Élysée **exercice 2025** (attendu 2e semestre 2026).
+- Rapport Cour des comptes Élysée **exercice 2025** : non paru au 19/08/2026.
 - Suite de la démarche Transparence Citoyenne (recours contentieux éventuel après les refus du 11/06/2026).
 - PPL du 28/10/2025 modifiant l'ordonnance 58-1100 (commission des lois AN) — objet à préciser.
 - Jaune « cabinets ministériels » PLF 2027 (retour éventuel des tableaux de rémunérations).

@@ -130,7 +130,7 @@ Portail principal : **data.economie.gouv.fr** (Opendatasoft, 606 datasets au tot
   ```
 - **Pièges** : montants/valeurs en **texte** avec espaces insécables (U+202F, U+00A0) → parsing obligatoire ; ce sont des **indicateurs de performance** (pas des € de crédits pour la plupart).
 - **Verdict** : **EXPLOITABLE DIRECT** (module performance, pas module dépenses).
-- **Module cible** : « La dépense tient-elle ses promesses ? » — atteinte des cibles par mission.
+- **Module cible** : performance budgétaire — réalisations et cibles par mission telles que publiées dans les RAP.
 
 ---
 
@@ -214,4 +214,4 @@ Piste non testée (signalée sans verdict) : séries mensuelles INSEE du solde d
 | 9 | Projets d'achats (APProch) | data.economie…/projets-dachats-publics | API + exports | projet d'achat (11 388 l.) | Continu (15/08/2026) | LO v2.0 | EXPLOITABLE DIRECT (prévisionnel) | Achats à venir |
 | 10 | Marchés PLACE 2013-2017 | data.economie…/marches-publics-…-plateforme-des-achats-de-letat- | API | marché unitaire (53 604 l.) | **Figé fin 2017** | LO v2.0 | **INEXPLOITABLE** (récent) | — |
 
-**Réponse à la question clé (« dépenses en direct »)** : la meilleure fraîcheur réellement disponible pour l'exécution des dépenses de l'État est **mensuelle avec ~5-7 semaines de décalage** (au 19/08/2026 : exécution au 30/06/2026), en agrégats nationaux par grands titres via l'API des séries longues SMB ; le niveau **mission/programme mensuel n'existe qu'en PDF** (SME) ; le niveau **action** n'existe qu'en **annuel** (exécution 2024 via le budget vert PLF 2026). Il n'existe **aucune donnée ouverte de paiement Chorus en temps réel** — le « direct » spontanément attendu d'un tel compteur doit être reformulé en « mensuel M+6 semaines ».
+**Réponse à la question clé (« dépenses en direct »)** : la meilleure fraîcheur réellement disponible pour l'exécution des dépenses de l'État est **mensuelle avec ~5-7 semaines de décalage** (au 19/08/2026 : exécution au 30/06/2026), en agrégats nationaux par grands titres via l'API des séries longues SMB ; le niveau **mission/programme mensuel n'existe qu'en PDF** (SME) ; le niveau **action** n'existe qu'en **annuel** (exécution 2024 via le budget vert PLF 2026). Il n'existe **aucune donnée ouverte de paiement Chorus en temps réel** — un compteur de dépenses de l'État ne peut donc être daté que « mensuel M+6 semaines ».

@@ -1,7 +1,7 @@
 # ARCHITECTURE.md — France Transparence
 
 **Document de référence technique · Établi le 19/08/2026.**
-Complète `docs/SOURCES.md` (le *quoi* : le périmètre v1 de sources, 11 modules) et `docs/DATAVIZ.md` (le *comment visuel*). Ici : le *comment technique*.
+Complète `docs/SOURCES.md` (le *quoi* : le périmètre de sources ingérées, 11 modules) et `docs/DATAVIZ.md` (le *comment visuel*). Ici : le *comment technique*.
 
 ---
 
@@ -10,7 +10,7 @@ Complète `docs/SOURCES.md` (le *quoi* : le périmètre v1 de sources, 11 module
 | Choix | Pourquoi |
 |---|---|
 | **Python 3.14 + requests + DuckDB** (`pipelines/`) | L'ingestion est un problème de fichiers hétérogènes (Parquet 243 Mo, CSV cp1252/ISO-8859-1, JSON zippés, XML) : Python les couvre tous. DuckDB lit Parquet/CSV volumineux en mémoire bornée et exporte vers SQLite sans étape intermédiaire — indispensable pour les DECP (3,2 M lignes) sans jamais charger un DataFrame géant. |
-| **SQLite unique** (`data/france.db`) | Une seule base servie, zéro serveur à opérer, sauvegarde = un fichier. Volumétrie v1 < 2 Go : très en dessous des limites SQLite. Écrite par les pipelines (WAL), lue en lecture seule par l'app — le fichier EST le contrat entre Python et Next. |
+| **SQLite unique** (`data/france.db`) | Une seule base servie, zéro serveur à opérer, sauvegarde = un fichier. Volumétrie ingérée < 2 Go : très en dessous des limites SQLite. Écrite par les pipelines (WAL), lue en lecture seule par l'app — le fichier EST le contrat entre Python et Next. |
 | **Next.js 16 (App Router, TypeScript, Tailwind 4)** (`app/`) | Server Components : le SQL s'exécute côté serveur, au plus près de la base, sans API intermédiaire obligatoire ; TypeScript fiabilise les schémas de lignes ; Tailwind 4 consomme directement nos jetons CSS (`@theme inline`). |
 | **better-sqlite3** (retenu ; secours : `node:sqlite`) | API synchrone idéale en Server Components (pas de pool, pas d'await), le plus rapide des drivers SQLite node. Prebuilt arm64 vérifié sur node 24 (v13.0.3). Tout passe par `app/src/lib/db.ts` : si la compilation native cassait un jour, seul ce fichier bascule sur `node:sqlite`. |
 | **Aucun fetch externe au runtime** | L'app ne lit QUE `data/france.db`. La fraîcheur est celle de l'ingestion, jamais celle d'un appel caché : c'est la condition pour afficher une fraîcheur honnête (règle SOURCES.md §0.2 : date de modif d'un dataset ≠ fraîcheur des données). |
@@ -29,7 +29,7 @@ france-transparence/
 │   ├── raw/                  # téléchargements bruts, cache (gitignoré)
 │   └── france.db             # LA base servie (produite par make ingest)
 ├── docs/
-│   ├── SOURCES.md            # référentiel des sources (périmètre v1)
+│   ├── SOURCES.md            # référentiel des sources (périmètre ingéré)
 │   ├── DATAVIZ.md            # jetons couleur + règles dataviz
 │   ├── ARCHITECTURE.md       # ce document
 │   └── recherche/            # rapports Phase 0 (01 à 09)

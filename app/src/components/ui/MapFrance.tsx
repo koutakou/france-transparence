@@ -20,11 +20,11 @@ import {
  * plus qu'à placer les points « villes lumineuses », dont les coordonnées
  * (lon, lat) viennent, elles, des données de la page.
  *
- * OUTRE-MER : ignoré en v1 — le fragment ne contient que la métropole et la
+ * OUTRE-MER : hors du rendu — le fragment ne contient que la métropole et la
  * Corse (96 départements). Si des DOM (971…976) y figuraient, le `fitExtent`
  * écraserait la métropole pour cadrer l'Atlantique/l'océan Indien : les
  * features dont le code commence par « 97 » sont donc écartées du cadrage ET
- * du rendu, à la fabrication du fragment. Une v2 leur devra des encarts
+ * du rendu, à la fabrication du fragment. Les rendre visibles demanderait des encarts
  * dédiés.
  *
  * Choroplèthe (DATAVIZ §8) : rampe séquentielle ORDINALE, 5 classes max

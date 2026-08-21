@@ -1,17 +1,17 @@
 # SOURCES.md — Référentiel unique des sources de données
 
 **Projet France Transparence · Document de référence de la suite du projet · Établi le 19 août 2026.**
-**Révisé le 19/08/2026 après critique de complétude (docs/recherche/10-critique-completude.md)** — corrections C1-C2, I1-I10 et mineures (M1, M3, M4, M6-M9) intégrées ; périmètre v1 inchangé (13 pipelines).
+**Révisé le 19/08/2026 après critique de complétude (docs/recherche/10-critique-completude.md)** — corrections C1-C2, I1-I10 et mineures (M1, M3, M4, M6-M9) intégrées ; périmètre d'ingestion inchangé (13 pipelines).
 
-> **Mise à jour du 20/08/2026 (soir).** Le périmètre a depuis dépassé la v1 : deux sources
-> classées v2 dans ce document ont été ingérées — **S15** (contenu des déclarations d'intérêts
+> **Mise à jour du 20/08/2026 (soir).** Le périmètre ingéré s'est étendu depuis : deux sources
+> décrites ici comme non ingérées le sont désormais — **S15** (contenu des déclarations d'intérêts
 > HATVP, via `pipelines/ingest_hatvp_declarations.py`) et **S26** (participation électorale,
 > via `pipelines/ingest_elections.py`, agrégats commune/département, **sans aucune nuance
 > politique ni nom de candidat**). Les mentions de « 13 pipelines » ci-dessous décrivent le
-> périmètre v1 tel qu'arrêté le 19/08/2026 et sont conservées à ce titre : la liste qui fait
+> périmètre d'ingestion tel qu'arrêté le 19/08/2026 et sont conservées à ce titre : la liste qui fait
 > autorité est la variable `PIPELINES` du `Makefile`.
 
-Ce document synthétise les 9 rapports de la Phase 0 (`docs/recherche/01` à `09`), tous fondés sur des **appels réels effectués le 19/08/2026** (curl/API, codes HTTP constatés). Chaque affirmation de fraîcheur ou de volumétrie cite son rapport source entre parenthèses. Règle du projet : **données réelles uniquement, fraîcheur affichée et mesurée** — pas de promesse que les sources ne peuvent pas tenir.
+Ce document synthétise les 9 rapports de la Phase 0 (`docs/recherche/01` à `09`), tous fondés sur des **appels réels effectués le 19/08/2026** (curl/API, codes HTTP constatés). Chaque affirmation de fraîcheur ou de volumétrie cite son rapport source entre parenthèses. Règle du projet : **données réelles uniquement, fraîcheur affichée et mesurée** — le site n'affiche rien que les sources ne contiennent pas.
 
 Contexte 2026 à garder en tête : LFI 2026 promulguée tardivement le 19/02/2026 et jamais publiée en données structurées (01-budget-etat.md) ; municipales des 15 et 22 mars 2026 intégrées au RNE et à la HATVP (04-elus-integrite.md) ; renouvellement sénatorial le 27/09/2026 et 17e législature paramétrable, jamais codée en dur (03-parlement.md).
 
@@ -102,9 +102,9 @@ Contexte 2026 à garder en tête : LFI 2026 promulguée tardivement le 19/02/202
 - **URL testée** : `…/api/explore/v2.1/catalog/datasets/api-lannuaire-administration/records?where=pivot LIKE "prefecture"` (200 ; 107 préfectures avec **lat/lon du bâtiment** ; 94 117 fiches au total) (09).
 - **Licence** : données DILA en open data (mention DILA). **Piège** : pas de pivot `ministere` (09). **Modules** : Élus & Institutions (fiches), carte.
 
-#### S12. ODS DILA — BODACC et JO associations (périphériques, v2)
+#### S12. ODS DILA — BODACC et JO associations (périphériques, non ingérés)
 - **URLs testées** : `https://bodacc-datadila.opendatasoft.com` (`annonces-commerciales` : 50 393 102 enreg., parution 19/08) ; `https://journal-officiel-datadila.opendatasoft.com` (`jo_associations` : 5 645 043 enreg., parution 19/08) — **aucun dataset JORF lois-décrets sur ces portails** (07).
-- **Licence** : Licence Ouverte. **Modules** : recoupements associations/entreprises (v2).
+- **Licence** : Licence Ouverte. **Modules** : recoupements associations/entreprises (non ingérés).
 
 ### Groupe B — Exploitables directement, hebdomadaires à trimestrielles
 
@@ -124,7 +124,7 @@ Contexte 2026 à garder en tête : LFI 2026 promulguée tardivement le 19/02/202
 #### S15. HATVP — contenu intégral des déclarations (`declarations.xml`)
 - **URL testée** : `https://www.hatvp.fr/livraison/merge/declarations.xml` (200, **88,8 Mo**, hebdo ; ⚠ l'ancienne URL `livraison/opendata/declarations.xml` = 404) ; **6 611 déclarations** en texte intégral structuré (rémunérations annuelles, participations, activités du conjoint…) (04).
 - **Licence** : LO Etalab. **Pièges** : parser en streaming (SAX/iterparse) ; montants « 70 676 » avec espaces ; delta avec liste.csv (versions dépubliées absentes) ; doc structure `opendata-structure.xlsx` (04).
-- **Modules** : Élus & Institutions (fiches patrimoine/intérêts) — v2.
+- **Modules** : Élus & Institutions (fiches patrimoine/intérêts) — non ingéré au 19/08/2026 (ingéré depuis, voir l'encadré en tête).
 
 #### S16. OFGL — data.ofgl.fr ★ source pivot des finances locales
 - **URLs testées** : `https://data.ofgl.fr/api/explore/v2.1/catalog/datasets/ofgl-base-communes/records` (200, API ODS sans clé) ; export filtré testé : **toutes les communes × 1 agrégat × 2025 = 34 778 lignes, 1,9 Mo, 2,8 s** ; `group_by=dep_code` serveur → 101 départements en 1 requête (06-finances-locales.md).
@@ -140,11 +140,11 @@ Contexte 2026 à garder en tête : LFI 2026 promulguée tardivement le 19/02/202
 
 #### S18. Stock Sirene (INSEE via data.gouv.fr) — résolution massive
 - **URL testée** : ressources du dataset « Base Sirene… » — StockUniteLegale CSV zip 970,6 Mo / **Parquet 705 Mo** (StockEtablissement Parquet 2,20 Go), last-modified **01/08/2026**, mensuel (09).
-- **Licence** : lov2. **Pièges** : l'ancien chemin `files.data.gouv.fr/insee-sirene/` = 404 (09). **Modules** : transverse (table SIREN→nom/catégorie via DuckDB) — v2, S1 fournissant déjà noms et géoloc.
+- **Licence** : lov2. **Pièges** : l'ancien chemin `files.data.gouv.fr/insee-sirene/` = 404 (09). **Modules** : transverse (table SIREN→nom/catégorie via DuckDB) — non ingéré, S1 fournissant déjà noms et géoloc.
 
 #### S19. HowTheyVote.eu — votes des eurodéputés français
 - **URLs testées** : `https://howtheyvote.eu/api/votes` (200 ; 2 421 votes, positions des **81 eurodéputés FR**) + dumps hebdo GitHub `HowTheyVote/data` (release 15/08/2026, export 68,6 Mo) (09).
-- **Licence** : **ODbL + DbCL — attribution obligatoire**. **Modules** : Élus & Institutions (volet européen) — v2.
+- **Licence** : **ODbL + DbCL — attribution obligatoire**. **Modules** : Élus & Institutions (volet européen) — non ingéré.
 
 ### Groupe C — Exploitables directement, annuelles / par scrutin / statiques
 
@@ -159,7 +159,7 @@ Contexte 2026 à garder en tête : LFI 2026 promulguée tardivement le 19/02/202
 
 #### S22. Balances des comptes de l'État (CGE) 2016-2025
 - **URL testée** : `…/balances_des_comptes_etat/records?limit=2` (200) ; **517 489 lignes** compte × programme × année, 2016→**2025** (le CGE 2025 est publié) (01).
-- **Licence** : LO v2.0. **Piège** : comptabilité générale ≠ budgétaire — ne pas additionner avec S13 (01). **Modules** : Dépenses de l'État (vue patrimoniale) — v2.
+- **Licence** : LO v2.0. **Piège** : comptabilité générale ≠ budgétaire — ne pas additionner avec S13 (01). **Modules** : Dépenses de l'État (vue patrimoniale) — non ingéré.
 
 #### S23. Subventions de l'État aux associations (jaune PLF 2025, versements 2023)
 - **URL testée** : `…/plf25-donnees-de-l-annexe-jaune-effort-financier-de-l-etat-en-faveur-des-associations/records?limit=2` (200) ; **112 722 lignes** — une par subvention (SIREN, montant, programme, commune) ; millésime = versements **2023**, publié décembre 2024 → décalage ~2 ans ; **le jaune PLF 2026 n'est pas publié en données** (01).
@@ -168,7 +168,7 @@ Contexte 2026 à garder en tête : LFI 2026 promulguée tardivement le 19/02/202
 
 #### S24. Performance de la dépense — RAP 2025
 - **URL testée** : `…/performance-de-la-depense-rap-2025/records?limit=1` (200 ; 2 140 lignes, maj **04/06/2026**, exécutions 2023-2025 vs cibles) (01).
-- **Licence** : LO v2.0. **Piège** : valeurs en texte avec espaces insécables (01). **Modules** : Dépenses de l'État (atteinte des cibles) — v2.
+- **Licence** : LO v2.0. **Piège** : valeurs en texte avec espaces insécables (01). **Modules** : Dépenses de l'État (atteinte des cibles) — non ingéré.
 
 #### S25. CNCCFP — comptes des partis politiques (exercice 2024 publié le 10/02/2026)
 - **URL testée** : `https://static.data.gouv.fr/resources/comptes-des-partis-et-groupements-politiques/20260210-110641/comptes-partis-exercice-2024.csv` (200, 298 Ko, **575 partis × 166 colonnes**) ; CSV homogènes 2021-2024 ; l'exercice N est publié début N+2 (04).
@@ -179,7 +179,7 @@ Contexte 2026 à garder en tête : LFI 2026 promulguée tardivement le 19/02/202
 #### S26. Résultats électoraux agrégés (MI/data.gouv.fr)
 - **URL testée** : dataset `https://www.data.gouv.fr/datasets/6481e741d4cf002ec0efec9d/` (maj 07/07/2026) ; Parquet « généraux » 70,9 Mo / « par candidat » 161,3 Mo ; via API tabulaire : législatives 2024 = 70 102 BV ; **municipales 2026 T1/T2 publiées** (70 003 / 17 398 BV) (09).
 - **Licence** : lov2. **Pièges** : `code_circonscription` vide sur les législatives 2024 ; `nuance` vide pour les petites communes ; préférer le Parquet (09).
-- **Modules** : Élus & Institutions (résultats, contexte électoral) — v2.
+- **Modules** : Élus & Institutions (résultats, contexte électoral) — non ingéré au 19/08/2026 (ingéré depuis, voir l'encadré en tête).
 
 #### S27. Référentiel géographique et population
 - **geo.api.gouv.fr** (testé 200, sans auth) : ~35 000 communes avec centroïde + population en **un appel de 4,7 Mo** ; contours unitaires GeoJSON ; pas de population départementale (09).
@@ -190,18 +190,18 @@ Contexte 2026 à garder en tête : LFI 2026 promulguée tardivement le 19/02/202
 #### S28. Balances comptables des collectivités (DGFiP, data.economie)
 - **URL testée** : `…/balances-comptables-des-communes-en-2025/records` (200) ; 2025 = **6 963 040 lignes** (balances **provisoires** de juillet, maj 13/07/2026, définitives en décembre) ; un dataset par année 2010→2025 ; grain budget × compte (06).
 - **Licence** : LO v2.0. **Pièges majeurs** : `insee` tronqué aux 3 derniers caractères → **joindre par `siren` uniquement** ; budgets annexes mêlés ; export intégral ≈ **950 Mo/an** (mesuré : ~143 o/ligne) → requêtes ciblées par siren seulement (06).
-- **Modules** : Finances locales (drill-down comptable à la demande) — v2.
+- **Modules** : Finances locales (drill-down comptable à la demande) — non ingéré.
 
 ### Groupe D — Exploitables avec effort (retenues)
 
 #### S29. CNCCFP — comptes de campagne (dernier scrutin publié : législatives 2024)
 - **URL testée** : `https://static.data.gouv.fr/resources/elections-legislatives-generales-des-30-juin-et-7-juillet-2024/20250729-150633/comptes-campagne-legislatives-2024.csv` (200, 1,14 Mo, **4 010 candidats**, maj 29/07/2025) ; dépenses détaillées, remboursement État, **décision CNCCFP (A/AR/R)** (04).
-- **Pièges MAJEURS constatés** : **cp1252 + CRLF + 6 lignes quasi vides avant l'en-tête** → `skiprows=6, sep=';', encoding='cp1252'` ; pas de dons nominatifs (interdit) ; **municipales 2026 : aucun dataset au 19/08/2026**, publication attendue fin 2026/2027 (04).
+- **Pièges MAJEURS constatés** : **cp1252 + CRLF + 6 lignes quasi vides avant l'en-tête** → `skiprows=6, sep=';', encoding='cp1252'` ; pas de dons nominatifs (interdit) ; **municipales 2026 : aucun dataset au 19/08/2026**, l'instruction CNCCFP est en cours (04).
 - **Modules** : Financement de la vie politique, Alertes.
 
 #### S30. DGFiP — Situation mensuelle de l'État (SME, PDF)
 - **URL testée** : dataset `situation-mensuelle-de-l-etat` (211 documents, maj 14/08/2026) mais **PDF bloqué : HTTP 403 Cloudflare** même avec User-Agent navigateur (01).
-- **Intérêt unique** : seule publication **mensuelle au niveau mission/programme** (juin 2026 disponible). **Effort** : récupération manuelle/headless + parsing PDF (01). **Modules** : Dépenses de l'État (détail missions mensuel) — v2.
+- **Intérêt unique** : seule publication **mensuelle au niveau mission/programme** (juin 2026 disponible). **Effort** : récupération manuelle/headless + parsing PDF (01). **Modules** : Dépenses de l'État (détail missions mensuel) — non ingéré.
 
 #### S31. Corpus PDF « train de vie » (chiffres officiels → constantes sourcées)
 Tous téléchargés/dépouillés le 19/08/2026 (05-frais-indemnites.md) :
@@ -218,45 +218,45 @@ Tous téléchargés/dépouillés le 19/08/2026 (05-frais-indemnites.md) :
 #### S32. Subventions versées par les collectivités (schéma SCDL — panel seulement)
 - **URL testée** : `https://www.data.gouv.fr/api/1/datasets/?schema=scdl%2Fsubventions&page_size=200` (200, **53 datasets**, ~45 organisations ; ⚠ slug `scdl/subventions`, pas `scdl-subventions`) ; **aucune consolidation nationale officielle** (`consolidation_dataset_id: None`) (06).
 - **Exemples frais** : Côtes-d'Armor conforme SCDL (maj 16/08/2026) ; **Paris hors schéma** : `https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/subventions-associations-votees-/records` (107 693 lignes, maj 28/07/2026, exercices jusqu'à 2026) (06).
-- **Pièges** : obligation légale massivement inappliquée ; SIRET bénéficiaire parfois vide ; **jamais présenter comme national** (06). **Modules** : Finances locales (panel assumé) — v2.
+- **Pièges** : obligation légale massivement inappliquée ; SIRET bénéficiaire parfois vide ; **jamais présenter comme national** (06). **Modules** : Finances locales (panel assumé) — non ingéré.
 
 #### S33. Comptes individuels des collectivités (DGFiP)
 - **URL testée** : `…/comptes-individuels-des-communes-fichier-global-2023-2024/records` (200 ; 69 877 lignes × 252 champs, maj 01/12/2025) ; apport unique : **moyennes de strate** ; s'arrête à **2024** (06).
-- **Pièges** : **montants en milliers d'euros** ; slugs incohérents (06). **Modules** : Finances locales (position dans la strate) — v2.
+- **Pièges** : **montants en milliers d'euros** ; slugs incohérents (06). **Modules** : Finances locales (position dans la strate) — non ingéré.
 
 #### S34. TED — Tenders Electronic Daily (UE)
-- **URL testée** : `POST https://api.ted.europa.eu/v3/notices/search` (200, sans clé) ; 58 379 avis FR publiés en 2026 ; largement **redondant avec BOAMP** (famille JOUE déjà incluse) ; vaut pour les eForms normalisés et la comparaison UE (02). **Modules** : Commande publique — v2.
+- **URL testée** : `POST https://api.ted.europa.eu/v3/notices/search` (200, sans clé) ; 58 379 avis FR publiés en 2026 ; largement **redondant avec BOAMP** (famille JOUE déjà incluse) ; vaut pour les eForms normalisés et la comparaison UE (02). **Modules** : Commande publique — non ingéré.
 
 #### S35. Autres fonds DILA (echanges.dila.gouv.fr/OPENDATA/)
 - **Testés le 19/08** : LEGI (consolidé, 18/08), DOLE (dossiers législatifs, 18/08), Debats (AN 31/07 — vacances), COMPTES_DES_ASSOCIATIONS (19/08 14:29), **RefOrgaAdminEtat** (référentiel de l'organisation de l'État, flux quotidien 19/08 08:30 — utile pour la table des intitulés ministériels par période) (07).
-- **Licence** : fr-lo. **Modules** : Documents/JO (extensions) — v2.
+- **Licence** : fr-lo. **Modules** : Documents/JO (extensions) — non ingéré.
 
 #### S36. API Légifrance via PISTE — optionnelle
 - **Testé** : `POST https://oauth.piste.gouv.fr/api/oauth/token` → 400 `invalid_client` (endpoint vivant, OAuth2 client_credentials) ; **création de compte + CGU = one-shot humain ~10-15 min**, ensuite tout est automatisable ; **non nécessaire** au module Documents (les dumps DILA couvrent le besoin) (07).
 
 #### S37. Décret annuel d'aide publique aux partis
-- Décret n° 2026-149 du 03/03/2026 : **64 262 871,05 €** répartis en 2 fractions ; **Légifrance en 403 curl** (anti-bot), tableau dans le corps du décret, pas de CSV ; l'essentiel du besoin est couvert par les colonnes 103-104 de S25 (04). **Modules** : Financement de la vie politique — v2.
+- Décret n° 2026-149 du 03/03/2026 : **64 262 871,05 €** répartis en 2 fractions ; **Légifrance en 403 curl** (anti-bot), tableau dans le corps du décret, pas de CSV ; l'essentiel du besoin est couvert par les colonnes 103-104 de S25 (04). **Modules** : Financement de la vie politique — non ingéré.
 
 *Ajouts du 19/08/2026 issus du contre-audit `10-critique-completude.md` (placés en fin de groupe pour ne pas renuméroter le catalogue) :*
 
 #### S38. Avis et conseils de la CADA (ajout post-critique I1)
 - **URL testée** (10-critique, appels n° 1 et 6, HTTP 200) : `https://www.data.gouv.fr/api/1/datasets/avis-et-conseils-de-la-cada/` — dataset « Avis et conseils de la CADA » (org. CADA) ; ressource « Ensemble consolidé des avis et conseils de la CADA » = **CSV 198,4 Mo (198 398 592 o), dernière modification 14/08/2026**, plus lots mensuels/trimestriels 2022-2024.
 - **Licence** : fr-lo. **Intérêt** : sens des avis **par administration mise en cause** (qui refuse quoi) — alimente directement la « carte des verrous juridiques » du module Frais & train de vie et le lien avec Ma Dada (08 §1.2).
-- **Pièges** : volumétrie à **échantillonner avant toute promesse** (CSV de 198 Mo). **Modules** : Frais & train de vie (boîte noire, carte des verrous) — **v2** (aucun module v1 n'en dépend).
+- **Pièges** : CSV de 198 Mo, dont la volumétrie exploitable **n'est pas mesurée à ce jour**. **Modules** : Frais & train de vie (boîte noire, carte des verrous) — **non ingérée au 19/08/2026** (aucun module ingéré n'en dépendait).
 - **Évaluation du 20/08/2026 (CSV consolidé téléchargé et mesuré en entier)** : 60 941 lignes (57 385 avis, 3 553 conseils, 3 sanctions), 1984→2024 ; **93 % du fichier est du texte intégral** (176,6 Mio sur 189,2 Mio, mesuré colonne par colonne : 185 169 662 octets pour la seule colonne « Avis » sur 198 398 592) qui ne sera jamais ingéré (poids et prudence RGPD — les demandeurs sont anonymisés à la source, mais des noms de responsables publics subsistent dans les motifs). Piège décisif : le jeu est « modifié le 14/08/2026 » mais la **dernière séance date du 18/04/2024** — 28 mois de retard de versement, millésimes 2023-2024 vraisemblablement incomplets, à afficher tel quel. **INGÉRÉE le 20/08/2026** (pipeline `pipelines/ingest_cada.py`, P16), **en agrégats seulement** — sens × administration × année. Poids réel mesuré en base : **3,64 Mio** (`SELECT SUM(pgsize) FROM dbstat WHERE name LIKE '%cada%'` → 3 817 472 octets), conforme au budget annoncé. Volumes obtenus : **16 593 administrations distinctes** (après repli de la casse et des accents ; 16 984 graphies brutes), 32 614 lignes de saisines, 47 297 agrégats de sens, 2 034 lignes de motivations pour un vocabulaire de **89 motivations distinctes**. La colonne « Thème et sous thème » a été **écartée** : ses libellés contiennent le séparateur du champ (« Justice, Ordre Public Et Sécurité »), la découpe serait ambiguë et reconstituer la nomenclature reviendrait à l'inventer. Aucun référentiel d'administrations n'a été fabriqué (le champ est du texte libre sur 40 ans, plus de 10 000 libellés n'apparaissent qu'une fois) : seule une typologie par préfixe explicite est ajoutée, avec 23,2 % du corpus assumé « non classé » — détail et raisons dans `docs/SCHEMA-DB.md` § « Les tables `cada_*` ». `meta_sources.date_donnees` porte la dernière **séance** (18/04/2024), jamais la date de modification du dataset : S38 est donc en **ALERTE** dans `ft-fraicheur` (854 j pour des seuils de 730/820 j), ce qui rend le retard de versement visible au lieu de le masquer. Restitution : « carte des verrous » de la page `/frais`.
 
 #### S39. Jaune « opérateurs de l'État » PLF 2026 (ajout post-critique I4)
 - **Vérifié le 19/08/2026** (10-critique, appels n° 2 et 3) : dataset « PLF 2026, jaune opérateurs de l'État, liste des opérateurs et catégories » (data.gouv.fr, id `69665c766034b48d897c47be`), maj **13/01/2026** — **seule photographie 2026 du paysage des agences/opérateurs** (liste et catégories ; **pas les crédits par opérateur**). Retenu plutôt qu'écarté : le débat public 2026 sur les agences de l'État en fait un référentiel naturel.
 - **Licence** : **confirmée le 20/08/2026** — la réponse API du dataset porte `"license": "lov2"` (Licence Ouverte 2.0).
-- **Modules** : Dépenses de l'État (référentiel des opérateurs, complète l'encart de périmètre) — **v2**.
+- **Modules** : Dépenses de l'État (référentiel des opérateurs, complète l'encart de périmètre) — **non ingéré**.
 - **Évaluation du 20/08/2026** : le **volet budgétaire n'existe pas en données structurées** — recherche data.gouv (9 résultats) et énumération des 606 jeux de data.economie : le dernier jeu financier des opérateurs est **PLF 2014** (166 lignes, grain programme et non opérateur × SCSP, figé en 2018) ; le jeu PLF 2019 répond 200 mais contient **0 enregistrement** (`total_count: 0` constaté) ; les jaunes PDF sont derrière l'anti-bot de budget.gouv.fr (groupe E). **Verdict : ne pas ingérer le volet budgétaire (il n'existe pas)** ; seule la liste 2026 (431 lignes, cp1252, aucun montant, 70 826 octets) peut servir de référentiel à coût quasi nul, adossée à un pipeline existant plutôt qu'un pipeline dédié ; re-vérifier chaque janvier si un jaune structuré paraît.
 
 #### S40. Registre de transparence de l'Union européenne (évalué le 20/08/2026)
 - **URL testée** (HTTP 200) : `https://data.europa.eu/api/hub/search/datasets/transparency-register` ; export XML intégral téléchargé et mesuré : **115 010 602 octets**, `<exportDate>` du 19/08/2026 (quotidien réel — la métadonnée DCAT, périmée de 2 ans, ne fait pas foi).
-- **Licence** : la réponse API référence la **décision 2011/833/UE** (`COM_REUSE`, réutilisation y compris commerciale avec mention de source, sans clause de partage à l'identique) — compatible avec la promesse Licence Ouverte 2.0 des agrégats. Une note antérieure annonçait « CC BY 4.0 » : non confirmé par l'API.
+- **Licence** : la réponse API référence la **décision 2011/833/UE** (`COM_REUSE`, réutilisation y compris commerciale avec mention de source, sans clause de partage à l'identique) — compatible avec la Licence Ouverte 2.0 sous laquelle les agrégats sont republiés. Une note antérieure annonçait « CC BY 4.0 » : non confirmé par l'API.
 - **Contenu mesuré** : 17 711 organisations inscrites dont **1 654 à siège en France** ; coûts de lobbying en fourchettes ; **aucune balise SIREN ni TVA** (77 balises inventoriées) → aucun rapprochement automatique possible avec le répertoire HATVP (S14), constat définitif.
 - **Pièges éditoriaux (bloquants)** : lobbying UE et lobbying France sont **deux registres, deux cadres juridiques** — blocs jamais fusionnés, montants jamais comparés ; à titre d'illustration du contraste, 141 entités HATVP (sur 4 068) déclarent un niveau d'action « Européen » quand 1 654 organisations françaises sont inscrites à Bruxelles — **deux compteurs séparés, jamais un ratio**. Ne jamais ingérer le fichier des 8 927 accrédités (personnes physiques) ; exclure les 235 « Self-employed individuals » de toute restitution nominative. Parseur tolérant XML 1.1 ; fraîcheur lue dans `<exportDate>`.
-- **Verdict : à ingérer en v2, périmètre minimal cloisonné** (organisations seulement, +2 à 5 Mo en base). **Modules** : Lobbying.
+- **Verdict : périmètre minimal cloisonné** (organisations seulement, +2 à 5 Mo en base). **Modules** : Lobbying.
 
 **INGÉRÉE le 20/08/2026 — pipeline P16 `pipelines/ingest_registre_ue.py`.** Ce qui a été fait, et ce qui a été mesuré à cette occasion :
 - **Volumétrie re-mesurée sur l'export du 19/08/2026** (115 010 602 octets, `<exportDate>` = 2026-08-19, `<numberOfIR>` = 17 711) : **17 711 inscrits**, dont **1 654 à siège en France** (3ᵉ pays derrière la Belgique, 2 761, et l'Allemagne, 2 185), dont **235 « Self-employed individuals »** au total et **16 côté France**. Le fichier annonçant lui-même son compte, le pipeline compare les deux et échoue franchement en cas d'écart : une troncature de téléchargement ne peut pas passer pour une baisse de volume.
@@ -342,7 +342,7 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 
 ## 2. Mapping module → sources
 
-> **Encart de périmètre « argent public » (obligatoire, affiché sur l'Accueil et dans API & Données)** : le dashboard couvre le **budget général de l'État**, le **Parlement et la vie politique** (élus, lobbying, financement), la **commande publique** et les **finances locales**. Hors champ, et dit tel quel dans l'UI : les **administrations de sécurité sociale (~600 Md€, premier poste de la dépense publique)**, la dépense propre des **opérateurs de l'État** (seuls leurs crédits budgétaires apparaissent via S20/S21 ; référentiel S39 en v2) et les **entreprises publiques**. Tout compteur global porte la mention « budget général de l'État » — jamais « la dépense publique » (10-critique I8).
+> **Encart de périmètre « argent public » (obligatoire, affiché sur l'Accueil et dans API & Données)** : le dashboard couvre le **budget général de l'État**, le **Parlement et la vie politique** (élus, lobbying, financement), la **commande publique** et les **finances locales**. Hors champ, et dit tel quel dans l'UI : les **administrations de sécurité sociale (~600 Md€, premier poste de la dépense publique)**, la dépense propre des **opérateurs de l'État** (seuls leurs crédits budgétaires apparaissent via S20/S21 ; référentiel S39 non ingéré) et les **entreprises publiques**. Tout compteur global porte la mention « budget général de l'État » — jamais « la dépense publique » (10-critique I8).
 
 ### Accueil synthétique
 - **Sources** : S13 (compteur dépenses État), S1 (flux marchés + carte 30 j), S2 (nb d'AO en cours), S3 (derniers textes JO), S14 (compteur d'alertes HATVP), S17/S4 (bandeau de stats), S20 (top missions).
@@ -350,19 +350,19 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 - **Contenu concret** : compteur « dépenses de l'État depuis le 1er janvier » (cumul mensuel, ex. réel : 195,0 Md€ de dépenses nettes du BG au 31/05/2026, 01) avec variation vs même période 2025 ; donut par grands postes (titres, S13) ; top missions (S20, annuel, mention PLF) ; carte de France des marchés notifiés sur 30 jours (S1, lat/lng natives) ; flux « derniers marchés notifiés » (J-1) et « derniers textes au JO » (jour même) ; « X appels d'offres en cours » ; bandeau : marchés notifiés/12 mois, ~500 000 mandats d'élus (S17), 6 829 lobbyistes enregistrés (S4), 12 930 dossiers déclaratifs HATVP (S14).
 
 ### Dépenses de l'État
-- **Sources** : S13 (mensuel), S20 + S21 (structure mission→action), S23 (subventions aux associations), S24 (performance, v2), S22 (patrimonial, v2), S30 (missions mensuelles PDF, v2), S39 (référentiel des opérateurs, v2).
+- **Sources** : S13 (mensuel), S20 + S21 (structure mission→action), S23 (subventions aux associations), S24 (performance, non ingéré), S22 (patrimonial, non ingéré), S30 (missions mensuelles PDF, non ingéré), S39 (référentiel des opérateurs, non ingéré).
 - **Fraîcheur affichable** : « Exécution mensuelle : données au 30/06/2026, ~6 semaines de décalage » (01) · « Structure du budget : PLF 2026 (déposé oct. 2025) et exécution 2024 » (01) · « Subventions aux associations : versements 2023 (dernier millésime publié) » (01).
 - **Contenu concret** : courbes 2013-2026 dépenses/recettes/solde, N vs N-1 par titre ; treemap mission → programme → action (comparateur exéc. 2024 / LFI 2025 / PLF 2026 + cotation budget vert) ; recherche parmi 112 722 subventions (SIREN, programme, commune). **Avertissements obligatoires** : PLF ≠ LFI 2026 (jamais publiée en données) ; aucune donnée de paiement en temps réel n'existe (01).
 
 ### Commande publique & appels d'offres
-- **Sources** : S1 (attributions + carte + fiches), S2 (AO en cours), S8 (chiffres officiels DAJ, contrôle), S9 (marchés à venir), S34 (UE, v2).
+- **Sources** : S1 (attributions + carte + fiches), S2 (AO en cours), S8 (chiffres officiels DAJ, contrôle), S9 (marchés à venir), S34 (UE, non ingéré).
 - **Fraîcheur affichable** : « Attributions : consolidation quotidienne (dernière notification : la veille) ; publication légale sous 2 mois — données en cours de consolidation » (02) · « Appels d'offres : annonces du jour même » (02) · « Projets d'achats : mise à jour continue » (02).
 - **Contenu concret** : 8 988 AO ouverts triés par date limite ; flux et carte des attributions (montants rationalisés, écrêtage p99) ; fiches acheteur/titulaire (PME/ETI/GE, NAF, flux géographiques) ; pipeline amont APProch (4 060 projets à venir) ; contexte des seuils 2026 (dispense 40 k€ → **60 k€ au 01/04/2026**, décret 2025-1386 ; BOAMP/JAL ≥ 90 k€ : le bas du spectre est invisible, 02).
 
 ### Élus & Institutions
-- **Sources** : S5 (députés, votes nominaux, questions), S6 (sénateurs), S7 (scores Datan, crédités), S17 (RNE : tous les élus locaux), S14/S15 (déclarations HATVP), S10/S11 (fiches institutions), S26/S19 (élections, Europe, v2).
+- **Sources** : S5 (députés, votes nominaux, questions), S6 (sénateurs), S7 (scores Datan, crédités), S17 (RNE : tous les élus locaux), S14/S15 (déclarations HATVP), S10/S11 (fiches institutions), S26/S19 (élections, Europe ; S19 non ingéré).
 - **Fraîcheur affichable** : « Données parlementaires : mises à jour quotidiennes (open data AN/Sénat) » (03) · « Répertoire des élus : 11/08/2026, post-municipales 2026 » (04) · « Dernier scrutin AN : n° 8434 du 21/07/2026 (vacances parlementaires) » (03).
-- **Contenu concret** : fiches députés (mandats, groupe, commission, déports, lien direct `uri_hatvp`, scores de participation/loyauté Datan) ; votes nominaux des 8 434 scrutins ; sénateurs et scrutins Sénat (v2 via Dosleg) ; annuaire des ~500 000 mandats locaux avec démographie (âge, sexe, CSP) ; questions au gouvernement et questions écrites — **les délais de réponse par ministère ne se mesurent que sur les questions écrites** (les QAG ont réponse immédiate, 03 §2.4 ; 10-critique M4) ; **volet documentaire pantouflage** : chiffres agrégés du rapport annuel HATVP (641 avis de mobilité public-privé en 2025, constantes cf. S31), pas d'export open data des avis — veille active (10-critique I7). **Architecture** : paramètre `legislature`, renouvellement Sénat 27/09/2026, table des intitulés ministériels par période (03).
+- **Contenu concret** : fiches députés (mandats, groupe, commission, déports, lien direct `uri_hatvp`, scores de participation/loyauté Datan) ; votes nominaux des 8 434 scrutins ; sénateurs ; scrutins Sénat non ingérés (Dosleg) ; annuaire des ~500 000 mandats locaux avec démographie (âge, sexe, CSP) ; questions au gouvernement et questions écrites — **les délais de réponse par ministère ne se mesurent que sur les questions écrites** (les QAG ont réponse immédiate, 03 §2.4 ; 10-critique M4) ; **volet documentaire pantouflage** : chiffres agrégés du rapport annuel HATVP (641 avis de mobilité public-privé en 2025, constantes cf. S31), pas d'export open data des avis — veille active (10-critique I7). **Architecture** : paramètre `legislature`, renouvellement Sénat 27/09/2026, table des intitulés ministériels par période (03).
 
 ### Lobbying
 - **Sources** : S4 (AGORA quotidien) ; à surveiller : RIE (aucun open data au 19/08/2026, 04).
@@ -370,23 +370,23 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 - **Contenu concret** : 6 829 entités, 118 516 activités ; pression par ministère/AAI ciblé (table 13 × exercices) ; top budgets de lobbying (fourchettes) ; activités par type de décision ; croisement différenciant à terme : calendrier d'un texte × entrées au répertoire (08, créneau n° 1).
 
 ### Financement de la vie politique
-- **Sources** : S25 (comptes des partis 2021-2024), S29 (comptes de campagne par scrutin), S37 (décret d'aide publique, v2).
-- **Fraîcheur affichable** : « Comptes des partis : exercice 2024 (publié le 10/02/2026 — dernier possible, dépôt légal N+1, publication N+2) » (04) · « Comptes de campagne : législatives 2024 (municipales 2026 attendues fin 2026/2027) » (04).
+- **Sources** : S25 (comptes des partis 2021-2024), S29 (comptes de campagne par scrutin), S37 (décret d'aide publique, non ingéré).
+- **Fraîcheur affichable** : « Comptes des partis : exercice 2024 (publié le 10/02/2026 — dernier possible, dépôt légal N+1, publication N+2) » (04) · « Comptes de campagne : législatives 2024 (aucun dataset municipales 2026 au 19/08/2026) » (04).
 - **Contenu concret** : recettes des 575 partis (dons, cotisations, aide publique 64,26 M€, flux inter-partis) ; dépendance à l'aide publique ; coût par voix et remboursements des 4 010 candidats aux législatives 2024 ; comptes rejetés/réformés.
 
 ### Frais & train de vie
 - **Sources** : S31 (constantes sourcées + rapports annuels) ; volet « boîte noire » documentaire (05) ; S38 (avis CADA — carte des verrous, **ingérée le 20/08/2026**).
 - **Fraîcheur affichable** : « Barèmes en vigueur au 01/01/2026 » · « Contrôles des frais de mandat : exercice 2024 (rapports mai 2026) » · « Élysée : exercice 2024 audité (Cour des comptes, juillet 2025) — exercice 2025 non paru » (05).
 - **Contenu concret** : « combien gagnent-ils » (indemnité parlementaire 7 637,39 € brut, DFP 7 238,04 €, AFM Sénat 6 600 €, PM ≈ 16 038 € « calculé ») ; résultats agrégés des contrôles (84 députés / 276 335 € reversés ; 29,9 M€ de frais déclarés au Sénat) ; sous-module Élysée (coût par déplacement : 94 déplacements = 20,1 M€) ; **marchés du sommet de l'État** (Élysée/AN/Sénat via filtre SIREN acheteur sur S1/S2 — requête à coût nul, SIREN documentés en constantes S31, 10-critique M9) ; coût des institutions (mission Pouvoirs publics 1,14 Md€) ; chronologie IRFM → DFP ; **carte des verrous juridiques** (Parlement non communicable vs élus locaux communicables — CE 08/02/2023 ; enrichie par les avis CADA S38, ingérés en agrégats) et compteur des demandes citoyennes refusées (05).
-- **Boîte noire — arbitrages post-critique (documentaire assumé, aucun pipeline)** : **aides publiques aux entreprises** : ~211 Md€/an « ni lisibles, ni conditionnées, ni évaluées » (rapport Sénat 08/07/2025) et **aucune donnée consolidée** (vérifié le 19/08 : 0 dataset) → alerte documentaire + veille active ; micro-module v2 possible sur les briques partielles (CIR via jaune, exonérations) (I2). **Hautes rémunérations de la fonction publique** : obligation « 10 plus hautes rémunérations » (art. 37, loi TFP du 06/08/2019) éclatée en **25 datasets épars sans consolidation nationale** (vérifié) → patron S32 : panel assumé en v2, **jamais « national »**, + ligne documentaire « obligation légale massivement inappliquée/éclatée » (I3). **Collaborateurs parlementaires et emplois familiaux** (loi 2017) : **0 dataset** (vérifié) ; listes HTML par élu sur les sites AN/Sénat → extraction coûteuse, v2 ou documentaire (I10). **Comptes des groupes politiques des assemblées** : **0 dataset** (vérifié) ; PDF probables sur les sites AN/Sénat à vérifier en Phase 1 → intégrer aux constantes S31, sinon manque assumé ici (I10).
+- **Boîte noire — arbitrages post-critique (documentaire assumé, aucun pipeline)** : **aides publiques aux entreprises** : ~211 Md€/an « ni lisibles, ni conditionnées, ni évaluées » (rapport Sénat 08/07/2025) et **aucune donnée consolidée** (vérifié le 19/08 : 0 dataset) → alerte documentaire + veille active ; micro-module possible sur les briques partielles (CIR via jaune, exonérations) (I2). **Hautes rémunérations de la fonction publique** : obligation « 10 plus hautes rémunérations » (art. 37, loi TFP du 06/08/2019) éclatée en **25 datasets épars sans consolidation nationale** (vérifié) → patron S32 : panel assumé, non ingéré, **jamais « national »**, + ligne documentaire « obligation légale massivement inappliquée/éclatée » (I3). **Collaborateurs parlementaires et emplois familiaux** (loi 2017) : **0 dataset** (vérifié) ; listes HTML par élu sur les sites AN/Sénat → extraction coûteuse, non ingérée ou documentaire (I10). **Comptes des groupes politiques des assemblées** : **0 dataset** (vérifié) ; PDF probables sur les sites AN/Sénat à vérifier en Phase 1 → intégrer aux constantes S31, sinon manque assumé ici (I10).
 
 ### Finances locales
-- **Sources** : S16 (OFGL : comptes + dotations), S27 (fonds de carte + population), S28 (balances, drill-down v2), S33 (strates, v2), S32 (subventions locales, panel v2).
+- **Sources** : S16 (OFGL : comptes + dotations), S27 (fonds de carte + population), S28 (balances, drill-down non ingéré), S33 (strates, non ingéré), S32 (subventions locales, panel non ingéré).
 - **Fraîcheur affichable** : « Comptes 2025 provisoires (chargés juillet 2026 ; ~97 communes manquantes jusqu'en décembre 2026) » (06) · « Dotations de l'État : exercice 2026 » (06).
 - **Contenu concret** : carte départementale en 1 requête `group_by` (101 départements) ; carte communale pré-calculée (34 778 communes, €/habitant natif) ; fiches collectivité (séries 2012/2018→2025, DGF 2018-2026, comparaison de strate) ; drill-down comptable par SIREN à la demande. **Jamais** de vue « subventions France entière » (aucune consolidation nationale SCDL, 06).
 
 ### Documents/JO
-- **Sources** : S3 (JORFSIMPLE quotidien), S35 (LEGI/DOLE/Debats/RefOrga, v2), S36 (recherche Légifrance, optionnel), S12 (BODACC/associations, v2).
+- **Sources** : S3 (JORFSIMPLE quotidien), S35 (LEGI/DOLE/Debats/RefOrga, non ingéré), S36 (recherche Légifrance, optionnel), S12 (BODACC/associations, non ingéré).
 - **Fraîcheur affichable** : « Journal officiel du jour (disponible chaque nuit vers 00h30) » (07).
 - **Contenu concret** : flux quotidien des textes (83 textes le 19/08 dont 5 lois) ; filtre **nominations** (38 textes « nominat » le 19/08) ; filtres lois/décrets/budget par rubrique du sommaire, nature et ministère ; chaque item lié vers `https://www.legifrance.gouv.fr/jorf/id/{ID}` (les liens navigateurs fonctionnent, seule la collecte est bloquée, 07).
 
@@ -400,24 +400,24 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 
 ---
 
-## 3. Attentes de temps réel intenables — et leur reformulation honnête
+## 3. Ce que la donnée publique ne contient pas — et ce qui est publié à la place
 
-Le « en direct » qu'un tableau de bord de la dépense publique laisse spontanément attendre relève de la fiction marketing sur plusieurs points. Voici la liste explicite, chaque impossibilité étant **prouvée par un rapport**, et la reformulation retenue.
+Aucune source publique française ne diffuse la dépense de l'État en continu. Voici, point par point, ce que la donnée contient réellement — chaque limite étant **prouvée par un rapport** — et ce que le site publie à la place.
 
-| # | Formulation attendue | Pourquoi c'est intenable (preuve) | Reformulation honnête retenue |
+| # | Sujet | Ce que la donnée contient (preuve) | Ce qui est publié |
 |---|---|---|---|
-| 1 | **Gros compteur « dépenses aujourd'hui » + variation vs veille** | Il n'existe **aucune donnée ouverte de paiement en temps réel** (aucun dataset Chorus, search = 0 ; Data-État réservé aux agents). Meilleure fraîcheur réelle : **mensuelle, ~5-7 semaines de décalage** (exécution au 30/06/2026 vue le 19/08) (01-budget-etat.md §1, §11) | Compteur « L'État a dépensé X Md€ depuis le 1er janvier » sur données mensuelles DGFiP, badge « données au 30/06/2026 », **variation vs même période 2025** (pas vs veille) |
-| 2 | **Flux « dernières dépenses en direct » horodaté à la minute** | Même absence de paiements temps réel (01 §11) ; les flux quotidiens réels sont contractuels (marchés notifiés J-1, latence légale de publication jusqu'à 2 mois, 02 §7) ou normatifs (JO à 00h30, 07 §1.3) | Deux flux réels et datés : « **Derniers marchés publics notifiés** » (quotidien, J-1, mention « en cours de consolidation ») et « **Derniers textes au Journal officiel** » (jour même) |
-| 3 | **Module « Notes de frais » en flux** | **Aucune note de frais du pouvoir national n'est publiée ni même communicable** : Parlement hors CADA (ord. 58-1100, confirmé CE mars 2025), refus explicites des deux chambres le 11/06/2026 ; frais de représentation des ministres jamais publiés (05-frais-indemnites.md §2.4, §4.3) | Module « **Frais & train de vie** » : barèmes exacts 2026, enveloppes (DFP/AFM), résultats agrégés des contrôles, sous-module Élysée audité (le seul détaillé), et la **« boîte noire »** documentant ce qui est caché et pourquoi — l'opacité elle-même est une information |
-| 4 | **Top 5 ministères « aujourd'hui » + tableau par ministère avec évolution en continu** | Le niveau **mission/programme mensuel n'existe qu'en PDF** anti-bot (SME, 403 Cloudflare) ; l'API mensuelle n'a que 26 lignes par grands titres (01 §1, §8, §11) | v1 : répartition **mensuelle par nature de dépense** (titres) + répartition **annuelle par mission** (PLF 2026/exéc. 2024, mention « PLF ») ; v2 : missions mensuelles via parsing des PDF SME |
-| 5 | **Carte de France à points lumineux des « dépenses en direct »** | Les dépenses de l'État ne sont **pas géolocalisées** en open data (Data-État restreint, 01 §11) ; en revanche les **marchés publics le sont nativement** (lat/lng acheteur et titulaire, 02 §1) et les finances locales aussi (06) | Carte réelle des **marchés publics notifiés sur 30 jours** (24 554 lignes constatées) + carte des **finances locales en €/habitant** — libellées comme telles |
-| 6 | KPI jour/semaine/mois/année | Pas de série quotidienne/hebdomadaire de dépenses (01) | KPI mois/trimestre/année (SMB) ; les KPI « du jour » sont réservés aux flux qui le sont vraiment : textes au JO, AO clôturant aujourd'hui, marchés notifiés la veille |
-| 7 | Bandeau « transactions » | Les DECP sont des **engagements contractuels (montants max), pas des paiements** (01 §7, 02 §8) | Libellé exact : « marchés notifiés », montants rationalisés, jamais « transactions » ni « dépensé » |
-| 8 | Horodatage « à la minute » du flux | Publication par lots (JO : 1 lot nocturne ; DECP : builds quotidiens ; HATVP : hebdo) (07, 02, 04) | Horodater **au jour de publication de la source** et afficher la latence connue de chaque flux |
-| 9 | « Notes de frais » et « Dépenses en direct » dans la navigation | cf. #1 et #3 | Navigation renommée : « Dépenses de l'État » et « Frais & train de vie » |
-| 10 | « Alertes transparence » implicitement temps réel | Les sources d'alertes sont hebdomadaires (HATVP liste.csv) à quotidiennes (AGORA, DECP) (04, 02) | « Alertes recalculées à chaque mise à jour source », chacune datée |
+| 1 | **Dépenses de l'État au jour le jour** | Il n'existe **aucune donnée ouverte de paiement en temps réel** (aucun dataset Chorus, search = 0 ; Data-État réservé aux agents). Meilleure fraîcheur réelle : **mensuelle, ~5-7 semaines de décalage** (exécution au 30/06/2026 vue le 19/08) (01-budget-etat.md §1, §11) | Compteur « L'État a dépensé X Md€ depuis le 1er janvier » sur données mensuelles DGFiP, badge « données au 30/06/2026 », **variation vs même période 2025** (pas vs veille) |
+| 2 | **Flux de dépenses à la minute** | Même absence de paiements temps réel (01 §11) ; les flux quotidiens réels sont contractuels (marchés notifiés J-1, latence légale de publication jusqu'à 2 mois, 02 §7) ou normatifs (JO à 00h30, 07 §1.3) | Deux flux réels et datés : « **Derniers marchés publics notifiés** » (quotidien, J-1, mention « en cours de consolidation ») et « **Derniers textes au Journal officiel** » (jour même) |
+| 3 | **Notes de frais** | **Aucune note de frais du pouvoir national n'est publiée ni même communicable** : Parlement hors CADA (ord. 58-1100, confirmé CE mars 2025), refus explicites des deux chambres le 11/06/2026 ; frais de représentation des ministres jamais publiés (05-frais-indemnites.md §2.4, §4.3) | Module « **Frais & train de vie** » : barèmes exacts 2026, enveloppes (DFP/AFM), résultats agrégés des contrôles, sous-module Élysée audité (le seul détaillé), et la **« boîte noire »** documentant ce qui est caché et pourquoi — l'opacité elle-même est une information |
+| 4 | **Dépense par ministère** | Le niveau **mission/programme mensuel n'existe qu'en PDF** anti-bot (SME, 403 Cloudflare) ; l'API mensuelle n'a que 26 lignes par grands titres (01 §1, §8, §11) | Publié : répartition **mensuelle par nature de dépense** (titres) + répartition **annuelle par mission** (PLF 2026/exéc. 2024, mention « PLF ») ; non ingéré : missions mensuelles via parsing des PDF SME |
+| 5 | **Géolocalisation des dépenses de l'État** | Les dépenses de l'État ne sont **pas géolocalisées** en open data (Data-État restreint, 01 §11) ; en revanche les **marchés publics le sont nativement** (lat/lng acheteur et titulaire, 02 §1) et les finances locales aussi (06) | Carte réelle des **marchés publics notifiés sur 30 jours** (24 554 lignes constatées) + carte des **finances locales en €/habitant** — libellées comme telles |
+| 6 | KPI quotidiens et hebdomadaires | Pas de série quotidienne/hebdomadaire de dépenses (01) | KPI mois/trimestre/année (SMB) ; les KPI « du jour » sont réservés aux flux qui le sont vraiment : textes au JO, AO clôturant aujourd'hui, marchés notifiés la veille |
+| 7 | « Transactions » | Les DECP sont des **engagements contractuels (montants max), pas des paiements** (01 §7, 02 §8) | Libellé exact : « marchés notifiés », montants rationalisés, jamais « transactions » ni « dépensé » |
+| 8 | Horodatage à la minute | Publication par lots (JO : 1 lot nocturne ; DECP : builds quotidiens ; HATVP : hebdo) (07, 02, 04) | Horodater **au jour de publication de la source** et afficher la latence connue de chaque flux |
+| 9 | Libellés de navigation | cf. #1 et #3 | Navigation renommée : « Dépenses de l'État » et « Frais & train de vie » |
+| 10 | Rythme des alertes transparence | Les sources d'alertes sont hebdomadaires (HATVP liste.csv) à quotidiennes (AGORA, DECP) (04, 02) | « Alertes recalculées à chaque mise à jour source », chacune datée |
 
-**Attentes parfaitement tenables** (à valoriser) : « **Appels d'offres en cours** » (BOAMP quotidien jour même, 8 988 AO ouverts, requête testée, 02) ; recherche globale sur les entités ingérées (élus, marchés, acheteurs, textes JO, lobbyistes) ; compteur d'« élus suivis » (~500 000 mandats RNE, 04) ; « alertes transparence » en tant que telles (§ 4).
+**Ce que les sources permettent vraiment, publié tel quel** : « **Appels d'offres en cours** » (BOAMP quotidien jour même, 8 988 AO ouverts, requête testée, 02) ; recherche globale sur les entités ingérées (élus, marchés, acheteurs, textes JO, lobbyistes) ; compteur d'« élus suivis » (~500 000 mandats RNE, 04) ; « alertes transparence » en tant que telles (§ 4).
 
 ---
 
@@ -437,15 +437,15 @@ Chaque alerte ci-dessous est calculable avec les données réellement testées. 
 | **A8. Avenant/modification tardive ou gonflante** | `modification_id` : modifications augmentant le montant ou la durée peu après notification | S1 (lignes de modification) | Obligation de publier les modifications (arrêté du 22/12/2022) | 02, 08 |
 | **A9. Montant aberrant** | Champ natif `montant_anomalie` (+ raisons) ; écrêtage p99 pour les agrégats | S1 | — (qualité de données, à afficher en méthodo) | 02 |
 | **A10. Publication DECP hors délai légal** | `datePublicationDonnees − dateNotification > 2 mois` par acheteur | S1/S8 | Arrêté du 22/12/2022 : publication sous 2 mois après notification | 02 |
-| **A11. Moniteur de fraîcheur des sources (méta-alerte)** | Dernière donnée réellement ingérée vs fréquence promise par source ; alerte si dérive (leçon : les sites morts répondent 200). **Surveillance nominative des maillons communautaires** : build quotidien S1 **et** activité du dépôt `decp-processing` (plan B C1) ; CSV Datan S7 (fallback I6) | toutes | — (engagement méthodologique du projet) | 08, 10-critique C1/I6 |
+| **A11. Moniteur de fraîcheur des sources (méta-alerte)** | Dernière donnée réellement ingérée vs fréquence déclarée par source ; alerte si dérive (leçon : les sites morts répondent 200). **Surveillance nominative des maillons communautaires** : build quotidien S1 **et** activité du dépôt `decp-processing` (plan B C1) ; CSV Datan S7 (fallback I6) | toutes | — (engagement méthodologique du projet) | 08, 10-critique C1/I6 |
 
 Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication des justificatifs parlementaires (11/06/2026) ; disparition des rémunérations des cabinets des jaunes budgétaires depuis PLF 2024 ; absence de LFI 2026 en open data ; RIE sans open data (04, 05, 01, 08) ; **aides publiques aux entreprises : ~211 Md€/an sans donnée consolidée** (rapport Sénat 08/07/2025 ; vérifié le 19/08 : 0 dataset) ; **« 10 plus hautes rémunérations » : obligation légale (art. 37, loi TFP 2019) éclatée en 25 datasets sans consolidation nationale** ; **collaborateurs parlementaires et comptes des groupes politiques : 0 dataset** (listes/PDF sur les sites des assemblées) ; **pantouflage : 641 avis de mobilité HATVP 2025 sans export open data** ; **périmètre : sécurité sociale (~600 Md€) et dépense propre des opérateurs hors champ du dashboard** (10-critique I2, I3, I7, I8, I10).
 
 ---
 
-## 5. Périmètre d'ingestion recommandé : v1 vs v2
+## 5. Périmètre d'ingestion : ce qui est ingéré, ce qui ne l'est pas
 
-### v1 — 13 pipelines, meilleur rapport signal/effort, **zéro clé d'API, zéro compte**
+### Ingéré — 13 pipelines, meilleur rapport signal/effort, **zéro clé d'API, zéro compte**
 
 | # | Pipeline | Sources | Fréquence | Stratégie volumétrique (période, échantillonnage, taille) |
 |---|---|---|---|---|
@@ -456,16 +456,16 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 | P5 | Marchés à venir | S9 | hebdomadaire | Dataset complet : 11 388 lignes (02) |
 | P6 | Journal officiel | S3 | quotidienne (cron ~06h) | Delta nocturne **~100-500 Ko/jour** ; démarrage au premier delta (pas de Freemium 1 Go) ; lister l'index, ignorer la livraison du soir ; stock cumulé de l'ordre de 15 Mo/mois (07) |
 | P7 | Intégrité des élus | S14 + S17 | hebdo / trimestrielle | `liste.csv` 3,3 Mo remplacement complet ; RNE : 12 CSV **~81 Mo** remplacement complet trimestriel (04) |
-| P8 | Lobbying | S4 | quotidienne | `Vues_Separees_CSV.zip` **14,2 Mo/jour**, remplacement complet ; **ne pas prendre le JSON 137 Mo en v1** (04) |
+| P8 | Lobbying | S4 | quotidienne | `Vues_Separees_CSV.zip` **14,2 Mo/jour**, remplacement complet ; **le JSON 137 Mo n'est pas pris** (04) |
 | P9 | Parlement | S5 (AMO10 + Scrutins), S6 (ODSEN + questions), S7 (Datan) | quotidienne (nocturne) | 4,9 + 26,3 + ~0,5 Mo/jour + CSV Datan ; **Scrutins en incrémental** : le zip (172,7 Mo décompressés, 8 434 fichiers) est re-livré entier chaque nuit → ne re-parser que les nouveaux numéros de scrutin (diff) ; périmètre = législature 17 paramétrée ; prévoir renouvellement Sénat 27/09/2026 (03, 10-critique M6) |
-| P10 | Financement politique | S25 + S29 | annuelle / par scrutin | One-shot : 4 CSV partis 2021-2024 (~300 Ko chacun) + législatives 2024 (1,14 Mo, `cp1252, skiprows=6`) ; veille municipales 2026 (attendues fin 2026/2027) (04) |
+| P10 | Financement politique | S25 + S29 | annuelle / par scrutin | One-shot : 4 CSV partis 2021-2024 (~300 Ko chacun) + législatives 2024 (1,14 Mo, `cp1252, skiprows=6`) ; aucun dataset municipales 2026 au 19/08/2026 (04) |
 | P11 | Finances locales | S16 | au build + à la demande | **Jamais d'aspiration des bases 22 M lignes** : exports filtrés pré-calculés par indicateur × exercice (34 778 lignes / 1,9 Mo chacun ; ~6 indicateurs ≈ 12 Mo) + `group_by=dep_code` à la volée (cache) + dotations par requêtes ciblées (06) |
 | P12 | Référentiels | S27, S10 | annuelle / à la volée | geo.api.gouv 4,7 Mo one-shot ; france-geojson 569 Ko statique ; populations INSEE 1 Mo/an ; recherche-entreprises au fil de l'eau (≤ 7 req/s) (09) |
 | P13 | Train de vie (constantes) | S31 | à parution (annuelle) | **Zéro pipeline** : bloc de constantes sourcées (bloc YAML du §9 de 05-frais-indemnites.md, **à corriger avant usage** : ligne `mission_pouvoirs_publics_lfi_2026` invalide, `;` → clés/valeurs, 10-critique M2) ; revue à chaque rapport annuel (Élysée 2025 à surveiller) |
 
-**Bilan v1** : ~290 Mo/jour téléchargés (dominés par le parquet DECP), stockage vif < 2 Go, aucune authentification, tous les modules de la navigation alimentés honnêtement, alertes A1-A11 calculables. **Périmètre v1 confirmé après la critique de complétude : 13 pipelines, inchangé** — les ajouts (S38 avis CADA, S39 jaune opérateurs, panels rémunérations/collaborateurs) sont classés v2 ou documentaires : aucun ne conditionne un module v1, et chacun exige échantillonnage ou extraction avant toute promesse.
+**Bilan du périmètre ingéré** : ~290 Mo/jour téléchargés (dominés par le parquet DECP), stockage vif < 2 Go, aucune authentification, tous les modules de la navigation alimentés honnêtement, alertes A1-A11 calculables. **Périmètre confirmé après la critique de complétude : 13 pipelines, inchangé** — les ajouts (S38 avis CADA, S39 jaune opérateurs, panels rémunérations/collaborateurs) sont non ingérés ou documentaires : aucun ne conditionne un module ingéré, et aucun n'a été échantillonné ni extrait à ce jour.
 
-### v2 — le reste, documenté et priorisé
+### Non ingéré à ce jour — documenté et priorisé
 
 1. **S15 declarations.xml** (88,8 Mo hebdo, parsing SAX) → fiches patrimoine/intérêts détaillées (04).
 2. **S30 SME PDF** (headless + parsing) → le seul mission/programme mensuel (01).
@@ -475,54 +475,54 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 6. **S26 élections Parquet** (71 + 161 Mo) + **S19 HowTheyVote** (68,6 Mo hebdo, ODbL) + Europarl (09).
 7. **S18 stock Sirene Parquet** (705 Mo/mois, DuckDB) si les trous de résolution le justifient (09).
 8. **S22 CGE** (517 k lignes) + **S24 RAP** ; **S34 TED** ; **S12 BODACC/associations** ; **S35 LEGI/DOLE/Debats/RefOrgaAdminEtat** ; **S36 PISTE** (one-shot humain) ; **S37 décret d'aide publique** (01, 02, 07, 04).
-9. **Ajouts post-critique (19/08)** : **S38 avis CADA** (CSV consolidé 198,4 Mo, échantillonner avant promesse → carte des verrous) ; **S39 jaune opérateurs PLF 2026** (référentiel des opérateurs) ; **panel « 10 plus hautes rémunérations »** (25 datasets épars, patron S32 : jamais « national ») ; **collaborateurs parlementaires** (extraction HTML des fiches AN/Sénat, coûteuse) ; **comptes des groupes politiques** (PDF AN/Sénat à vérifier en Phase 1 → constantes S31 ou boîte noire) (10-critique I1, I3, I4, I10).
-10. **Veilles actives** (re-tester périodiquement) : open data du RIE (trimestriel) ; **export open data des avis de mobilité HATVP (pantouflage), au même rythme que la veille RIE** ; comptes de campagne municipales 2026 ; rapport Cour des comptes Élysée exercice 2025 ; jaune cabinets PLF 2027 ; jaune associations PLF 2026 ; publication éventuelle de la LFI en données ; **datasets PLF 2027** (famille destination/nature + budget vert, attendus oct.-nov. 2026 — ils remplaceront S20/S21 quelques semaines après le lancement) ; **donnée consolidée « aides aux entreprises »** (0 dataset au 19/08) ; **réserve parlementaire historique** (7 datasets figés, vérifiés — chronologie IRFM → DFP / boîte noire ; successeur FDVA jamais traité) (04, 05, 01, 10-critique M8/I2/I7).
+9. **Ajouts post-critique (19/08)** : **S38 avis CADA** (CSV consolidé 198,4 Mo, non échantillonné → carte des verrous) ; **S39 jaune opérateurs PLF 2026** (référentiel des opérateurs) ; **panel « 10 plus hautes rémunérations »** (25 datasets épars, patron S32 : jamais « national ») ; **collaborateurs parlementaires** (extraction HTML des fiches AN/Sénat, coûteuse) ; **comptes des groupes politiques** (PDF AN/Sénat à vérifier en Phase 1 → constantes S31 ou boîte noire) (10-critique I1, I3, I4, I10).
+10. **Veilles actives** (re-tester périodiquement) : open data du RIE (trimestriel) ; **export open data des avis de mobilité HATVP (pantouflage), au même rythme que la veille RIE** ; comptes de campagne municipales 2026 ; rapport Cour des comptes Élysée exercice 2025 ; jaune cabinets PLF 2027 ; jaune associations PLF 2026 ; publication éventuelle de la LFI en données ; **datasets PLF 2027** (famille destination/nature + budget vert, non parus au 19/08/2026 — même famille que S20/S21) ; **donnée consolidée « aides aux entreprises »** (0 dataset au 19/08) ; **réserve parlementaire historique** (7 datasets figés, vérifiés — chronologie IRFM → DFP / boîte noire ; successeur FDVA jamais traité) (04, 05, 01, 10-critique M8/I2/I7).
 
 ---
 
 ## 6. Tableau récapitulatif final
 
-| Source | Fraîcheur réelle (constatée le 19/08/2026) | Licence | Module(s) | v1/v2 |
+| Source | Fraîcheur réelle (constatée le 19/08/2026) | Licence | Module(s) | Ingéré ? |
 |---|---|---|---|---|
-| S1 DECP consolidées tabulaires | Quotidienne (build du jour, notifications J-1) (02) | LO 2.0 | Commande publique, Accueil, Alertes | **v1** |
-| S2 BOAMP | Quotidienne, annonces du jour même (02) | etalab-2.0 | Commande publique (AO en cours), Accueil | **v1** |
-| S3 DILA JORFSIMPLE | JO du jour à ~00h30 (07) | LO (fr-lo) | Documents/JO, Accueil | **v1** |
-| S4 HATVP AGORA (lobbying) | Quotidienne (00h04) (04) | LO Etalab | Lobbying, Alertes | **v1** |
-| S5 Open data AN (AMO, scrutins, questions) | Quotidienne (jour même) (03) | LO | Élus & Institutions | **v1** (amendements/agenda v2) |
-| S6 Open data Sénat (ODSEN, questions) | Quotidienne (jour même) (03) | LO | Élus & Institutions | **v1** (Dosleg/Ameli v2) |
-| S7 Datan (scores députés) | Quotidienne (CSV du 19/08/2026) (03) | fr-lo | Élus & Institutions | **v1** |
-| S8 DECP data.economie (DAJ) | J-2 (02) | LO 2.0 | Commande publique (contrôle) | **v1** |
-| S9 APProch (projets d'achats) | Continue (maj 15/08) (02) | LO 2.0 | Commande publique | **v1** |
-| S10 API Recherche d'entreprises | Quotidienne (09) | LO 2.0 | Transverse (résolution SIRET) | **v1** |
-| S11 Annuaire de l'administration | Vivante (94 117 fiches) (09) | DILA open data | Élus & Institutions, carte | v2 |
-| S12 BODACC / JO associations (ODS) | Parution du jour (07) | LO | Recoupements | v2 |
-| S13 SMB séries longues (DGFiP) | Mensuelle, données au 30/06/2026 (~6 sem.) (01) | LO 2.0 | Dépenses de l'État, Accueil | **v1** |
-| S14 HATVP liste.csv | Hebdomadaire (14/08) (04) | LO Etalab | Alertes, Élus & Institutions | **v1** |
-| S15 HATVP declarations.xml | Hebdomadaire (14/08) (04) | LO Etalab | Élus & Institutions (fiches) | v2 |
-| S16 OFGL (comptes + dotations) | Comptes 2025 (juil. 2026, provisoires) ; dotations 2026 (04/08) (06) | LO 2.0 | Finances locales, Accueil | **v1** |
-| S17 RNE | Trimestrielle (11/08/2026, post-municipales) (04) | lov2 | Élus & Institutions, Alertes | **v1** |
-| S18 Stock Sirene Parquet | Mensuelle (01/08/2026) (09) | lov2 | Transverse | v2 |
-| S19 HowTheyVote.eu | Hebdomadaire (release 15/08) (09) | **ODbL** | Élus & Institutions (UE) | v2 |
-| S20 PLF 2026 Budget vert | Annuelle (13/11/2025) (01) | LO 2.0 | Dépenses de l'État, Accueil | **v1** |
-| S21 PLF 2025 destination/nature | Annuelle (10/2024) (01) | LO 2.0 | Dépenses de l'État | **v1** |
-| S22 Balances CGE État | Annuelle (2025 publié) (01) | LO 2.0 | Dépenses de l'État (patrimoine) | v2 |
-| S23 Jaune associations | Annuelle, versements 2023 (01) | LO 2.0 | Dépenses de l'État (subventions) | **v1** |
-| S24 RAP 2025 (performance) | Annuelle (04/06/2026) (01) | LO 2.0 | Dépenses de l'État | v2 |
-| S25 CNCCFP comptes des partis | Exercice 2024 publié le 10/02/2026 (04) | LO | Financement politique, Alertes | **v1** |
-| S26 Élections agrégées (MI) | Par scrutin (municipales 2026 incluses, 07/07/2026) (09) | lov2 | Élus & Institutions | v2 |
-| S27 Géo + populations INSEE | Statique/annuel (pop. réf. 2023 en vigueur 2026) (09) | LO/INSEE | Cartes, ratios | **v1** |
-| S28 Balances collectivités DGFiP | 2025 provisoire (13/07/2026) (06) | LO 2.0 | Finances locales (drill-down) | v2 |
-| S29 CNCCFP comptes de campagne | Législatives 2024 (29/07/2025) ; municipales 2026 à venir (04) | LO | Financement politique, Alertes | **v1** |
-| S30 SME PDF (missions mensuelles) | Mensuelle (juin 2026) mais 403 anti-bot (01) | LO 2.0 | Dépenses de l'État | v2 |
-| S31 Corpus PDF train de vie | Annuel (rapports 2026 sur exercices 2024-2025) (05) | publications officielles | Frais & train de vie | **v1** (constantes) |
-| S32 Subventions SCDL (panel) | Hétérogène (Armor 16/08/2026 ; Paris 28/07/2026) (06) | LO 2.0 (à vérifier) | Finances locales | v2 |
-| S33 Comptes individuels collectivités | 2024 max (01/12/2025) (06) | LO 2.0 | Finances locales (strates) | v2 |
-| S34 TED (UE) | Quotidienne (02) | réutilisation UE | Commande publique (UE) | v2 |
-| S35 Autres fonds DILA (LEGI/DOLE/Debats/RefOrga) | Quotidienne à J-1 (07) | fr-lo | Documents/JO | v2 |
-| S36 API Légifrance (PISTE) | Temps réel (one-shot humain requis) (07) | CGU PISTE + fr-lo | Documents (recherche) | v2 (optionnel) |
-| S37 Décret aide publique partis | Annuel (décret 03/03/2026, 403 curl) (04) | — | Financement politique | v2 |
+| S1 DECP consolidées tabulaires | Quotidienne (build du jour, notifications J-1) (02) | LO 2.0 | Commande publique, Accueil, Alertes | **ingéré** |
+| S2 BOAMP | Quotidienne, annonces du jour même (02) | etalab-2.0 | Commande publique (AO en cours), Accueil | **ingéré** |
+| S3 DILA JORFSIMPLE | JO du jour à ~00h30 (07) | LO (fr-lo) | Documents/JO, Accueil | **ingéré** |
+| S4 HATVP AGORA (lobbying) | Quotidienne (00h04) (04) | LO Etalab | Lobbying, Alertes | **ingéré** |
+| S5 Open data AN (AMO, scrutins, questions) | Quotidienne (jour même) (03) | LO | Élus & Institutions | **ingéré** (amendements/agenda non ingérés) |
+| S6 Open data Sénat (ODSEN, questions) | Quotidienne (jour même) (03) | LO | Élus & Institutions | **ingéré** (Dosleg/Ameli non ingérés) |
+| S7 Datan (scores députés) | Quotidienne (CSV du 19/08/2026) (03) | fr-lo | Élus & Institutions | **ingéré** |
+| S8 DECP data.economie (DAJ) | J-2 (02) | LO 2.0 | Commande publique (contrôle) | **ingéré** |
+| S9 APProch (projets d'achats) | Continue (maj 15/08) (02) | LO 2.0 | Commande publique | **ingéré** |
+| S10 API Recherche d'entreprises | Quotidienne (09) | LO 2.0 | Transverse (résolution SIRET) | **ingéré** |
+| S11 Annuaire de l'administration | Vivante (94 117 fiches) (09) | DILA open data | Élus & Institutions, carte | non ingéré |
+| S12 BODACC / JO associations (ODS) | Parution du jour (07) | LO | Recoupements | non ingéré |
+| S13 SMB séries longues (DGFiP) | Mensuelle, données au 30/06/2026 (~6 sem.) (01) | LO 2.0 | Dépenses de l'État, Accueil | **ingéré** |
+| S14 HATVP liste.csv | Hebdomadaire (14/08) (04) | LO Etalab | Alertes, Élus & Institutions | **ingéré** |
+| S15 HATVP declarations.xml | Hebdomadaire (14/08) (04) | LO Etalab | Élus & Institutions (fiches) | **ingérée** (20/08/2026) |
+| S16 OFGL (comptes + dotations) | Comptes 2025 (juil. 2026, provisoires) ; dotations 2026 (04/08) (06) | LO 2.0 | Finances locales, Accueil | **ingéré** |
+| S17 RNE | Trimestrielle (11/08/2026, post-municipales) (04) | lov2 | Élus & Institutions, Alertes | **ingéré** |
+| S18 Stock Sirene Parquet | Mensuelle (01/08/2026) (09) | lov2 | Transverse | non ingéré |
+| S19 HowTheyVote.eu | Hebdomadaire (release 15/08) (09) | **ODbL** | Élus & Institutions (UE) | non ingéré |
+| S20 PLF 2026 Budget vert | Annuelle (13/11/2025) (01) | LO 2.0 | Dépenses de l'État, Accueil | **ingéré** |
+| S21 PLF 2025 destination/nature | Annuelle (10/2024) (01) | LO 2.0 | Dépenses de l'État | **ingéré** |
+| S22 Balances CGE État | Annuelle (2025 publié) (01) | LO 2.0 | Dépenses de l'État (patrimoine) | non ingéré |
+| S23 Jaune associations | Annuelle, versements 2023 (01) | LO 2.0 | Dépenses de l'État (subventions) | **ingéré** |
+| S24 RAP 2025 (performance) | Annuelle (04/06/2026) (01) | LO 2.0 | Dépenses de l'État | non ingéré |
+| S25 CNCCFP comptes des partis | Exercice 2024 publié le 10/02/2026 (04) | LO | Financement politique, Alertes | **ingéré** |
+| S26 Élections agrégées (MI) | Par scrutin (municipales 2026 incluses, 07/07/2026) (09) | lov2 | Élus & Institutions | **ingérée** (20/08/2026) |
+| S27 Géo + populations INSEE | Statique/annuel (pop. réf. 2023 en vigueur 2026) (09) | LO/INSEE | Cartes, ratios | **ingéré** |
+| S28 Balances collectivités DGFiP | 2025 provisoire (13/07/2026) (06) | LO 2.0 | Finances locales (drill-down) | non ingéré |
+| S29 CNCCFP comptes de campagne | Législatives 2024 (29/07/2025) ; municipales 2026 à venir (04) | LO | Financement politique, Alertes | **ingéré** |
+| S30 SME PDF (missions mensuelles) | Mensuelle (juin 2026) mais 403 anti-bot (01) | LO 2.0 | Dépenses de l'État | non ingéré |
+| S31 Corpus PDF train de vie | Annuel (rapports 2026 sur exercices 2024-2025) (05) | publications officielles | Frais & train de vie | **ingéré** (constantes) |
+| S32 Subventions SCDL (panel) | Hétérogène (Armor 16/08/2026 ; Paris 28/07/2026) (06) | LO 2.0 (à vérifier) | Finances locales | non ingéré |
+| S33 Comptes individuels collectivités | 2024 max (01/12/2025) (06) | LO 2.0 | Finances locales (strates) | non ingéré |
+| S34 TED (UE) | Quotidienne (02) | réutilisation UE | Commande publique (UE) | non ingéré |
+| S35 Autres fonds DILA (LEGI/DOLE/Debats/RefOrga) | Quotidienne à J-1 (07) | fr-lo | Documents/JO | non ingéré |
+| S36 API Légifrance (PISTE) | Temps réel (one-shot humain requis) (07) | CGU PISTE + fr-lo | Documents (recherche) | non ingéré (optionnel) |
+| S37 Décret aide publique partis | Annuel (décret 03/03/2026, 403 curl) (04) | — | Financement politique | non ingéré |
 | S38 Avis CADA (ensemble consolidé) | Consolidé maj 14/08/2026 + lots mensuels/trimestriels (10-critique) | fr-lo | Frais & train de vie (carte des verrous, boîte noire) | **ingérée** (agrégats seulement, 20/08/2026) |
-| S39 Jaune opérateurs PLF 2026 | Annuelle (13/01/2026) (10-critique) | lov2 (confirmée 20/08/2026) | Dépenses de l'État (référentiel opérateurs) | v2 |
+| S39 Jaune opérateurs PLF 2026 | Annuelle (13/01/2026) (10-critique) | lov2 (confirmée 20/08/2026) | Dépenses de l'État (référentiel opérateurs) | non ingéré |
 | S40 Registre de transparence UE | Export XML quotidien (exportDate) | décision 2011/833/UE (20/08/2026) | Lobbying (bloc cloisonné) | **ingérée** (P16) |
 
 ---

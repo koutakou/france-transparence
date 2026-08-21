@@ -35,8 +35,9 @@ export const metadata: Metadata = metadonneesPage({
  * 1. le tableau de fraîcheur central (meta_sources + badge de fraîcheur,
  *    un seuil calibré par source, règle et provenance des seuils
  *    documentées sous le tableau) ;
- * 2. périmètre « argent public », et les formulations « temps réel » que la
- *    donnée publique ne permet PAS (docs/SOURCES.md §2 encart + §3) ;
+ * 2. périmètre « argent public », et l'état de la donnée publique poste par
+ *    poste — ce qu'elle contient, ce qui en est publié (docs/SOURCES.md
+ *    §2 encart + §3) ;
  * 3. licences réellement présentes en base et crédits obligatoires ;
  * 4. les exports JSON quotidiens (site statique — plus une API interrogeable) ;
  * 5. reproduction (make ingest).
@@ -123,55 +124,72 @@ function FrequenceCourte({ frequence }: { frequence: string }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Le « temps réel » attendu, et ce que la donnée permet               */
+/* État de la donnée publique, poste par poste                         */
 /* (condensé de docs/SOURCES.md § 3)                                   */
 /*                                                                     */
-/* Chaque entrée oppose une formulation que ce type de tableau de bord */
-/* emploie couramment — « en direct », « aujourd'hui », « à la minute » */
-/* — à ce que les sources publiques françaises permettent réellement.  */
-/* Ce n'est pas un aveu de manque : c'est le manque qui est le fait.   */
+/* Chaque entrée énonce ce que les sources publiques françaises        */
+/* contiennent sur un poste, puis ce que le site publie à partir de    */
+/* là. Rien d'autre : ni objectif, ni échéance, ni comparaison à un    */
+/* état souhaité. Une absence de donnée est un fait constaté au        */
+/* présent, et c'est à ce titre qu'elle figure ici.                    */
 /* ------------------------------------------------------------------ */
 
-const ATTENDUS: { attendu: string; reel: string }[] = [
+const POSTES: { poste: string; donnee: string; publie: string }[] = [
   {
-    attendu: "Compteur « dépenses aujourd'hui », variation vs veille",
-    reel:
-      "Aucune donnée ouverte de paiement en temps réel n'existe (aucun dataset Chorus ; Data-État réservé aux agents). Meilleure fraîcheur réelle : mensuelle, ~5-7 semaines de décalage → compteur « depuis le 1er janvier » sur données DGFiP, variation vs même période N−1.",
+    poste: "Dépenses de l'État",
+    donnee:
+      "Aucune donnée ouverte de paiement en temps réel n'existe : aucun dataset Chorus, et Data-État est réservé aux agents. La maille la plus fraîche est mensuelle, avec ~5-7 semaines de décalage.",
+    publie:
+      "Un compteur « depuis le 1er janvier » sur données DGFiP, et sa variation par rapport à la même période N−1.",
   },
   {
-    attendu: "Flux « dernières dépenses en direct » horodaté à la minute",
-    reel:
-      "Les flux quotidiens réels sont contractuels ou normatifs : derniers marchés notifiés (J−1, mention « en cours de consolidation », latence légale ≤ 2 mois) et derniers textes au Journal officiel (jour même, lot nocturne).",
+    poste: "Flux quotidiens",
+    donnee:
+      "Les seuls flux réellement quotidiens sont contractuels ou normatifs : les marchés notifiés et les textes du Journal officiel.",
+    publie:
+      "Les derniers marchés notifiés (J−1, mention « en cours de consolidation », latence légale ≤ 2 mois) et les derniers textes au Journal officiel (jour même, lot nocturne).",
   },
   {
-    attendu: "Module « notes de frais » en flux",
-    reel:
-      "Aucune note de frais du pouvoir national n'est publiée ni communicable (ordonnance 58-1100, CE mars 2025, refus des deux chambres du 11/06/2026) → module « Frais & train de vie » : barèmes 2026, enveloppes, contrôles agrégés, et la « boîte noire » documentant ce qui est caché et pourquoi.",
+    poste: "Notes de frais",
+    donnee:
+      "Aucune note de frais du pouvoir national n'est publiée, ni communicable (ordonnance 58-1100, CE mars 2025, refus des deux chambres du 11/06/2026).",
+    publie:
+      "La page « Frais & train de vie » : barèmes 2026, enveloppes, contrôles agrégés, et la « boîte noire » qui documente ce qui est caché et sur quel fondement.",
   },
   {
-    attendu: "Top ministères « aujourd'hui », évolution en continu",
-    reel:
-      "Le niveau mission/programme mensuel n'existe qu'en PDF anti-bot ; l'API mensuelle compte 26 lignes par grands titres → répartition mensuelle par nature de dépense + répartition annuelle par mission (PLF 2026 — la LFI 2026 n'a jamais été publiée en données).",
+    poste: "Ventilation par ministère",
+    donnee:
+      "Le niveau mission/programme mensuel n'existe qu'en PDF anti-bot ; l'API mensuelle compte 26 lignes, par grands titres. La LFI 2026 n'a jamais été publiée en données.",
+    publie:
+      "Une répartition mensuelle par nature de dépense, et une répartition annuelle par mission issue du PLF 2026.",
   },
   {
-    attendu: "Carte de France des « dépenses en direct »",
-    reel:
-      "Les dépenses de l'État ne sont pas géolocalisées en open data → cartes réelles : marchés publics notifiés sur 30 jours (lat/lng natives) et finances locales en €/habitant, libellées comme telles.",
+    poste: "Cartographie",
+    donnee:
+      "Les dépenses de l'État ne sont pas géolocalisées en open data.",
+    publie:
+      "Deux cartes libellées pour ce qu'elles sont : les marchés publics notifiés sur 30 jours (coordonnées natives) et les finances locales en €/habitant.",
   },
   {
-    attendu: "Bandeau « transactions »",
-    reel:
-      "Les DECP sont des engagements contractuels (montants maximums pour les accords-cadres), pas des paiements → libellé exact « marchés notifiés », montants rationalisés, jamais « dépensé ».",
+    poste: "Montants des marchés",
+    donnee:
+      "Les DECP sont des engagements contractuels — pour un accord-cadre, un montant maximum — et non des paiements.",
+    publie:
+      "Le libellé exact « marchés notifiés », avec les montants rationalisés. Jamais le mot « dépensé ».",
   },
   {
-    attendu: "Horodatage à la minute",
-    reel:
-      "Publication par lots (JO : 1 lot nocturne ; DECP : build quotidien ; HATVP : hebdomadaire) → horodatage au jour de publication de la source, latence connue affichée.",
+    poste: "Horodatage",
+    donnee:
+      "Les sources publient par lots : un lot nocturne au Journal officiel, un build quotidien pour les DECP, une mise à jour hebdomadaire à la HATVP.",
+    publie:
+      "L'horodatage au jour de publication de la source, avec sa latence affichée.",
   },
   {
-    attendu: "Alertes « temps réel »",
-    reel:
-      "Les alertes sont recalculées à chaque mise à jour des sources (HATVP hebdomadaire ; lobbying et marchés quotidiens), chacune datée — voir la page Alertes.",
+    poste: "Alertes",
+    donnee:
+      "Les sources dont dérivent les alertes se mettent à jour à leur propre cadence : HATVP hebdomadaire, lobbying et marchés quotidiens.",
+    publie:
+      "Des alertes recalculées à chaque mise à jour de source, chacune datée — voir la page Alertes.",
   },
 ];
 
@@ -352,7 +370,7 @@ export default async function PageDonnees() {
       {/* 1. Le tableau de fraîcheur central */}
       <Card
         titre="Les sources de ce dashboard"
-        sousTitre="meta_sources — chaque source porte sa date de données réelle, sa date d'ingestion, sa fréquence promise et sa licence"
+        sousTitre="meta_sources — chaque source porte sa date de données réelle, sa date d'ingestion, sa fréquence déclarée et sa licence"
       >
         <div className="mb-4 flex flex-col gap-2 text-[13px] leading-relaxed text-ink-secondary">
           <p>
@@ -446,7 +464,7 @@ export default async function PageDonnees() {
             </span>{" "}
             — l’âge de la donnée (aujourd’hui − date des données) est comparé
             à <strong className="text-ink-secondary">deux seuils calibrés pour
-            cette source-là</strong>, et non à sa fréquence promise&nbsp;:
+            cette source-là</strong>, et non à sa fréquence déclarée&nbsp;:
             «&nbsp;à jour&nbsp;» sous le premier seuil, «&nbsp;à
             surveiller&nbsp;» entre les deux, «&nbsp;en retard&nbsp;» au-delà
             du second, «&nbsp;en attente d’une édition&nbsp;» quand le
@@ -494,7 +512,7 @@ export default async function PageDonnees() {
       {/* 2. Périmètre et honnêteté */}
       <Card
         titre="Périmètre et honnêteté"
-        sousTitre="Ce que couvre le dashboard, ce qu'il ne couvre pas, et pourquoi le « temps réel » n'existe pas"
+        sousTitre="Ce que couvre le dashboard, ce qu'il ne couvre pas, et l'état de la donnée disponible poste par poste"
       >
         <div
           className="rounded-lg border border-card-border p-4 text-sm leading-relaxed text-ink-secondary"
@@ -519,34 +537,33 @@ export default async function PageDonnees() {
         </div>
 
         <h3 className="mb-2 mt-5 text-[12px] font-semibold uppercase tracking-[0.1em] text-ink">
-          Le «&nbsp;temps réel&nbsp;» attendu, et ce que la donnée permet
+          État de la donnée publique, poste par poste
         </h3>
         <p className="mb-3 max-w-3xl text-xs text-ink-muted">
-          Un tableau de bord de l’argent public appelle spontanément une lecture
-          «&nbsp;en direct&nbsp;»&nbsp;: dépenses du jour, flux à la minute,
-          notes de frais en continu. Aucune de ces lectures n’est possible sur
-          la donnée publique française, et chaque impossibilité est prouvée
-          source à l’appui (docs/SOURCES.md §3). Voici, en regard, ce que le
-          dashboard fait à la place.
+          Aucune source publique française ne diffuse la dépense de l’État en
+          continu. Pour chaque poste, voici ce que la donnée contient — chaque
+          limite étant établie source à l’appui (docs/SOURCES.md §3) — et ce que
+          le dashboard publie à partir de là.
         </p>
         <ul className="flex flex-col gap-3">
-          {ATTENDUS.map((p) => (
+          {POSTES.map((p) => (
             <li
-              key={p.attendu}
+              key={p.poste}
               className="border-l pl-3.5"
               style={{ borderColor: "var(--viz-grid)" }}
             >
-              <p className="text-[13px] font-medium text-ink">
+              <p className="text-[13px] font-medium text-ink">{p.poste}</p>
+              <p className="mt-1 text-[13px] leading-snug text-ink-secondary">
                 <span className="mr-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
-                  Attendu
+                  Donnée
                 </span>
-                {p.attendu}
+                {p.donnee}
               </p>
               <p className="mt-0.5 text-[13px] leading-snug text-ink-secondary">
                 <span className="mr-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
-                  Réel
+                  Publié
                 </span>
-                {p.reel}
+                {p.publie}
               </p>
             </li>
           ))}

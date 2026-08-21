@@ -4,7 +4,7 @@
  * /api/budget-mensuel.json) — générés au build, servis en fichiers.
  *
  * La table pivot est `meta_sources` (28 sources tracées) : chaque source y
- * porte sa date de données réelle, sa date d'ingestion, sa fréquence promise,
+ * porte sa date de données réelle, sa date d'ingestion, sa fréquence déclarée,
  * sa licence et ses notes — c'est le « moniteur de fraîcheur » du projet
  * (docs/SOURCES.md, alerte A11).
  *

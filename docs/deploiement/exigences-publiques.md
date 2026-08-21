@@ -53,7 +53,7 @@ Obligation unique du réutilisateur : « mentionner la paternité de l'“Inform
 
 **ODbL 1.0** — <https://opendatacommons.org/licenses/odbl/summary/> : attribution, **share-alike sur les bases dérivées** (« if you publicly use any adapted version of this database, or works produced from an adapted database, you must also offer that adapted database under the ODbL »), keep open. Concrètement : si une source ODbL était intégrée à `france.db` et que le site (« produced work ») est public, il faudrait **offrir en téléchargement, sous ODbL, le sous-ensemble dérivé** (les tables issues de la source ODbL, ou le diff), et ces tables ne pourraient pas être re-licenciées en LO 2.0.
 
-**Constat décisif (vérifié en base le 19/08/2026, table `meta_sources`)** : les **25 sources ingérées sont toutes en Licence Ouverte** (variantes : LO 2.0, fr-lo, etalab-2.0, LO Etalab, mention DILA) plus deux entrées « publications officielles / texte JORF » (constantes factuelles issues d'actes officiels, hors droit d'auteur, citées avec URL). **Aucune source ODbL n'est en base** — OFGL est en LO 2.0. L'ODbL ne concernerait que des sources envisagées pour la v2 (HowTheyVote, données Parlement européen ODbL+DbCL, historique NosDéputés). **La SQLite actuelle n'a donc aucune obligation de re-partage.** Corollaire : le footer actuel « Licence Ouverte / ODbL » est inexact (voir § 3).
+**Constat décisif (vérifié en base le 19/08/2026, table `meta_sources`)** : les **25 sources ingérées sont toutes en Licence Ouverte** (variantes : LO 2.0, fr-lo, etalab-2.0, LO Etalab, mention DILA) plus deux entrées « publications officielles / texte JORF » (constantes factuelles issues d'actes officiels, hors droit d'auteur, citées avec URL). **Aucune source ODbL n'est en base** — OFGL est en LO 2.0. L'ODbL ne concernerait que des sources non ingérées (HowTheyVote, données Parlement européen ODbL+DbCL, historique NosDéputés). **La SQLite actuelle n'a donc aucune obligation de re-partage.** Corollaire : le footer actuel « Licence Ouverte / ODbL » est inexact (voir § 3).
 
 ### 1.4 Période électorale (sénatoriales du 27/09/2026)
 
@@ -102,7 +102,7 @@ Références ANSSI : « Recommandations pour la mise en œuvre d'un site web : m
 6. **Au choix de l'hébergeur** : compléter le bloc hébergeur (action 1) ET vérifier en production qu'aucun cookie n'est posé par la plateforme (`curl -sI https://[domaine] | grep -i set-cookie` + DevTools) ; si la plateforme en pose, les désactiver ou les documenter.
 7. **Ajouter les en-têtes de sécurité** dans `app/next.config.ts` (`headers()`) : CSP stricte (pas de tiers à autoriser), `X-Content-Type-Options: nosniff`, `frame-ancestors 'none'`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` vide ; HSTS côté hébergeur.
 8. **Tenir hors ligne une fiche registre art. 30** (une page : traitement « republication de données publiques d'élus », finalité, base légale, catégories, sources, durées, mesures de sécurité). Ne pas la publier.
-9. **Si une source ODbL est ingérée en v2** (HowTheyVote, Europarl) : publier le sous-ensemble dérivé en téléchargement sous ODbL et corriger la phrase de /donnees « les agrégats… ré-exploitables en Licence Ouverte 2.0 » pour en exclure ces tables.
+9. **Si une source ODbL est ingérée un jour** (HowTheyVote, Europarl) : publier le sous-ensemble dérivé en téléchargement sous ODbL et corriger la phrase de /donnees « les agrégats… ré-exploitables en Licence Ouverte 2.0 » pour en exclure ces tables.
 
 ## 4. Risques résiduels honnêtes
 

@@ -86,7 +86,7 @@ Détails : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | `/elus` | Élus & institutions | 36 018 élus (RNE du 11/08/2026, trimestriel) dont 577 députés et 348 sénateurs (open data AN/Sénat/Datan, quotidien). |
 | `/elus/[id]` | Fiche élu | 1 053 fiches statiques (parlementaires et présidences d'exécutifs départementaux/régionaux — les autres élus restent dans les listes et agrégats) : mandats, 30 derniers votes sur les 8 434 scrutins AN (dernier : 21/07/2026, vacances parlementaires), scores Datan crédités, lien HATVP. |
 | `/lobbying` | Lobbying | Répertoire HATVP des représentants d'intérêts (quotidien) : entités inscrites, activités déclarées, dépenses par exercice annuel en fourchettes, croisement avec les marchés publics. Puis, dans un bloc **cloisonné** en fin de page, le registre de transparence de l'Union européenne (quotidien) : organisations inscrites, dont celles à siège en France. Deux registres, deux cadres juridiques — jamais fusionnés, jamais comparés. |
-| `/financement` | Financement politique | Comptes des partis, exercice 2024 (publié le 10/02/2026 — le dernier possible) ; comptes de campagne des législatives 2024, 4 010 candidats (municipales 2026 : publication attendue fin 2026/2027). |
+| `/financement` | Financement politique | Comptes des partis, exercice 2024 (publié le 10/02/2026 — le dernier possible) ; comptes de campagne des législatives 2024, 4 010 candidats (municipales 2026 : aucun compte publié à ce jour, instruction CNCCFP en cours). |
 | `/frais` | Frais & train de vie | 56 faits chiffrés sourcés (barèmes au 01/01/2026, contrôles exercice 2024, Élysée audité 2024) + 8 opacités documentées — pas de notes de frais : elles ne sont ni publiées ni communicables. **Carte des verrous** : 60 941 avis et conseils de la CADA de 1984 à 2024, dépouillés en agrégats (qui refuse, sur quel fondement, et dans quel sens la commission tranche), avec les 28 mois de retard de versement de la source affichés en clair. |
 | `/collectivites` | Finances locales | Comptes OFGL 2025 (provisoires, chargés en juillet 2026), dotations DGF 2018-2026, carte en €/habitant. |
 | `/documents` | Journal officiel | 2 778 textes des 30 derniers JO (quotidien, JO du jour disponible vers 00h30), filtres lois/décrets/nominations. |
@@ -129,8 +129,8 @@ Assumées et affichées dans l'interface — l'honnêteté est le principe produ
 - **DECP** : latence légale de publication jusqu'à 2 mois — mention « en cours de consolidation » partout où le flux apparaît.
 - **Lobbying** : la donnée HATVP ne sépare pas AN et Sénat (« Parlement » agrégé) et les dépenses sont déclarées par exercice annuel. Le registre européen, lui, ne publie aucun identifiant national d'entreprise (ni SIREN, ni TVA) : aucun rapprochement automatique n'est possible entre les deux registres, et aucun n'est tenté.
 - **Comptes locaux 2025** : provisoires (chargés en juillet 2026, ~97 communes manquantes jusqu'en décembre 2026).
-- **Outre-mer** : hors rendu de la carte v1 (présent dans les tableaux et agrégats).
-- **Scrutins du Sénat** : non ingérés en v1 (dump Dosleg prévu en v2).
+- **Outre-mer** : hors rendu de la carte (présent dans les tableaux et agrégats).
+- **Scrutins du Sénat** : non ingérés à ce jour (le dump Dosleg n'est pas exploité).
 
 ## Contribuer
 
@@ -138,4 +138,4 @@ Signaler une donnée fausse (avec source officielle), proposer une source, corri
 
 ## Rapport de mission
 
-Construction, méthode multi-agents, corrections d'honnêteté en cours de route et pistes v2 : [docs/RAPPORT-MISSION.md](docs/RAPPORT-MISSION.md).
+Construction, méthode multi-agents, corrections d'honnêteté en cours de route et ce qui n'est pas ingéré à ce jour : [docs/RAPPORT-MISSION.md](docs/RAPPORT-MISSION.md).

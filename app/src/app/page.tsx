@@ -183,7 +183,7 @@ export default async function Accueil() {
   } = donnees;
 
   /* --- Carte : valeurs par département limitées au fond métropole
-         (l'outre-mer est hors rendu v1 — codes 97x/98x écartés).
+         (l'outre-mer est hors du rendu — codes 97x/98x écartés).
          Le GeoJSON n'est lu ici QUE pour filtrer les codes : le fond est
          chargé côté client depuis /data/carte-departements.json
          (CarteDepartements), où les contours sont déjà projetés au build,
@@ -368,7 +368,7 @@ export default async function Accueil() {
         <div className="flex min-w-0 flex-col gap-4">
           <Card
             titre="Marchés publics par département"
-            sousTitre="Marchés notifiés, 12 derniers mois — montants écrêtés (plafond 100 M€ par marché) · points : préfectures · outre-mer hors carte (v1)"
+            sousTitre="Marchés notifiés, 12 derniers mois — montants écrêtés (plafond 100 M€ par marché) · points : préfectures · outre-mer hors carte"
             droite={<BadgeSource source={sources.S1} mention="J-1" />}
           >
             <CarteDepartements

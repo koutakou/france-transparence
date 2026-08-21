@@ -742,8 +742,8 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
               Cela ne veut pas dire que cette personne n’a rien déclaré.
             </strong>{" "}
             L’appariement se fait sur le nom, le prénom et la date de naissance : une déclaration
-            déposée mais non encore publiée, une publication en préfecture à venir, ou une
-            identité orthographiée autrement dans le fichier amont suffisent à l’empêcher. Le
+            déposée mais non publiée, une publication faite en préfecture, ou une identité
+            orthographiée autrement dans le fichier amont suffisent à l’empêcher. Le
             bloc « Déclarations HATVP » ci-dessus indique, le cas échéant, le statut publié par
             la HATVP{urlHatvp ? ", et la fiche HATVP donne l’état officiel" : ""}.
           </p>

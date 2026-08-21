@@ -113,7 +113,7 @@ Rappel des besoins du dashboard sur cet axe : (a) attributions récentes + carte
 - **Fraîcheur** : publication quotidienne (JO S) ; avis du 2026-08-10 vus lors du test.
 - **Licence** : réutilisation libre des données TED (politique de réutilisation UE).
 - **Intérêt vs BOAMP** : pour la France, les avis européens (famille JOUE = 830 460 annonces) sont **déjà dans BOAMP** avec des champs plus simples ; TED ne couvre que le dessus des seuils UE. TED vaut pour : eForms normalisés (montants structurés), recoupement, comparaisons européennes.
-- **Verdict : EXPLOITABLE DIRECT mais NON PRIORITAIRE** (partiellement redondant avec BOAMP pour un dashboard France). Module cible : enrichissement/comparaison UE, v2 du dashboard.
+- **Verdict : EXPLOITABLE DIRECT mais NON PRIORITAIRE** (partiellement redondant avec BOAMP pour un dashboard France). Module cible : enrichissement/comparaison UE ; non ingéré à ce jour.
 
 ---
 
@@ -162,7 +162,7 @@ Vérifiés le 19/08/2026 (la page DAJ economie.gouv.fr renvoie 403 anti-bot en f
 | 2 | BOAMP (DILA) | `boamp-datadila.opendatasoft.com/api/explore/v2.1/.../boamp/records` | API sans clé + exports | Quotidienne, annonces du jour même | 1 698 829 annonces | etalab-2.0 | **EXPLOITABLE DIRECT** | **Appels d'offres en cours** (8 988 ouverts) |
 | 3 | DECP data.economie (DAJ) | `data.economie.gouv.fr/api/explore/v2.1/.../decp-2022-marches-valides/records` | API sans clé + exports + group_by | J-2 (17/08) | 689 062 marchés | LO 2.0 | **EXPLOITABLE DIRECT** | Chiffres officiels, agrégats serveur |
 | 4 | APProch (projets d'achats) | `data.economie.gouv.fr/.../projets-dachats-publics/records` | API sans clé | J-4 (15/08) | 11 388 projets (4 060 à venir) | LO 2.0 | **EXPLOITABLE DIRECT** | **Marchés à venir** |
-| 5 | TED (UE) | `POST api.ted.europa.eu/v3/notices/search` | API sans clé | Quotidienne | 58 379 avis FR 2026 | Réutilisation libre UE | EXPLOITABLE DIRECT (non prioritaire) | Comparaison UE, v2 |
+| 5 | TED (UE) | `POST api.ted.europa.eu/v3/notices/search` | API sans clé | Quotidienne | 58 379 avis FR 2026 | Réutilisation libre UE | EXPLOITABLE DIRECT (non prioritaire) | Comparaison UE, non ingéré |
 | 6 | DECP fichiers consolidés JSON (DAJ) | data.gouv.fr (40 JSON 66 Mo–970 Mo) | Téléchargement | 17/08 | ~40 fichiers | LO | AVEC EFFORT (redondant avec 1/3) | — |
 | 7 | API DECP AIFE (PISTE) | piste.gouv.fr + miroir data.gouv (1 943 JSON) | Clé PISTE requise | 19/08 (miroir) | 1 943 fichiers | LO 2.0 | AVEC EFFORT | — |
 | 8 | PLACE (consultations État) | marches-publics.gouv.fr | Pas d'API publique | — | — | — | **INEXPLOITABLE en direct** (données via BOAMP/DECP/APProch) | — |
@@ -197,4 +197,4 @@ curl -X POST "https://api.ted.europa.eu/v3/notices/search" -H "Content-Type: app
 curl -L -o decp.parquet "https://www.data.gouv.fr/api/1/datasets/r/11cea8e8-df3e-4ed1-932b-781e2635e432"
 ```
 
-**Architecture recommandée** : ingestion quotidienne du `decp.parquet` (n° 1) pour la carte et les fiches ; appels API BOAMP (n° 2) rafraîchis plusieurs fois par jour pour les AO en cours ; APProch (n° 4) hebdomadaire pour « à venir » ; data.economie (n° 3) en contrôle de cohérence ; TED en v2.
+**Architecture recommandée** : ingestion quotidienne du `decp.parquet` (n° 1) pour la carte et les fiches ; appels API BOAMP (n° 2) rafraîchis plusieurs fois par jour pour les AO en cours ; APProch (n° 4) hebdomadaire pour « à venir » ; data.economie (n° 3) en contrôle de cohérence ; TED non ingéré.

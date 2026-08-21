@@ -334,7 +334,7 @@ export default async function PageCollectivites() {
                 </p>
               )}
               <p className="mt-1 text-[11px] text-ink-muted">
-                Outre-mer hors rendu cartographique (v1) — présent dans les tableaux.
+                Outre-mer hors rendu cartographique — présent dans les tableaux.
               </p>
             </div>
             <div className="flex flex-col gap-5">
@@ -562,7 +562,7 @@ export default async function PageCollectivites() {
                   />
                 </div>
                 <p className="mt-1 text-[11px] text-ink-muted">
-                  Outre-mer hors rendu cartographique (v1) — présent dans la vue tableau.
+                  Outre-mer hors rendu cartographique — présent dans la vue tableau.
                 </p>
                 <VueTableau
                   resume={`Vue tableau (${dgfDepartements.length} départements et collectivités)`}
