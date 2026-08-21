@@ -3,13 +3,21 @@
 **Projet France Transparence · Document de référence de la suite du projet · Établi le 19 août 2026.**
 **Révisé le 19/08/2026 après critique de complétude (docs/recherche/10-critique-completude.md)** — corrections C1-C2, I1-I10 et mineures (M1, M3, M4, M6-M9) intégrées ; périmètre d'ingestion inchangé (13 pipelines).
 
-> **Mise à jour du 20/08/2026 (soir).** Le périmètre ingéré s'est étendu depuis : deux sources
-> décrites ici comme non ingérées le sont désormais — **S15** (contenu des déclarations d'intérêts
-> HATVP, via `pipelines/ingest_hatvp_declarations.py`) et **S26** (participation électorale,
-> via `pipelines/ingest_elections.py`, agrégats commune/département, **sans aucune nuance
-> politique ni nom de candidat**). Les mentions de « 13 pipelines » ci-dessous décrivent le
+> **Mise à jour du 20/08/2026 (soir).** Le périmètre ingéré s'est étendu depuis le 19/08 : quatre
+> sources s'y sont ajoutées — **S15** (contenu des déclarations d'intérêts HATVP, via
+> `pipelines/ingest_hatvp_declarations.py`), **S26** (participation électorale, via
+> `pipelines/ingest_elections.py`, agrégats commune/département, **sans aucune nuance
+> politique ni nom de candidat**), **S38** (avis et conseils de la CADA, en agrégats seulement,
+> via `pipelines/ingest_cada.py`) et **S40** (registre de transparence de l'Union européenne,
+> via `pipelines/ingest_registre_ue.py`). L'ingestion compte donc **17 pipelines** et
+> **29 sources tracées dans `meta_sources`**. Les mentions de « 13 pipelines » ci-dessous décrivent le
 > périmètre d'ingestion tel qu'arrêté le 19/08/2026 et sont conservées à ce titre : la liste qui fait
 > autorité est la variable `PIPELINES` du `Makefile`.
+>
+> **Document daté.** Les fraîcheurs et volumétries amont relevées ici l'ont été par appels réels le
+> 19/08/2026 (et le 20/08 pour S38 et S40) : elles décrivent ces jours-là et **ont dérivé depuis**.
+> Le catalogue vivant, avec la date réellement ingérée de chaque source, est la page `/donnees`
+> du site, régénérée à chaque publication.
 
 Ce document synthétise les 9 rapports de la Phase 0 (`docs/recherche/01` à `09`), tous fondés sur des **appels réels effectués le 19/08/2026** (curl/API, codes HTTP constatés). Chaque affirmation de fraîcheur ou de volumétrie cite son rapport source entre parenthèses. Règle du projet : **données réelles uniquement, fraîcheur affichée et mesurée** — le site n'affiche rien que les sources ne contiennent pas.
 
@@ -367,7 +375,7 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 ### Lobbying
 - **Sources** : S4 (AGORA quotidien) ; à surveiller : RIE (aucun open data au 19/08/2026, 04).
 - **Fraîcheur affichable** : « Répertoire des représentants d'intérêts : mise à jour quotidienne (19/08/2026) ; **dépenses et activités déclarées par exercice annuel** » (04) — la « pression par ministère » repose sur des données à maille annuelle, à dire dans l'UI (10-critique M3).
-- **Contenu concret** : 6 829 entités, 118 516 activités ; pression par ministère/AAI ciblé (table 13 × exercices) ; top budgets de lobbying (fourchettes) ; activités par type de décision ; croisement différenciant à terme : calendrier d'un texte × entrées au répertoire (08, créneau n° 1).
+- **Contenu concret** : 6 829 entités, 118 516 activités ; pression par ministère/AAI ciblé (table 13 × exercices) ; top budgets de lobbying (fourchettes) ; activités par type de décision ; piste de croisement différenciant relevée à la recherche, non construite : calendrier d'un texte × entrées au répertoire (08, créneau n° 1).
 
 ### Financement de la vie politique
 - **Sources** : S25 (comptes des partis 2021-2024), S29 (comptes de campagne par scrutin), S37 (décret d'aide publique, non ingéré).
@@ -445,7 +453,7 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 
 ## 5. Périmètre d'ingestion : ce qui est ingéré, ce qui ne l'est pas
 
-### Ingéré — 13 pipelines, meilleur rapport signal/effort, **zéro clé d'API, zéro compte**
+### Ingéré au 19/08/2026 — 13 pipelines, meilleur rapport signal/effort, **zéro clé d'API, zéro compte**
 
 | # | Pipeline | Sources | Fréquence | Stratégie volumétrique (période, échantillonnage, taille) |
 |---|---|---|---|---|
@@ -463,9 +471,9 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 | P12 | Référentiels | S27, S10 | annuelle / à la volée | geo.api.gouv 4,7 Mo one-shot ; france-geojson 569 Ko statique ; populations INSEE 1 Mo/an ; recherche-entreprises au fil de l'eau (≤ 7 req/s) (09) |
 | P13 | Train de vie (constantes) | S31 | à parution (annuelle) | **Zéro pipeline** : bloc de constantes sourcées (bloc YAML du §9 de 05-frais-indemnites.md, **à corriger avant usage** : ligne `mission_pouvoirs_publics_lfi_2026` invalide, `;` → clés/valeurs, 10-critique M2) ; revue à chaque rapport annuel (Élysée 2025 à surveiller) |
 
-**Bilan du périmètre ingéré** : ~290 Mo/jour téléchargés (dominés par le parquet DECP), stockage vif < 2 Go, aucune authentification, tous les modules de la navigation alimentés honnêtement, alertes A1-A11 calculables. **Périmètre confirmé après la critique de complétude : 13 pipelines, inchangé** — les ajouts (S38 avis CADA, S39 jaune opérateurs, panels rémunérations/collaborateurs) sont non ingérés ou documentaires : aucun ne conditionne un module ingéré, et aucun n'a été échantillonné ni extrait à ce jour.
+**Bilan du périmètre ingéré** : ~290 Mo/jour téléchargés (dominés par le parquet DECP), stockage vif de l'ordre de 2 Go (base + cache `data/raw`), aucune authentification, tous les modules de la navigation alimentés honnêtement, alertes A1-A11 calculables. **Périmètre arrêté le 19/08/2026 après la critique de complétude : 13 pipelines** — les ajouts d'alors (S38 avis CADA, S39 jaune opérateurs, panels rémunérations/collaborateurs) étaient non ingérés ou documentaires : aucun ne conditionnait un module ingéré, et aucun n'avait été échantillonné ni extrait. S38 a depuis été ingérée en agrégats (encadré de tête et fiche S38).
 
-### Non ingéré à ce jour — documenté et priorisé
+### Non ingéré à ce jour — documenté et motivé
 
 1. **S15 declarations.xml** (88,8 Mo hebdo, parsing SAX) → fiches patrimoine/intérêts détaillées (04).
 2. **S30 SME PDF** (headless + parsing) → le seul mission/programme mensuel (01).
@@ -512,7 +520,7 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 | S26 Élections agrégées (MI) | Par scrutin (municipales 2026 incluses, 07/07/2026) (09) | lov2 | Élus & Institutions | **ingérée** (20/08/2026) |
 | S27 Géo + populations INSEE | Statique/annuel (pop. réf. 2023 en vigueur 2026) (09) | LO/INSEE | Cartes, ratios | **ingéré** |
 | S28 Balances collectivités DGFiP | 2025 provisoire (13/07/2026) (06) | LO 2.0 | Finances locales (drill-down) | non ingéré |
-| S29 CNCCFP comptes de campagne | Législatives 2024 (29/07/2025) ; municipales 2026 à venir (04) | LO | Financement politique, Alertes | **ingéré** |
+| S29 CNCCFP comptes de campagne | Législatives 2024 (29/07/2025) ; municipales 2026 : aucun compte publié à ce jour (04) | LO | Financement politique, Alertes | **ingéré** |
 | S30 SME PDF (missions mensuelles) | Mensuelle (juin 2026) mais 403 anti-bot (01) | LO 2.0 | Dépenses de l'État | non ingéré |
 | S31 Corpus PDF train de vie | Annuel (rapports 2026 sur exercices 2024-2025) (05) | publications officielles | Frais & train de vie | **ingéré** (constantes) |
 | S32 Subventions SCDL (panel) | Hétérogène (Armor 16/08/2026 ; Paris 28/07/2026) (06) | LO 2.0 (à vérifier) | Finances locales | non ingéré |

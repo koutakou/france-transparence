@@ -32,7 +32,7 @@
 
 ## GitHub Pages : rétrogradé en page de redirection
 
-Publier le site sur les deux hôtes aurait mis en ligne **deux copies identiques** : contenu dupliqué, et autorité de référencement partagée entre deux domaines pour chacune des ~1 066 pages. GitHub Pages ne sachant pas émettre de redirection **301**, les seuls instruments disponibles sont la balise `<link rel="canonical">` et le rafraîchissement méta — les deux sont portés par la page unique de `pages-redirection/`, qui remplace intégralement l'ancienne publication.
+Publier le site sur les deux hôtes aurait mis en ligne **deux copies identiques** : contenu dupliqué, et autorité de référencement partagée entre deux domaines pour chacune des quelque 1 100 pages du site. GitHub Pages ne sachant pas émettre de redirection **301**, les seuls instruments disponibles sont la balise `<link rel="canonical">` et le rafraîchissement méta — les deux sont portés par la page unique de `pages-redirection/`, qui remplace intégralement l'ancienne publication.
 
 Pas de `Disallow: /` dans l'affaire : le `robots.txt` qui fait autorité pour cet hôte appartient au dépôt de pages *utilisateur*, pas à celui-ci ; et interdire la page à un robot l'empêcherait justement d'y lire la canonique.
 
@@ -50,7 +50,7 @@ Un fork ou un miroir change d'adresse et d'hébergeur **sans toucher une ligne d
 
 `robots.txt` n'est plus un fichier statique : `app/src/app/robots.ts` le **génère** au build à partir de `SITE_URL`. C'est ce qui empêche l'adresse du sitemap de diverger silencieusement des canoniques — le fichier statique d'avant devait être réécrit à la main à chaque changement de domaine.
 
-Le script serveur `ft-localiser` vérifie **53 contrôles** de cette identité avant chaque build (il ne modifie plus rien) et sort en code 4 si l'un échoue, ce qui interrompt `ft-deploy` : une mention légale fausse est une infraction, et une régression de référencement est invisible à l'œil nu.
+Le script serveur `ft-localiser` vérifie **55 contrôles** de cette identité avant chaque build (il ne modifie plus rien) et sort en code 4 si l'un échoue, ce qui interrompt `ft-deploy` : une mention légale fausse est une infraction, et une régression de référencement est invisible à l'œil nu.
 
 ## Limites acceptées et suivies
 
@@ -63,7 +63,7 @@ Le script serveur `ft-localiser` vérifie **53 contrôles** de cette identité a
 
 L'étude comparative des plateformes (VPS, PaaS, serverless) a été menée le 19/08/2026 et reste consultable telle quelle, avec ses prix datés et ses sources : [plateformes.md](plateformes.md). Son § 4 (« conteneur vs systemd nu ») recommandait systemd nu pour un serveur unique, avec un timer `OnCalendar=*-*-* 05:17:00` — c'est exactement ce qui a été mis en place.
 
-Rappel des exclusions techniques, toujours valables : serverless écarté sur preuve (bundle Vercel 250 Mo contre une base de 447 Mo, crons ≤ 30 min contre une ingestion bien plus longue, D1 = réécriture complète).
+Rappel des exclusions techniques, toujours valables : serverless écarté sur preuve (bundle Vercel 250 Mo contre une base de ~470 Mo, crons ≤ 30 min contre une ingestion bien plus longue, D1 = réécriture complète).
 
 ---
 
@@ -73,4 +73,4 @@ Le site a d'abord été publié sur **GitHub Pages** (project page, `basePath` `
 
 Ce déploiement a fonctionné et a été vérifié depuis l'extérieur (23 routes en 200, zéro cookie, 301 HTTPS, atomicité observée — détail dans `../RAPPORT-MISSION.md` § 9). Ses limites étaient documentées dès le premier jour : aucun en-tête personnalisé possible, CSP en `<meta>` avec `frame-ancestors` ignoré, ni HSTS ni `nosniff` servis, `github.io` ne figurant plus dans la liste de préchargement HSTS de Chromium. Ce sont ces limites, et non un incident, qui ont motivé la migration du 20/08/2026 : lever le blocage « pas d'humain disponible » a suffi à rendre le serveur dédié accessible, et le serveur règle chacune d'elles.
 
-Les conséquences techniques assumées à l'époque restent en vigueur, car elles décrivent le produit et non l'hébergeur : `output: 'export'`, aucun `force-dynamic`, fiches élus statiques limitées aux mandats nationaux et exécutifs (≈ 1 053), recherche convertie côté client sur index JSON pré-généré, exports JSON quotidiens en `.json` à la place des routes API paramétriques, filtres et pagination côté client sous un budget de 500 Ko de HTML par page.
+Les conséquences techniques assumées à l'époque restent en vigueur, car elles décrivent le produit et non l'hébergeur : `output: 'export'`, aucun `force-dynamic`, fiches élus statiques limitées aux mandats nationaux et exécutifs (plus de 1 000), recherche convertie côté client sur index JSON pré-généré, exports JSON quotidiens en `.json` à la place des routes API paramétriques, filtres et pagination côté client sous un budget de 500 Ko de HTML par page.

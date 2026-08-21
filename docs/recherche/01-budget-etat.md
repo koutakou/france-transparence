@@ -1,7 +1,7 @@
 # Budget & dépenses de l'État — état des sources au 19 août 2026
 
 Axe « Budget & dépenses de l'État » du dashboard France Transparence.
-Méthode : chaque source ci-dessous a été **réellement appelée le 19/08/2026** (curl sur les API/fichiers, WebFetch quand curl était bloqué, recherches web croisées). Aucun verdict ne repose sur la mémoire du modèle. Les extraits JSON/CSV sont des copies de réponses réelles.
+Méthode : chaque source ci-dessous a été **réellement appelée le 19/08/2026** (curl sur les API/fichiers, WebFetch quand curl était bloqué, recherches web croisées). Aucun verdict ne repose sur un souvenir : tout est constaté. Les extraits JSON/CSV sont des copies de réponses réelles.
 
 Contexte 2026 vérifié (recherche web) : le PLF 2026 a été déposé le 14/10/2025, rejeté en 1re lecture le 21/11/2025, une **loi de finances spéciale** a été promulguée fin décembre 2025, et la **LFI 2026 n'a été promulguée que le 19/02/2026** (JO du 20/02/2026, après 49.3 et validation du Conseil constitutionnel). Ce calendrier chaotique explique plusieurs absences de données ci-dessous (sources : senat.fr « la loi en clair PLF 2026 », kpmg.com/av/fr 02/2026, assemblee-nationale.fr dossier PLF_2026).
 

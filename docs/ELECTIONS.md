@@ -108,12 +108,10 @@ composant, qui est pur. Une importation de valeur fait échouer le build sur
 
 La publier exigerait tant de réserves qu'elle informerait moins qu'elle
 n'induirait en erreur. L'option retenue est « pas affichée du tout ».
-**Cette décision est réversible** : si la grille se stabilise, si le taux de
-remplissage devient homogène et si le contentieux est tranché, rouvrir ce
-paragraphe. Ce qu'il faudrait alors ajouter : une table
-`elections_nuances_*` alimentée depuis le même parquet (la colonne existe dans
-`candidats_results`, pas dans `general_results`) — donc, aussi, rouvrir le
-point 3.3.
+**Cette décision tient à ces quatre faits, pas à un principe** : elle vaut tant
+qu'ils valent. Elle est liée au point 3.3 : la colonne `nuance` n'existe
+que dans `candidats_results`, la ressource qui porte aussi les 646 104 noms de
+candidats, et que le pipeline ne télécharge pas.
 
 ### 3.2 Le bureau de vote
 

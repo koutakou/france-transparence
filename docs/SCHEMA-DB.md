@@ -2,6 +2,12 @@
 # complété le 20/08/2026 (renommage collectivites_communes → collectivites_communes_top200 ;
 # tables collectivites_communes_series et collectivites_communes_strates, comptages du 20/08)
 
+> **Extrait daté.** Ce document reproduit le schéma **tel qu'il était le 20/08/2026** : 62 tables
+> décrites, alors que la base en compte davantage depuis (les tables ajoutées après cette date n'y
+> figurent pas encore). Les comptages de lignes cités décrivent ce jour-là et **dérivent à chaque
+> ingestion**. Le schéma qui fait foi est celui de la base elle-même :
+> `sqlite3 -readonly data/france.db ".schema"`.
+
 ```
 CREATE TABLE meta_sources (
     source_id      TEXT PRIMARY KEY,          -- ex. 'S13', 'S1'
@@ -1083,10 +1089,10 @@ fusionner serait une reconstitution historique, pas une normalisation — et
 sur quarante ans d'intitulés ministériels, une normalisation hasardeuse
 produirait des agrégats faux, ce qui est bien pire que des libellés bruts.
 
-Le rapprochement avec les quatre autres vocabulaires reste donc **à faire**,
-le jour où un référentiel unifié sera construit. Ce n'est pas une dette
-cachée : c'est écrit ici pour que la table ne devienne pas un vocabulaire
-orphelin dont personne ne sait plus pourquoi il existe.
+Les cinq vocabulaires restent donc **distincts** : aucun rapprochement n'est
+fait avec les quatre autres, et aucun référentiel unifié n'existe. Ce n'est pas
+une dette cachée : c'est écrit ici pour que la table ne devienne pas un
+vocabulaire orphelin dont personne ne sait plus pourquoi il existe.
 
 ### 4. `cada_administrations.categorie` est une typologie, pas un classement officiel
 

@@ -32,4 +32,4 @@ Deux échéances peuvent éteindre le site sans prévenir, et aucune ne se règl
 - le **nom de domaine** `francetransparence.fr` (renouvellement annuel chez le registrar) ;
 - l'**abonnement au serveur dédié** (facturation Scaleway).
 
-Le certificat TLS, lui, se renouvelle automatiquement. Poser un rappel calendaire sur les deux premières échéances coûte cinq minutes et évite la panne la plus bête possible.
+Le certificat TLS, lui, se renouvelle automatiquement. Poser un rappel calendaire sur ces deux échéances coûte cinq minutes et évite la panne la plus bête possible.

@@ -2,6 +2,8 @@
 
 Chantier « pages à searchParams → statique + client » (DECISION.md), mesures réelles `curl` sur build classique servi en local (port 3622, brut non compressé), 19/08/2026.
 
+*État constaté le 19/08/2026. Les volumétries de ce document (poids des pages en octets, nombres de lignes et d'alertes) décrivent ce jour-là et ont dérivé depuis ; l'état courant se lit sur la page /donnees du site.*
+
 ## Par page — avant / après (octets bruts, budget < 500 000)
 
 | Page | Avant (audit) | Après | Passé côté client |

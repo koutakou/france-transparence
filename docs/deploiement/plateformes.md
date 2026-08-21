@@ -3,6 +3,8 @@
 Recherche menée le **19 août 2026** par WebSearch + lecture réelle des pages officielles (WebFetch).
 Chaque chiffre est daté et sourcé ; les pages bloquées (rendu JavaScript) sont signalées et croisées avec une seconde source, marquée *(tierce)*. Prix **HT sauf mention contraire** ; les mensuels dérivés d'un tarif horaire sont calculés sur 730 h et marqués « ≈ ».
 
+*État constaté le 19/08/2026. Les tarifs, quotas et limites relevés ici décrivent ce jour-là et ont dérivé depuis : aucun n'est à reprendre sans re-vérification sur la page officielle citée. Ce document reste consultable comme comparatif daté ; la question de l'hébergement a depuis été tranchée en faveur d'un serveur dédié ([DECISION.md](DECISION.md)).*
+
 Contexte marché important découvert pendant la recherche : **2026 est une année de hausses générales** (tension mondiale sur la RAM). Hetzner a relevé ses prix le 15/06/2026 (CX/CAX +30-40 %, CPX/CCX ×2,4+), OVH a fait évoluer sa gamme VPS en mars 2026. Les prix ci-dessous sont les prix **post-hausse**, pas ceux des comparatifs 2024-2025 qui traînent sur le web.
 
 ---

@@ -5,6 +5,8 @@
 - **Méthode** : mesures réelles `curl` sur http://localhost:3620 (aucune simulation) + lecture du code. Audit pur : **rien n'a été modifié**.
 - **TTFB** : mesuré à chaud, en local (pas de latence réseau) — sert de plancher, pas de prévision prod.
 
+*État constaté le 19/08/2026. Toutes les volumétries de ce document — poids de routes, taille de la base, nombre de pipelines, nombre de tests — décrivent ce jour-là et ont dérivé depuis ; l'état courant se lit sur la page /donnees du site, et le compte exact des pipelines et des tests se relève dans le dépôt. Les « chantiers R2 recommandés » du § final sont ce que l'audit préconisait alors : ils sont conservés tels quels comme trace de la décision, pas comme feuille de route courante.*
+
 ---
 
 ## 1. Poids et TTFB par route (mesures réelles)

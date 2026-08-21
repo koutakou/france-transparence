@@ -1,6 +1,8 @@
 # Rapport de mission — France Transparence
 
-**Mission menée le 19/08/2026. Tous les chiffres de ce rapport sont vérifiés dans `data/france.db` (lecture seule), `meta_sources`, la table `alertes`, le Makefile et le journal du projet (JOURNAL.md).**
+**Mission menée le 19/08/2026 (§ 10 ajouté le 20/08/2026). Tous les chiffres de ce rapport ont été vérifiés ces jours-là dans `data/france.db` (lecture seule), `meta_sources`, la table `alertes`, le Makefile et le journal du projet (JOURNAL.md).**
+
+> **Document daté — à lire au passé, en entier.** Les volumétries ci-dessous (nombre de pipelines, de sources, de tables, de tests, taille de la base, comptes de marchés, d'élus, de fiches, de pages) décrivent l'état constaté le 19-20/08/2026 et **ont dérivé depuis** : les sources publient quotidiennement et le périmètre ingéré s'est étendu. Rien n'est réécrit ici — ce qui est consigné a bien eu lieu. L'état courant se lit sur la page `/donnees` du site, régénérée à chaque publication, dans la variable `PIPELINES` du `Makefile` pour les pipelines, et dans `README.md` pour le reste.
 
 ---
 

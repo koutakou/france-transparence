@@ -1,6 +1,8 @@
 # R2C — Façade publique (mentions légales, RGPD, robots/sitemap/favicons/OG, footer)
 
-Chantier exécuté le 19/08/2026 sur la branche `worktree-agent-a0eb2b3946cd8f73f`. Périmètre : les 9 points « façade publique » — aucun fichier des autres chantiers touché (`next.config.ts` intact, `app/api/*`, pages listes, fiche élu, header/nav/recherche non modifiés).
+Chantier exécuté le 19/08/2026. Périmètre : les 9 points « façade publique » — aucun fichier des autres chantiers touché (`next.config.ts` intact, `app/api/*`, pages listes, fiche élu, header/nav/recherche non modifiés).
+
+*État constaté le 19/08/2026. Les volumétries de ce document (nombre de sources, de pages et de fiches) décrivent ce jour-là et ont dérivé depuis ; l'état courant se lit sur la page /donnees du site. L'hébergeur y est GitHub Pages : le site a depuis migré vers un serveur dédié, et les mentions légales en ligne font foi (voir [DECISION.md](DECISION.md) et [exigences-publiques.md](exigences-publiques.md)).*
 
 ## Livré
 

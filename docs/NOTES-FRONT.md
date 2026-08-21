@@ -1,6 +1,6 @@
 # Notes des pipelines pour le frontend — compilées le 19/08/2026
 
-Condensé des avertissements « pour le front » remontés par chaque pipeline après épreuve réelle. À lire avec docs/SCHEMA-DB.md (schéma exact + counts). Règle générale : **chaque module affiche son FreshnessBadge** (date_donnees, source, fréquence, url — depuis `meta_sources`) et ne montre JAMAIS un montant sans source.
+Condensé des avertissements « pour le front » remontés par chaque pipeline après épreuve réelle. À lire avec docs/SCHEMA-DB.md (schéma exact + counts). **Les volumétries et les montants cités sont ceux constatés à cette date** : les sources publient quotidiennement, ces valeurs dérivent à chaque ingestion, et seule celle qu'affiche le site fait foi. Ce qui ne dérive pas — les pièges de données, les conventions de calcul, les interdits d'affichage — est l'objet réel de ces notes. Règle générale : **chaque module affiche son FreshnessBadge** (date_donnees, source, fréquence, url — depuis `meta_sources`) et ne montre JAMAIS un montant sans source.
 
 ## Budget de l'État (S13, S20, S21, S23)
 - `budget_mensuel` : montants = **cumuls depuis le 1er janvier** (`montant_mois` = flux mensuel) ; dernier mois = `max(date_fin_mois)` (= 2026-06-30). Décomposition par titre : `categorie='Dépenses' AND sous_categorie='Budget général' AND niveau=2`. Colonnes `*_n1` pour la variation vs N−1.

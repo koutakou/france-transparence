@@ -4,6 +4,13 @@ Mesures rejouées sur la base réelle le **20/08/2026** (`data/france.db`, 469 M
 Sources croisées : **S4** — répertoire HATVP des représentants d'intérêts (AGORA), données au 18/08/2026 — et **S1** — DECP consolidées, données au 18/08/2026.
 Code : `app/src/lib/queries/croisement-lobbying-marches.ts`. Affichage : `/lobbying`. Export : `/api/lobbying-marches.json`.
 
+> **Chiffres datés.** Les deux sources sont quotidiennes : tous les volumes et montants de ce
+> document (taille de la base, comptes d'entités, de marchés, de SIREN, montants agrégés, fenêtre
+> DECP, temps de requête) décrivent la base **le 20/08/2026** et **ont dérivé depuis**. Ce qui ne
+> dérive pas — la clé de jointure, les exclusions, la sémantique des montants, les trois périmètres,
+> les pièges de plan de requête — est l'objet réel de ce document. Les valeurs du jour sont celles
+> qu'affiche `/lobbying` et qu'exporte `/api/lobbying-marches.json`.
+
 ## 1. Ce que le croisement dit — et ne dit pas
 
 Être inscrit au répertoire des représentants d'intérêts **et** être titulaire d'un marché public sont deux situations **légales, distinctes et courantes**. L'inscription au répertoire est une obligation de transparence (loi « Sapin II ») ; l'attribution d'un marché résulte d'une procédure d'achat encadrée. Le cumul n'est ni interdit, ni irrégulier, ni suspect en soi, et une entreprise, une association ou une chambre consulaire peut avoir des raisons parfaitement légitimes de figurer au répertoire.

@@ -1,6 +1,8 @@
 # R2A — Export statique cœur (config, fiches élus, exports JSON)
 
-19/08/2026 — branche `worktree-agent-aca705ddb6223f662`. Périmètre : next.config, 7 pages hors listes, fiches élus, exports JSON, Makefile/.gitignore.
+19/08/2026. Périmètre : next.config, 7 pages hors listes, fiches élus, exports JSON, Makefile/.gitignore.
+
+*État constaté le 19/08/2026. Les volumétries de ce document (nombres de fiches et de pages, tailles en octets) décrivent ce jour-là et ont dérivé depuis ; l'état courant se lit sur la page /donnees du site.*
 
 ## Fichiers modifiés
 

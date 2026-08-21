@@ -10,6 +10,14 @@ fichier amont du **14/08/2026**. Elles sont reproductibles : chaque chiffre
 sort soit du pipeline lui-même (`meta_sources.notes`), soit d'une requête sur
 `data/france.db`.
 
+> **Chiffres datés.** Les volumétries ci-dessous (nombre de fiches publiées,
+> fiches appariées, fiches non appariées, déclarations rattachées) décrivent la
+> base **le 20/08/2026** et **dérivent à chaque ingestion** : le parc de fiches
+> suit le répertoire des élus, le fichier amont est republié chaque semaine. Ce
+> qui ne dérive pas — la clé d'appariement, les raisons des non-appariements,
+> les garde-fous d'affichage — est l'objet réel de ce document. Les valeurs du
+> jour se lisent sur le site et sur sa page `/donnees`.
+
 ---
 
 ## 1. Source

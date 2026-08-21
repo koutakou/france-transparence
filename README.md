@@ -1,6 +1,6 @@
 # France Transparence
 
-Dashboard web sur la transparence de la vie politique française : dépenses de l'État, commande publique, élus, lobbying, financement politique, frais et train de vie, Journal officiel — **100 % données publiques réelles**, aucun chiffre fabriqué. L'honnêteté est le principe produit : chaque module affiche la date réelle de ses données (badge de fraîcheur alimenté par la table `meta_sources`), le mot « en direct » est banni parce qu'aucune source publique ne le permet, et ce que l'open data ne contient pas est documenté comme tel (la « boîte noire » du module Frais & train de vie). L'ensemble tient dans une base SQLite unique, reconstruite localement depuis 28 sources officielles tracées.
+Dashboard web sur la transparence de la vie politique française : dépenses de l'État, commande publique, élus, lobbying, financement politique, frais et train de vie, Journal officiel — **100 % données publiques réelles**, aucun chiffre fabriqué. L'honnêteté est le principe produit : chaque module affiche la date réelle de ses données (badge de fraîcheur alimenté par la table `meta_sources`), le mot « en direct » est banni parce qu'aucune source publique ne le permet, et ce que l'open data ne contient pas est documenté comme tel (la « boîte noire » du module Frais & train de vie). L'ensemble tient dans une base SQLite unique, reconstruite localement depuis 29 sources officielles tracées.
 
 ![Page d'accueil de France Transparence](docs/screenshots/accueil.png)
 
@@ -19,7 +19,7 @@ make build-static   # export statique local (FT_EXPORT=1 → app/out/)
 make serve-static   # sert app/out/ sur http://localhost:3620
 ```
 
-L'ancienne adresse GitHub Pages ne sert plus le site : elle ne porte plus qu'une **page de redirection canonique** vers le domaine (`pages-redirection/`). Publier une copie intégrale du site sur les deux hôtes aurait fait vivre deux sites identiques en ligne et partagé l'autorité de référencement de chacune des ~1 066 pages entre deux domaines ; GitHub Pages ne sachant pas émettre de 301, la canonique et le rafraîchissement méta sont les seuls instruments disponibles.
+L'ancienne adresse GitHub Pages ne sert plus le site : elle ne porte plus qu'une **page de redirection canonique** vers le domaine (`pages-redirection/`). Publier une copie intégrale du site sur les deux hôtes aurait fait vivre deux sites identiques en ligne et partagé l'autorité de référencement de chacune de ses quelque mille pages entre deux domaines ; GitHub Pages ne sachant pas émettre de 301, la canonique et le rafraîchissement méta sont les seuls instruments disponibles.
 
 **La CI GitHub Actions ne publie plus le site**, et ce n'est pas une perte : elle valide chaque jour (cron 04:45 UTC) la chaîne complète — ingestion de tous les pipelines dans une base neuve, tests, build, contrôles de santé — dans un environnement neuf, **indépendant du serveur**. Si une source amont casse, on l'apprend là avant que le serveur ne rebuilde. Elle vérifie aussi chaque proposition de fusion **avant** qu'elle n'atteigne `main`, puisque c'est `main` qui alimente le serveur.
 
@@ -35,15 +35,15 @@ Prérequis : `python3.14`, Node.js ≥ 24, `make`.
 
 ```bash
 make venv         # crée .venv (requests, duckdb, pytest)
-make ingest       # reconstruit data/france.db — ~5-10 min, de l'ordre de 1 Go
-                  # de téléchargements (703 Mo de bruts gardés en cache dans data/raw)
+make ingest       # reconstruit data/france.db — ~5-10 min et plus de 1 Go de
+                  # téléchargements, gardés en cache dans data/raw
 make app-install  # npm install dans app/
 make dev          # http://localhost:3620
 ```
 
 Production : `make build` puis `cd app && npm run start` (port 3620 dans les deux cas).
 
-La base `data/france.db` (447 Mo, 51 tables) est gitignorée : elle se reconstruit entièrement par `make ingest`.
+La base `data/france.db` (~470 Mo, 69 tables) est gitignorée : elle se reconstruit entièrement par `make ingest`.
 
 ## Ré-ingérer
 
@@ -80,20 +80,20 @@ Détails : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 | Route | Module | Contenu et fraîcheur réelle |
 |---|---|---|
-| `/` | Accueil | Compteurs, carte des marchés, flux JO et alertes — chaque bloc daté par sa source (budget au 30/06/2026, marchés J-1, JO du jour). |
-| `/depenses` | Dépenses de l'État | Exécution mensuelle DGFiP (données au 30/06/2026, ~6 semaines de décalage), structure PLF 2026 (mention « PLF » : la LFI 2026 n'existe pas en données), 112 722 subventions aux associations (versements 2023). |
-| `/marches` | Commande publique | 586 229 marchés consolidés (quotidien, notifications J-1, consolidation légale ≤ 2 mois), 9 011 appels d'offres en cours (BOAMP, jour même), 4 060 achats à venir (APProch). |
-| `/elus` | Élus & institutions | 36 018 élus (RNE du 11/08/2026, trimestriel) dont 577 députés et 348 sénateurs (open data AN/Sénat/Datan, quotidien). |
-| `/elus/[id]` | Fiche élu | 1 053 fiches statiques (parlementaires et présidences d'exécutifs départementaux/régionaux — les autres élus restent dans les listes et agrégats) : mandats, 30 derniers votes sur les 8 434 scrutins AN (dernier : 21/07/2026, vacances parlementaires), scores Datan crédités, lien HATVP. |
+| `/` | Accueil | Compteurs, carte des marchés, flux JO et alertes — chaque bloc daté par sa source (budget au dernier mois publié, marchés J-1, JO du jour). |
+| `/depenses` | Dépenses de l'État | Exécution mensuelle DGFiP (~6 semaines de décalage), structure PLF 2026 (mention « PLF » : la LFI 2026 n'existe pas en données), 112 722 subventions aux associations (versements 2023). |
+| `/marches` | Commande publique | Plus de 585 000 marchés consolidés (quotidien, notifications J-1, consolidation légale ≤ 2 mois), environ 9 000 appels d'offres en cours (BOAMP, jour même), environ 4 000 achats à venir (APProch). |
+| `/elus` | Élus & institutions | Environ 36 000 élus (RNE, trimestriel) dont 577 députés et 348 sénateurs (open data AN/Sénat/Datan, quotidien). |
+| `/elus/[id]` | Fiche élu | Plus de 1 000 fiches statiques (parlementaires et présidences d'exécutifs départementaux/régionaux — les autres élus restent dans les listes et agrégats) : mandats, 30 derniers votes sur les quelque 8 400 scrutins AN (le scrutin le plus récent est daté : hors session, il peut avoir plusieurs semaines), scores Datan crédités, lien HATVP. |
 | `/lobbying` | Lobbying | Répertoire HATVP des représentants d'intérêts (quotidien) : entités inscrites, activités déclarées, dépenses par exercice annuel en fourchettes, croisement avec les marchés publics. Puis, dans un bloc **cloisonné** en fin de page, le registre de transparence de l'Union européenne (quotidien) : organisations inscrites, dont celles à siège en France. Deux registres, deux cadres juridiques — jamais fusionnés, jamais comparés. |
 | `/financement` | Financement politique | Comptes des partis, exercice 2024 (publié le 10/02/2026 — le dernier possible) ; comptes de campagne des législatives 2024, 4 010 candidats (municipales 2026 : aucun compte publié à ce jour, instruction CNCCFP en cours). |
-| `/frais` | Frais & train de vie | 56 faits chiffrés sourcés (barèmes au 01/01/2026, contrôles exercice 2024, Élysée audité 2024) + 8 opacités documentées — pas de notes de frais : elles ne sont ni publiées ni communicables. **Carte des verrous** : 60 941 avis et conseils de la CADA de 1984 à 2024, dépouillés en agrégats (qui refuse, sur quel fondement, et dans quel sens la commission tranche), avec les 28 mois de retard de versement de la source affichés en clair. |
+| `/frais` | Frais & train de vie | 56 faits chiffrés sourcés (barèmes au 01/01/2026, contrôles exercice 2024, Élysée audité 2024) + 8 opacités documentées — pas de notes de frais : elles ne sont ni publiées ni communicables. **Carte des verrous** : 60 941 avis et conseils de la CADA de 1984 à 2024, dépouillés en agrégats (qui refuse, sur quel fondement, et dans quel sens la commission tranche), avec le retard de versement de la source affiché en clair. |
 | `/collectivites` | Finances locales | Comptes OFGL 2025 (provisoires, chargés en juillet 2026), dotations DGF 2018-2026, carte en €/habitant. |
-| `/documents` | Journal officiel | 2 778 textes des 30 derniers JO (quotidien, JO du jour disponible vers 00h30), filtres lois/décrets/nominations. |
-| `/alertes` | Alertes transparence | 1 590 alertes sur 8 types, chacune avec sa règle de calcul et sa base légale, recalculées à chaque ingestion. |
-| `/donnees` | Données & exports | Catalogue des 28 sources avec fraîcheur mesurée (le moniteur de santé des sources), licences, règles des alertes, 6 exports JSON statiques (méta, alertes, élus, budget mensuel, agrégats marchés, index de recherche) reconstruits à chaque publication. |
+| `/documents` | Journal officiel | Environ 2 700 textes des 30 derniers JO (quotidien, JO du jour disponible vers 00h30), filtres lois/décrets/nominations. |
+| `/alertes` | Alertes transparence | Environ 1 600 alertes sur 8 types, chacune avec sa règle de calcul et sa base légale, recalculées à chaque ingestion. |
+| `/donnees` | Données & exports | Catalogue des 29 sources avec fraîcheur mesurée (le moniteur de santé des sources), licences, règles des alertes, 6 exports JSON statiques (méta, alertes, élus, budget mensuel, agrégats marchés, index de recherche) reconstruits à chaque publication. |
 
-Les volumes chiffrés de ce tableau sont un **instantané daté du 19/08/2026** : la plupart des sources publient quotidiennement, ces nombres bougent donc à chaque ingestion. La seule valeur qui fait foi est celle affichée par le site lui-même, avec la date de ses données — c'est le rôle du badge de fraîcheur et de la page `/donnees`.
+Les volumes de ce tableau sont donnés en **ordre de grandeur** : la plupart des sources publient quotidiennement, ces nombres bougent à chaque ingestion. La seule valeur qui fait foi est celle affichée par le site lui-même, avec la date de ses données — c'est le rôle du badge de fraîcheur et de la page `/donnees`, régénérée à chaque publication.
 
 ## Sources & licences
 
@@ -123,12 +123,12 @@ Crédits : consolidation DECP par le projet communautaire `decp-processing` de C
 
 Assumées et affichées dans l'interface — l'honnêteté est le principe produit :
 
-- **Budget de l'État** : publication mensuelle avec ~6 semaines de décalage (données au 30/06/2026 constatées le 19/08). Aucun flux Chorus temps réel n'existe en open data.
+- **Budget de l'État** : publication mensuelle avec ~6 semaines de décalage ; la date réelle du dernier mois publié est portée par le badge de fraîcheur et par `/donnees`. Aucun flux Chorus temps réel n'existe en open data.
 - **Notes de frais parlementaires** : ni publiées ni communicables (ord. 58-1100, CE mars 2025, refus écrits AN/Sénat du 11/06/2026) → le module Frais & train de vie est pédagogique : barèmes exacts, contrôles agrégés, opacités documentées.
 - **Montants d'accords-cadres** : ce sont des maximums contractuels, pas des paiements — libellés « marchés notifiés », jamais « dépensé ».
 - **DECP** : latence légale de publication jusqu'à 2 mois — mention « en cours de consolidation » partout où le flux apparaît.
 - **Lobbying** : la donnée HATVP ne sépare pas AN et Sénat (« Parlement » agrégé) et les dépenses sont déclarées par exercice annuel. Le registre européen, lui, ne publie aucun identifiant national d'entreprise (ni SIREN, ni TVA) : aucun rapprochement automatique n'est possible entre les deux registres, et aucun n'est tenté.
-- **Comptes locaux 2025** : provisoires (chargés en juillet 2026, ~97 communes manquantes jusqu'en décembre 2026).
+- **Comptes locaux 2025** : provisoires (chargés en juillet 2026, ~97 communes manquantes).
 - **Outre-mer** : hors rendu de la carte (présent dans les tableaux et agrégats).
 - **Scrutins du Sénat** : non ingérés à ce jour (le dump Dosleg n'est pas exploité).
 

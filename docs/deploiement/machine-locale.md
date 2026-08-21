@@ -2,6 +2,8 @@
 
 Relevé du 2026-08-19 sur le M4 Max (Darwin 25.6.0, arm64). Méthode : `command -v`, versions, statuts d'auth avec timeout, tests réseau réels. Aucune valeur de token/clé/mot de passe n'a été lue ni recopiée — présence et identités seulement.
 
+*État constaté le 19/08/2026 : c'est l'inventaire d'une machine à une date, pas une description de l'installation courante. Deux points ont changé depuis et ne doivent pas être suivis tels quels — le dépôt git existe désormais (voir le § GitHub), et le site n'est plus publié depuis cette machine mais reconstruit chaque matin sur le serveur dédié ([RUNBOOK.md](RUNBOOK.md)).*
+
 ## CLIs présents
 
 ### Plateformes de déploiement (PaaS)
