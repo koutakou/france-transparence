@@ -15,12 +15,26 @@ Ce qui manque réellement, mesuré sur la base du 21/08/2026 :
    ne le doivent qu'à `subventions_associations`, dont le champ d'état est
    par ailleurs inexploitable (il concatène état et date, et charrie des
    dates sérielles Excel non converties).
-2. **La stabilité du nom.** 2 536 SIREN titulaires de marchés portent 6 437
-   libellés distincts dans les DECP — la même entreprise écrite de deux ou
-   trois façons. Sans dénomination de référence, tout dénombrement ou tout
-   classement par nom éclate une entreprise en plusieurs.
-3. **La validité de l'identifiant.** 7 406 lignes DECP portent un SIRET
-   malformé (numéros de TVA intracommunautaire, `00001`, `999999999`…).
+2. **La stabilité du nom.** Plusieurs milliers de SIREN titulaires portent
+   dans les DECP deux ou trois libellés différents — la même entreprise
+   écrite de plusieurs façons — et le libellé déclaré nomme souvent
+   l'ÉTABLISSEMENT, pas l'entreprise (« COLAS FRANCE (ETABLISSEMENT DE
+   MERIGNAC) », « VILLE DE PARIS (MAIRIE) »). Sans dénomination de
+   référence, tout dénombrement ou tout classement par nom éclate une
+   entreprise en plusieurs. C'est ce que `denomination` sert désormais à
+   corriger : `decp_top_titulaires` et `decp_top_acheteurs` classent des
+   SIREN, et le libellé affiché est joint depuis cette table à la requête.
+3. **La validité de l'identifiant.** Environ une ligne titulaire sur
+   soixante-dix porte un identifiant dont on ne peut extraire aucun SIREN
+   (numéros de TVA intracommunautaire, `00001`, `999999999`…).
+
+Les deux constats ci-dessus portaient jusqu'au 21/08/2026 des comptes exacts
+figés en commentaire. Ils ont été retirés, et la raison vaut d'être retenue :
+ils étaient datés du jour, mais la base a changé DEUX fois ce jour-là — une
+date ne suffit donc pas à épingler un chiffre. Les comptes vivants sont
+ailleurs, dans `decp_titulaires_qualite` (une ligne, recalculée à chaque
+ingestion), qui donne lignes écartées, identifiants distincts écartés,
+montant écarté, et le rapport SIRET → SIREN de la fenêtre.
 
 D'où le périmètre retenu : un référentiel d'ATTRIBUTS, restreint aux SIREN
 que la base cite réellement.
@@ -195,9 +209,19 @@ UNION SELECT siren FROM collectivites_communes_top200 WHERE siren GLOB '{_G9}'
 UNION SELECT siren FROM collectivites_conseils_departementaux
     WHERE siren GLOB '{_G9}'
 UNION SELECT siren FROM collectivites_regions WHERE siren GLOB '{_G9}'
-UNION SELECT substr(siret, 1, 9) FROM decp_top_acheteurs WHERE siret GLOB '{_G14}'
-UNION SELECT substr(siret, 1, 9) FROM decp_top_titulaires WHERE siret GLOB '{_G14}'
+UNION SELECT siren FROM decp_top_acheteurs WHERE siren GLOB '{_G9}'
+UNION SELECT siren FROM decp_top_titulaires WHERE siren GLOB '{_G9}'
 """
+# POURQUOI GARDER LES DEUX DERNIERS TERMES, qui n'apportent RIEN aujourd'hui.
+# Mesuré sur la base servie : les trois premiers termes citent 99 425 SIREN,
+# les deux tables de classement en citent 95, et l'intersection est totale —
+# 0 SIREN apporté en plus. C'est vrai par construction, ces tables étant
+# calculées sur `decp_marches`. Ils sont conservés parce que le front JOINT
+# désormais `sirene_unites_legales` sur ces deux tables pour obtenir le
+# libellé de référence AFFICHÉ : un SIREN classé mais absent du référentiel
+# retomberait en silence sur le libellé déclaré dans le DECP. Le terme
+# redondant est ce qui rend cette couverture explicite au lieu de la faire
+# dépendre d'un raisonnement tenu ailleurs.
 
 # Extraction DuckDB. Le SELECT est la garantie de minimisation : ni
 # nomUniteLegale, ni nomUsageUniteLegale, ni prenom*, ni prenomUsuel, ni

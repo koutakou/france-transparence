@@ -43,10 +43,59 @@ Tables produites (module UI « Commande publique » + carte de France + Accueil)
 - decp_agg_mois — série mensuelle, 36 derniers mois civils :
   mois (PK, 'YYYY-MM'), nb_marches, montant_total (écrêté).
 
-- decp_top_acheteurs / decp_top_titulaires — 12 derniers mois, top 50 :
-  rang (PK), siret, nom, nb_marches, montant_total (écrêté ; pour les
-  titulaires, montant du marché divisé par le nombre de co-titulaires,
-  et catégorie PME/ETI/GE si connue).
+- decp_top_acheteurs / decp_top_titulaires — 12 derniers mois, top 50,
+  regroupés par ENTREPRISE (SIREN = 9 premiers chiffres du SIRET) et non par
+  établissement : rang (PK), siren, nom, categorie (titulaires seulement,
+  PME/ETI/GE si connue), nb_etablissements (SIRET distincts regroupés),
+  nb_marches (marchés DISTINCTS — un marché ne compte qu'une fois même si
+  deux établissements du même SIREN y sont co-titulaires), montant_total
+  (écrêté ; pour les titulaires, montant du marché divisé par le nombre de
+  co-titulaires). POURQUOI par entreprise : agrégé par établissement, un
+  groupe à réseau local est émietté en autant de lignes qu'il a de SIRET —
+  aucune ne franchit le seuil d'entrée, et le groupe disparaît du classement
+  dont il serait pourtant le premier. Seuls les identifiants CONFORMES
+  (exactement 14 chiffres) entrent au classement ; les autres sont écartés
+  ET comptés (cf. decp_titulaires_qualite). `nom` et `categorie` sont les
+  libellés DÉCLARÉS dans le DECP, choisis de façon déterministe (le plus
+  fréquent parmi les lignes du SIREN, ex æquo départagés par ordre
+  alphabétique) : ce sont des REPLIS, le libellé de référence Sirene est
+  joint côté requête et non écrit ici — nommer depuis ce pipeline créerait
+  un couplage d'écriture entre pipelines.
+
+- decp_titulaires_qualite — UNE ligne (id = 1), même fenêtre 12 mois : ce que
+  le regroupement par entreprise retient et ce qu'il écarte. nb_marches (par
+  construction égal à decp_qualite_montants.nb_marches),
+  nb_marches_avec_titulaire, nb_lignes (couples marché × titulaire),
+  nb_lignes_identifiables / nb_lignes_ecartees et les deux montants
+  correspondants, nb_identifiants_ecartes, nb_sirets, nb_sirens,
+  nb_sirens_multi_etab (SIREN portant plus d'un SIRET titulaire). Invariants
+  publiés avec la table : nb_lignes = identifiables + écartées, et de même
+  pour les montants ; nb_sirets + nb_identifiants_ecartes = nombre
+  d'identifiants titulaires distincts de la fenêtre. Sert à dire au lecteur
+  combien de titulaires le classement ne peut pas nommer, au lieu de les
+  laisser figurer sous un identifiant-rebut sans nom.
+
+- decp_acheteurs_qualite — UNE ligne (id = 1), même fenêtre 12 mois : le
+  pendant de la précédente pour les acheteurs. nb_marches (même source, donc
+  même valeur, que decp_qualite_montants.nb_marches),
+  nb_marches_avec_acheteur (acheteur renseigné, conforme ou non),
+  nb_marches_identifiables / nb_marches_ecartes et les deux montants
+  correspondants, nb_identifiants_ecartes, nb_sirets, nb_sirens,
+  nb_sirens_multi_etab. POURQUOI cette table est PLUS COURTE que celle des
+  titulaires, et non son décalque : un marché n'a qu'UN acheteur
+  (`acheteur_siret` est scalaire à la source), le couple marché × acheteur
+  n'existe donc pas — l'unité de compte est le MARCHÉ, et inventer une ligne
+  « couple » par symétrie ferait croire à un dénombrement qui n'a pas d'objet.
+  Invariant publié avec la table : nb_marches_avec_acheteur =
+  identifiables + écartés (et NON nb_marches, dont il se distingue des
+  marchés sans acheteur renseigné), et de même pour les montants.
+  POURQUOI une table à part plutôt que des colonnes de plus dans
+  decp_titulaires_qualite : y loger des compteurs d'acheteurs ferait mentir
+  son nom. Et pourquoi la tenir alors que les acheteurs écartés se comptent
+  sur les doigts, quand les titulaires écartés se comptent par milliers : la
+  règle « on écarte et on compte » ne se mesure pas à l'ampleur du phénomène
+  — ce qui est interdit, c'est la disparition sans compteur. Le jour où ce
+  nombre grossit, le compteur existe déjà.
 
 - decp_repartition — 12 derniers mois : dimension ('procedure'|'nature'),
   valeur (libellé le plus fréquent après normalisation casse/accents ;
@@ -255,6 +304,28 @@ _SQL_CLE_LIBELLE = (
     ")), '\\s+', ' ', 'g'))"
 )
 
+# Identifiant d'établissement CONFORME : exactement 14 caractères, tous des
+# chiffres. POURQUOI un filtre plutôt qu'une tolérance : la source livre des
+# identifiants-rebut (numéros internes, chaînes tronquées, sigles) qui ne
+# désignent aucun établissement ; leurs 9 premiers caractères ne sont pas un
+# SIREN, et les regrouper fabriquerait une entreprise qui n'existe pas. Un tel
+# identifiant a déjà été servi dans les tout premiers rangs des titulaires,
+# sans nom, en agrégeant des marchés sans rapport entre eux. Doctrine maison :
+# on ÉCARTE et on COMPTE (decp_titulaires_qualite) — jamais de valeur par
+# défaut à la place, jamais de disparition silencieuse.
+# POURQUOI '[0-9]+' plus le test de longueur, et non '[0-9]{14}' : ce fragment
+# est interpolé dans des f-strings, où les accolades devraient être doublées ;
+# la forme retenue dit exactement la même chose sans piège de relecture.
+_SQL_IDENTIFIANT_CONFORME = (
+    "({col} IS NOT NULL AND length({col}) = 14 "
+    "AND regexp_full_match({col}, '[0-9]+'))"
+)
+
+# SIREN de l'entreprise = les 9 premiers chiffres du SIRET de l'établissement
+# (les 5 suivants sont le NIC, propre à l'établissement). Écrit une fois pour
+# que les titulaires et les acheteurs ne puissent pas diverger de règle.
+_SQL_SIREN = "substr({col}, 1, 9)"
+
 # ---------------------------------------------------------------------------
 # Schéma SQLite (CREATE TABLE IF NOT EXISTS — réécriture idempotente ensuite)
 # ---------------------------------------------------------------------------
@@ -309,20 +380,51 @@ CREATE TABLE IF NOT EXISTS decp_agg_mois (
 );
 
 CREATE TABLE IF NOT EXISTS decp_top_acheteurs (
-    rang          INTEGER PRIMARY KEY,
-    siret         TEXT,
-    nom           TEXT,
-    nb_marches    INTEGER NOT NULL,
-    montant_total REAL
+    rang              INTEGER PRIMARY KEY,
+    siren             TEXT,
+    nom               TEXT,
+    nb_etablissements INTEGER NOT NULL,
+    nb_marches        INTEGER NOT NULL,
+    montant_total     REAL
 );
 
 CREATE TABLE IF NOT EXISTS decp_top_titulaires (
-    rang          INTEGER PRIMARY KEY,
-    siret         TEXT,
-    nom           TEXT,
-    categorie     TEXT,
-    nb_marches    INTEGER NOT NULL,
-    montant_total REAL
+    rang              INTEGER PRIMARY KEY,
+    siren             TEXT,
+    nom               TEXT,
+    categorie         TEXT,
+    nb_etablissements INTEGER NOT NULL,
+    nb_marches        INTEGER NOT NULL,
+    montant_total     REAL
+);
+
+CREATE TABLE IF NOT EXISTS decp_titulaires_qualite (
+    id                        INTEGER PRIMARY KEY CHECK (id = 1),
+    nb_marches                INTEGER NOT NULL,
+    nb_marches_avec_titulaire INTEGER NOT NULL,
+    nb_lignes                 INTEGER NOT NULL,
+    nb_lignes_identifiables   INTEGER NOT NULL,
+    nb_lignes_ecartees        INTEGER NOT NULL,
+    montant_identifiable      REAL,
+    montant_ecarte            REAL,
+    nb_identifiants_ecartes   INTEGER NOT NULL,
+    nb_sirets                 INTEGER NOT NULL,
+    nb_sirens                 INTEGER NOT NULL,
+    nb_sirens_multi_etab      INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS decp_acheteurs_qualite (
+    id                       INTEGER PRIMARY KEY CHECK (id = 1),
+    nb_marches               INTEGER NOT NULL,
+    nb_marches_avec_acheteur INTEGER NOT NULL,
+    nb_marches_identifiables INTEGER NOT NULL,
+    nb_marches_ecartes       INTEGER NOT NULL,
+    montant_identifiable     REAL,
+    montant_ecarte           REAL,
+    nb_identifiants_ecartes  INTEGER NOT NULL,
+    nb_sirets                INTEGER NOT NULL,
+    nb_sirens                INTEGER NOT NULL,
+    nb_sirens_multi_etab     INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS decp_qualite_montants (
@@ -406,6 +508,36 @@ _CHAMPS_MARCHE = [
 # ---------------------------------------------------------------------------
 # Transformation (pure : parquet + date de référence → tables temp DuckDB)
 # ---------------------------------------------------------------------------
+
+
+def _sql_libelle_dominant(source: str, cle: str, colonne: str) -> str:
+    """SQL du libellé DOMINANT d'un groupe : le plus fréquent, ex æquo alphabétiques.
+
+    POURQUOI pas `any_value()`, qui suffisait tant qu'un groupe valait un
+    établissement : un SIREN peut réunir deux cents établissements aux
+    libellés déclarés différents, et `any_value()` en rend un ARBITRAIRE, qui
+    peut changer d'un passage à l'autre sans qu'aucune donnée ait bougé — le
+    classement cesse alors d'être rejouable à l'identique, ce qui est
+    précisément ce qu'on demande à un pipeline pur.
+    POURQUOI un départage alphabétique : sans lui, deux libellés à égalité de
+    fréquence laisseraient le résultat indéterminé, et le problème reviendrait
+    intact sur les groupes à deux établissements.
+    Les NULL NE VOTENT PAS — un libellé absent n'est pas un libellé, et le
+    compter ferait gagner « rien » face à un nom réel. Un groupe sans aucun
+    libellé ne ressort donc pas de cette sous-requête : la jointure EXTERNE de
+    l'appelant y laisse NULL, ce qui dit « non renseigné » sans rien inventer.
+    """
+    return f"""
+        SELECT {cle}, {colonne} FROM (
+            SELECT {cle}, {colonne},
+                   row_number() OVER (
+                       PARTITION BY {cle}
+                       ORDER BY count(*) DESC, {colonne}) AS rang_libelle
+            FROM {source}
+            WHERE {colonne} IS NOT NULL
+            GROUP BY {cle}, {colonne}
+        ) WHERE rang_libelle = 1
+    """
 
 
 def transformer(
@@ -618,39 +750,135 @@ def transformer(
         """
     )
 
+    # Population du classement des acheteurs : les marchés de la fenêtre 12
+    # mois dont l'acheteur est RENSEIGNÉ, avec leur SIREN et le verdict de
+    # conformité de l'identifiant. Même dispositif que pour les titulaires :
+    # UNE table de population, dont le classement ET les compteurs de qualité
+    # dérivent par des filtres strictement COMPLÉMENTAIRES — la partition est
+    # ainsi vraie par CONSTRUCTION, et non par concordance de deux comptes
+    # écrits séparément.
+    # L'unité est ici le MARCHÉ et non un couple : `acheteur_siret` est
+    # scalaire à la source, un marché n'a qu'un acheteur. `recents` portant
+    # déjà UNE ligne par marché, count(*) y est un compte de marchés.
+    duck.execute(
+        f"""
+        CREATE TEMP TABLE t_acheteurs_marches AS
+        SELECT uid,
+               acheteur_siret,
+               {_SQL_SIREN.format(col='acheteur_siret')}                AS siren,
+               acheteur_nom                                             AS nom,
+               {_SQL_IDENTIFIANT_CONFORME.format(col='acheteur_siret')} AS identifiable,
+               montant_ecrete
+        FROM recents
+        WHERE acheteur_siret IS NOT NULL
+        """
+    )
+
+    duck.execute(
+        """
+        CREATE TEMP VIEW acheteurs_conformes AS
+        SELECT * FROM t_acheteurs_marches WHERE identifiable
+        """
+    )
+
+    # Top acheteurs par ENTREPRISE (SIREN), comme les titulaires. POURQUOI
+    # aligner les deux alors que l'effet est bien plus faible ici — la plupart
+    # des acheteurs publics n'ont qu'un établissement acheteur : servir un
+    # classement par entreprise d'un côté et par établissement de l'autre
+    # serait une différence de définition invisible à l'écran et
+    # inexplicable au lecteur. Une même règle, énoncée une fois.
     duck.execute(
         f"""
         CREATE TEMP TABLE t_top_acheteurs AS
-        SELECT row_number() OVER (ORDER BY sum(montant_ecrete) DESC NULLS LAST,
-                                  acheteur_siret) AS rang,
-               acheteur_siret                     AS siret,
-               any_value(acheteur_nom)            AS nom,
-               count(*)                           AS nb_marches,
-               sum(montant_ecrete)                AS montant_total
-        FROM recents
-        WHERE acheteur_siret IS NOT NULL
-        GROUP BY acheteur_siret
+        WITH par_siren AS (
+            SELECT siren,
+                   count(DISTINCT acheteur_siret) AS nb_etablissements,
+                   count(*)                       AS nb_marches,
+                   sum(montant_ecrete)            AS montant_total
+            FROM acheteurs_conformes
+            GROUP BY siren
+        ),
+        noms AS ({_sql_libelle_dominant('acheteurs_conformes', 'siren', 'nom')})
+        SELECT row_number() OVER (ORDER BY p.montant_total DESC NULLS LAST,
+                                  p.siren)   AS rang,
+               p.siren, n.nom,
+               p.nb_etablissements, p.nb_marches, p.montant_total
+        FROM par_siren p
+        LEFT JOIN noms n USING (siren)
         ORDER BY rang
         LIMIT {NB_TOP}
         """
     )
 
-    # Top titulaires : montant écrêté du marché réparti à parts égales entre
-    # co-titulaires (convention documentée — le montant DECP est celui du
-    # marché entier, pas de ventilation à la source).
+    # Population des titulaires de la fenêtre 12 mois : un couple (marché ×
+    # titulaire) par ligne, avec sa part de montant et le verdict de
+    # conformité de l'identifiant.
+    # POURQUOI UNE SEULE table pour le classement ET pour les compteurs de
+    # qualité : un compteur de défauts ne se vérifie que par RECOMPOSITION de
+    # la population de départ. Retenus et écartés sont ici deux filtres
+    # strictement COMPLÉMENTAIRES (`identifiable` / `NOT identifiable`) sur
+    # les mêmes lignes, et non deux comptes écrits séparément qui pourraient
+    # dériver l'un de l'autre sans que rien ne le signale. `identifiable` ne
+    # vaut jamais NULL — un identifiant absent est déjà exclu de t_titulaires,
+    # et le test de nullité ouvre de toute façon la conjonction : sans cela la
+    # partition fuirait par le milieu.
+    # Convention de montant, la même que partout ailleurs : montant écrêté au
+    # plafond, puis divisé par le nombre de co-titulaires (le montant DECP est
+    # celui du marché entier, la source ne le ventile pas). Un montant absent
+    # reste NULL et n'entre dans aucune somme.
+    duck.execute(
+        f"""
+        CREATE TEMP TABLE t_titulaires_lignes AS
+        SELECT t.uid,
+               t.titulaire_id,
+               {_SQL_SIREN.format(col='t.titulaire_id')}                AS siren,
+               t.nom,
+               t.categorie,
+               {_SQL_IDENTIFIANT_CONFORME.format(col='t.titulaire_id')} AS identifiable,
+               r.montant_ecrete / r.nb_titulaires                       AS montant_part
+        FROM t_titulaires t
+        JOIN recents r USING (uid)
+        """
+    )
+
+    duck.execute(
+        """
+        CREATE TEMP VIEW titulaires_conformes AS
+        SELECT * FROM t_titulaires_lignes WHERE identifiable
+        """
+    )
+
+    # Top titulaires par ENTREPRISE (SIREN). POURQUOI : agrégé par
+    # établissement, un groupe à réseau local voit ses marchés répartis sur
+    # ses dizaines ou centaines de SIRET ; aucun n'atteint le seuil d'entrée
+    # du top 50, et le groupe est absent d'un classement dont il serait le
+    # premier. Le croisement lobbying × marchés du site joint déjà sur le
+    # SIREN : le classement s'aligne sur la même unité, l'entreprise.
+    # POURQUOI count(DISTINCT uid) et non count(*) : deux établissements d'un
+    # même SIREN peuvent être CO-TITULAIRES du même marché — ce marché ne doit
+    # être compté qu'une fois, sans quoi la colonne annoncerait plus de
+    # marchés qu'il n'en existe. Le montant, lui, additionne bien les deux
+    # parts : c'est ce que le groupe a emporté.
     duck.execute(
         f"""
         CREATE TEMP TABLE t_top_titulaires AS
-        SELECT row_number() OVER (ORDER BY sum(r.montant_ecrete / r.nb_titulaires)
-                                  DESC NULLS LAST, t.titulaire_id) AS rang,
-               t.titulaire_id                                      AS siret,
-               any_value(t.nom)                                    AS nom,
-               any_value(t.categorie)                              AS categorie,
-               count(*)                                            AS nb_marches,
-               sum(r.montant_ecrete / r.nb_titulaires)             AS montant_total
-        FROM t_titulaires t
-        JOIN recents r USING (uid)
-        GROUP BY t.titulaire_id
+        WITH par_siren AS (
+            SELECT siren,
+                   count(DISTINCT titulaire_id) AS nb_etablissements,
+                   count(DISTINCT uid)          AS nb_marches,
+                   sum(montant_part)            AS montant_total
+            FROM titulaires_conformes
+            GROUP BY siren
+        ),
+        noms AS ({_sql_libelle_dominant('titulaires_conformes', 'siren', 'nom')}),
+        cats AS ({_sql_libelle_dominant('titulaires_conformes', 'siren', 'categorie')})
+        SELECT row_number() OVER (ORDER BY p.montant_total DESC NULLS LAST,
+                                  p.siren)   AS rang,
+               p.siren, n.nom, c.categorie,
+               p.nb_etablissements, p.nb_marches, p.montant_total
+        FROM par_siren p
+        LEFT JOIN noms n USING (siren)
+        LEFT JOIN cats c USING (siren)
         ORDER BY rang
         LIMIT {NB_TOP}
         """
@@ -699,6 +927,79 @@ def transformer(
                count(*) FILTER (montant_retenu IS NULL)       AS nb_sans_montant,
                CAST({p['plafond']} AS DOUBLE)                 AS plafond
         FROM recents
+        """
+    )
+
+    # Qualité du regroupement par entreprise : ce que le classement retient et
+    # ce qu'il écarte, sur la MÊME fenêtre 12 mois. Calculée ICI, dénominateurs
+    # compris, pour la raison qui vaut déjà pour t_qualite_montants : la coupe
+    # des 12 mois dépend du jour d'ingestion et n'est stockée nulle part en
+    # base, une requête d'affichage ne saurait pas la retrouver.
+    # TOUS les compteurs de lignes sortent d'un SEUL parcours de
+    # t_titulaires_lignes, avec des filtres complémentaires : la table est donc
+    # cohérente PAR CONSTRUCTION — nb_lignes = identifiables + écartées, et de
+    # même pour les montants. Les deux compteurs d'identifiants distincts
+    # partagent la même propriété : nb_sirets + nb_identifiants_ecartes = les
+    # identifiants titulaires distincts de la fenêtre.
+    # nb_marches vient de `recents`, la source exacte de
+    # decp_qualite_montants.nb_marches : les deux tables affichent le même
+    # dénominateur parce qu'elles le lisent au même endroit, non parce que
+    # deux calculs se trouvent tomber juste.
+    duck.execute(
+        """
+        CREATE TEMP TABLE t_titulaires_qualite AS
+        SELECT 1                                     AS id,
+               (SELECT count(*) FROM recents)        AS nb_marches,
+               count(DISTINCT uid)                   AS nb_marches_avec_titulaire,
+               count(*)                              AS nb_lignes,
+               count(*) FILTER (identifiable)        AS nb_lignes_identifiables,
+               count(*) FILTER (NOT identifiable)    AS nb_lignes_ecartees,
+               sum(montant_part) FILTER (identifiable)     AS montant_identifiable,
+               sum(montant_part) FILTER (NOT identifiable) AS montant_ecarte,
+               count(DISTINCT titulaire_id) FILTER (NOT identifiable)
+                                                     AS nb_identifiants_ecartes,
+               count(DISTINCT titulaire_id) FILTER (identifiable) AS nb_sirets,
+               count(DISTINCT siren) FILTER (identifiable)        AS nb_sirens,
+               (SELECT count(*) FROM (
+                    SELECT siren FROM titulaires_conformes
+                    GROUP BY siren
+                    HAVING count(DISTINCT titulaire_id) > 1))
+                                                     AS nb_sirens_multi_etab
+        FROM t_titulaires_lignes
+        """
+    )
+
+    # Qualité du regroupement par entreprise, côté ACHETEURS. Même dispositif
+    # que t_titulaires_qualite, et volontairement PLUS COURT : l'unité de
+    # compte est le marché, pas un couple qui n'existe pas ici.
+    # nb_marches sort de `recents`, la source exacte de
+    # decp_qualite_montants.nb_marches et de t_titulaires_qualite.nb_marches :
+    # trois tables ne peuvent pas afficher trois dénominateurs pour une même
+    # fenêtre, parce qu'elles le lisent au même endroit.
+    # Le dénominateur de la PARTITION, lui, est nb_marches_avec_acheteur, plus
+    # petit dès qu'un marché de la fenêtre n'a aucun acheteur renseigné : les
+    # confondre ferait passer un défaut de saisie amont pour un identifiant
+    # écarté par nous.
+    duck.execute(
+        """
+        CREATE TEMP TABLE t_acheteurs_qualite AS
+        SELECT 1                                     AS id,
+               (SELECT count(*) FROM recents)         AS nb_marches,
+               count(*)                               AS nb_marches_avec_acheteur,
+               count(*) FILTER (identifiable)         AS nb_marches_identifiables,
+               count(*) FILTER (NOT identifiable)     AS nb_marches_ecartes,
+               sum(montant_ecrete) FILTER (identifiable)     AS montant_identifiable,
+               sum(montant_ecrete) FILTER (NOT identifiable) AS montant_ecarte,
+               count(DISTINCT acheteur_siret) FILTER (NOT identifiable)
+                                                      AS nb_identifiants_ecartes,
+               count(DISTINCT acheteur_siret) FILTER (identifiable) AS nb_sirets,
+               count(DISTINCT siren) FILTER (identifiable)          AS nb_sirens,
+               (SELECT count(*) FROM (
+                    SELECT siren FROM acheteurs_conformes
+                    GROUP BY siren
+                    HAVING count(DISTINCT acheteur_siret) > 1))
+                                                      AS nb_sirens_multi_etab
+        FROM t_acheteurs_marches
         """
     )
 
@@ -911,11 +1212,13 @@ _TABLES = {
     "decp_agg_mois": ("t_agg_mois", ["mois", "nb_marches", "montant_total"]),
     "decp_top_acheteurs": (
         "t_top_acheteurs",
-        ["rang", "siret", "nom", "nb_marches", "montant_total"],
+        ["rang", "siren", "nom", "nb_etablissements", "nb_marches",
+         "montant_total"],
     ),
     "decp_top_titulaires": (
         "t_top_titulaires",
-        ["rang", "siret", "nom", "categorie", "nb_marches", "montant_total"],
+        ["rang", "siren", "nom", "categorie", "nb_etablissements",
+         "nb_marches", "montant_total"],
     ),
     "decp_repartition": (
         "t_repartition",
@@ -926,6 +1229,20 @@ _TABLES = {
         ["id", "nb_marches", "montant_total", "nb_ecretes", "montant_ecretes",
          "nb_suspects", "montant_suspects", "montant_hors_suspects",
          "montant_brut", "nb_sans_montant", "plafond"],
+    ),
+    "decp_titulaires_qualite": (
+        "t_titulaires_qualite",
+        ["id", "nb_marches", "nb_marches_avec_titulaire", "nb_lignes",
+         "nb_lignes_identifiables", "nb_lignes_ecartees",
+         "montant_identifiable", "montant_ecarte", "nb_identifiants_ecartes",
+         "nb_sirets", "nb_sirens", "nb_sirens_multi_etab"],
+    ),
+    "decp_acheteurs_qualite": (
+        "t_acheteurs_qualite",
+        ["id", "nb_marches", "nb_marches_avec_acheteur",
+         "nb_marches_identifiables", "nb_marches_ecartes",
+         "montant_identifiable", "montant_ecarte", "nb_identifiants_ecartes",
+         "nb_sirets", "nb_sirens", "nb_sirens_multi_etab"],
     ),
     "decp_publication_qualite": (
         "t_publication_qualite",
@@ -989,14 +1306,65 @@ def _assainir_lot(lot: list[tuple], champs: list[str]) -> list[tuple]:
     return sorties
 
 
-def charger(conn: sqlite3.Connection, duck: duckdb.DuckDBPyConnection) -> dict[str, int]:
-    """Réécrit les 11 tables decp_* depuis les tables temp DuckDB.
+def _reconcilier_schema(conn: sqlite3.Connection) -> list[str]:
+    """Supprime les tables decp_* dont les colonnes ne sont plus celles attendues.
 
-    CREATE TABLE IF NOT EXISTS puis DELETE/INSERT dans la transaction en
-    cours (aucun commit ici — l'appelant commet, cf. main, ou annule).
-    Les colonnes texte sont assainies au passage (cf. `_assainir_lot`).
-    Retourne {table: lignes insérées}.
+    POURQUOI ce filet est nécessaire : `CREATE TABLE IF NOT EXISTS` ne touche
+    PAS une table déjà présente. En intégration continue, la base est NEUVE à
+    chaque passage — les tables y naissent au schéma courant et tout passe. La
+    base SERVIE, elle, survit d'un déploiement à l'autre (le déploiement
+    nettoie l'arbre de travail, pas les données) et porte donc encore
+    l'ANCIEN schéma, parfois complété au fil du temps par des ALTER TABLE.
+    Un changement de colonnes y ferait échouer l'INSERT (« has no column
+    named … ») ; l'ingestion étant tout-ou-rien, c'est le déploiement ENTIER
+    qui tombe — sur un défaut que l'intégration continue ne peut pas voir.
+
+    POURQUOI un contrôle GÉNÉRAL, sur toutes les tables de `_TABLES`, plutôt
+    qu'une migration écrite pour celle qui change aujourd'hui : le piège se
+    reproduira au prochain changement de schéma, tout aussi invisible en
+    intégration continue. Un filet qui vaut une fois vaut d'être posé une
+    fois pour toutes.
+
+    POURQUOI un DROP et non un ALTER : ces tables sont INTÉGRALEMENT
+    recalculées à chaque passe (DELETE puis INSERT, juste après) — un DROP n'y
+    perd aucune donnée, là où un ALTER devrait inventer de quoi remplir la
+    colonne apparue et deviner quoi faire de celle qui disparaît.
+
+    Une table ABSENTE n'est pas une discordance : `_SCHEMA` la créera. Le
+    rejeu de `_SCHEMA` par l'appelant doit suivre CET appel, car le DROP
+    emporte aussi les index de la table, et c'est `_SCHEMA` qui les repose.
+
+    LIMITE assumée : la comparaison porte sur les NOMS de colonnes, seuls à
+    pouvoir faire échouer l'INSERT. Un changement de type ou de contrainte à
+    jeu de colonnes constant passerait à travers — il n'empêche pas
+    l'écriture, et le rattraper demanderait de comparer du DDL à du DDL.
+    Retourne la liste des tables supprimées (vide au régime nominal).
     """
+    discordantes = []
+    for table, (_, champs) in _TABLES.items():
+        # PRAGMA table_info : (cid, name, type, notnull, dflt_value, pk).
+        reelles = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+        if reelles and reelles != set(champs):
+            discordantes.append(table)
+    for table in discordantes:
+        conn.execute(f"DROP TABLE {table}")
+        log.info("migration : %s supprimée (colonnes obsolètes), sera recréée", table)
+    return discordantes
+
+
+def charger(conn: sqlite3.Connection, duck: duckdb.DuckDBPyConnection) -> dict[str, int]:
+    """Réécrit les 13 tables decp_* depuis les tables temp DuckDB.
+
+    Contrôle de schéma, CREATE TABLE IF NOT EXISTS, puis DELETE/INSERT dans la
+    transaction en cours (aucun commit ici — l'appelant commet, cf. main, ou
+    annule). Les colonnes texte sont assainies au passage (cf.
+    `_assainir_lot`). Retourne {table: lignes insérées}.
+    """
+    # Ordre imposé : contrôle → DROP des tables discordantes → `_SCHEMA` (qui
+    # les recrée AVEC leurs index) → DELETE/INSERT. Cf. `_reconcilier_schema`
+    # pour le pourquoi : la base servie est persistante et migrée, celle de
+    # l'intégration continue est neuve, et seul le premier cas casse.
+    _reconcilier_schema(conn)
     conn.executescript(_SCHEMA)  # idempotent, ne détruit rien
     comptes: dict[str, int] = {}
     for table, (source, champs) in _TABLES.items():
@@ -1065,7 +1433,10 @@ def main() -> int:
                 f"initiale du marché — min(dateNotification) sur toutes ses "
                 f"lignes, avenants compris — et non celle du dernier avenant ; "
                 f"les fenêtres portent sur elle, les montants et titulaires "
-                f"sur la version courante ; fenêtres : détail {MOIS_DETAIL} "
+                f"sur la version courante ; les classements titulaires et "
+                f"acheteurs sont regroupés par ENTREPRISE (SIREN), les "
+                f"identifiants non conformes en étant écartés et comptés à "
+                f"part ; fenêtres : détail {MOIS_DETAIL} "
                 f"mois, agrégats {MOIS_AGGREGATS} mois, série {MOIS_SERIE} "
                 f"mois ; agrégats écrêtés à {PLAFOND_ECRETAGE_EUR:.0f} € "
                 f"({stats['nb_suspects']} marchés suspects marqués) ; montants "

@@ -181,6 +181,8 @@ export default async function PageMarches() {
     qualiteMontants,
     decompositionSuspects,
     qualitePublication,
+    qualiteTitulaires,
+    qualiteAcheteurs,
   } = donnees;
 
   /* ---- « Ce que vaut ce total » : parts écrêtée et suspecte du KPI héros.
@@ -237,6 +239,33 @@ export default async function PageMarches() {
     qp && qp.synthese.nb_marches_source > 0
       ? (100 * qp.synthese.nb_publication_anterieure) / qp.synthese.nb_marches_source
       : null;
+
+  /* ---- Ce que le classement des titulaires couvre. Le classement porte sur
+     l'ENTREPRISE (SIREN) : les établissements d'une même personne morale y
+     comptent pour une seule ligne. Les lignes dont l'identifiant de
+     titulaire n'est pas exploitable ne se rattachent à aucune entreprise :
+     elles sont écartées du classement, et leur nombre comme leur montant se
+     lisent en base — jamais une formule vague. La part écartée est le seul
+     calcul fait ici, entre deux montants déjà publiés par la table.
+     `null` tant que la table n'est pas produite : le paragraphe disparaît. */
+  const qt = qualiteTitulaires;
+  const totalTitulaires =
+    qt && qt.montant_identifiable !== null && qt.montant_ecarte !== null
+      ? qt.montant_identifiable + qt.montant_ecarte
+      : null;
+  const partEcartee =
+    qt && totalTitulaires && qt.montant_ecarte !== null
+      ? (100 * qt.montant_ecarte) / totalTitulaires
+      : null;
+
+  /* ---- Le même filtre de conformité vaut côté acheteurs : ce qu'il écarte
+     est donc dit là aussi, au même endroit que le classement concerné.
+     L'unité est le MARCHÉ (un marché n'a qu'un acheteur), et l'ampleur est
+     sans commune mesure avec celle des titulaires — la mention tient en une
+     phrase, mais elle existe : un identifiant écarté sans compteur serait
+     une disparition silencieuse. Aucun ratio n'est calculé ici, les deux
+     compteurs affichés sont lus en base. */
+  const qa = qualiteAcheteurs;
 
   /* ---- KPI : tendances 12 derniers mois de la série mensuelle ---- */
   const douzeDerniers = serieMensuelle.slice(-12);
@@ -806,7 +835,7 @@ export default async function PageMarches() {
       {/* ---------------------------------------------------------- */}
       <Card
         titre="Principaux acheteurs et titulaires"
-        sousTitre="12 derniers mois, classement par montant notifié écrêté"
+        sousTitre="12 derniers mois, par entreprise (SIREN) — classement par montant notifié écrêté"
         droite={badgeS1}
       >
         {/* grid-cols-1 explicite : piste minmax(0,1fr) — sans elle, la piste
@@ -818,12 +847,23 @@ export default async function PageMarches() {
             </h3>
             <BarList
               items={donnees.topAcheteurs.map((a) => ({
-                libelle: a.nom ?? a.siret ?? "—",
+                libelle: a.nom ?? a.siren ?? "—",
                 valeur: a.montant_total ?? 0,
               }))}
               formatValeur={(v) => formatEuros(v)}
               largeurLibelle="45%"
             />
+            {qa && (
+              <p className="mt-2 text-xs leading-relaxed text-ink-muted">
+                Les identifiants d’acheteur non conformes sont écartés de ce
+                classement et comptés à part :{" "}
+                {formatNombre(qa.nb_marches_ecartes)} marchés sur{" "}
+                {formatNombre(qa.nb_marches_avec_acheteur)}, portant{" "}
+                {qa.montant_ecarte !== null ? formatEuros(qa.montant_ecarte) : "—"},
+                sous {formatNombre(qa.nb_identifiants_ecartes)} valeurs
+                d’identifiant distinctes.
+              </p>
+            )}
             <VueTableau resume="Vue tableau — top acheteurs">
               <DataTable
                 colonnes={[
@@ -833,7 +873,12 @@ export default async function PageMarches() {
                     entete: "Acheteur",
                     rendu: (a) => <span title={a.nom ?? undefined}>{tronque(a.nom, 60)}</span>,
                   },
-                  { cle: "siret", entete: "SIRET", rendu: (a) => a.siret ?? "—" },
+                  { cle: "siren", entete: "SIREN", rendu: (a) => a.siren ?? "—" },
+                  {
+                    cle: "nb_etablissements",
+                    entete: "Établissements",
+                    type: "nombre",
+                  },
                   { cle: "nb_marches", entete: "Marchés", type: "nombre" },
                   {
                     cle: "montant_total",
@@ -854,13 +899,13 @@ export default async function PageMarches() {
             </h3>
             <BarList
               items={donnees.topTitulaires.map((t) => ({
-                libelle: t.nom ?? t.siret ?? "—",
+                libelle: t.nom ?? t.siren ?? "—",
                 valeur: t.montant_total ?? 0,
               }))}
               formatValeur={(v) => formatEuros(v)}
               largeurLibelle="45%"
             />
-            <p className="mt-2 text-xs text-ink-muted">
+            <p className="mt-2 text-xs leading-relaxed text-ink-muted">
               Montant d’un marché multi-titulaires réparti à parts égales
               entre co-titulaires.
             </p>
@@ -873,7 +918,13 @@ export default async function PageMarches() {
                     entete: "Titulaire",
                     rendu: (t) => <span title={t.nom ?? undefined}>{tronque(t.nom, 60)}</span>,
                   },
+                  { cle: "siren", entete: "SIREN", rendu: (t) => t.siren ?? "—" },
                   { cle: "categorie", entete: "Catégorie", rendu: (t) => t.categorie ?? "—" },
+                  {
+                    cle: "nb_etablissements",
+                    entete: "Établissements",
+                    type: "nombre",
+                  },
                   { cle: "nb_marches", entete: "Marchés", type: "nombre" },
                   {
                     cle: "montant_total",
@@ -888,6 +939,66 @@ export default async function PageMarches() {
               />
             </VueTableau>
           </div>
+        </div>
+        {/* ---- La règle de regroupement et sa limite, sur la page ---- */}
+        <div className="mt-6 max-w-3xl rounded-xl border border-card-border bg-raised p-4">
+          <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+            Ce que compte une ligne
+          </h3>
+          <p className="text-xs leading-relaxed text-ink-secondary">
+            Une ligne est une{" "}
+            <strong className="font-medium text-ink">entreprise</strong> — une
+            personne morale, identifiée par son{" "}
+            <strong className="font-medium text-ink">SIREN</strong>. Les marchés
+            de tous ses établissements sont regroupés sur cette ligne unique, et
+            la colonne «&nbsp;Établissements&nbsp;» dit combien d’établissements
+            distincts de cette entreprise figurent dans les marchés de la
+            période — et non combien elle en compte. Le nom affiché est la
+            dénomination du répertoire Sirene quand le SIREN y figure, sinon le
+            nom déclaré dans les données de marché.
+          </p>
+          <p className="mt-2 text-xs leading-relaxed text-ink-secondary">
+            Le regroupement s’arrête à l’entreprise : il ne remonte pas au
+            groupe. POMONA et POMONA EPISAVEURS sont deux SIREN, donc deux
+            entreprises distinctes, dont les montants ne sont jamais
+            additionnés. Le site n’exploite aucun référentiel de liens
+            capitalistiques : un classement «&nbsp;par groupe&nbsp;» serait une
+            reconstitution, pas une mesure.
+          </p>
+          {qt && (
+            <p className="mt-2 text-xs leading-relaxed text-ink-secondary">
+              Un identifiant de titulaire dont on ne peut extraire aucun SIREN
+              ne se rattache à aucune entreprise : sa ligne est écartée du
+              classement et comptée à part. Sur les 12&nbsp;mois,{" "}
+              <strong className="font-medium text-ink">
+                {formatNombre(qt.nb_lignes_ecartees)} lignes
+              </strong>{" "}
+              sur {formatNombre(qt.nb_lignes)} sont dans ce cas, réparties sur{" "}
+              {formatNombre(qt.nb_identifiants_ecartes)} valeurs d’identifiant
+              distinctes, et portent{" "}
+              <strong className="font-medium text-ink">
+                {qt.montant_ecarte !== null ? formatEuros(qt.montant_ecarte) : "—"}
+              </strong>
+              {partEcartee !== null && (
+                <>, soit {formatPct(partEcartee)} du montant des titulaires</>
+              )}{" "}
+              — un montant que ce classement n’attribue à aucune entreprise.
+            </p>
+          )}
+          {qt && (
+            <p className="mt-2 text-xs leading-relaxed text-ink-muted">
+              Le classement retient{" "}
+              {formatNombre(qt.nb_lignes_identifiables)} lignes, soit{" "}
+              {formatNombre(qt.nb_sirets)} établissements ramenés à{" "}
+              {formatNombre(qt.nb_sirens)} entreprises, dont{" "}
+              {formatNombre(qt.nb_sirens_multi_etab)} présentes par plus d’un
+              établissement. Une ligne est un couple marché × titulaire :{" "}
+              {formatNombre(qt.nb_marches_avec_titulaire)} des{" "}
+              {formatNombre(qt.nb_marches)} marchés de la fenêtre déclarent au
+              moins un titulaire, et un marché à plusieurs co-titulaires produit
+              autant de lignes.
+            </p>
+          )}
         </div>
       </Card>
 

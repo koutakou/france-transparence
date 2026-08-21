@@ -136,8 +136,8 @@ CREATE TABLE collectivites_communes_series (code_insee TEXT, siren TEXT);
 CREATE TABLE collectivites_communes_top200 (code_insee TEXT, siren TEXT);
 CREATE TABLE collectivites_conseils_departementaux (code_dep TEXT, siren TEXT);
 CREATE TABLE collectivites_regions (code_region TEXT, siren TEXT);
-CREATE TABLE decp_top_acheteurs (rang INTEGER PRIMARY KEY, siret TEXT);
-CREATE TABLE decp_top_titulaires (rang INTEGER PRIMARY KEY, siret TEXT);
+CREATE TABLE decp_top_acheteurs (rang INTEGER PRIMARY KEY, siren TEXT);
+CREATE TABLE decp_top_titulaires (rang INTEGER PRIMARY KEY, siren TEXT);
 """
 
 
@@ -209,12 +209,12 @@ def _peupler_sources(conn: sqlite3.Connection) -> None:
         ("84", "234500023"),
     )
     conn.execute(
-        "INSERT INTO decp_top_acheteurs (rang, siret) VALUES (?, ?)",
-        (1, f"{SIREN_CATEGORIE_COURTE}00023"),
+        "INSERT INTO decp_top_acheteurs (rang, siren) VALUES (?, ?)",
+        (1, SIREN_CATEGORIE_COURTE),
     )
     conn.execute(
-        "INSERT INTO decp_top_titulaires (rang, siret) VALUES (?, ?)",
-        (1, f"{SIREN_ESS_NON}00015"),
+        "INSERT INTO decp_top_titulaires (rang, siren) VALUES (?, ?)",
+        (1, SIREN_ESS_NON),
     )
     conn.commit()
 

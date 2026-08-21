@@ -17,6 +17,25 @@ Rappel des besoins du dashboard sur cet axe : (a) attributions récentes + carte
 > le modèle de données amont, assumé et documenté dans le code de `decp-processing` ; l'erreur
 > était de notre côté, à la lecture.
 
+> **Seconde rectification datée du 21/08/2026 — même règle : ce relevé du 19/08/2026 n'est pas
+> réécrit, ce qu'il prescrivait sur ce point est faux et le voici corrigé.** Le § 1 conclut
+> qu'aucun **join SIRENE** n'est nécessaire, la source fournissant déjà noms et géocodage pour
+> l'acheteur comme pour le titulaire. C'est exact pour le **géocodage**, faux pour le **nom** et
+> pour l'**unité comptée**. La source n'identifie ses parties que par **SIRET**, donc par
+> ÉTABLISSEMENT, et le libellé qu'elle publie nomme souvent l'établissement lui-même
+> (« COLAS FRANCE (ETABLISSEMENT DE MERIGNAC) », « VILLE DE PARIS (MAIRIE) »). Deux conséquences
+> mesurées sur la base servie le 21/08/2026 : un même SIREN y porte couramment plusieurs libellés,
+> ce qui éclate tout regroupement par nom ; et un classement groupé sur le SIRET émiette une
+> entreprise à réseau d'agences sur des dizaines ou des centaines de lignes dont aucune n'atteint
+> le seuil d'entrée d'un top 50 — le premier attributaire par entreprise sur 12 mois
+> (2 735 M€, 2 221 marchés, 204 établissements) était ainsi absent du top 50 par établissement,
+> dont le seuil d'entrée valait 310 M€, et 14 des 50 premiers SIREN y manquaient. La règle qui fait
+> autorité aujourd'hui est celle de `docs/SOURCES.md` (fiche S1) et de `docs/SCHEMA-DB.md`
+> (§ `decp_top_*`) : les classements groupent par **SIREN** — les 9 premiers chiffres du SIRET —
+> et le libellé affiché vient du référentiel **S18 / Sirene** (`denomination`), joint à la lecture,
+> avec repli sur le libellé DECP. Les chiffres de ce paragraphe sont un relevé daté : ils dérivent
+> à chaque ingestion.
+
 ---
 
 ## 1. DECP consolidées au format tabulaire (data.gouv.fr) — la source n° 1 pour les attributions et la carte
@@ -50,7 +69,7 @@ Rappel des besoins du dashboard sur cet axe : (a) attributions récentes + carte
   - Doublons inter-sources suivis dans la ressource `statistiques-doublons-sources.parquet` (publiée à côté) ; `schema.json` documente les colonnes.
   - decp.info (ancienne interface) → **redirection 301 vers colibre.fr** (« Outils pour l'exploration des marchés publics ») ; l'API « premium » de colibre est sur abonnement, mais l'API tabulaire data.gouv.fr ci-dessus est gratuite.
   - Consolidation communautaire (pas MEF) — code ouvert et sources officielles, mais à mentionner dans le sourcing du dashboard.
-- **Verdict : EXPLOITABLE DIRECT.** Module cible : **attributions récentes + carte de France** (lat/lng et codes département/région déjà fournis pour acheteur ET titulaire — aucun join SIRENE nécessaire), fiches acheteurs/titulaires, flux géographiques acheteur→titulaire.
+- **Verdict : EXPLOITABLE DIRECT.** Module cible : **attributions récentes + carte de France** (lat/lng et codes département/région déjà fournis pour acheteur ET titulaire — aucun join SIRENE nécessaire), fiches acheteurs/titulaires, flux géographiques acheteur→titulaire. ⚠ **Rectifié le 21/08/2026, voir le second encadré en tête : « aucun join SIRENE nécessaire » vaut pour le géocodage seul. Le nom et l'unité comptée en ont besoin — la source identifie par SIRET, donc par établissement, et nomme souvent l'établissement.**
 
 ---
 

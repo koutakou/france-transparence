@@ -23,6 +23,8 @@ est marquée `reseau`.
 
 import json
 import math
+import re
+import sqlite3
 from datetime import date
 from pathlib import Path
 
@@ -148,22 +150,33 @@ def test_agregat_departemental_ecrete(resultat):
 
 
 def test_tops_ecretes_et_repartis(resultat):
+    """Les deux classements sont écrêtés, répartis, et rangés par ENTREPRISE.
+
+    Les clés attendues sont des SIREN (9 chiffres), pas des SIRET : c'est
+    l'unité de regroupement des deux tables.
+    """
     duck, _ = resultat
     top_a = duck.execute(
-        "SELECT rang, siret, montant_total FROM t_top_acheteurs ORDER BY rang"
+        "SELECT rang, siren, montant_total FROM t_top_acheteurs ORDER BY rang"
     ).fetchall()
     # L'acheteur du géant plafonne à exactement 100 M€ au lieu de 12,3 Md€.
-    assert top_a[0][1] == "25580118500018"
+    assert top_a[0][1] == "255801185"        # SIREN de 25580118500018
     assert top_a[0][2] == pytest.approx(100_000_000.0)
     assert [r[0] for r in top_a] == list(range(1, len(top_a) + 1))
 
     top_t = duck.execute(
-        "SELECT siret, nb_marches, montant_total FROM t_top_titulaires ORDER BY rang"
+        "SELECT siren, nb_marches, montant_total FROM t_top_titulaires ORDER BY rang"
     ).fetchall()
     assert top_t[0][2] == pytest.approx(100_000_000.0)  # titulaire du géant
     # Marché multi-titulaires : montant divisé entre les 3 co-titulaires.
-    part = {r[0]: r[2] for r in top_t}["38181085200057"]
+    part = {r[0]: r[2] for r in top_t}["381810852"]   # SIREN de 38181085200057
     assert part == pytest.approx(94_100.0 / 3)
+
+    # Toutes les clés servies sont des SIREN à 9 chiffres — aucun SIRET, aucun
+    # identifiant-rebut n'a survécu au filtre de conformité.
+    for table in ("t_top_acheteurs", "t_top_titulaires"):
+        cles = [c for (c,) in duck.execute(f"SELECT siren FROM {table}").fetchall()]
+        assert cles and all(len(c) == 9 and c.isdigit() for c in cles)
 
 
 def test_repartition_normalisee(resultat):
@@ -595,11 +608,17 @@ def _ligne_qualite_publication(duck):
     return dict(zip([d[0] for d in duck.description], lignes[0]))
 
 
-def _fixture_modifiee(chemin_sortie, dates_par_uid=None, categories_par_uid=None):
+def _fixture_modifiee(chemin_sortie, dates_par_uid=None, categories_par_uid=None,
+                      titulaires_par_uid=None, acheteurs_id_par_uid=None):
     """Copie de la fixture où quelques uid reçoivent d'autres valeurs.
 
     Les 64 colonnes et toutes les lignes sont conservées : seules les deux
-    dates du délai et la catégorie d'acheteur changent, pour les uid nommés.
+    dates du délai, la catégorie d'acheteur et — depuis le regroupement par
+    entreprise — l'identité du titulaire changent, pour les uid nommés.
+    `titulaires_par_uid` associe un uid au triplet
+    (titulaire_id, titulaire_nom, titulaire_categorie) : il ne vaut donc que
+    pour des marchés à titulaire UNIQUE, sinon il fondrait les co-titulaires
+    en un seul.
     Sert à construire les cas que la fixture ne contient pas — un vrai
     parquet, lu par le vrai `transformer`, plutôt qu'une réécriture du SQL
     dans le test, qui ne prouverait rien du pipeline.
@@ -608,6 +627,8 @@ def _fixture_modifiee(chemin_sortie, dates_par_uid=None, categories_par_uid=None
 
     dates_par_uid = dates_par_uid or {}
     categories_par_uid = categories_par_uid or {}
+    titulaires_par_uid = titulaires_par_uid or {}
+    acheteurs_id_par_uid = acheteurs_id_par_uid or {}
 
     def litteral(valeur, type_sql):
         if valeur is None:
@@ -632,13 +653,28 @@ def _fixture_modifiee(chemin_sortie, dates_par_uid=None, categories_par_uid=None
         {u: d[1] for u, d in dates_par_uid.items()}, "datePublicationDonnees", "DATE"
     )
     categorie = cas(categories_par_uid, "acheteur_categorie", "VARCHAR")
+    tit_id = cas(
+        {u: v[0] for u, v in titulaires_par_uid.items()}, "titulaire_id", "VARCHAR"
+    )
+    tit_nom = cas(
+        {u: v[1] for u, v in titulaires_par_uid.items()}, "titulaire_nom", "VARCHAR"
+    )
+    tit_cat = cas(
+        {u: v[2] for u, v in titulaires_par_uid.items()},
+        "titulaire_categorie", "VARCHAR",
+    )
+    ach_id = cas(acheteurs_id_par_uid, "acheteur_id", "VARCHAR")
 
     duckdb.sql(
         f"""
         COPY (SELECT * REPLACE (
                   {notification} AS dateNotification,
                   {publication}  AS datePublicationDonnees,
-                  {categorie}    AS acheteur_categorie)
+                  {categorie}    AS acheteur_categorie,
+                  {tit_id}       AS titulaire_id,
+                  {tit_nom}      AS titulaire_nom,
+                  {tit_cat}      AS titulaire_categorie,
+                  {ach_id}       AS acheteur_id)
               FROM read_parquet('{FIXTURE}'))
         TO '{chemin_sortie}' (FORMAT PARQUET)
         """
@@ -1133,3 +1169,829 @@ def test_publication_charger_ecrit_les_trois_tables(tmp_path, resultat):
         ]
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+#
+# Regroupement par ENTREPRISE (SIREN) des deux classements
+#
+# ---------------------------------------------------------------------------
+#
+# Ces tests réutilisent `_fixture_modifiee` (défini plus haut pour les tables
+# de publication) : la fixture RÉELLE ne porte pas les cas nécessaires ici.
+# Elle ne contient qu'un seul établissement par entreprise sur la fenêtre 12
+# mois — nb_sirens_multi_etab y vaut 0, la fusion ne s'y voit donc pas — et un
+# seul identifiant non conforme, le « 00002 » réel du marché
+# 263700189002222026F16117_33184200, qui suffit à voir l'écart mais pas à voir
+# comment plusieurs formes de malformation sont traitées. Les cas manquants
+# sont donc écrits dans une COPIE du parquet, relue par le vrai `transformer`.
+
+SIREN_DOUBLE = "999888777"      # deux établissements, deux marchés
+SIREN_LIBELLE = "111222333"     # quatre établissements, libellés divergents
+SIREN_EX_AEQUO = "555444333"    # deux libellés à égalité de fréquence
+SIREN_ACHETEUR = "777666555"    # deux établissements ACHETEURS
+
+# Identifiant-rebut RÉEL de la fixture, et son montant relevé à la main.
+IDENTIFIANT_REBUT_REEL = "00002"
+MONTANT_REBUT_REEL = 570_000.00
+
+# Deux établissements d'une même entreprise, sur deux marchés DISTINCTS de la
+# fenêtre 12 mois. Montants relevés dans la fixture : 255 552,00 et 31 979,96.
+TITULAIRES_DOUBLE = {
+    "130001670000122797399_34992200": (
+        SIREN_DOUBLE + "00018", "DOUBLE ETABLISSEMENT", "PME"),
+    "130020340000192819642_45340000": (
+        SIREN_DOUBLE + "00026", "DOUBLE ETABLISSEMENT", "PME"),
+}
+MONTANT_DOUBLE = 255_552.00 + 31_979.96
+
+# Quatre établissements d'une même entreprise aux libellés DIVERGENTS. Le
+# libellé dominant (2 lignes sur 4) est placé de telle sorte qu'AUCUN raccourci
+# ne le trouve par hasard : il n'est ni le premier ni le dernier de l'ordre
+# alphabétique, ni celui du plus petit SIRET, ni celui du plus grand. Même
+# construction pour la catégorie, « GE » se rangeant entre « ETI » et « PME ».
+NOM_DOMINANT = "MEDIAN FREQUENT"
+CATEGORIE_DOMINANTE = "GE"
+TITULAIRES_LIBELLE = {
+    "1300268260001120256006110000_15880000": (
+        SIREN_LIBELLE + "00011", "ALPHA RARE", "ETI"),
+    "157000290000132939878_90460000": (
+        SIREN_LIBELLE + "00029", NOM_DOMINANT, CATEGORIE_DOMINANTE),
+    "20004133300267202424TCMC09_45421153": (
+        SIREN_LIBELLE + "00037", NOM_DOMINANT, CATEGORIE_DOMINANTE),
+    "2130033460001126-1157327-2_45223220": (
+        SIREN_LIBELLE + "00045", "ZETA RARE", "PME"),
+}
+
+# Deux libellés à ÉGALITÉ de fréquence : c'est l'ordre alphabétique qui
+# départage. Le plus PETIT SIRET porte volontairement le libellé perdant, pour
+# qu'un départage « par le plus petit SIRET » ne passe pas ce test par hasard.
+TITULAIRES_EX_AEQUO = {
+    "21350093700015202520252001_45420000": (
+        SIREN_EX_AEQUO + "00013", "ZZZ EX AEQUO", "PME"),
+    "215302472000182026143E11DAF00_45454000": (
+        SIREN_EX_AEQUO + "00021", "AAA EX AEQUO", "ETI"),
+}
+
+# Identifiants MALFORMÉS construits : 14 caractères dont une lettre, et 13
+# chiffres (le SIRET amputé de son zéro de tête, forme courante à la source).
+# Montants relevés dans la fixture : 42 735,00 et 170 000,00.
+IDENTIFIANTS_MALFORMES = ("0000000000000A", "1234567890123")
+TITULAIRES_MALFORMES = {
+    "216902890000132025-19_45112711": (
+        IDENTIFIANTS_MALFORMES[0], "REBUT A QUATORZE", "PME"),
+    "220300016000802020BATLO00032_71630000": (
+        IDENTIFIANTS_MALFORMES[1], "REBUT A TREIZE", "PME"),
+}
+MONTANT_MALFORME_CONSTRUIT = 42_735.00 + 170_000.00
+
+# Côté ACHETEURS : deux établissements d'une même entreprise, plus un
+# identifiant malformé. Montants relevés dans la fixture : 223 661,23 et
+# 400 000,00 pour les deux premiers.
+ACHETEUR_MALFORME = "0000000000000X"
+ACHETEURS_CONSTRUITS = {
+    "243301223000672024T00057_45421152": SIREN_ACHETEUR + "00014",
+    "247600588000472026F00011_18930000": SIREN_ACHETEUR + "00022",
+    "2484002850005720212021FCS022_85311300": ACHETEUR_MALFORME,
+}
+MONTANT_ACHETEUR_DOUBLE = 223_661.23 + 400_000.00
+
+
+@pytest.fixture(scope="module")
+def resultat_entreprises(tmp_path_factory):
+    """Transformation d'une copie de la fixture portant les cas construits."""
+    chemin = _fixture_modifiee(
+        tmp_path_factory.mktemp("entreprises") / "decp_entreprises.parquet",
+        titulaires_par_uid={
+            **TITULAIRES_DOUBLE, **TITULAIRES_LIBELLE,
+            **TITULAIRES_EX_AEQUO, **TITULAIRES_MALFORMES,
+        },
+        acheteurs_id_par_uid=ACHETEURS_CONSTRUITS,
+    )
+    duck, _ = ingest_decp.transformer(chemin, DATE_REF)
+    yield duck
+    duck.close()
+
+
+def _ligne_titulaires_qualite(duck):
+    """La ligne unique de t_titulaires_qualite, en dictionnaire."""
+    lignes = duck.execute("SELECT * FROM t_titulaires_qualite").fetchall()
+    assert len(lignes) == 1
+    return dict(zip([d[0] for d in duck.description], lignes[0]))
+
+
+def _population_titulaires_du_parquet(duck, chemin):
+    """(lignes, marchés, identifiants) titulaires de la fenêtre, relus du parquet.
+
+    Recalculés depuis le parquet BRUT — date initiale = min(dateNotification)
+    sur TOUTES les lignes du uid, attributs sur la version courante — pour que
+    la vérification ne repasse pas par les tables que le pipeline vient de
+    construire. Un compteur de défauts ne se prouve que contre la population
+    de départ, pas contre lui-même.
+    """
+    return duck.execute(
+        f"""
+        WITH initiale AS (
+            SELECT uid, min(dateNotification) AS d
+            FROM read_parquet('{chemin}')
+            WHERE dateNotification IS NOT NULL
+            GROUP BY uid
+        ),
+        couples AS (
+            SELECT DISTINCT l.uid, l.titulaire_id
+            FROM read_parquet('{chemin}') l
+            JOIN initiale i USING (uid)
+            WHERE l.donneesActuelles
+              AND l.titulaire_id IS NOT NULL
+              AND i.d <= DATE '{DATE_REF.isoformat()}'
+              AND i.d >  DATE '{DATE_REF.isoformat()}'
+                         - INTERVAL {ingest_decp.MOIS_AGGREGATS} MONTH
+        )
+        SELECT count(*), count(DISTINCT uid), count(DISTINCT titulaire_id)
+        FROM couples
+        """
+    ).fetchone()
+
+
+def test_titulaires_qualite_recompose_la_population_de_depart(resultat):
+    """Retenus + écartés = la population de départ, en lignes ET en montants.
+
+    C'est l'invariant qui rend la table lisible : un lecteur doit pouvoir
+    retrancher les écartés de la population et retomber sur les retenus. La
+    population n'est pas reprise des tables du pipeline mais relue du parquet
+    brut — additionner deux `count(*) FILTER` écrits séparément ne prouverait
+    que leur cohérence mutuelle, jamais qu'ils couvrent tout.
+    """
+    duck, _ = resultat
+    q = _ligne_titulaires_qualite(duck)
+    assert q["id"] == 1
+
+    nb_lignes, nb_marches_avec, nb_identifiants = _population_titulaires_du_parquet(
+        duck, FIXTURE
+    )
+    assert q["nb_lignes"] == nb_lignes
+    assert q["nb_marches_avec_titulaire"] == nb_marches_avec
+    # Les identifiants se partagent aussi en deux : conformes et écartés.
+    assert q["nb_sirets"] + q["nb_identifiants_ecartes"] == nb_identifiants
+
+    # La partition des LIGNES recompose la population, sans reste ni doublon.
+    assert q["nb_lignes_identifiables"] + q["nb_lignes_ecartees"] == q["nb_lignes"]
+
+    # Celle des MONTANTS recompose le total, à l'euro près. `or 0.0` parce
+    # qu'une part vide vaut NULL et non zéro : la somme d'un ensemble vide
+    # n'est pas un montant nul, et le pipeline ne l'invente pas.
+    total = duck.execute(
+        "SELECT sum(montant_part) FROM t_titulaires_lignes"
+    ).fetchone()[0]
+    assert (q["montant_identifiable"] or 0.0) + (
+        q["montant_ecarte"] or 0.0
+    ) == pytest.approx(total or 0.0)
+
+    # Le dénominateur est celui de decp_qualite_montants — même fenêtre, même
+    # source : deux pages du site ne peuvent pas afficher deux « nombre de
+    # marchés » différents pour la même période.
+    assert q["nb_marches"] == duck.execute(
+        "SELECT nb_marches FROM t_qualite_montants"
+    ).fetchone()[0]
+    assert q["nb_marches_avec_titulaire"] <= q["nb_marches"]
+
+    # Une entreprise porte au moins un établissement, et le compteur
+    # « multi-établissements » n'est non nul que s'il y a plus de SIRET que
+    # de SIREN — les deux façons de dire la même chose doivent concorder.
+    assert q["nb_sirens"] <= q["nb_sirets"]
+    assert (q["nb_sirets"] > q["nb_sirens"]) == (q["nb_sirens_multi_etab"] > 0)
+
+
+def test_la_recomposition_tient_aussi_avec_des_identifiants_malformes(
+    resultat_entreprises,
+):
+    """Même invariant sur la copie qui porte, elle, plusieurs malformations.
+
+    L'invariant ne vaut que s'il tient là où il y a matière à fuir : sur la
+    fixture réelle, un seul identifiant est écarté.
+    """
+    duck = resultat_entreprises
+    q = _ligne_titulaires_qualite(duck)
+    assert q["nb_lignes_ecartees"] > 1          # sinon le test ne prouve rien
+    assert q["nb_lignes_identifiables"] + q["nb_lignes_ecartees"] == q["nb_lignes"]
+    total = duck.execute(
+        "SELECT sum(montant_part) FROM t_titulaires_lignes"
+    ).fetchone()[0]
+    assert (q["montant_identifiable"] or 0.0) + (
+        q["montant_ecarte"] or 0.0
+    ) == pytest.approx(total or 0.0)
+
+
+def test_un_identifiant_malforme_est_ecarte_du_classement_et_compte(
+    resultat_entreprises,
+):
+    """Un identifiant non conforme ne classe pas, et ne disparaît pas non plus.
+
+    Doctrine maison : on écarte ET on compte. Vérifier la seule absence
+    passerait aussi sur un pipeline qui aurait perdu ces lignes en amont — le
+    test exige donc les deux moitiés, la présence dans la population et
+    l'absence du classement.
+    """
+    duck = resultat_entreprises
+    q = _ligne_titulaires_qualite(duck)
+    rebuts = (IDENTIFIANT_REBUT_REEL,) + IDENTIFIANTS_MALFORMES
+
+    # Trois identifiants non conformes : le « 00002 » réel de la fixture, plus
+    # les deux construits (une lettre parmi 14 caractères, et 13 chiffres).
+    assert q["nb_identifiants_ecartes"] == len(rebuts)
+    assert q["nb_lignes_ecartees"] == len(rebuts)
+    assert q["montant_ecarte"] == pytest.approx(
+        MONTANT_REBUT_REEL + MONTANT_MALFORME_CONSTRUIT
+    )
+
+    # Présents dans la population de départ : rien n'a été filtré en amont.
+    marqueurs = ", ".join(f"'{r}'" for r in rebuts)
+    assert duck.execute(
+        f"SELECT count(*) FROM t_titulaires_lignes "
+        f"WHERE titulaire_id IN ({marqueurs})"
+    ).fetchone()[0] == len(rebuts)
+
+    # Absents du classement, ni tels quels ni tronqués à neuf caractères :
+    # tronquer un rebut ne fabrique pas un SIREN.
+    classes = {c for (c,) in duck.execute("SELECT siren FROM t_top_titulaires").fetchall()}
+    for rebut in rebuts:
+        assert rebut not in classes
+        assert rebut[:9] not in classes
+    # Et aucune valeur par défaut n'a été glissée à leur place.
+    assert all(c is not None and len(c) == 9 and c.isdigit() for c in classes)
+
+
+def test_deux_etablissements_dun_meme_siren_ne_font_quune_ligne(
+    resultat_entreprises,
+):
+    """Deux établissements, une entreprise : une ligne, deux marchés, montant sommé.
+
+    C'est le défaut corrigé : agrégé par établissement, un groupe à réseau
+    local est émietté en autant de lignes qu'il a de SIRET, dont aucune ne
+    franchit le seuil d'entrée du top 50.
+    """
+    duck = resultat_entreprises
+    lignes = duck.execute(
+        "SELECT nom, categorie, nb_etablissements, nb_marches, montant_total "
+        f"FROM t_top_titulaires WHERE siren = '{SIREN_DOUBLE}'"
+    ).fetchall()
+    assert len(lignes) == 1
+    nom, categorie, nb_etab, nb_marches, montant = lignes[0]
+    assert nb_etab == 2
+    assert nb_marches == 2
+    assert montant == pytest.approx(MONTANT_DOUBLE)
+    assert nom == "DOUBLE ETABLISSEMENT"
+    assert categorie == "PME"
+
+    # Les deux SIRET existent bien séparément dans la population : la fusion
+    # est un regroupement, pas la perte de l'un des deux.
+    assert duck.execute(
+        f"SELECT count(DISTINCT titulaire_id) FROM t_titulaires_lignes "
+        f"WHERE siren = '{SIREN_DOUBLE}'"
+    ).fetchone()[0] == 2
+
+    # Aucune entreprise n'apparaît deux fois dans le classement.
+    total, distincts = duck.execute(
+        "SELECT count(*), count(DISTINCT siren) FROM t_top_titulaires"
+    ).fetchone()
+    assert total == distincts
+
+    # Le compteur de qualité voit les deux entreprises multi-établissements
+    # construites (titulaires doubles et libellés divergents), et elles seules.
+    q = _ligne_titulaires_qualite(duck)
+    assert q["nb_sirens_multi_etab"] == 3        # DOUBLE, LIBELLE, EX_AEQUO
+    assert q["nb_sirets"] - q["nb_sirens"] == (2 - 1) + (4 - 1) + (2 - 1)
+
+
+def test_le_libelle_retenu_est_le_plus_frequent_et_non_un_libelle_quelconque(
+    resultat_entreprises,
+):
+    """Le libellé servi est le DOMINANT, pas un libellé arbitraire du groupe.
+
+    Le cas est bâti pour qu'aucun raccourci ne tombe juste par hasard : le
+    libellé attendu n'est ni le premier ni le dernier de l'ordre alphabétique,
+    ni celui du plus petit SIRET, ni celui du plus grand. `any_value()`,
+    `min()`, `max()`, `arg_min(nom, titulaire_id)` échouent donc tous ici —
+    c'est ce qui donne sa valeur au test, et c'est indispensable : sur un
+    SIREN à des dizaines d'établissements, un libellé arbitraire peut changer
+    d'un passage à l'autre sans qu'aucune donnée ait bougé.
+    """
+    duck = resultat_entreprises
+    nom, categorie, nb_etab = duck.execute(
+        "SELECT nom, categorie, nb_etablissements FROM t_top_titulaires "
+        f"WHERE siren = '{SIREN_LIBELLE}'"
+    ).fetchone()
+    assert nb_etab == 4
+    assert nom == NOM_DOMINANT
+    assert categorie == CATEGORIE_DOMINANTE
+
+    # Les fréquences du groupe, telles que la copie de fixture les porte.
+    frequences = dict(duck.execute(
+        f"SELECT nom, count(*) FROM t_titulaires_lignes "
+        f"WHERE siren = '{SIREN_LIBELLE}' GROUP BY nom"
+    ).fetchall())
+    assert frequences == {"ALPHA RARE": 1, NOM_DOMINANT: 2, "ZETA RARE": 1}
+
+    # Les quatre raccourcis que le test doit faire échouer rendent tous autre
+    # chose que le libellé dominant — vérifié sur les données, pas supposé.
+    raccourcis = duck.execute(
+        f"""SELECT min(nom), max(nom),
+                   arg_min(nom, titulaire_id), arg_max(nom, titulaire_id),
+                   min(categorie), max(categorie),
+                   arg_min(categorie, titulaire_id),
+                   arg_max(categorie, titulaire_id)
+            FROM t_titulaires_lignes WHERE siren = '{SIREN_LIBELLE}'"""
+    ).fetchone()
+    assert all(v not in (NOM_DOMINANT, CATEGORIE_DOMINANTE) for v in raccourcis)
+
+
+def test_les_libelles_ex_aequo_sont_departages_par_ordre_alphabetique(
+    resultat_entreprises,
+):
+    """À fréquence égale, c'est l'ordre alphabétique qui tranche.
+
+    Sans ce départage, deux libellés à égalité laisseraient le résultat
+    indéterminé et le classement cesserait d'être rejouable — le problème que
+    le libellé dominant vient précisément régler reviendrait intact sur les
+    groupes à deux établissements. Le plus PETIT SIRET porte ici le libellé
+    perdant, pour qu'un départage « par le plus petit SIRET » ne passe pas ce
+    test par accident.
+    """
+    duck = resultat_entreprises
+    nom, categorie = duck.execute(
+        "SELECT nom, categorie FROM t_top_titulaires "
+        f"WHERE siren = '{SIREN_EX_AEQUO}'"
+    ).fetchone()
+    frequences = dict(duck.execute(
+        f"SELECT nom, count(*) FROM t_titulaires_lignes "
+        f"WHERE siren = '{SIREN_EX_AEQUO}' GROUP BY nom"
+    ).fetchall())
+    assert set(frequences.values()) == {1}      # égalité stricte, sinon rien à départager
+    assert nom == min(frequences) == "AAA EX AEQUO"
+    assert categorie == "ETI"
+    assert duck.execute(
+        f"SELECT arg_min(nom, titulaire_id) FROM t_titulaires_lignes "
+        f"WHERE siren = '{SIREN_EX_AEQUO}'"
+    ).fetchone()[0] == "ZZZ EX AEQUO"
+
+
+def test_le_classement_des_acheteurs_suit_la_meme_regle(resultat_entreprises):
+    """Acheteurs : même regroupement par entreprise, même filtre de conformité.
+
+    L'effet y est plus faible — la plupart des acheteurs publics n'ont qu'un
+    établissement acheteur — mais servir un classement par entreprise d'un
+    côté et par établissement de l'autre serait une différence de définition
+    invisible à l'écran et inexplicable au lecteur.
+    """
+    duck = resultat_entreprises
+    nom, nb_etab, nb_marches, montant = duck.execute(
+        "SELECT nom, nb_etablissements, nb_marches, montant_total "
+        f"FROM t_top_acheteurs WHERE siren = '{SIREN_ACHETEUR}'"
+    ).fetchone()
+    assert nb_etab == 2
+    assert nb_marches == 2
+    assert montant == pytest.approx(MONTANT_ACHETEUR_DOUBLE)
+    assert nom is not None
+
+    # L'acheteur à identifiant malformé est écarté du classement.
+    classes = {c for (c,) in duck.execute("SELECT siren FROM t_top_acheteurs").fetchall()}
+    assert ACHETEUR_MALFORME not in classes
+    assert ACHETEUR_MALFORME[:9] not in classes
+    assert all(len(c) == 9 and c.isdigit() for c in classes)
+    # ... mais son marché reste compté dans la fenêtre : c'est le classement
+    # qui l'écarte, pas le pipeline qui le perd.
+    assert duck.execute(
+        f"SELECT count(*) FROM recents WHERE acheteur_siret = '{ACHETEUR_MALFORME}'"
+    ).fetchone()[0] == 1
+
+
+def test_les_deux_classements_sont_ordonnes_et_bornes(resultat):
+    """Invariants de forme communs aux deux tables, sur la fixture réelle."""
+    duck, _ = resultat
+    for table, source in (("t_top_acheteurs", "acheteurs_conformes"),
+                          ("t_top_titulaires", "titulaires_conformes")):
+        lignes = duck.execute(
+            f"SELECT rang, siren, nb_etablissements, nb_marches, montant_total "
+            f"FROM {table} ORDER BY rang"
+        ).fetchall()
+        assert [l[0] for l in lignes] == list(range(1, len(lignes) + 1))
+        # Une entreprise, une ligne.
+        assert len({l[1] for l in lignes}) == len(lignes)
+        # Montants décroissants, les montants absents (NULL) en queue.
+        montants = [l[4] for l in lignes]
+        connus = [m for m in montants if m is not None]
+        assert connus == sorted(connus, reverse=True)
+        assert montants[: len(connus)] == connus
+        for _, _, nb_etab, nb_marches, montant in lignes:
+            # Chaque établissement regroupé est entré par au moins un marché.
+            assert 1 <= nb_etab <= nb_marches
+            # L'écrêtage vaut aussi après regroupement : aucune entreprise ne
+            # peut dépasser le plafond multiplié par son nombre de marchés.
+            if montant is not None:
+                assert montant <= nb_marches * ingest_decp.PLAFOND_ECRETAGE_EUR
+        # Le classement couvre toute la population conforme, tronquée à NB_TOP.
+        attendu = duck.execute(
+            f"SELECT count(DISTINCT siren) FROM {source}"
+        ).fetchone()[0]
+        assert len(lignes) == min(attendu, ingest_decp.NB_TOP)
+
+
+def test_charger_ecrit_la_qualite_des_titulaires_et_les_tops_par_entreprise(
+    tmp_path, resultat
+):
+    """Les trois tables traversent SQLite : une ligne de qualité, deux tops."""
+    duck, _ = resultat
+    conn = db.init_db(chemin=tmp_path / "decp_entreprises.db")
+    try:
+        for _ in range(2):  # double passage : réécriture, pas accumulation
+            comptes = ingest_decp.charger(conn, duck)
+            conn.commit()
+        assert comptes["decp_titulaires_qualite"] == 1
+
+        lignes = conn.execute("SELECT * FROM decp_titulaires_qualite").fetchall()
+        assert len(lignes) == 1
+        q = lignes[0]
+        assert q["id"] == 1
+        # L'invariant survit au transfert par lots vers SQLite.
+        assert q["nb_lignes_identifiables"] + q["nb_lignes_ecartees"] == q["nb_lignes"]
+        assert q["nb_marches"] == conn.execute(
+            "SELECT nb_marches FROM decp_qualite_montants"
+        ).fetchone()["nb_marches"]
+        # Les montants arrivent en REAL, jamais en Decimal (que sqlite3 refuse
+        # de lier), et NULL reste NULL.
+        for col in ("montant_identifiable", "montant_ecarte"):
+            assert q[col] is None or isinstance(q[col], float)
+
+        # Les deux classements portent bien `siren` et plus du tout `siret`.
+        for table in ("decp_top_acheteurs", "decp_top_titulaires"):
+            colonnes = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+            assert colonnes == set(ingest_decp._TABLES[table][1])
+            assert "siren" in colonnes and "siret" not in colonnes
+            assert "nb_etablissements" in colonnes
+            cles = [
+                r["siren"] for r in conn.execute(f"SELECT siren FROM {table}")
+            ]
+            assert cles and all(len(c) == 9 and c.isdigit() for c in cles)
+    finally:
+        conn.close()
+
+
+def _ligne_acheteurs_qualite(duck):
+    """La ligne unique de t_acheteurs_qualite, en dictionnaire."""
+    lignes = duck.execute("SELECT * FROM t_acheteurs_qualite").fetchall()
+    assert len(lignes) == 1
+    return dict(zip([d[0] for d in duck.description], lignes[0]))
+
+
+def _population_acheteurs_du_parquet(duck, chemin):
+    """(marchés avec acheteur, identifiants distincts, max par marché) du parquet.
+
+    Relus du parquet BRUT, comme pour les titulaires : la date du marché est
+    min(dateNotification) sur TOUTES ses lignes, l'acheteur se lit sur les
+    lignes COURANTES. La troisième valeur sert de garde : le pipeline retient
+    un acheteur par marché, ce recompte n'est exact que si aucun marché n'en
+    déclare deux.
+    """
+    borne = DATE_REF.isoformat()
+    return duck.execute(
+        f"""
+        WITH initiale AS (
+            SELECT uid, min(dateNotification) AS d
+            FROM read_parquet('{chemin}')
+            WHERE dateNotification IS NOT NULL
+            GROUP BY uid
+        ),
+        courantes AS (
+            SELECT l.uid, l.acheteur_id
+            FROM read_parquet('{chemin}') l
+            JOIN initiale i USING (uid)
+            WHERE l.donneesActuelles
+              AND l.acheteur_id IS NOT NULL
+              AND i.d <= DATE '{borne}'
+              AND i.d >  DATE '{borne}'
+                         - INTERVAL {ingest_decp.MOIS_AGGREGATS} MONTH
+        )
+        SELECT (SELECT count(DISTINCT uid) FROM courantes),
+               (SELECT count(DISTINCT acheteur_id) FROM courantes),
+               (SELECT coalesce(max(n), 0) FROM (
+                    SELECT count(DISTINCT acheteur_id) AS n
+                    FROM courantes GROUP BY uid))
+        """
+    ).fetchone()
+
+
+def test_acheteurs_qualite_recompose_la_population_de_depart(resultat):
+    """Identifiables + écartés = les marchés À ACHETEUR de la fenêtre.
+
+    Le dénominateur de la partition est nb_marches_avec_acheteur, PAS
+    nb_marches : les deux se distinguent des marchés sans acheteur renseigné,
+    et les confondre ferait passer un défaut de saisie amont pour un
+    identifiant que nous aurions écarté. La population est relue du parquet
+    brut — additionner deux `count(*) FILTER` ne prouverait que leur cohérence
+    mutuelle, jamais qu'ils couvrent tout.
+    """
+    duck, _ = resultat
+    q = _ligne_acheteurs_qualite(duck)
+    assert q["id"] == 1
+
+    nb_avec, nb_identifiants, max_par_marche = _population_acheteurs_du_parquet(
+        duck, FIXTURE
+    )
+    # Garde : un marché n'a qu'un acheteur, sinon le recompte ne vaudrait rien.
+    assert max_par_marche <= 1
+    assert q["nb_marches_avec_acheteur"] == nb_avec
+    assert q["nb_sirets"] + q["nb_identifiants_ecartes"] == nb_identifiants
+
+    # La partition des MARCHÉS recompose la population, sans reste ni doublon.
+    assert (
+        q["nb_marches_identifiables"] + q["nb_marches_ecartes"]
+        == q["nb_marches_avec_acheteur"]
+    )
+
+    # Celle des MONTANTS recompose le total, à l'euro près. `or 0.0` parce
+    # qu'une part vide vaut NULL et non zéro — sur la fixture réelle, aucun
+    # acheteur n'est écarté et montant_ecarte est donc NULL, pas 0.
+    total = duck.execute(
+        "SELECT sum(montant_ecrete) FROM t_acheteurs_marches"
+    ).fetchone()[0]
+    assert (q["montant_identifiable"] or 0.0) + (
+        q["montant_ecarte"] or 0.0
+    ) == pytest.approx(total or 0.0)
+
+    # Un seul dénominateur pour la fenêtre, partagé par les trois tables de
+    # qualité : elles le lisent au même endroit, elles ne peuvent pas diverger.
+    reference = duck.execute(
+        "SELECT nb_marches FROM t_qualite_montants"
+    ).fetchone()[0]
+    assert q["nb_marches"] == reference
+    assert duck.execute(
+        "SELECT nb_marches FROM t_titulaires_qualite"
+    ).fetchone()[0] == reference
+    # Tout marché à acheteur est un marché de la fenêtre, jamais l'inverse.
+    assert q["nb_marches_avec_acheteur"] <= q["nb_marches"]
+
+    assert q["nb_sirens"] <= q["nb_sirets"]
+    assert (q["nb_sirets"] > q["nb_sirens"]) == (q["nb_sirens_multi_etab"] > 0)
+
+
+def test_un_acheteur_malforme_est_ecarte_du_classement_et_compte(
+    resultat_entreprises,
+):
+    """Côté acheteurs aussi : écarté du classement, ET compté.
+
+    L'invariant est rejoué ici parce que la fixture réelle n'écarte AUCUN
+    acheteur — un invariant qui ne tient que là où il n'y a rien à perdre ne
+    prouve rien.
+    """
+    duck = resultat_entreprises
+    q = _ligne_acheteurs_qualite(duck)
+
+    # La copie de fixture porte un acheteur à identifiant malformé, et un seul.
+    assert q["nb_marches_ecartes"] == 1
+    assert q["nb_identifiants_ecartes"] == 1
+    assert q["montant_ecarte"] is not None
+
+    # La partition tient là où il y a matière à fuir.
+    assert (
+        q["nb_marches_identifiables"] + q["nb_marches_ecartes"]
+        == q["nb_marches_avec_acheteur"]
+    )
+    total = duck.execute(
+        "SELECT sum(montant_ecrete) FROM t_acheteurs_marches"
+    ).fetchone()[0]
+    assert (q["montant_identifiable"] or 0.0) + (
+        q["montant_ecarte"] or 0.0
+    ) == pytest.approx(total or 0.0)
+
+    # Le marché reste dans la population de départ : c'est le classement qui
+    # l'écarte, pas le pipeline qui le perd.
+    assert duck.execute(
+        f"SELECT count(*) FROM t_acheteurs_marches "
+        f"WHERE acheteur_siret = '{ACHETEUR_MALFORME}'"
+    ).fetchone()[0] == 1
+    assert duck.execute(
+        f"SELECT count(*) FROM t_acheteurs_marches "
+        f"WHERE acheteur_siret = '{ACHETEUR_MALFORME}' AND identifiable"
+    ).fetchone()[0] == 0
+
+    # Les deux établissements acheteurs construits sont bien vus comme une
+    # seule entreprise à deux établissements.
+    assert q["nb_sirens_multi_etab"] >= 1
+    assert q["nb_sirets"] - q["nb_sirens"] >= 1
+
+
+def test_charger_ecrit_la_qualite_des_acheteurs(tmp_path, resultat):
+    """La table acheteurs traverse SQLite : une ligne, invariant préservé."""
+    duck, _ = resultat
+    conn = db.init_db(chemin=tmp_path / "decp_acheteurs.db")
+    try:
+        for _ in range(2):  # double passage : réécriture, pas accumulation
+            comptes = ingest_decp.charger(conn, duck)
+            conn.commit()
+        assert comptes["decp_acheteurs_qualite"] == 1
+
+        lignes = conn.execute("SELECT * FROM decp_acheteurs_qualite").fetchall()
+        assert len(lignes) == 1
+        q = lignes[0]
+        assert q["id"] == 1
+        assert (
+            q["nb_marches_identifiables"] + q["nb_marches_ecartes"]
+            == q["nb_marches_avec_acheteur"]
+        )
+        # Les trois tables de qualité affichent le même dénominateur.
+        assert q["nb_marches"] == conn.execute(
+            "SELECT nb_marches FROM decp_qualite_montants"
+        ).fetchone()["nb_marches"]
+        assert q["nb_marches"] == conn.execute(
+            "SELECT nb_marches FROM decp_titulaires_qualite"
+        ).fetchone()["nb_marches"]
+        # Montants en REAL, jamais en Decimal (que sqlite3 refuse de lier),
+        # et NULL conservé quand la part est vide.
+        for col in ("montant_identifiable", "montant_ecarte"):
+            assert q[col] is None or isinstance(q[col], float)
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+#
+# Filet de schéma : la base SERVIE est persistante, celle de la CI est neuve
+#
+# ---------------------------------------------------------------------------
+#
+# `CREATE TABLE IF NOT EXISTS` ne modifie pas une table déjà présente. En
+# intégration continue la base part de zéro : les tables y naissent au schéma
+# courant, et un changement de colonnes ne se voit pas. La base servie, elle,
+# survit d'un déploiement à l'autre et garde ses anciennes colonnes — l'INSERT
+# y échouerait, et l'ingestion étant tout-ou-rien, le déploiement ENTIER
+# tomberait. Ces trois tests rejouent la situation de la production, la seule
+# où le défaut existe.
+
+_ANCIEN_SCHEMA_TOPS = """
+CREATE TABLE decp_top_acheteurs (
+    rang          INTEGER PRIMARY KEY,
+    siret         TEXT,
+    nom           TEXT,
+    nb_marches    INTEGER NOT NULL,
+    montant_total REAL
+);
+CREATE TABLE decp_top_titulaires (
+    rang          INTEGER PRIMARY KEY,
+    siret         TEXT,
+    nom           TEXT,
+    categorie     TEXT,
+    nb_marches    INTEGER NOT NULL,
+    montant_total REAL
+);
+
+-- Table de qualité des acheteurs réduite à deux colonnes : elle tient ici la
+-- place d'une table CÂBLÉE APRÈS COUP, dont la base servie porterait une
+-- forme périmée. Le filet doit la rattraper sans une ligne de code de plus —
+-- c'est ce que le test vérifie, au lieu de le supposer.
+CREATE TABLE decp_acheteurs_qualite (
+    id         INTEGER PRIMARY KEY CHECK (id = 1),
+    nb_marches INTEGER NOT NULL
+);
+"""
+
+
+def _base_au_schema_ancien(chemin):
+    """Base portant l'ANCIEN schéma des deux classements, avec des lignes.
+
+    Les lignes comptent : une table vide ne dirait pas si la migration a
+    réécrit le contenu ou seulement les colonnes.
+    """
+    conn = db.init_db(chemin=chemin)
+    conn.executescript(_ANCIEN_SCHEMA_TOPS)
+    conn.execute(
+        "INSERT INTO decp_top_titulaires "
+        "(rang, siret, nom, categorie, nb_marches, montant_total) "
+        "VALUES (1, '32933888303058', 'ANCIENNE LIGNE', 'GE', 43, 215000000.0)"
+    )
+    conn.execute(
+        "INSERT INTO decp_top_acheteurs "
+        "(rang, siret, nom, nb_marches, montant_total) "
+        "VALUES (1, '25580118500018', 'ANCIENNE LIGNE', 1, 100000000.0)"
+    )
+    conn.execute(
+        "INSERT INTO decp_acheteurs_qualite (id, nb_marches) VALUES (1, 999999)"
+    )
+    conn.commit()
+    return conn
+
+
+def test_charger_migre_une_base_portant_lancien_schema(tmp_path, resultat):
+    """Une base persistante aux colonnes obsolètes ressort au schéma courant."""
+    duck, _ = resultat
+    conn = _base_au_schema_ancien(tmp_path / "decp_ancien.db")
+    try:
+        avant = {r[1] for r in conn.execute("PRAGMA table_info(decp_top_titulaires)")}
+        assert "siret" in avant and "siren" not in avant
+
+        comptes = ingest_decp.charger(conn, duck)
+        conn.commit()
+
+        for table in ("decp_top_acheteurs", "decp_top_titulaires"):
+            colonnes = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+            assert colonnes == set(ingest_decp._TABLES[table][1])
+            assert "siret" not in colonnes
+            # Repeuplée, et l'ancienne ligne a disparu avec l'ancien schéma.
+            n = conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+            assert n == comptes[table]
+            assert n > 0
+            assert conn.execute(
+                f"SELECT count(*) FROM {table} WHERE nom = 'ANCIENNE LIGNE'"
+            ).fetchone()[0] == 0
+
+        # La table de qualité des acheteurs, câblée APRÈS le premier jet, est
+        # couverte par le MÊME filet sans une ligne de code de plus : sa forme
+        # périmée est remplacée et sa ligne réécrite.
+        colonnes = {
+            r[1] for r in conn.execute("PRAGMA table_info(decp_acheteurs_qualite)")
+        }
+        assert colonnes == set(ingest_decp._TABLES["decp_acheteurs_qualite"][1])
+        assert conn.execute(
+            "SELECT nb_marches FROM decp_acheteurs_qualite"
+        ).fetchone()[0] != 999_999
+
+        # Rejouable : sur la base désormais conforme, plus rien n'est supprimé.
+        assert ingest_decp._reconcilier_schema(conn) == []
+        ingest_decp.charger(conn, duck)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def test_le_drop_de_migration_repose_les_index_de_la_table(tmp_path, resultat):
+    """Le DROP emporte les index ; c'est `_SCHEMA`, rejoué après, qui les repose.
+
+    D'où l'ordre imposé dans `charger` : contrôle, DROP, `_SCHEMA`,
+    DELETE/INSERT. Inversé, la base servie perdrait les index de
+    `decp_marches` sans qu'aucune erreur ne le signale — les pages qui s'en
+    servent ralentiraient en silence.
+    """
+    duck, _ = resultat
+    conn = db.init_db(chemin=tmp_path / "decp_index.db")
+    try:
+        # `decp_marches` amputée de presque toutes ses colonnes : discordante,
+        # donc supprimée — et son index part avec elle.
+        conn.executescript(
+            "CREATE TABLE decp_marches (uid TEXT PRIMARY KEY, "
+            "date_notification TEXT NOT NULL);"
+            "CREATE INDEX idx_decp_marches_date ON decp_marches(date_notification);"
+        )
+        conn.commit()
+
+        ingest_decp.charger(conn, duck)
+        conn.commit()
+
+        index = {
+            r[0] for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'index' "
+                "AND tbl_name = 'decp_marches'"
+            )
+        }
+        assert {"idx_decp_marches_date", "idx_decp_marches_ach",
+                "idx_decp_marches_tit", "idx_decp_marches_dep"} <= index
+        assert conn.execute(
+            "SELECT count(*) FROM decp_marches"
+        ).fetchone()[0] == 41
+    finally:
+        conn.close()
+
+
+def test_sans_le_filet_lingestion_casserait_en_production(
+    tmp_path, resultat, monkeypatch
+):
+    """Preuve en sens inverse : sans le filet, l'INSERT échoue sur l'ancienne base.
+
+    C'est exactement ce que la production aurait rencontré, alors que
+    l'intégration continue — base neuve à chaque passage — restait verte.
+    Le test échoue si le filet devient la seule chose qui masque l'erreur
+    sans que le message la nomme.
+    """
+    duck, _ = resultat
+    monkeypatch.setattr(ingest_decp, "_reconcilier_schema", lambda conn: [])
+    conn = _base_au_schema_ancien(tmp_path / "decp_sans_filet.db")
+    try:
+        with pytest.raises(sqlite3.OperationalError, match="siren"):
+            ingest_decp.charger(conn, duck)
+    finally:
+        conn.close()
+
+
+def test_toutes_les_tables_du_schema_sont_cablees_donc_couvertes_par_le_filet():
+    """Aucune table de `_SCHEMA` n'échappe à `_TABLES`, donc au filet de schéma.
+
+    `_reconcilier_schema` ne contrôle que les tables de `_TABLES` : une table
+    déclarée dans `_SCHEMA` mais non câblée n'y serait jamais vérifiée et
+    rejouerait exactement le défaut que le filet existe pour empêcher — en
+    production seulement, jamais en intégration continue. Ce test ferme la
+    porte pour les tables À VENIR, pas seulement pour celles d'aujourd'hui :
+    c'est la seule façon de ne pas redécouvrir le problème au prochain
+    changement de schéma.
+    """
+    declarees = set(
+        re.findall(r"CREATE TABLE IF NOT EXISTS (\w+)", ingest_decp._SCHEMA)
+    )
+    assert declarees == set(ingest_decp._TABLES)

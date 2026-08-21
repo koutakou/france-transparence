@@ -4,19 +4,122 @@
 # et le 21/08/2026 (table sirene_unites_legales, S18 ; puis decp_qualite_montants,
 # elections_participation_departement, elections_participation_ville et les quatre
 # tables hatvp_decl_*, jusque-là absentes ; corrections campagnes_2024.marqueur_etoile
-# et trainvie_faits.assiette ; enfin les trois tables decp_publication_* de la qualité
-# de publication des marchés, dont le DDL est celui du pipeline qui les produit)
+# et trainvie_faits.assiette ; les trois tables decp_publication_* de la qualité
+# de publication des marchés, dont le DDL est celui du pipeline qui les produit ;
+# enfin le passage des classements de marchés à l'ENTREPRISE — decp_top_acheteurs et
+# decp_top_titulaires perdent siret pour siren + nb_etablissements, et les tables
+# decp_titulaires_qualite et decp_acheteurs_qualite les accompagnent en comptant,
+# chacune de son côté, ce que ces classements écartent)
 
-> **Extrait daté.** Ce document décrit **73 tables**, **6 vues** et **55 index**. Soixante-dix de ces
+> **Extrait daté.** Ce document décrit **75 tables**, **6 vues** et **55 index**, et cette
+> couverture est sa propriété essentielle : une table de la base absente d'ici est un trou de
+> documentation, et une table décrite ici qui n'existe nulle part est une invention. **68** de ces
 > tables, les 6 vues et les 55 index sont ceux que `sqlite_master` recense au 21/08/2026 : sur ce
 > périmètre la couverture du schéma est entière à cette date, et le DDL reproduit a été confronté
 > objet par objet à celui de la base servie — noms, types, `NOT NULL`, valeurs par défaut et clés
-> primaires coïncident colonne à colonne pour les 70 tables, et les noms d'index coïncident un à un.
-> Les trois autres — `decp_publication_qualite`, `decp_publication_annees` et
-> `decp_publication_acheteurs` — sont reproduites d'après le `CREATE TABLE` de leur pipeline
-> producteur, `pipelines/ingest_decp.py` : c'est la seule partie du document dont le DDL ne provient
-> pas d'un `.schema` de la base servie, et le contrôle colonne à colonne décrit ci-dessus ne porte
-> pas sur elles. Les comptages de lignes cités décrivent le jour de leur mesure et
+> primaires coïncident colonne à colonne pour ces 68 tables, et les noms d'index coïncident un à un.
+> Les **sept** autres sont reproduites d'après le `CREATE TABLE` de leur pipeline producteur,
+> `pipelines/ingest_decp.py` : c'est la seule partie du document dont le DDL ne provient pas d'un
+> `.schema` de la base servie, et le contrôle colonne à colonne décrit ci-dessus ne porte pas sur
+> elles. Elles ne sont pas dans le même état pour autant, et la différence compte :
+>
+> - `decp_publication_qualite`, `decp_publication_annees`, `decp_publication_acheteurs` — **présentes
+>   dans la base servie**, avec les mêmes colonnes ; seule la provenance du texte diffère. Le
+>   contrôle par rejeu du DDL ci-dessous les couvre et les trouve identiques à la base servie
+>   jusqu'aux contraintes de colonne : leur provenance ne les laisse donc pas non vérifiées.
+> - `decp_top_acheteurs` et `decp_top_titulaires` — le DDL ci-dessous est celui du pipeline, et
+>   **la base servie porte encore l'état antérieur** : une colonne `siret TEXT` là où le pipeline
+>   écrit `siren TEXT`, et pas de colonne `nb_etablissements`. Un `SELECT siren` sur la base servie
+>   échoue donc aujourd'hui.
+> - `decp_titulaires_qualite` et `decp_acheteurs_qualite` — **absentes de la base servie**, dont la
+>   dernière ingestion est antérieure à ce changement de schéma. Le pipeline les écrit, la base
+>   servie ne les porte pas.
+>
+> Cet écart n'exige aucune intervention manuelle : `charger()` de
+> `pipelines/ingest_decp.py` compare, à chaque chargement, les colonnes réelles de chaque table
+> `decp_*` à celles qu'il va écrire, supprime celles qui ne coïncident plus et laisse `_SCHEMA` les
+> recréer avec leurs index (`_reconcilier_schema`). Ces tables sont intégralement recalculées à
+> chaque passe : le `DROP` n'y perd aucune donnée.
+>
+> **Contrôle de couverture — la commande, à rejouer après toute modification de ce document.** Elle
+> ne compare pas des noms de tables lus au grep : elle **rejoue le DDL du document** dans une base
+> SQLite jetable, puis compare `PRAGMA table_info` de cette base à celui de la base servie. C'est
+> SQLite qui analyse le DDL, donc aucun analyseur écrit à la main, aucun angle mort de parseur — et
+> types, `NOT NULL`, valeurs par défaut et clés primaires sont comparés en même temps que les noms
+> et l'ordre des colonnes. Un bloc de DDL invalide fait échouer la commande au lieu de passer
+> inaperçu, ce qu'une comparaison de noms ne voit pas.
+>
+> ```
+> python3 - <<'PY'
+> import sqlite3
+> # 1. Extraire les blocs CREATE TABLE. Un bloc commence sur une ligne
+> #    « CREATE TABLE … » en colonne 0 et finit à la ligne où la profondeur de
+> #    parenthèses revient à 0 et qui se termine par ';'.
+> #    PIÈGE 1 : `cada_saisines` et `cada_sens` finissent par ') WITHOUT ROWID;'
+> #    et non par ');'. Un extracteur qui ne cherche que ');' les perd ET fait
+> #    déborder leur bloc sur la table suivante — d'où de faux « absente du
+> #    document ».
+> #    PIÈGE 2 : le bloc `elus` se termine par une ligne commençant par une
+> #    VIRGULE (', hatvp_url TEXT);'), parce que ce document reproduit VERBATIM
+> #    le DDL de sqlite_master pour une table migrée par ALTER TABLE. C'est une
+> #    qualité du document, pas un défaut, mais elle casse les extracteurs naïfs.
+> blocs, cur, prof = [], None, 0
+> for l in open("docs/SCHEMA-DB.md", encoding="utf-8").read().splitlines():
+>     if cur is None and l.startswith("CREATE TABLE "):
+>         cur, prof = [], 0
+>     if cur is not None:
+>         cur.append(l)
+>         prof += l.count("(") - l.count(")")
+>         if prof == 0 and l.rstrip().endswith(";"):
+>             blocs.append("\n".join(cur)); cur = None
+> print("blocs CREATE TABLE :", len(blocs))
+> # 2. Rejouer ce DDL dans une base jetable : SQLite fait lui-même l'analyse.
+> doc = sqlite3.connect(":memory:")
+> for b in blocs:
+>     doc.execute(b)
+> print("DDL rejoues :", len(list(doc.execute(
+>     "SELECT name FROM sqlite_master WHERE type='table'"))))
+> # 3. Comparer PRAGMA table_info des deux bases.
+> base = sqlite3.connect("file:data/france.db?mode=ro", uri=True)
+> def sig(con, t):
+>     return [(r[1], r[2], r[3], r[4], r[5])
+>             for r in con.execute("PRAGMA table_info(%s)" % t)]
+> tdoc = {r[0] for r in doc.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+> tbase = {r[0] for r in base.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+> print("doc sans base :", sorted(tdoc - tbase))
+> print("base sans doc :", sorted(tbase - tdoc))
+> comm = sorted(tdoc & tbase)
+> div = [t for t in comm if sig(doc, t) != sig(base, t)]
+> print("IDENTIQUES (nom+type+NOT NULL+defaut+PK) : %d / %d" % (len(comm) - len(div), len(tbase)))
+> ATTENDUES = {"decp_top_acheteurs", "decp_top_titulaires"}
+> print("divergentes :", div, "=> INATTENDUES :", sorted(set(div) - ATTENDUES) or "AUCUNE")
+> PY
+> ```
+>
+> Sortie constatée le 21/08/2026, sur la base servie de ce jour :
+>
+> ```
+> blocs CREATE TABLE : 75
+> DDL rejoues : 75
+> doc sans base : ['decp_acheteurs_qualite', 'decp_titulaires_qualite']
+> base sans doc : []
+> IDENTIQUES (nom+type+NOT NULL+defaut+PK) : 71 / 73
+> divergentes : ['decp_top_acheteurs', 'decp_top_titulaires'] => INATTENDUES : AUCUNE
+> ```
+>
+> Lecture : les 75 blocs sont du DDL **valide** ; **les 73 tables de la base servie sont toutes
+> décrites** (`base sans doc` vide — c'est la couverture, et c'est la ligne à ne jamais laisser se
+> remplir) ; 71 des 73 concordent jusqu'aux contraintes de colonne. Les trois écarts sont exactement
+> les trois voulus et énumérés ci-dessus. Toute autre entrée dans `doc sans base`, `base sans doc` ou
+> `INATTENDUES` est un défaut de ce document, à corriger ici et jamais en relâchant le contrôle.
+>
+> **Ce que cette commande ne prouve pas**, et qu'il faut donc vérifier autrement : elle ne compare ni
+> les **index**, ni les **vues**, ni les **déclencheurs**, ni les **contraintes de table** —
+> `CHECK` (y compris mono-colonne, que `PRAGMA table_info` n'expose pas), `UNIQUE`, clés étrangères,
+> `WITHOUT ROWID`. Les comptes de vues et d'index annoncés en tête de cet encadré viennent d'un
+> `sqlite_master` et non de cette commande.
+>
+> Les comptages de lignes cités décrivent le jour de leur mesure et
 > **dérivent à chaque ingestion** ; le catalogue vivant est la page `/donnees`, régénérée à chaque
 > publication. Le schéma qui fait foi reste celui de la base elle-même :
 > `sqlite3 -readonly data/france.db ".schema"`.
@@ -26,9 +129,14 @@
 > `trainvie_faits.assiette`. Elles se reconnaissent au fragment `, colonne …);` détaché en fin de
 > DDL, elles arrivent en **dernière position** de la table — ce qui suffit à décaler un
 > `SELECT *` — et elles ne portent **pas** les contraintes du schéma de création, SQLite ne sachant
-> pas attacher un `CHECK` à une colonne ajoutée après coup. Le DDL ci-dessous reproduit l'état de la
-> base servie, jamais celui d'une base neuve : sur une base fraîchement créée, ces trois colonnes
-> sont à leur place nominale et `trainvie_faits.assiette` y porte son `CHECK`.
+> pas attacher un `CHECK` à une colonne ajoutée après coup. Pour ces trois tables, le DDL ci-dessous
+> reproduit l'état de la base servie et non celui d'une base neuve : sur une base fraîchement créée,
+> ces trois colonnes sont à leur place nominale et `trainvie_faits.assiette` y porte son `CHECK`.
+> À l'inverse, une table **créée** par un `CREATE TABLE` — `decp_titulaires_qualite` et son
+> `CHECK (id = 1)`, comme `decp_qualite_montants` avant elle — porte bien ses contraintes : la
+> restriction ne vient pas de SQLite en général, elle vient de l'`ALTER TABLE`. Ce que le pipeline
+> supprime puis recrée (cf. `_reconcilier_schema`) revient donc au schéma nominal, contraintes
+> comprises, et perd au passage les colonnes qu'un `ALTER TABLE` aurait pu y ajouter à la main.
 
 ```
 CREATE TABLE meta_sources (
@@ -215,20 +323,62 @@ CREATE TABLE decp_agg_mois (
     nb_marches    INTEGER NOT NULL,
     montant_total REAL
 );
+-- Les quatre tables qui suivent sont reproduites d'après le CREATE TABLE de
+-- pipelines/ingest_decp.py, et non d'après un .schema de la base servie
+-- (cf. l'encadré en tête). L'unité classée est l'ENTREPRISE, jamais
+-- l'établissement : un classement par SIRET émiette un groupe à réseau local
+-- en autant de lignes qu'il a d'établissements, dont aucune n'atteint le seuil
+-- d'entrée du top 50 — le groupe disparaît alors d'un classement dont il peut
+-- être le premier. Le croisement lobbying × marchés joint déjà par SIREN.
 CREATE TABLE decp_top_acheteurs (
-    rang          INTEGER PRIMARY KEY,
-    siret         TEXT,
-    nom           TEXT,
-    nb_marches    INTEGER NOT NULL,
-    montant_total REAL
+    rang              INTEGER PRIMARY KEY,
+    siren             TEXT,               -- 9 premiers chiffres du SIRET acheteur
+    nom               TEXT,               -- libellé DÉCLARÉ au DECP, cf. § dédié
+    nb_etablissements INTEGER NOT NULL,   -- SIRET distincts regroupés, sur la FENÊTRE
+    nb_marches        INTEGER NOT NULL,   -- marchés distincts de la fenêtre 12 mois
+    montant_total     REAL                -- écrêté au plafond du pipeline
 );
 CREATE TABLE decp_top_titulaires (
-    rang          INTEGER PRIMARY KEY,
-    siret         TEXT,
-    nom           TEXT,
-    categorie     TEXT,
-    nb_marches    INTEGER NOT NULL,
-    montant_total REAL
+    rang              INTEGER PRIMARY KEY,
+    siren             TEXT,               -- 9 premiers chiffres du SIRET titulaire
+    nom               TEXT,               -- libellé DÉCLARÉ au DECP, cf. § dédié
+    categorie         TEXT,               -- PME/ETI/GE DÉCLARÉE au DECP, cf. § dédié
+    nb_etablissements INTEGER NOT NULL,   -- SIRET distincts regroupés, sur la FENÊTRE
+    nb_marches        INTEGER NOT NULL,   -- marchés DISTINCTS : deux établissements
+                                          -- co-titulaires ne comptent qu'un marché
+    montant_total     REAL                -- écrêté, puis divisé par co-titulaire
+);
+CREATE TABLE decp_titulaires_qualite (
+    id                        INTEGER PRIMARY KEY CHECK (id = 1),  -- ligne unique
+    nb_marches                INTEGER NOT NULL,  -- marchés de la fenêtre (dénominateur)
+    nb_marches_avec_titulaire INTEGER NOT NULL,  -- dont au moins un titulaire déclaré
+    nb_lignes                 INTEGER NOT NULL,  -- couples marché × titulaire
+    nb_lignes_identifiables   INTEGER NOT NULL,  -- identifiant conforme : entrent au top
+    nb_lignes_ecartees        INTEGER NOT NULL,  -- non conforme : hors du top, comptées ici
+    montant_identifiable      REAL,              -- parts écrêtées des lignes retenues
+    montant_ecarte            REAL,              -- parts écrêtées des lignes écartées
+    nb_identifiants_ecartes   INTEGER NOT NULL,  -- valeurs distinctes parmi les écartées
+    nb_sirets                 INTEGER NOT NULL,  -- établissements distincts retenus
+    nb_sirens                 INTEGER NOT NULL,  -- entreprises distinctes retenues
+    nb_sirens_multi_etab      INTEGER NOT NULL   -- entreprises à plus d'un établissement
+);
+-- Pendant de la précédente pour les acheteurs, et DÉLIBÉRÉMENT plus courte :
+-- un marché n'a qu'UN acheteur (acheteur_siret est scalaire à la source), le
+-- couple marché × acheteur n'existe donc pas et l'unité de compte est le
+-- MARCHÉ. Aucune colonne « nb_lignes » ici : l'inventer par symétrie ferait
+-- croire à un dénombrement sans objet.
+CREATE TABLE decp_acheteurs_qualite (
+    id                       INTEGER PRIMARY KEY CHECK (id = 1),  -- ligne unique
+    nb_marches               INTEGER NOT NULL,  -- marchés de la fenêtre (dénominateur)
+    nb_marches_avec_acheteur INTEGER NOT NULL,  -- acheteur renseigné, conforme ou non
+    nb_marches_identifiables INTEGER NOT NULL,  -- identifiant conforme : entrent au top
+    nb_marches_ecartes       INTEGER NOT NULL,  -- non conforme : hors du top, comptés ici
+    montant_identifiable     REAL,              -- montants écrêtés des marchés retenus
+    montant_ecarte           REAL,              -- montants écrêtés des marchés écartés
+    nb_identifiants_ecartes  INTEGER NOT NULL,  -- valeurs distinctes parmi les écartés
+    nb_sirets                INTEGER NOT NULL,  -- établissements acheteurs distincts retenus
+    nb_sirens                INTEGER NOT NULL,  -- entreprises distinctes retenues
+    nb_sirens_multi_etab     INTEGER NOT NULL   -- entreprises à plus d'un établissement
 );
 CREATE TABLE decp_repartition (
     dimension     TEXT NOT NULL,
@@ -1168,8 +1318,12 @@ CREATE INDEX idx_sirene_etat
   comptés dans `decp_publication_qualite.nb_sans_categorie`
 - decp_repartition : 15 lignes
 - decp_qualite_montants : 1 ligne, et une seule — `CHECK (id = 1)` (structurel)
-- decp_top_acheteurs : 50 lignes
-- decp_top_titulaires : 50 lignes
+- decp_titulaires_qualite : 1 ligne, et une seule — `CHECK (id = 1)` (structurel)
+- decp_acheteurs_qualite : 1 ligne, et une seule — `CHECK (id = 1)` (structurel)
+- decp_top_acheteurs : 50 lignes, soit 50 **entreprises** (SIREN) et non 50 établissements —
+  `LIMIT 50` du pipeline (`NB_TOP`), qui borne la table quel que soit le nombre d'acheteurs
+- decp_top_titulaires : 50 lignes, soit 50 **entreprises** (SIREN) ; le nombre d'entreprises
+  éligibles au classement, lui, se lit dans `decp_titulaires_qualite.nb_sirens`
 - deputes : 577 lignes
 - dotations_dgf : 618 lignes
 - elections_participation_departement : 740 lignes (comptage du 21/08/2026 —
@@ -1251,10 +1405,17 @@ produites avant cette date ne les portent pas.
 
 Ce qui n'est **pas** normalisé, et pourquoi :
 
-- **`decp_marches.titulaire_siret`** — 6 738 SIRET malformés conservés tels
-  quels : c'est le seul identifiant disponible pour ces marchés, et il sert
-  de clé de regroupement aux agrégats par titulaire. La réponse est un
-  rapprochement SIRENE, pas un effacement.
+- **`decp_marches.titulaire_siret`** et **`.titulaires_json`** — les
+  identifiants malformés (numéros de TVA intracommunautaire, chaînes de
+  remplissage type `00001`, valeurs tronquées) sont conservés tels quels :
+  c'est le seul identifiant que la source publie pour ces marchés, et
+  l'effacer supprimerait la seule trace du défaut. Le détail du marché les
+  affiche donc, et c'est voulu. Ce qui a changé, c'est leur rôle dans les
+  **agrégats** : ils n'y servent plus de clé de regroupement. Les classements
+  par titulaire et par acheteur ne retiennent que les identifiants
+  **conformes** — exactement 14 chiffres — et comptent les autres à part dans
+  `decp_titulaires_qualite` (§ dédié). Leur compte dérive à chaque ingestion
+  et se lit dans cette table, jamais ici.
 - **`campagnes_2024.departement`** (libellés désaccentués) — une fois le
   code ramené au COG, le libellé canonique s'obtient par jointure sur
   `ref_departements`, sans coupler le pipeline financement au référentiel.
@@ -1407,13 +1568,28 @@ code d'activité, ni état administratif, ni appartenance à l'économie sociale
 et solidaire. `denomination` et `sigle` sont donc un bonus — la valeur de la
 table est dans les colonnes qui les suivent.
 
-Deux usages en découlent, du côté des tables qui citent des SIREN :
-une **dénomination de référence** là où quelque 2 500 SIREN titulaires de
-marchés portent de l'ordre de 6 400 libellés distincts dans les DECP (la même
-entreprise écrite de deux ou trois façons, ce qui éclate tout classement par
-nom) ; et un **test de validité de l'identifiant** pour les ~7 400 lignes DECP
-qui portent un SIRET malformé (numéros de TVA intracommunautaire, `00001`,
-`999999999`…) — un SIREN absent de Sirene n'est pas un SIREN.
+L'usage qui en découle, du côté des tables qui citent des SIREN, est une
+**dénomination de référence**. Deux défauts du libellé DECP la rendent
+nécessaire, et le second est le plus contraignant : la même entreprise y est
+écrite de plusieurs façons — plusieurs milliers de SIREN titulaires portent
+deux ou trois libellés distincts, ce qui éclate tout regroupement par nom — et
+le libellé nomme souvent l'**établissement** plutôt que l'entreprise
+(« … (ETABLISSEMENT DE MERIGNAC) », « … (MAIRIE) »). Or `decp_top_acheteurs` et
+`decp_top_titulaires` classent des SIREN : sans dénomination de référence, la
+ligne qui agrège toute l'entreprise porterait le nom d'un seul de ses
+établissements. `denomination` et `categorie_entreprise` sont donc jointes à la
+lecture sur ces deux tables (`app/src/lib/queries/marches.ts`), en `LEFT JOIN`,
+avec repli sur les valeurs DECP.
+
+**Ce référentiel n'est pas un test de validité d'identifiant, et ne doit pas
+être employé comme tel.** L'absence d'un SIREN de `sirene_unites_legales` ne
+dit pas que ce SIREN n'existe pas : la couverture est haute mais pas totale
+(quelques centaines de SIREN titulaires de la fenêtre 12 mois n'y figurent
+pas), et les unités non diffusibles en sont écartées à l'extraction (§ 3). Le
+tri des identifiants DECP inexploitables — numéros de TVA intracommunautaire,
+`00001`, `999999999`… — est fait par un test de **format** dans le pipeline
+DECP (exactement 14 chiffres), sans aucun recours à ce référentiel, et ce que
+ce test écarte est compté dans `decp_titulaires_qualite`.
 
 ### 2. Le périmètre est celui de la base, pas celui de Sirene
 
@@ -1551,6 +1727,233 @@ et ne bouge qu'avec le code. Les dix autres colonnes sont recalculées à chaque
 ingestion sur une fenêtre glissante de 12 mois : les citer sans date n'a pas
 de sens. La latence légale de publication des DECP allant jusqu'à deux mois,
 le bord récent de cette fenêtre est de plus structurellement incomplet.
+
+## Les tables `decp_top_*`, `decp_titulaires_qualite` et `decp_acheteurs_qualite` (S1) — ce qu'il faut savoir avant de s'en servir
+
+### 1. L'unité classée est l'ENTREPRISE, pas l'établissement
+
+`decp_top_acheteurs` et `decp_top_titulaires` portent une colonne `siren` :
+une ligne = une **personne morale**, tous ses établissements réunis. C'est le
+fait le plus important de ces deux tables, parce que l'unité de regroupement
+décide de qui figure au classement.
+
+Pourquoi le SIRET ne peut pas servir de clé : une entreprise à réseau
+d'agences locales facture depuis des dizaines ou des centaines
+d'établissements, et un `GROUP BY siret` répartit ses marchés sur autant de
+lignes. Aucune n'atteint le seuil d'entrée du top 50 — l'entreprise est alors
+**absente** d'un classement dont elle peut être la première, tandis que celle
+qui facture depuis un site unique y figure à montant égal. Le classement par
+établissement ne mesurait donc pas le poids d'un attributaire : il mesurait sa
+concentration administrative.
+
+**Relevé du 21/08/2026, sur la base servie et à son schéma d'alors** (ce
+relevé documente le défaut qui a motivé le changement, pas l'état du jour ; il
+ne se met pas à jour) : regroupé par SIREN sur la fenêtre 12 mois, le premier
+attributaire pesait 2 735 M€ sur 2 221 marchés et 204 établissements, quand le
+seuil d'entrée du top 50 par établissement était de 310 M€ et que son meilleur
+établissement n'en portait que 216 M€ — il était donc absent du classement
+publié. 14 des 50 premiers SIREN manquaient au top 50 publié, presque tous des
+entreprises à réseau d'établissements locaux. Rejouable par la requête du § 5
+ci-dessous.
+
+Le même regroupement est appliqué aux **acheteurs**, où l'effet est bien plus
+faible — la plupart des acheteurs publics n'achètent que depuis un
+établissement. La raison n'est pas l'effet, c'est la définition : servir un
+classement par entreprise d'un côté et par établissement de l'autre serait un
+écart de sens invisible à l'écran et inexplicable au lecteur.
+
+### 2. Le regroupement s'arrête à l'entreprise, et ne remonte pas au groupe
+
+Un SIREN identifie une personne morale, jamais un groupe. Deux filiales d'un
+même groupe sont deux SIREN, donc deux lignes, et leurs montants ne sont
+jamais additionnés. Rien en base ne décrit les liens capitalistiques : un
+classement « par groupe » serait une reconstitution, pas une mesure. C'est la
+même limite que celle déjà posée pour le croisement lobbying × marchés
+(`docs/CROISEMENT-LOBBYING-MARCHES.md` § 8), et pour la même raison.
+
+### 3. `nom` et `categorie` sont des REPLIS, pas le libellé de référence
+
+Les deux colonnes portent la valeur **déclarée dans le DECP**, et le DECP
+nomme souvent l'ÉTABLISSEMENT plutôt que l'entreprise (« … (ETABLISSEMENT DE
+MERIGNAC) », « … (MAIRIE) »). Afficher ce libellé sur une ligne qui agrège
+toute l'entreprise donnerait un nom qui contredit ce que la ligne compte. Le
+libellé de référence est donc joint **à la lecture**, en `LEFT JOIN` sur
+`sirene_unites_legales` : `denomination` pour le nom, `categorie_entreprise`
+pour la catégorie, avec repli sur les valeurs DECP
+(`app/src/lib/queries/marches.ts`). Trois conséquences à connaître :
+
+- Le nommage n'est pas écrit par le pipeline DECP, délibérément : écrire ici un
+  nom venu du référentiel Sirene ferait dépendre l'ingestion d'un pipeline de
+  celle d'un autre. La lecture, elle, peut se passer du référentiel.
+- La couverture Sirene des SIREN titulaires est haute mais **pas totale** :
+  quelques centaines de SIREN de la fenêtre n'y figurent pas et gardent leur
+  libellé DECP. Un nom absent des deux côtés reste NULL, et la page affiche
+  alors le SIREN — jamais un nom deviné.
+- Les valeurs DECP sont choisies de façon **déterministe** : le libellé le plus
+  fréquent parmi les lignes du SIREN, ex æquo départagés par ordre
+  alphabétique, les NULL ne votant pas. Un `any_value()` suffisait quand un
+  groupe valait un établissement ; sur deux cents établissements aux libellés
+  divergents, il rendait un libellé arbitraire, susceptible de changer d'un
+  passage à l'autre sans qu'aucune donnée ait bougé.
+
+### 4. `nb_etablissements` décrit la FENÊTRE, `nb_marches` compte des marchés
+
+`nb_etablissements` est le nombre d'établissements **distincts de cette
+entreprise apparaissant dans les marchés de la fenêtre** — pas le nombre
+d'établissements qu'elle possède. Une entreprise de mille agences dont deux
+ont remporté un marché sur douze mois y vaut 2. La colonne ne mesure ni une
+taille ni une implantation.
+
+`nb_marches` compte des marchés **distincts**, pas des couples marché ×
+titulaire : deux établissements d'un même SIREN peuvent être co-titulaires du
+même marché, et ce marché ne compte qu'une fois. Le montant, lui, additionne
+bien les deux parts. Un total de marchés par entreprise n'est donc pas la
+somme des lignes titulaires correspondantes.
+
+### 5. Un identifiant non conforme est ÉCARTÉ du classement et COMPTÉ à part
+
+N'entrent au classement que les identifiants **conformes** : exactement 14
+caractères, tous des chiffres. Le reste — numéros de TVA intracommunautaire,
+chaînes de remplissage type `00001`, valeurs tronquées — ne désigne aucun
+établissement, et ses 9 premiers caractères ne sont pas un SIREN : les
+regrouper fabriquerait une entreprise inexistante. Ce n'est pas une précaution
+théorique : un tel identifiant a été servi dans les tout premiers rangs des
+titulaires, sans nom, agrégeant des marchés sans rapport entre eux — relevé du
+21/08/2026 sur la base servie, la valeur `00001` occupait le **rang 4** du
+classement publié, sans nom, avec 1 512 marchés et 1 097 M€ (relevé daté, non
+mis à jour).
+
+Ces lignes ne sont ni corrigées, ni remplacées par une valeur par défaut, ni
+passées sous silence : elles sont écartées du classement et **comptées** dans
+`decp_titulaires_qualite`, avec leur montant. La page `/marches` affiche ce
+compte à côté du classement.
+
+Deux précisions qui évitent un contresens :
+
+- **Le test est un test de FORMAT, jamais une appartenance à Sirene.** Un SIREN
+  conforme absent de `sirene_unites_legales` reste au classement : l'absence du
+  référentiel n'est pas un verdict d'invalidité, et la couverture n'est pas
+  totale (§ 3).
+- **La même règle s'applique aux acheteurs**, et ce qu'elle y écarte est compté
+  dans `decp_acheteurs_qualite` (§ 7) — une table distincte, parce que le nom
+  de `decp_titulaires_qualite` ne peut pas couvrir des acheteurs.
+
+Requête de contrôle, qui rejoue le classement des titulaires depuis
+`decp_marches` (fenêtre = `date_ref − 12 mois`, exclusive ; `date_ref` est la
+date d'ingestion, lisible en `meta_sources.date_ingestion` pour `S1`) :
+
+```sql
+WITH recents AS (
+  SELECT uid, nb_titulaires, titulaires_json,
+         CASE WHEN montant_retenu IS NULL THEN NULL
+              ELSE min(montant_retenu, 100000000.0) END AS ecrete
+    FROM decp_marches WHERE date_notification > '<date_ref moins 12 mois>'),
+lignes AS (
+  SELECT r.uid, json_extract(j.value, '$.siret') AS sid,
+         r.ecrete / r.nb_titulaires AS part
+    FROM recents r, json_each(r.titulaires_json) j),
+conformes AS (
+  SELECT uid, substr(sid, 1, 9) AS siren, sid, part FROM lignes
+   WHERE sid IS NOT NULL AND length(sid) = 14 AND sid NOT GLOB '*[^0-9]*')
+SELECT siren, count(DISTINCT sid) AS nb_etablissements,
+       count(DISTINCT uid) AS nb_marches, sum(part) AS montant_total
+  FROM conformes GROUP BY siren ORDER BY montant_total DESC LIMIT 50;
+```
+
+### 6. `decp_titulaires_qualite` : une ligne, et des invariants qui se vérifient
+
+Une seule ligne, `CHECK (id = 1)` : la table décrit une **fenêtre**, pas une
+population. Même fenêtre 12 mois que `decp_top_titulaires`, et elle est
+calculée dans le pipeline pour la raison qui vaut déjà pour
+`decp_qualite_montants` — la coupe des 12 mois dépend du jour d'ingestion et
+n'est stockée nulle part en base, une requête d'affichage ne saurait pas la
+retrouver.
+
+Une « ligne » y est un **couple marché × titulaire** : un marché à trois
+co-titulaires en produit trois. Les compteurs sortent d'un seul parcours de
+cette population, avec des filtres strictement complémentaires — la table est
+donc cohérente par construction, et non parce que deux calculs séparés
+tombent juste :
+
+- `nb_lignes = nb_lignes_identifiables + nb_lignes_ecartees` ;
+- `montant_identifiable + montant_ecarte` = somme des parts de toutes les
+  lignes (les montants NULL n'entrent dans aucune des deux sommes) ;
+- `nb_sirets + nb_identifiants_ecartes` = identifiants de titulaire distincts
+  de la fenêtre ;
+- `nb_marches` est lu sur la même population que
+  `decp_qualite_montants.nb_marches` : les deux tables affichent le même
+  dénominateur parce qu'elles le lisent au même endroit.
+
+Un rapprochement à ne pas faire :
+`montant_identifiable + montant_ecarte` **n'est pas**
+`decp_qualite_montants.montant_total`. La différence est exactement le montant
+écrêté des marchés qui ne déclarent **aucun** titulaire — ils comptent dans
+`nb_marches` et dans le total des montants, mais ne produisent aucune ligne
+titulaire. `nb_marches − nb_marches_avec_titulaire` en donne le nombre.
+
+Enfin : toutes les colonnes de cette table sont recalculées à chaque ingestion
+sur une fenêtre glissante ; **aucune ne se cite sans sa date**, et la valeur du
+jour est celle qu'affiche `/marches`.
+
+### 7. `decp_acheteurs_qualite` : le pendant acheteurs, plus court — et pourquoi
+
+Même principe, même fenêtre 12 mois, même doctrine : ce que le classement des
+acheteurs retient, ce qu'il écarte, et le montant que porte chacune des deux
+parts. Ce qui change est l'**unité de compte**, et le schéma le dit :
+
+**Un marché n'a qu'UN acheteur.** `acheteur_siret` est scalaire à la source, là
+où les titulaires arrivent en liste. Le couple marché × acheteur n'existe donc
+pas, et cette table ne porte **aucune** colonne `nb_lignes` : ses compteurs
+comptent des **marchés**. L'écrire par symétrie avec la table des titulaires
+aurait fabriqué un dénombrement sans objet, et un lecteur aurait comparé deux
+colonnes homonymes qui ne comptent pas la même chose.
+
+**Pourquoi une table à part** plutôt que des colonnes de plus dans
+`decp_titulaires_qualite` : y loger des compteurs d'acheteurs ferait mentir son
+nom, et la renommer déplacerait le problème sur tout le code qui la lit.
+
+Invariants, tous vrais par construction — un seul parcours de la population des
+acheteurs de la fenêtre, avec des filtres complémentaires :
+
+- `nb_marches_avec_acheteur = nb_marches_identifiables + nb_marches_ecartes` ;
+- `montant_identifiable + montant_ecarte` = montants écrêtés de ces mêmes
+  marchés (un montant NULL n'entre dans aucune des deux sommes) ;
+- `nb_sirets + nb_identifiants_ecartes` = identifiants d'acheteur distincts de
+  la fenêtre ;
+- `nb_marches` est lu sur la même population que
+  `decp_qualite_montants.nb_marches` et que
+  `decp_titulaires_qualite.nb_marches` : le dénominateur est le même parce
+  qu'il est lu au même endroit.
+
+**Le piège de lecture est `nb_marches` contre `nb_marches_avec_acheteur`.** Ce
+sont deux colonnes distinctes : la seconde ne compte que les marchés dont
+l'acheteur est renseigné, conforme ou non. Sur la base servie, l'écart est
+**nul** — `acheteur_siret` y est renseigné sur tous les marchés, relevé du
+21/08/2026 — donc les deux colonnes coïncident aujourd'hui. La distinction est
+structurelle et non décorative : elle existe parce qu'un acheteur non renseigné
+est possible dans le modèle, et le jour où il s'en présente, c'est
+`nb_marches − nb_marches_avec_acheteur` qui le dira. Ne jamais lire l'une pour
+l'autre au motif qu'elles sont égales.
+
+**Les deux tables de qualité ne se comparent pas terme à terme.** Côté
+acheteurs, le montant d'un marché n'est pas ventilé : il compte en entier, dans
+exactement une des deux parts, et la somme des deux redonne le total écrêté de
+la fenêtre dès lors que tout marché a un acheteur. Côté titulaires, le montant
+est **divisé par le nombre de co-titulaires**, et la somme des deux parts est
+inférieure au total de la fenêtre du montant des marchés qui ne déclarent aucun
+titulaire. Mettre `montant_ecarte` des deux tables sur la même ligne d'un
+tableau serait donc une juxtaposition trompeuse.
+
+**Pourquoi tenir ce compteur alors que le phénomène est petit** — de l'ordre
+d'une dizaine d'identifiants d'acheteur écartés au relevé du 21/08/2026, contre
+plus de mille côté titulaires, et ces comptes dérivent : la règle « on écarte et
+on compte » ne se dimensionne pas à l'ampleur du phénomène. Ce qui est interdit
+n'est pas d'écarter peu, c'est de faire disparaître sans compteur. Le compteur
+existe, quelle que soit la valeur qu'il affiche.
+
+Dernier point, sur `nb_sirets` et `nb_sirens` : ils décrivent les acheteurs
+**vus dans la fenêtre**, jamais l'ensemble des acheteurs publics français. Ce
+n'est pas un recensement d'entités publiques et cela ne s'en approche pas.
 
 ## Les tables `decp_publication_*` (S1) — ce qu'il faut savoir avant de s'en servir
 

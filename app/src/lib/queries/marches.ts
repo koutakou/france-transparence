@@ -18,6 +18,12 @@
  * - montants d'accords-cadres = MAXIMUMS notifiés, pas du dépensé ;
  * - latence légale de publication ≤ 2 mois : fenêtres récentes incomplètes ;
  * - top titulaires : montant divisé par le nombre de co-titulaires ;
+ * - tops titulaires et acheteurs : l'unité classée est l'ENTREPRISE
+ *   (SIREN), pas l'établissement (SIRET) — cf. `SQL_TOP_TITULAIRES`. Un
+ *   identifiant dont aucun SIREN ne peut être extrait est écarté des DEUX
+ *   classements et compté à part : decp_titulaires_qualite (unité : le
+ *   couple marché x titulaire) et decp_acheteurs_qualite (unité : le
+ *   marché, un marché n'ayant qu'un acheteur) ;
  * - decp_agg_departement.montant_total NULL = aucun montant connu (≠ 0) ;
  * - decp_qualite_montants (1 ligne) dit ce que vaut le total 12 mois : part
  *   plafonnée, part marquée suspecte, total sans écrêtage. La borne basse
@@ -41,7 +47,10 @@
  * montants en tranches TEXTE non sommables.
  *
  * Toutes les requêtes de ce fichier ont été éprouvées sur la base réelle
- * (sqlite3 mode ro) le 19/08/2026.
+ * (sqlite3 mode ro) le 19/08/2026, sauf celles des tops et de
+ * `decp_titulaires_qualite` : elles portent sur le schéma par ENTREPRISE et
+ * sont éprouvées sur une base bâtie à ce schéma, remplie depuis la base
+ * réelle en lecture seule (21/08/2026).
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -67,17 +76,104 @@ export type MoisAgg = {
   montant_total: number | null; // écrêté
 };
 
+/**
+ * Une ligne des classements 12 mois. L'unité classée est l'ENTREPRISE
+ * (personne morale, SIREN) : les marchés de tous ses établissements sont
+ * regroupés sur une seule ligne, et `nb_etablissements` dit combien
+ * d'établissements distincts ce regroupement recouvre.
+ *
+ * `nom` est le libellé de référence : la `denomination` de Sirene quand le
+ * SIREN y figure, sinon le nom déclaré dans le DECP (cf. `SQL_TOP_*`).
+ */
 export type TopAcheteur = {
   rang: number;
-  siret: string | null;
+  siren: string | null;
   nom: string | null;
+  /** Établissements distincts regroupés sous ce SIREN sur la fenêtre. */
+  nb_etablissements: number;
   nb_marches: number;
   montant_total: number | null; // écrêté
 };
 
 export type TopTitulaire = TopAcheteur & {
-  /** PME / ETI / GE quand connue. */
+  /** PME / ETI / GE quand connue (Sirene, sinon catégorie déclarée au DECP). */
   categorie: string | null;
+};
+
+/**
+ * Ce que le classement des titulaires couvre et ce qu'il écarte
+ * (`decp_titulaires_qualite`, une seule ligne, même fenêtre 12 mois que
+ * `decp_top_titulaires`). Une « ligne » est un couple marché × titulaire :
+ * un marché à trois co-titulaires en produit trois.
+ *
+ * Un identifiant de titulaire non conforme (rien dont on puisse extraire un
+ * SIREN : identifiant tronqué, chaîne de remplissage type `00001`, valeur non
+ * numérique) ne se rattache à aucune entreprise. Sa ligne est écartée du
+ * classement et comptée ici, avec son montant : rien n'est deviné, et rien
+ * ne disparaît silencieusement du décompte.
+ */
+export type QualiteTitulaires = {
+  /** Marchés de la fenêtre. */
+  nb_marches: number;
+  /** Dont au moins un titulaire déclaré. */
+  nb_marches_avec_titulaire: number;
+  /** Couples marché × titulaire. */
+  nb_lignes: number;
+  /** Lignes rattachées à un SIREN : celles que le classement agrège. */
+  nb_lignes_identifiables: number;
+  /** Lignes à identifiant non conforme : hors du classement. */
+  nb_lignes_ecartees: number;
+  montant_identifiable: number | null;
+  /** Montant porté par les lignes écartées — absent de tout classement. */
+  montant_ecarte: number | null;
+  /** Valeurs d'identifiant distinctes parmi les lignes écartées. */
+  nb_identifiants_ecartes: number;
+  /** Établissements distincts des lignes identifiables. */
+  nb_sirets: number;
+  /** Entreprises distinctes : le nombre de lignes possibles du classement. */
+  nb_sirens: number;
+  /** Entreprises présentes par plus d'un établissement. */
+  nb_sirens_multi_etab: number;
+};
+
+/**
+ * Ce que le classement des acheteurs couvre et ce qu'il écarte
+ * (`decp_acheteurs_qualite`, une seule ligne, même fenêtre 12 mois que
+ * `decp_top_acheteurs`). Le filtre de conformité de l'identifiant vaut pour
+ * les acheteurs comme pour les titulaires : un identifiant dont on ne peut
+ * extraire aucun SIREN est écarté du classement, et compté ici.
+ *
+ * POURQUOI cette table est plus COURTE que `decp_titulaires_qualite` et non
+ * son décalque : `decp_marches.acheteur_siret` est scalaire — un marché n'a
+ * qu'un acheteur. Le couple marché × acheteur n'existe pas, l'unité de
+ * compte est donc le MARCHÉ, et il n'y a aucun compteur de « lignes » à
+ * publier ici.
+ *
+ * La partition porte sur `nb_marches_avec_acheteur`, pas sur `nb_marches` :
+ * un marché de la fenêtre sans acheteur renseigné n'est pas un identifiant
+ * que nous écartons, c'est une absence de saisie à la source. Les confondre
+ * ferait porter à notre filtre un défaut qui ne vient pas de lui.
+ */
+export type QualiteAcheteurs = {
+  /** Marchés de la fenêtre — même source que `QualiteTitulaires.nb_marches`. */
+  nb_marches: number;
+  /** Dont acheteur renseigné : le dénominateur de la partition ci-dessous. */
+  nb_marches_avec_acheteur: number;
+  /** Marchés rattachés à un SIREN d'acheteur : ceux que le classement agrège. */
+  nb_marches_identifiables: number;
+  /** Marchés à identifiant d'acheteur non conforme : hors du classement. */
+  nb_marches_ecartes: number;
+  montant_identifiable: number | null;
+  /** Montant porté par les marchés écartés — absent du classement. */
+  montant_ecarte: number | null;
+  /** Valeurs d'identifiant distinctes parmi les marchés écartés. */
+  nb_identifiants_ecartes: number;
+  /** Établissements acheteurs distincts des marchés identifiables. */
+  nb_sirets: number;
+  /** Entités acheteuses distinctes (SIREN). */
+  nb_sirens: number;
+  /** Entités acheteuses présentes par plus d'un établissement. */
+  nb_sirens_multi_etab: number;
 };
 
 export type RepartitionProcedure = {
@@ -323,6 +419,14 @@ export type DonneesMarches = {
    *  légal par année et par catégorie d'acheteur. `null` tant que les trois
    *  tables ne sont pas en base — la section n'est alors pas rendue. */
   qualitePublication: QualitePublication | null;
+  /** Ce que le classement des titulaires couvre, et ce qu'il écarte faute
+   *  d'identifiant exploitable. `null` si la table n'est pas en base — le
+   *  paragraphe correspondant n'est alors pas rendu. */
+  qualiteTitulaires: QualiteTitulaires | null;
+  /** Même chose côté acheteurs, à l'unité du MARCHÉ (un marché n'a qu'un
+   *  acheteur). `null` si la table n'est pas en base — la mention
+   *  correspondante n'est alors pas rendue. */
+  qualiteAcheteurs: QualiteAcheteurs | null;
   departements: DepartementAgg[];
   serieMensuelle: MoisAgg[]; // 36 mois, ordre chronologique
   topAcheteurs: TopAcheteur[];
@@ -430,6 +534,89 @@ function chargerDecompositionSuspects(
     };
   }
   return null;
+}
+
+/* ------------------------------------------------------------------ */
+/* Tops 12 mois : le libellé de référence vient de Sirene              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * `decp_top_titulaires` et `decp_top_acheteurs` classent des ENTREPRISES
+ * (SIREN) et stockent, à côté du SIREN, le nom et la catégorie tels que
+ * DÉCLARÉS dans le DECP. Le libellé de référence, lui, est celui de Sirene :
+ * `denomination` et `categorie_entreprise` de `sirene_unites_legales`.
+ *
+ * POURQUOI le nommage se fait ICI et non dans le pipeline DECP : écrire un
+ * nom issu du référentiel Sirene depuis le pipeline DECP ferait dépendre
+ * l'ingestion d'un pipeline de celle d'un autre — un couplage d'écriture
+ * entre pipelines que le projet refuse déjà ailleurs (cf. `marches_a_venir`,
+ * dont le nom d'acheteur est résolu à la requête via `entites`). La
+ * jointure est faite à la lecture, en LEFT JOIN : un SIREN absent du
+ * référentiel garde le libellé DECP, un SIREN sans libellé nulle part
+ * ressort `nom = NULL` et la page affiche alors le SIREN.
+ *
+ * RGPD : `sirene_unites_legales.denomination` est NULL pour les personnes
+ * physiques, et aucun nom, prénom ni sexe de personne physique n'est lu du
+ * fichier Sirene. Le repli sur le libellé DECP est donc le comportement
+ * voulu dans ce cas : ce libellé est déjà celui que la source publie et que
+ * cette page affiche, la jointure n'ajoute aucune donnée personnelle. Un
+ * nom manquant reste manquant — il n'est complété d'aucune autre source.
+ *
+ * `NULLIF(TRIM(...), '')` : le référentiel porte la chaîne vide au même
+ * titre que NULL pour une dénomination absente, les deux doivent replier.
+ */
+const SQL_TOP_TITULAIRES = `
+  SELECT t.rang,
+         t.siren,
+         COALESCE(NULLIF(TRIM(s.denomination), ''), t.nom)               AS nom,
+         COALESCE(NULLIF(TRIM(s.categorie_entreprise), ''), t.categorie) AS categorie,
+         t.nb_etablissements,
+         t.nb_marches,
+         t.montant_total
+    FROM decp_top_titulaires t
+    LEFT JOIN sirene_unites_legales s ON s.siren = t.siren
+   ORDER BY t.rang LIMIT 10`;
+
+const SQL_TOP_ACHETEURS = `
+  SELECT a.rang,
+         a.siren,
+         COALESCE(NULLIF(TRIM(s.denomination), ''), a.nom) AS nom,
+         a.nb_etablissements,
+         a.nb_marches,
+         a.montant_total
+    FROM decp_top_acheteurs a
+    LEFT JOIN sirene_unites_legales s ON s.siren = a.siren
+   ORDER BY a.rang LIMIT 10`;
+
+/**
+ * Mêmes classements sans le référentiel : `sirene_unites_legales` est
+ * produite par un AUTRE pipeline que le DECP, elle peut donc manquer alors
+ * que les tops sont là. SQLite refuserait la requête entière sur une table
+ * absente — on retombe alors sur les libellés DECP, qui sont déjà publiés
+ * aujourd'hui. Dégradation propre, jamais une page en erreur.
+ */
+const SQL_TOP_TITULAIRES_SANS_SIRENE = `
+  SELECT rang, siren, nom, categorie, nb_etablissements, nb_marches,
+         montant_total
+    FROM decp_top_titulaires ORDER BY rang LIMIT 10`;
+
+const SQL_TOP_ACHETEURS_SANS_SIRENE = `
+  SELECT rang, siren, nom, nb_etablissements, nb_marches, montant_total
+    FROM decp_top_acheteurs ORDER BY rang LIMIT 10`;
+
+/** Une table est-elle présente en base ? (tables produites par d'autres
+ *  pipelines : leur absence est un état normal, pas une erreur). */
+function tablePresente(db: Db, nom: string): boolean {
+  return (
+    (
+      db
+        .prepare(
+          `SELECT COUNT(*) AS n FROM sqlite_master
+            WHERE type = 'table' AND name = ?`,
+        )
+        .get(nom) as { n: number }
+    ).n === 1
+  );
 }
 
 /** Les trois tables de la qualité de publication — chargées ou aucune. */
@@ -605,20 +792,52 @@ export function chargerDonneesMarches(
     )
     .all() as MoisAgg[];
 
-  // Tops 12 mois — côté titulaires, le montant du marché est réparti
-  // entre co-titulaires (la source ne le ventile pas).
+  // Tops 12 mois par ENTREPRISE (SIREN) : les établissements d'une même
+  // personne morale sont regroupés sur une ligne. Côté titulaires, le
+  // montant du marché est réparti entre co-titulaires (la source ne le
+  // ventile pas). Le libellé de référence vient de Sirene quand le
+  // référentiel est en base, sinon du DECP (cf. SQL_TOP_TITULAIRES).
+  const avecSirene = tablePresente(db, "sirene_unites_legales");
   const topAcheteurs = db
-    .prepare(
-      `SELECT rang, siret, nom, nb_marches, montant_total
-       FROM decp_top_acheteurs ORDER BY rang LIMIT 10`,
-    )
+    .prepare(avecSirene ? SQL_TOP_ACHETEURS : SQL_TOP_ACHETEURS_SANS_SIRENE)
     .all() as TopAcheteur[];
   const topTitulaires = db
-    .prepare(
-      `SELECT rang, siret, nom, categorie, nb_marches, montant_total
-       FROM decp_top_titulaires ORDER BY rang LIMIT 10`,
-    )
+    .prepare(avecSirene ? SQL_TOP_TITULAIRES : SQL_TOP_TITULAIRES_SANS_SIRENE)
     .all() as TopTitulaire[];
+
+  // Ce que le classement des titulaires couvre et ce qu'il écarte. Table
+  // produite par le pipeline sur la même fenêtre que le classement ;
+  // `null` quand elle n'est pas en base, et la page n'affiche alors pas le
+  // paragraphe (même patron que decp_qualite_montants).
+  const qualiteTitulaires = tablePresente(db, "decp_titulaires_qualite")
+    ? ((db
+        .prepare(
+          `SELECT nb_marches, nb_marches_avec_titulaire, nb_lignes,
+                  nb_lignes_identifiables, nb_lignes_ecartees,
+                  montant_identifiable, montant_ecarte,
+                  nb_identifiants_ecartes, nb_sirets, nb_sirens,
+                  nb_sirens_multi_etab
+           FROM decp_titulaires_qualite WHERE id = 1`,
+        )
+        .get() as QualiteTitulaires | undefined) ?? null)
+    : null;
+
+  // Pendant côté acheteurs. Le filtre de conformité de l'identifiant vaut
+  // des deux côtés, donc son compteur aussi : un identifiant d'acheteur
+  // écarté du classement sans être compté nulle part serait une disparition
+  // silencieuse, ce que la page dit ne pas faire. Unité : le MARCHÉ.
+  const qualiteAcheteurs = tablePresente(db, "decp_acheteurs_qualite")
+    ? ((db
+        .prepare(
+          `SELECT nb_marches, nb_marches_avec_acheteur,
+                  nb_marches_identifiables, nb_marches_ecartes,
+                  montant_identifiable, montant_ecarte,
+                  nb_identifiants_ecartes, nb_sirets, nb_sirens,
+                  nb_sirens_multi_etab
+           FROM decp_acheteurs_qualite WHERE id = 1`,
+        )
+        .get() as QualiteAcheteurs | undefined) ?? null)
+    : null;
 
   // Répartition par procédure (12 mois) — valeur NULL = non renseigné,
   // catégorie à afficher telle quelle et non à masquer.
@@ -735,6 +954,8 @@ export function chargerDonneesMarches(
     qualiteMontants,
     decompositionSuspects,
     qualitePublication,
+    qualiteTitulaires,
+    qualiteAcheteurs,
     departements,
     serieMensuelle,
     topAcheteurs,
