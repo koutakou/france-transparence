@@ -10,6 +10,12 @@ NULL (dép. 29), plus des lignes à ÉCARTER : donneesActuelles = false,
 dateNotification NULL, notifications 2023 (hors fenêtre détail). Les valeurs attendues ci-dessous ont été relevées
 indépendamment dans la fixture au moment de sa génération.
 
+Le marché du dép. 972 porte aussi le cas de l'AVENANT : notifié le
+17/04/2026 (modification 1, non courante), il reçoit le 03/06/2026 une
+modification 2 qui, elle, est la version courante. C'est sur lui que se
+vérifie la date retenue. 17 des 42 marchés servis n'ont aucune ligne
+modification_id = 0 — le cas que min(dateNotification) couvre sans détour.
+
 La transformation est testée en pur (DuckDB seulement, date de référence
 figée au 19/08/2026) ; l'intégration réelle (téléchargement 243 Mo + SQLite)
 est marquée `reseau`.
@@ -29,7 +35,7 @@ FIXTURE = Path(__file__).parent / "fixtures" / "decp_mini.parquet"
 UID_GEANT = "255801185000182024AC34_40100000"          # 12 311 111 111 €, 'suspect'
 UID_ABERRANT = "7943807330002020212021-036_45111100"   # brut 99 999 999 999,99 €
 UID_MULTI = "015450638001172026p9f730000000_71222000"  # 3 co-titulaires
-UID_DOUBLONS = "200041788000642025_017_PI0_79311000"   # lignes titulaires dupliquées
+UID_DOUBLONS = "200041788000642025_017_PI0_79311000"   # avenant + titulaires dupliqués
 UID_SANS_MONTANT = "2529011450004200067_45231400"      # montant NULL (réel)
 
 
@@ -390,6 +396,143 @@ def test_ecretes_totaux_depassent_le_sous_total_departemental(resultat):
         "SELECT coalesce(sum(nb_marches_ecretes), 0) FROM t_agg_departement"
     ).fetchone()[0]
     assert total >= par_dep
+
+
+# ---------------------------------------------------------------------------
+# Date de notification : celle du marché initial, pas celle du dernier avenant
+# ---------------------------------------------------------------------------
+
+
+def test_la_date_retenue_est_celle_de_la_notification_initiale(resultat):
+    """Un avenant ne renotifie pas le marché : la date reste celle de l'origine.
+
+    À la source, la ligne d'un avenant porte comme `dateNotification` la date
+    de l'AVENANT, et `donneesActuelles` ne vaut que sur la dernière
+    modification : lire la date sur la seule ligne courante date le marché de
+    son dernier avenant. Mesuré le 21/08/2026 sur le parquet du 20/08
+    (3 240 022 lignes, 1 827 781 uid) : 314 173 marchés étaient datés trop
+    tard, tous vers le futur, dont 307 517 (97,9 %) changeaient de mois.
+
+    Valeurs relevées à la main dans la fixture pour ce uid : 8 lignes, une
+    modification 1 non courante notifiée le 17/04/2026 (3 titulaires) et une
+    modification 2 courante notifiée le 03/06/2026 (5 titulaires), toutes à
+    4 012 774 € dans le département 972.
+    """
+    duck, _ = resultat
+    marche = _table(duck, "t_marches", ["uid"])[UID_DOUBLONS]
+    assert marche["date_notification"] == "2026-04-17"
+    # Les ATTRIBUTS restent lus sur la ligne COURANTE — « marché notifié le
+    # 17/04/2026, montant et titulaires connus à ce jour » : les 5 titulaires
+    # de la modification 2, pas les 3 de la modification 1.
+    assert marche["nb_titulaires"] == 5
+    assert marche["montant_retenu"] == pytest.approx(4_012_774.0)
+    assert marche["acheteur_departement_code"] == "972"
+
+
+def test_les_dates_servies_valent_le_minimum_sur_toutes_les_lignes(resultat):
+    """Invariant sur les 42 marchés servis, vérifié contre la fixture brute.
+
+    La date publiée vaut le min(dateNotification) de TOUTES les lignes du uid
+    — les non courantes comprises — donc jamais postérieure à la date de la
+    ligne courante. Aucune n'est NULL et aucune n'est inventée : chacune est
+    reprise telle quelle d'une ligne de la fixture.
+    """
+    import duckdb
+
+    def dates_par_uid(clause: str) -> dict[str, str]:
+        return dict(
+            duckdb.sql(
+                f"""SELECT uid, CAST(min(dateNotification) AS VARCHAR)
+                    FROM read_parquet('{FIXTURE}')
+                    WHERE dateNotification IS NOT NULL {clause}
+                    GROUP BY uid"""
+            ).fetchall()
+        )
+
+    origine = dates_par_uid("")                         # toutes les lignes
+    courante = dates_par_uid("AND donneesActuelles")    # la seule version courante
+
+    duck, _ = resultat
+    servis = duck.execute("SELECT uid, date_notification FROM t_marches_36").fetchall()
+    assert len(servis) == 42
+    for uid, date_notification in servis:
+        assert date_notification is not None
+        assert date_notification == origine[uid]
+        assert date_notification <= courante[uid]
+    # Un cas au moins doit séparer les deux dates, sinon l'invariant ci-dessus
+    # serait vrai sans rien démontrer.
+    assert sum(1 for uid, d in servis if d < courante[uid]) == 1
+
+
+def test_la_serie_mensuelle_range_le_marche_dans_son_mois_dorigine(resultat):
+    """Le marché à avenant compte en avril, mois où il a été notifié.
+
+    Comptes relevés à la main dans la fixture. Mesuré le 21/08/2026 sur le
+    parquet du 20/08, l'enjeu de ce déplacement : sur les 861 849 marchés de
+    la fenêtre 36 mois, 217 827 (25,3 %) étaient rangés dans le mauvais mois.
+    """
+    duck, _ = resultat
+    mois = dict(duck.execute("SELECT mois, nb_marches FROM t_agg_mois").fetchall())
+    assert mois["2026-04"] == 5
+    assert mois["2026-06"] == 4
+    # Le marché est déplacé, pas dupliqué ni perdu : le total ne bouge pas.
+    total = duck.execute("SELECT count(*) FROM t_marches_36").fetchone()[0]
+    assert sum(mois.values()) == total == 42
+
+
+def test_les_fenetres_portent_sur_la_date_de_notification_initiale():
+    """Les coupes 24 et 12 mois se font sur la date d'origine.
+
+    Même fixture, autre date de référence — la transformation est pure et
+    rejouable. Au 01/05/2027, le marché notifié le 17/04/2026 est sorti des
+    12 derniers mois, alors que la date de son avenant (03/06/2026) y serait
+    encore : il ne doit plus peser dans les agrégats.
+    """
+    duck, _ = ingest_decp.transformer(FIXTURE, date(2027, 5, 1))
+    try:
+        assert duck.execute(
+            f"SELECT date_notification FROM t_marches WHERE uid = '{UID_DOUBLONS}'"
+        ).fetchone() == ("2026-04-17",)
+        assert duck.execute(
+            f"SELECT count(*) FROM recents WHERE uid = '{UID_DOUBLONS}'"
+        ).fetchone()[0] == 0
+        # C'était le seul marché du 972 dans la fixture : le département sort
+        # de la carte, au lieu d'y porter 4 012 774 € qui n'y sont plus.
+        assert duck.execute(
+            "SELECT count(*) FROM t_agg_departement WHERE departement_code = '972'"
+        ).fetchone()[0] == 0
+        assert duck.execute("SELECT count(*) FROM recents").fetchone()[0] == 7
+    finally:
+        duck.close()
+
+
+def test_les_marches_sans_ligne_modification_zero_sont_dates(resultat):
+    """POURQUOI min() global plutôt que « la valeur à modification_id = 0 ».
+
+    Mesuré le 21/08/2026 sur le parquet du 20/08 : 12 278 uid n'ont aucune
+    ligne modification_id = 0. Les lire à la ligne 0 les laisserait sans
+    date ; min(dateNotification) sur toutes les lignes les couvre sans cas
+    particulier. La fixture en porte 17 sur les 42 marchés servis — tous
+    datés, aucune date manquante comblée par une valeur de remplacement.
+    """
+    import duckdb
+
+    sans_ligne_zero = {
+        uid
+        for (uid,) in duckdb.sql(
+            f"""SELECT uid FROM read_parquet('{FIXTURE}')
+                GROUP BY uid HAVING count(*) FILTER (modification_id = 0) = 0"""
+        ).fetchall()
+    }
+    duck, _ = resultat
+    servis = dict(
+        duck.execute("SELECT uid, date_notification FROM t_marches_36").fetchall()
+    )
+    concernes = {uid: d for uid, d in servis.items() if uid in sans_ligne_zero}
+    assert len(concernes) == 17
+    assert all(d is not None and len(d) == 10 for d in concernes.values())
+    # Valeur relevée à la main : ce marché n'a qu'une ligne, modification 10.
+    assert concernes[UID_SANS_MONTANT] == "2026-03-03"
 
 
 # ---------------------------------------------------------------------------

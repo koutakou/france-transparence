@@ -13,8 +13,10 @@ Exécution : `python -m pipelines.ingest_decp`
 
 Tables produites (module UI « Commande publique » + carte de France + Accueil) :
 
-- decp_marches — 1 ligne par marché (uid), notifiés sur les 24 derniers mois,
-  versions courantes seulement (donneesActuelles = true, dédoublonnage uid) :
+- decp_marches — 1 ligne par marché (uid), notifiés sur les 24 derniers mois
+  (date de la notification INITIALE, cf. règle de datation plus bas),
+  attributs pris sur la version courante (donneesActuelles = true,
+  dédoublonnage uid) :
   uid (PK), id, objet, montant (brut), montant_rationalise,
   montant_retenu (= montant_rationalise sinon montant — valeur à afficher),
   montant_anomalie ('suspect'/'aberrant'/NULL, classification de la source),
@@ -22,7 +24,8 @@ Tables produites (module UI « Commande publique » + carte de France + Accueil)
   acheteur_departement_code, acheteur_departement_nom, titulaire_siret,
   titulaire_nom (titulaire principal = plus petit SIRET, déterministe),
   nb_titulaires, titulaires_json (JSON [{siret, nom}, …] trié par SIRET),
-  date_notification (ISO), duree_mois, procedure, nature, type_marche
+  date_notification (ISO — notification initiale, cf. règle de datation),
+  duree_mois, procedure, nature, type_marche
   (Travaux/Services/Fournitures), techniques (chaîne source, multi-valeurs
   séparées par des virgules — contient « Accord-cadre » quand le montant est
   un maximum, l'UI doit le mentionner), code_cpv (libellé CPV non fourni par
@@ -80,10 +83,36 @@ Règle d'écrêtage des montants (documentée aussi en colonne montant_suspect) 
    montants NON écrêtés + le drapeau : l'écrêtage ne s'applique qu'aux
    agrégats.
 
-Autres règles héritées de la fiche S1 : 1 marché = n lignes (titulaires,
-modifications) → donneesActuelles = true puis GROUP BY uid ; dates de
-notification NULL ou futures écartées ; montants d'accords-cadres = maximums,
-pas du dépensé (mention UI) ; latence légale de publication jusqu'à 2 mois
+Règle de datation d'un marché (paramètre de méthode, repris dans le champ
+notes de meta_sources — seul canal par lequel /donnees l'apprend) :
+1. La date retenue est celle de la notification INITIALE, pas celle du
+   dernier avenant. POURQUOI : à la source, un marché tient en n lignes
+   (titulaires, modifications) ; la ligne d'un AVENANT porte comme
+   dateNotification la date de l'avenant, et donneesActuelles ne vaut que
+   sur la dernière modification. Lire la date sur la ligne courante date
+   donc le marché de son dernier avenant.
+2. La clé de date est min(dateNotification) sur TOUTES les lignes du uid,
+   calculée AVANT le filtre donneesActuelles. min() global plutôt que « la
+   valeur à modification_id = 0 », ligne qui manque à 12 278 uid.
+3. Toutes les fenêtres portent sur cette date : détail 24 mois, agrégats
+   12 mois, série 36 mois, et le « 30 jours » que l'UI calcule sur
+   decp_marches.date_notification.
+4. Les ATTRIBUTS (montant, montant_rationalise, titulaires, objet,
+   procédure…) restent lus sur la ligne COURANTE — « marché notifié le
+   jour J, montant connu à ce jour ».
+Mesuré le 21/08/2026 sur le parquet du 20/08 (3 240 022 lignes,
+1 827 781 uid) : dater les marchés à leur ligne courante décale la date de
+314 173 d'entre eux, toujours vers le futur (0 vers le passé), dont 307 517
+(97,9 %) vers un autre mois. À cette date, la fenêtre 36 mois compte
+777 054 marchés, les 12 mois 213 283 et les 30 derniers jours 5 894 ; datés
+à leur ligne courante, ces mêmes marchés en donneraient respectivement
+861 849 (dont 217 827, soit 25,3 %, rangés dans le mauvais mois), 297 323
+et 16 065.
+
+Autres règles héritées de la fiche S1 : le dédoublonnage se fait par GROUP BY
+uid ; marchés sans aucune date de notification, ou dont la notification
+initiale est future, écartés ; montants d'accords-cadres = maximums, pas du
+dépensé (mention UI) ; latence légale de publication jusqu'à 2 mois
 (fenêtres récentes structurellement incomplètes).
 
 Échec (téléchargement, parquet invalide, build cassé) → exit ≠ 0, la base
@@ -281,16 +310,52 @@ def transformer(
         "SELECT count(*) FROM read_parquet(?)", [chemin]
     ).fetchone()[0]
 
-    # Lignes retenues : versions courantes, date de notification connue,
-    # ni future ni antérieure à la plus large fenêtre (série 36 mois).
+    # Date de notification du marché = celle de la notification INITIALE,
+    # calculée sur TOUTES les lignes du uid, donc AVANT le filtre
+    # `donneesActuelles`. POURQUOI : à la source, la ligne d'un avenant porte
+    # comme dateNotification la date de l'AVENANT, et donneesActuelles ne
+    # vaut que sur la dernière modification. Lire la date sur la seule ligne
+    # courante date le marché de son dernier avenant. Exemple réel, parquet
+    # du 20/08/2026, uid 200094332000182023S00686_63724310 : ses 4 lignes
+    # sont notifiées 2023-01-18, 2024-12-02, 2025-12-19 et 2026-08-19, la
+    # dernière seule portant donneesActuelles — marché notifié en janvier
+    # 2023, daté d'août 2026.
+    # Mesuré le 21/08/2026 sur ce parquet (3 240 022 lignes, 1 827 781 uid) :
+    # 314 173 marchés voyaient leur date réécrite, tous vers le futur (0 vers
+    # le passé), dont 307 517 (97,9 %) changeaient de mois ; sur la fenêtre
+    # 36 mois alors servie (861 849 marchés), 217 827 (25,3 %) étaient rangés
+    # dans le mauvais mois.
+    # POURQUOI min() global et non « la valeur à modification_id = 0 » :
+    # 12 278 uid n'ont aucune ligne modification_id = 0 (même mesure) ;
+    # min() les couvre sans cas particulier.
+    # POURQUOI une table à part et non une fenêtre sur toutes les colonnes :
+    # le parquet est colonnaire, cette passe ne lit que uid et
+    # dateNotification (2 colonnes sur 64) ; le HAVING borne d'emblée la
+    # population à la plus large fenêtre (série 36 mois), et la jointure
+    # ci-dessous reste donc un filtre précoce.
+    duck.execute(
+        f"""
+        CREATE TEMP TABLE t_date_initiale AS
+        SELECT uid, min(dateNotification) AS date_initiale
+        FROM read_parquet('{chemin}')
+        WHERE dateNotification IS NOT NULL
+        GROUP BY uid
+        HAVING min(dateNotification) <= DATE '{p['date_ref']}'
+           AND min(dateNotification) >  DATE '{p['date_ref']}' - INTERVAL {MOIS_SERIE} MONTH
+        """
+    )
+
+    # Lignes retenues : versions courantes des marchés de la fenêtre, dotées
+    # de leur date de notification initiale. Les ATTRIBUTS (montant,
+    # titulaires, objet, procédure…) restent lus sur la ligne COURANTE —
+    # « marché notifié le jour J, montant connu à ce jour ».
     duck.execute(
         f"""
         CREATE TEMP VIEW lignes AS
-        SELECT * FROM read_parquet('{chemin}')
-        WHERE donneesActuelles
-          AND dateNotification IS NOT NULL
-          AND dateNotification <= DATE '{p['date_ref']}'
-          AND dateNotification >  DATE '{p['date_ref']}' - INTERVAL {MOIS_SERIE} MONTH
+        SELECT l.*, i.date_initiale
+        FROM read_parquet('{chemin}') l
+        JOIN t_date_initiale i USING (uid)
+        WHERE l.donneesActuelles
         """
     )
 
@@ -324,7 +389,12 @@ def transformer(
                    any_value(acheteur_nom)                        AS acheteur_nom,
                    any_value(acheteur_departement_code)           AS acheteur_departement_code,
                    any_value(acheteur_departement_nom)            AS acheteur_departement_nom,
-                   CAST(min(dateNotification) AS VARCHAR)         AS date_notification,
+                   -- Date de la notification INITIALE (cf. t_date_initiale),
+                   -- constante par uid : toutes les fenêtres construites
+                   -- plus bas (24 mois, 12 mois, série mensuelle) et le
+                   -- « 30 jours » calculé par l'UI portent sur ELLE, pas sur
+                   -- la date de la ligne courante.
+                   CAST(any_value(date_initiale) AS VARCHAR)      AS date_notification,
                    -- POURQUOI ce CASE : la source livre des durées
                    -- impossibles (négatives, ou 32 000 mois = 2 666 ans).
                    -- On ne devine rien — la valeur invraisemblable est
@@ -682,9 +752,13 @@ def main() -> int:
             lignes=comptes["decp_marches"],
             notes=(
                 f"consolidation communautaire decp-processing (Colin Maudry), "
-                f"à créditer ; fenêtres : détail {MOIS_DETAIL} mois, agrégats "
-                f"{MOIS_AGGREGATS} mois, série {MOIS_SERIE} mois ; agrégats "
-                f"écrêtés à {PLAFOND_ECRETAGE_EUR:.0f} € "
+                f"à créditer ; la date retenue est celle de la notification "
+                f"initiale du marché — min(dateNotification) sur toutes ses "
+                f"lignes, avenants compris — et non celle du dernier avenant ; "
+                f"les fenêtres portent sur elle, les montants et titulaires "
+                f"sur la version courante ; fenêtres : détail {MOIS_DETAIL} "
+                f"mois, agrégats {MOIS_AGGREGATS} mois, série {MOIS_SERIE} "
+                f"mois ; agrégats écrêtés à {PLAFOND_ECRETAGE_EUR:.0f} € "
                 f"({stats['nb_suspects']} marchés suspects marqués) ; montants "
                 f"d'accords-cadres = maximums ; latence légale de publication "
                 f"jusqu'à 2 mois ; {stats['lignes_parquet']} lignes au parquet"
