@@ -35,8 +35,8 @@ export const metadata: Metadata = metadonneesPage({
  * 1. le tableau de fraîcheur central (meta_sources + badge de fraîcheur,
  *    un seuil calibré par source, règle et provenance des seuils
  *    documentées sous le tableau) ;
- * 2. périmètre « argent public » et promesses marketing NON tenables avec la
- *    donnée réelle (docs/SOURCES.md §2 encart + §3) ;
+ * 2. périmètre « argent public », et les formulations « temps réel » que la
+ *    donnée publique ne permet PAS (docs/SOURCES.md §2 encart + §3) ;
  * 3. licences réellement présentes en base et crédits obligatoires ;
  * 4. les exports JSON quotidiens (site statique — plus une API interrogeable) ;
  * 5. reproduction (make ingest).
@@ -122,48 +122,54 @@ function FrequenceCourte({ frequence }: { frequence: string }) {
   );
 }
 
-/* ---------------------------------------------------------------- */
-/* Promesses de la maquette intenables (condensé de docs/SOURCES.md) */
-/* ---------------------------------------------------------------- */
+/* ------------------------------------------------------------------ */
+/* Le « temps réel » attendu, et ce que la donnée permet               */
+/* (condensé de docs/SOURCES.md § 3)                                   */
+/*                                                                     */
+/* Chaque entrée oppose une formulation que ce type de tableau de bord */
+/* emploie couramment — « en direct », « aujourd'hui », « à la minute » */
+/* — à ce que les sources publiques françaises permettent réellement.  */
+/* Ce n'est pas un aveu de manque : c'est le manque qui est le fait.   */
+/* ------------------------------------------------------------------ */
 
-const PROMESSES: { promesse: string; reel: string }[] = [
+const ATTENDUS: { attendu: string; reel: string }[] = [
   {
-    promesse: "Compteur « dépenses aujourd'hui », variation vs veille",
+    attendu: "Compteur « dépenses aujourd'hui », variation vs veille",
     reel:
       "Aucune donnée ouverte de paiement en temps réel n'existe (aucun dataset Chorus ; Data-État réservé aux agents). Meilleure fraîcheur réelle : mensuelle, ~5-7 semaines de décalage → compteur « depuis le 1er janvier » sur données DGFiP, variation vs même période N−1.",
   },
   {
-    promesse: "Flux « dernières dépenses en direct » horodaté à la minute",
+    attendu: "Flux « dernières dépenses en direct » horodaté à la minute",
     reel:
       "Les flux quotidiens réels sont contractuels ou normatifs : derniers marchés notifiés (J−1, mention « en cours de consolidation », latence légale ≤ 2 mois) et derniers textes au Journal officiel (jour même, lot nocturne).",
   },
   {
-    promesse: "Module « notes de frais » en flux",
+    attendu: "Module « notes de frais » en flux",
     reel:
       "Aucune note de frais du pouvoir national n'est publiée ni communicable (ordonnance 58-1100, CE mars 2025, refus des deux chambres du 11/06/2026) → module « Frais & train de vie » : barèmes 2026, enveloppes, contrôles agrégés, et la « boîte noire » documentant ce qui est caché et pourquoi.",
   },
   {
-    promesse: "Top ministères « aujourd'hui », évolution en continu",
+    attendu: "Top ministères « aujourd'hui », évolution en continu",
     reel:
       "Le niveau mission/programme mensuel n'existe qu'en PDF anti-bot ; l'API mensuelle compte 26 lignes par grands titres → répartition mensuelle par nature de dépense + répartition annuelle par mission (PLF 2026 — la LFI 2026 n'a jamais été publiée en données).",
   },
   {
-    promesse: "Carte de France des « dépenses en direct »",
+    attendu: "Carte de France des « dépenses en direct »",
     reel:
       "Les dépenses de l'État ne sont pas géolocalisées en open data → cartes réelles : marchés publics notifiés sur 30 jours (lat/lng natives) et finances locales en €/habitant, libellées comme telles.",
   },
   {
-    promesse: "Bandeau « transactions »",
+    attendu: "Bandeau « transactions »",
     reel:
       "Les DECP sont des engagements contractuels (montants maximums pour les accords-cadres), pas des paiements → libellé exact « marchés notifiés », montants rationalisés, jamais « dépensé ».",
   },
   {
-    promesse: "Horodatage à la minute",
+    attendu: "Horodatage à la minute",
     reel:
       "Publication par lots (JO : 1 lot nocturne ; DECP : build quotidien ; HATVP : hebdomadaire) → horodatage au jour de publication de la source, latence connue affichée.",
   },
   {
-    promesse: "Alertes « temps réel »",
+    attendu: "Alertes « temps réel »",
     reel:
       "Les alertes sont recalculées à chaque mise à jour des sources (HATVP hebdomadaire ; lobbying et marchés quotidiens), chacune datée — voir la page Alertes.",
   },
@@ -488,7 +494,7 @@ export default async function PageDonnees() {
       {/* 2. Périmètre et honnêteté */}
       <Card
         titre="Périmètre et honnêteté"
-        sousTitre="Ce que couvre le dashboard, ce qu'il ne couvre pas, et ce que la maquette promettait à tort"
+        sousTitre="Ce que couvre le dashboard, ce qu'il ne couvre pas, et pourquoi le « temps réel » n'existe pas"
       >
         <div
           className="rounded-lg border border-card-border p-4 text-sm leading-relaxed text-ink-secondary"
@@ -513,26 +519,28 @@ export default async function PageDonnees() {
         </div>
 
         <h3 className="mb-2 mt-5 text-[12px] font-semibold uppercase tracking-[0.1em] text-ink">
-          Promesses de la maquette non tenables avec la donnée réelle
+          Le «&nbsp;temps réel&nbsp;» attendu, et ce que la donnée permet
         </h3>
         <p className="mb-3 max-w-3xl text-xs text-ink-muted">
-          La maquette de référence était une fiction marketing sur plusieurs
-          points. Chaque impossibilité est prouvée par les rapports de la
-          Phase 0 (docs/SOURCES.md §3) ; voici la promesse et ce que le
+          Un tableau de bord de l’argent public appelle spontanément une lecture
+          «&nbsp;en direct&nbsp;»&nbsp;: dépenses du jour, flux à la minute,
+          notes de frais en continu. Aucune de ces lectures n’est possible sur
+          la donnée publique française, et chaque impossibilité est prouvée
+          source à l’appui (docs/SOURCES.md §3). Voici, en regard, ce que le
           dashboard fait à la place.
         </p>
         <ul className="flex flex-col gap-3">
-          {PROMESSES.map((p) => (
+          {ATTENDUS.map((p) => (
             <li
-              key={p.promesse}
+              key={p.attendu}
               className="border-l pl-3.5"
               style={{ borderColor: "var(--viz-grid)" }}
             >
               <p className="text-[13px] font-medium text-ink">
                 <span className="mr-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
-                  Promis
+                  Attendu
                 </span>
-                {p.promesse}
+                {p.attendu}
               </p>
               <p className="mt-0.5 text-[13px] leading-snug text-ink-secondary">
                 <span className="mr-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
@@ -680,7 +688,7 @@ make dev             # lance l'application (port 3620)`}
             <code className="rounded bg-raised px-1 py-0.5 text-[11px]">Makefile</code>{" "}
             (cibles d’ingestion),{" "}
             <code className="rounded bg-raised px-1 py-0.5 text-[11px]">docs/SOURCES.md</code>{" "}
-            (référentiel des 39 sources évaluées, promesses écartées comprises) et{" "}
+            (référentiel des 39 sources évaluées, sources écartées comprises) et{" "}
             <code className="rounded bg-raised px-1 py-0.5 text-[11px]">docs/SCHEMA-DB.md</code>{" "}
             (schéma exact de la base et volumétrie).
           </p>

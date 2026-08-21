@@ -280,7 +280,7 @@ irfm_2017: { net_mensuel: 5372.80, supprimee: "loi 2017-1339 du 15/09/2017, effe
 
 ## 10. Conséquences pour le module « Notes de frais »
 
-1. **Le flux en direct promis par la maquette est infaisable en données réelles françaises** : aucune note de frais du pouvoir national n'est publiée, et pour le Parlement elle n'est même pas communicable (ord. 58-1100 ; refus explicites du 11/06/2026). L'honnêteté du dashboard impose de le dire tel quel.
+1. **Le flux « en direct » qu'un tel module laisse spontanément attendre est infaisable en données réelles françaises** : aucune note de frais du pouvoir national n'est publiée, et pour le Parlement elle n'est même pas communicable (ord. 58-1100 ; refus explicites du 11/06/2026). L'honnêteté du dashboard impose de le dire tel quel.
 2. Le module devient **pédagogique et documentaire** : (a) les enveloppes exactes 2026 par élu (DFP/AFM, indemnités) ; (b) les résultats agrégés des contrôles (chiffres §9) ; (c) la chronologie IRFM→DFP ; (d) la carte des verrous juridiques (qui est communicable, qui ne l'est pas — le contraste CE 2023 élus locaux vs Parlement est très parlant) ; (e) le compteur des demandes citoyennes refusées (HATVP 2018, Next 2019, Transparence Citoyenne 2026).
 3. **Une vraie exception exploitable : l'Élysée.** Le rapport annuel de la Cour des comptes permet un sous-module riche (coût par déplacement présidentiel, réceptions, masse salariale, trajectoire dotation/charges 2019-2024) — à mettre à jour à la parution du rapport exercice 2025 (pas paru au 19/08/2026).
 4. Benchmark utile en une ligne : le Royaume-Uni (IPSA) publie chaque note de frais individuelle des députés — c'est le modèle que la HATVP citait dès 2018.

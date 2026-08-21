@@ -438,12 +438,12 @@ const CATEGORIES: { cle: TrainvieCategorie; titre: string; sousTitre: string }[]
 /* ------------------------------------------------------------------ */
 
 /**
- * Frais & train de vie — LE module pédagogique du projet. La maquette
- * promettait des « notes de frais en direct » : c’est matériellement
- * impossible (aucun justificatif parlementaire n’est publié ni
- * communicable) — cette page montre ce qui est réellement public
- * (barèmes, agrégats de contrôle) et documente, source à l’appui,
- * ce que la loi ne publie pas.
+ * Frais & train de vie — LE module pédagogique du projet. On attend
+ * spontanément d’une telle page des « notes de frais en direct » :
+ * c’est matériellement impossible (aucun justificatif parlementaire
+ * n’est publié ni communicable) — cette page montre ce qui est
+ * réellement public (barèmes, agrégats de contrôle) et documente,
+ * source à l’appui, ce que la loi ne publie pas.
  */
 export default async function FraisPage() {
   const data = getFraisData();

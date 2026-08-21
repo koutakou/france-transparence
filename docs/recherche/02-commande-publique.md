@@ -2,7 +2,7 @@
 
 Recherche pour le dashboard « France Transparence », axe commande publique. **Toutes les URLs ci-dessous ont été appelées en réel (curl) le 19/08/2026** ; les codes HTTP, volumétries et extraits sont constatés, pas supposés. Ordre : exploitabilité décroissante.
 
-Rappel des besoins de la maquette : (a) attributions récentes + carte de France des marchés, (b) module « appels d'offres en cours », (c) contexte (seuils, acheteurs, titulaires).
+Rappel des besoins du dashboard sur cet axe : (a) attributions récentes + carte de France des marchés, (b) module « appels d'offres en cours », (c) contexte (seuils, acheteurs, titulaires).
 
 ---
 
@@ -180,7 +180,7 @@ curl --compressed "https://data.economie.gouv.fr/api/explore/v2.1/catalog/datase
 # 2. Idem, version enrichie géolocalisée pour la carte (24 554 lignes)
 curl "https://tabular-api.data.gouv.fr/api/resources/22847056-61df-452d-837d-8b8ceadbfc52/data/?dateNotification__greater=2026-07-20&donneesActuelles__exact=true&page_size=200"
 
-# 3. Appels d'offres EN COURS (clôture future) — module maquette (8 988 résultats)
+# 3. Appels d'offres EN COURS (clôture future) — alimente le module du même nom (8 988 résultats)
 curl --compressed "https://boamp-datadila.opendatasoft.com/api/explore/v2.1/catalog/datasets/boamp/records?where=datelimitereponse%3Edate'2026-08-19'%20AND%20nature%3D'APPEL_OFFRE'&order_by=datelimitereponse%20asc&limit=20"
 
 # 4. Agrégat carte : nb + montant par lieu d'exécution sur 30 jours (écrêter les montants !)

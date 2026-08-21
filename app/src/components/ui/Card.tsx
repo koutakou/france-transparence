@@ -4,7 +4,8 @@ import type { ReactNode } from "react";
  * Carte de module — le conteneur standard de chaque bloc du dashboard.
  * Specs DATAVIZ §4 : fond `--surface-card`, bordure 1px `--border-card`,
  * rayon 12px, padding 16–20px. Titre de section en petites capitales
- * espacées (ADN maquette, type « DÉPENSES EN DIRECT »).
+ * espacées : à cette taille, la capitale espacée reste lisible là où le
+ * bas-de-casse gras se confond avec le contenu de la carte.
  *
  * @example
  * <Card titre="Dépenses en direct" sousTitre="Paiements de l'État, mois courant"

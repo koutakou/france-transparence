@@ -6,7 +6,7 @@
 
 ## 1. Résumé exécutif
 
-Construit en une journée : un dashboard de transparence de la vie politique française alimenté à 100 % par des données publiques réelles — 13 pipelines Python ingèrent 25 sources officielles dans une base SQLite unique de 447 Mo (51 tables), servie par une app Next.js 16 de 12 pages et 6 routes API. L'honnêteté est le principe produit : la fraîcheur de chaque donnée est stockée en base (`meta_sources`) et affichée sur chaque page, le « en direct » de la maquette d'origine a été remplacé par les fréquences réelles des sources (quotidienne à annuelle), et ce que l'open data ne contient pas est documenté comme un fait (8 opacités sourcées). Chaque source a été testée par appels HTTP réels avant d'être documentée ; chaque volumétrie affichée vient d'un comptage en base, pas d'une promesse. État final vérifié : `make ingest` réel vert, 150/150 tests pytest, build de production vert (19 routes), 15 routes servies en HTTP 200, 12 captures d'écran validées.
+Construit en une journée : un dashboard de transparence de la vie politique française alimenté à 100 % par des données publiques réelles — 13 pipelines Python ingèrent 25 sources officielles dans une base SQLite unique de 447 Mo (51 tables), servie par une app Next.js 16 de 12 pages et 6 routes API. L'honnêteté est le principe produit : la fraîcheur de chaque donnée est stockée en base (`meta_sources`) et affichée sur chaque page, le « en direct » qu'un tableau de bord de la dépense publique laisse spontanément attendre a été remplacé par les fréquences réelles des sources (quotidienne à annuelle), et ce que l'open data ne contient pas est documenté comme un fait (8 opacités sourcées). Chaque source a été testée par appels HTTP réels avant d'être documentée ; chaque volumétrie affichée vient d'un comptage en base, pas d'une promesse. État final vérifié : `make ingest` réel vert, 150/150 tests pytest, build de production vert (19 routes), 15 routes servies en HTTP 200, 12 captures d'écran validées.
 
 ---
 
@@ -31,9 +31,9 @@ Les 12 pages, leurs sources, la fraîcheur affichée et les volumes constatés e
 
 ---
 
-## 3. Les promesses de la maquette non tenables — et ce qui les remplace
+## 3. Le temps réel attendu, non tenable — et ce qui le remplace
 
-La maquette d'origine promettait un temps réel qui n'existe dans aucune donnée publique. Chaque impossibilité a été prouvée par des appels réels le 19/08/2026 (docs/SOURCES.md §3), puis reformulée :
+Un tableau de bord de la dépense publique laisse spontanément attendre un temps réel qui n'existe dans aucune donnée publique française. Chaque impossibilité a été prouvée par des appels réels le 19/08/2026 (docs/SOURCES.md §3), puis reformulée :
 
 1. **« Dépenses de l'État aujourd'hui » avec variation vs veille** — aucun dataset Chorus n'existe (recherche = 0 résultat ; Data-État « réservé aux agents autorisés »). Meilleure fraîcheur réelle : exécution mensuelle DGFiP, ~6 semaines de décalage (données au 30/06/2026 vues le 19/08). → Compteur « depuis le 1er janvier », badge daté, variation vs même période 2025.
 2. **Flux « dernières dépenses en direct » à la minute** — même absence de paiements temps réel. → Deux flux réels et datés : marchés notifiés (J-1, « en cours de consolidation ») et textes au JO (jour même, lot nocturne ~00h30).
@@ -43,7 +43,7 @@ La maquette d'origine promettait un temps réel qui n'existe dans aucune donnée
 6. **Bandeau « transactions »** — les DECP sont des engagements contractuels (montants maximums), pas des paiements. → Libellé « marchés notifiés », montants rationalisés et écrêtés, jamais « dépensé ».
 7. **Horodatage à la minute** — toutes les sources publient par lots (JO : 1 lot nocturne ; DECP : build quotidien ; HATVP déclarations : hebdomadaire). → Horodatage au jour de publication, latence connue affichée.
 
-Promesses tenues telles quelles : appels d'offres en cours (BOAMP jour même), recherche globale, compteur d'élus, alertes transparence.
+Attentes tenables, tenues telles quelles : appels d'offres en cours (BOAMP jour même), recherche globale, compteur d'élus, alertes transparence.
 
 ---
 
@@ -84,7 +84,7 @@ Exemples concrets où le chiffre facile a été remplacé par le chiffre vrai :
 - **Montant NULL n'est jamais 0** : ~70 % des appels d'offres BOAMP n'ont pas de montant publié → affiché « non publié » ; dans les agrégats départementaux, NULL = « aucun montant connu ». Aucune somme ne mélange l'inconnu et le zéro.
 - **Alerte A1 réécrite avec garde-fous après la critique de complétude** : mandats EPCI exclus (le délai légal court à une date absente de l'open data — faux positifs mécaniques sinon), homonyme non tranché = non-alerte, retards « présumés » jamais nominatifs (agrégats seulement) ; le nominatif est réservé aux 4 constats officiels « Déclaration non déposée » de la HATVP.
 - **JO du 19/08 recompté à l'ingestion** : 83 textes dont 41 nominations (le stade recherche en dénombrait 38 par un filtre lexical plus étroit).
-- **Pas de bouton « Se connecter »** : la maquette en avait un, l'app n'a pas de comptes — l'honnêteté a primé sur la fidélité à la maquette.
+- **Pas de bouton « Se connecter »** : le site n'a pas de comptes utilisateurs et n'en aura pas — rien n'est personnalisé, rien n'est à protéger côté visiteur.
 
 ---
 
@@ -174,7 +174,7 @@ Toutes les vérifications ont été faites **depuis l'extérieur, sur https://ko
 - **23 routes en HTTP 200** (12 pages + fiche élu + 2 pages légales + 5 exports `/api/*.json` + index de recherche + robots.txt + sitemap.xml + og.png), TTFB 0,16-0,30 s, chaque page < 500 Ko brut ; URL inexistante → 404. Compression réelle servie par le CDN (ex. `/elus/` : 184 423 → 24 064 octets).
 - **Zéro cookie** (aucun `Set-Cookie` constaté — la conformité « zéro traceur » est vérifiée en production, pas seulement promise), CSP présente dans le HTML, redirection 301 HTTP→HTTPS systématique. Limites de plateforme constatées et assumées : Pages ne sert ni HSTS ni `X-Content-Type-Options` (et `github.io` ne figure plus dans la liste de préchargement HSTS de Chromium — vérifié dans le fichier amont) ; détail et mitigations dans docs/deploiement/DECISION.md.
 - **Vérité des données servies** : compteur 240,54 Md€ au 30/06/2026 sur l'accueil public, `genere_le` du build dans meta.json, 37 champs de dates au 18-19/08 dans le catalogue des sources, page /documents au JO du 19/08/2026 ; volumes d'ingestion du runner identiques au local (586 229 marchés DECP, notification max J-1).
-- **Screenshots Playwright du site public** (desktop 1440 px et mobile 390 px, docs/screenshots/public/) revus : ADN maquette conforme. La passe mobile a révélé des débordements horizontaux sur 6 pages (jusqu'à 831 px sur /elus) → correctif `195cc20` (causes racines : slot `droite` non rétrécissable des Cards, grilles `lg:` sans piste mobile explicite, `sr-only` absolu ancré hors scroller) → **re-mesure publique : 14/14 pages à 0 px de débordement en 390 px**, desktop inchangé.
+- **Screenshots Playwright du site public** (desktop 1440 px et mobile 390 px, docs/screenshots/public/) revus : cohérence visuelle des pages et conformité à docs/DATAVIZ.md vérifiées. La passe mobile a révélé des débordements horizontaux sur 6 pages (jusqu'à 831 px sur /elus) → correctif `195cc20` (causes racines : slot `droite` non rétrécissable des Cards, grilles `lg:` sans piste mobile explicite, `sr-only` absolu ancré hors scroller) → **re-mesure publique : 14/14 pages à 0 px de débordement en 390 px**, desktop inchangé.
 - **Recherche côté client testée en production** : « vallaud » → lien direct vers la fiche `/elus/PA719930/`, zéro erreur console sur l'ensemble des pages capturées.
 - **Cron testé par déclenchement manuel réel** (run 32298466718, `workflow_dispatch`, ingestion forcée — le chemin exact du cron de 04:45 UTC) : ingestion complète → 150 pytest → build → contrôles de santé → déploiement, **verts en 4 min 59** ; le site public servait la nouvelle base (`genere_le` 20:30:08Z) à la fin du run. Un push de code (run 32298231075) rebuild en 72 s sur la base en cache sans ré-ingérer.
 - **Atomicité du déploiement observée** : sondes curl toutes les 8 s pendant un déploiement réel — 10/10 réponses 200, bascule du `genere_le` sans aucune interruption ni page mixte.

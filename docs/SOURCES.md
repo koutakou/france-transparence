@@ -400,11 +400,11 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 
 ---
 
-## 3. Promesses de la maquette intenables — et leur reformulation honnête
+## 3. Attentes de temps réel intenables — et leur reformulation honnête
 
-La maquette de référence est une fiction marketing sur plusieurs points. Voici la liste explicite, chaque impossibilité étant **prouvée par un rapport**, et la reformulation retenue.
+Le « en direct » qu'un tableau de bord de la dépense publique laisse spontanément attendre relève de la fiction marketing sur plusieurs points. Voici la liste explicite, chaque impossibilité étant **prouvée par un rapport**, et la reformulation retenue.
 
-| # | Promesse de la maquette | Pourquoi c'est intenable (preuve) | Reformulation honnête retenue |
+| # | Formulation attendue | Pourquoi c'est intenable (preuve) | Reformulation honnête retenue |
 |---|---|---|---|
 | 1 | **Gros compteur « dépenses aujourd'hui » + variation vs veille** | Il n'existe **aucune donnée ouverte de paiement en temps réel** (aucun dataset Chorus, search = 0 ; Data-État réservé aux agents). Meilleure fraîcheur réelle : **mensuelle, ~5-7 semaines de décalage** (exécution au 30/06/2026 vue le 19/08) (01-budget-etat.md §1, §11) | Compteur « L'État a dépensé X Md€ depuis le 1er janvier » sur données mensuelles DGFiP, badge « données au 30/06/2026 », **variation vs même période 2025** (pas vs veille) |
 | 2 | **Flux « dernières dépenses en direct » horodaté à la minute** | Même absence de paiements temps réel (01 §11) ; les flux quotidiens réels sont contractuels (marchés notifiés J-1, latence légale de publication jusqu'à 2 mois, 02 §7) ou normatifs (JO à 00h30, 07 §1.3) | Deux flux réels et datés : « **Derniers marchés publics notifiés** » (quotidien, J-1, mention « en cours de consolidation ») et « **Derniers textes au Journal officiel** » (jour même) |
@@ -417,7 +417,7 @@ La maquette de référence est une fiction marketing sur plusieurs points. Voici
 | 9 | « Notes de frais » et « Dépenses en direct » dans la navigation | cf. #1 et #3 | Navigation renommée : « Dépenses de l'État » et « Frais & train de vie » |
 | 10 | « Alertes transparence » implicitement temps réel | Les sources d'alertes sont hebdomadaires (HATVP liste.csv) à quotidiennes (AGORA, DECP) (04, 02) | « Alertes recalculées à chaque mise à jour source », chacune datée |
 
-**Promesses de la maquette parfaitement tenables** (à valoriser) : « **Appels d'offres en cours** » (BOAMP quotidien jour même, 8 988 AO ouverts, requête testée, 02) ; recherche globale sur les entités ingérées (élus, marchés, acheteurs, textes JO, lobbyistes) ; compteur d'« élus suivis » (~500 000 mandats RNE, 04) ; « alertes transparence » en tant que telles (§ 4).
+**Attentes parfaitement tenables** (à valoriser) : « **Appels d'offres en cours** » (BOAMP quotidien jour même, 8 988 AO ouverts, requête testée, 02) ; recherche globale sur les entités ingérées (élus, marchés, acheteurs, textes JO, lobbyistes) ; compteur d'« élus suivis » (~500 000 mandats RNE, 04) ; « alertes transparence » en tant que telles (§ 4).
 
 ---
 

@@ -159,7 +159,7 @@ La plupart des mauvais graphiques choisissent leurs couleurs d'abord. Interdit i
   de l'**emphase**, pas de la catégorielle.
 - **L'emphase est la forme la plus sous-employée.** Souvent la réponse honnête à
   « rends ce graphique plus clair ».
-- **Donut de répartition** (imposé par la maquette) : uniquement part-du-tout en
+- **Donut de répartition** : uniquement part-du-tout en
   ordre de grandeur, **≤ 6 segments**, segments dans l'ordre des slots, écarts de
   2px en `--surface-card`, anneau de 24px d'épaisseur, total au centre en chiffre
   héros. **Jamais** pour comparer des parts proches (< 5 points d'écart) →
