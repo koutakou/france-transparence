@@ -617,8 +617,8 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
             </div>
           </dl>
           <p className="mt-3 text-[11px] leading-relaxed text-ink-muted">
-            Les scrutins publics du Sénat ne sont pas encore ingérés : aucun taux de participation
-            n’est affiché pour les sénateurs.
+            Les scrutins publics du Sénat ne sont pas ingérés à ce jour : aucun taux de
+            participation n’est affiché pour les sénateurs.
           </p>
         </Card>
       )}
@@ -696,7 +696,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
       >
         {interets === null ? (
           <p className="text-sm text-ink-muted">
-            Le contenu des déclarations n’est pas encore ingéré dans cette base.
+            Le contenu des déclarations n’est pas ingéré dans cette base.
           </p>
         ) : interets.apparie ? (
           <>

@@ -112,8 +112,8 @@ export default async function DocumentsPage() {
         </h1>
         <div className="max-w-2xl rounded-xl border border-card-border bg-card p-5 text-sm text-ink-muted">
           <p>
-            Aucun texte du Journal officiel dans la base — l’ingestion de la source S3
-            (DILA) n’a pas encore livré de données.
+            Aucun texte du Journal officiel dans la base : l’ingestion de la source S3
+            (DILA) n’a livré aucune donnée à ce jour.
           </p>
         </div>
       </section>

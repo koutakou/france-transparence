@@ -311,8 +311,8 @@ export default async function PageElus() {
             departements={departementsSenat}
           />
           <p className="mt-3 text-[11px] leading-relaxed text-ink-muted">
-            Les scrutins publics du Sénat ne sont pas encore ingérés : aucun taux de participation
-            n’est donc affiché pour les sénateurs (rien d’estimé, rien d’inventé).
+            Les scrutins publics du Sénat ne sont pas ingérés à ce jour : aucun taux de
+            participation n’est donc affiché pour les sénateurs (rien d’estimé, rien d’inventé).
           </p>
         </Card>
       </div>
