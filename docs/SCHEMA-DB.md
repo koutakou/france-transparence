@@ -1,16 +1,28 @@
 # Schéma de la base data/france.db — généré le 19/08/2026 16:16 après make ingest,
 # complété le 20/08/2026 (renommage collectivites_communes → collectivites_communes_top200 ;
 # tables collectivites_communes_series et collectivites_communes_strates, comptages du 20/08)
-# et le 21/08/2026 (table sirene_unites_legales, S18)
+# et le 21/08/2026 (table sirene_unites_legales, S18 ; puis decp_qualite_montants,
+# elections_participation_departement, elections_participation_ville et les quatre
+# tables hatvp_decl_*, jusque-là absentes ; corrections campagnes_2024.marqueur_etoile
+# et trainvie_faits.assiette)
 
-> **Extrait daté et partiel.** Ce document décrit **63 des 70 tables** de la base. Sept tables y sont
-> absentes : `decp_qualite_montants`, `elections_participation_departement`,
-> `elections_participation_ville`, `hatvp_decl_interets`, `hatvp_decl_lignes`, `hatvp_decl_montants`
-> et `hatvp_decl_rubriques`. Le DDL reproduit ci-dessous est celui du 20/08/2026, augmenté de
-> `sirene_unites_legales` (21/08/2026). Les comptages de lignes cités décrivent le jour de leur
-> mesure et **dérivent à chaque ingestion** ; le catalogue vivant est la page `/donnees`, régénérée à
-> chaque publication. Le schéma qui fait foi est celui de la base elle-même :
+> **Extrait daté.** Ce document décrit **les 70 tables**, **les 6 vues** et **les 55 index** que
+> `sqlite_master` recense au 21/08/2026 : la couverture du schéma y est entière à cette date. Le DDL
+> reproduit a été confronté objet par objet à celui de la base servie — noms, types, `NOT NULL`,
+> valeurs par défaut et clés primaires coïncident colonne à colonne pour les 70 tables, et les noms
+> d'index coïncident un à un. Les comptages de lignes cités décrivent le jour de leur mesure et
+> **dérivent à chaque ingestion** ; le catalogue vivant est la page `/donnees`, régénérée à chaque
+> publication. Le schéma qui fait foi reste celui de la base elle-même :
 > `sqlite3 -readonly data/france.db ".schema"`.
+>
+> **La base servie est une base migrée.** Trois colonnes y ont été posées par `ALTER TABLE` plutôt
+> que par le `CREATE TABLE` du pipeline : `elus.hatvp_url`, `campagnes_2024.marqueur_etoile` et
+> `trainvie_faits.assiette`. Elles se reconnaissent au fragment `, colonne …);` détaché en fin de
+> DDL, elles arrivent en **dernière position** de la table — ce qui suffit à décaler un
+> `SELECT *` — et elles ne portent **pas** les contraintes du schéma de création, SQLite ne sachant
+> pas attacher un `CHECK` à une colonne ajoutée après coup. Le DDL ci-dessous reproduit l'état de la
+> base servie, jamais celui d'une base neuve : sur une base fraîchement créée, ces trois colonnes
+> sont à leur place nominale et `trainvie_faits.assiette` y porte son `CHECK`.
 
 ```
 CREATE TABLE meta_sources (
@@ -219,6 +231,19 @@ CREATE TABLE decp_repartition (
     montant_total REAL
 );
 CREATE INDEX idx_decp_repartition_dim ON decp_repartition(dimension);
+CREATE TABLE decp_qualite_montants (
+    id                    INTEGER PRIMARY KEY CHECK (id = 1),  -- table à ligne unique
+    nb_marches            INTEGER NOT NULL,   -- marchés de la fenêtre, montant NULL compris
+    montant_total         REAL,               -- somme des montants ÉCRÊTÉS (= le total affiché)
+    nb_ecretes            INTEGER NOT NULL,   -- marchés dont le montant retenu dépasse plafond
+    montant_ecretes       REAL,               -- leur contribution APRÈS écrêtage (nb × plafond)
+    nb_suspects           INTEGER NOT NULL,   -- decp_marches.montant_suspect = 1
+    montant_suspects      REAL,               -- leur contribution écrêtée
+    montant_hors_suspects REAL,               -- montant_suspect = 0 — BORNE BASSE, cf. § pièges
+    montant_brut          REAL,               -- somme des montants retenus SANS écrêtage
+    nb_sans_montant       INTEGER NOT NULL,   -- montant_retenu IS NULL (comptés, jamais sommés)
+    plafond               REAL NOT NULL       -- PLAFOND_ECRETAGE_EUR du pipeline, en euros
+);
 CREATE TABLE decp_derniers_marches (
     rang INTEGER PRIMARY KEY,
     
@@ -479,6 +504,74 @@ CREATE TABLE hatvp_agregats (
     nb        INTEGER NOT NULL,
     PRIMARY KEY (categorie, cle)
 );
+-- ---------------------------------------------------------------------------
+-- S15 — CONTENU des déclarations d'intérêts HATVP (declarations.xml),
+-- pipeline `pipelines/ingest_hatvp_declarations.py`. À ne pas confondre avec
+-- S14 / `hatvp_declarations`, qui dit qu'une déclaration EXISTE et à quelle
+-- date ; ces quatre tables-ci disent ce qu'elle CONTIENT.
+-- PÉRIMÈTRE : INTÉRÊTS SEULEMENT. Seuls les types DI et DIA sont acceptés ;
+-- les déclarations de situation PATRIMONIALE (DSP, DSPM, DSPFM) et les
+-- quatorze balises patrimoniales sont refusées deux fois, par type ET par nom
+-- de balise — leur divulgation est punie par l'article LO 135-2 du code
+-- électoral. Ni employeur du conjoint ni identité des collaborateurs.
+-- AUCUNE COLONNE NUMÉRIQUE de montant : les sommes déclarées sont stockées
+-- verbatim en TEXT, ce qui rend structurellement impossibles un total, un
+-- classement ou une moyenne construits sur des libellés qui ne les supportent
+-- pas. L'affichage est verbatim, daté, et rien d'autre.
+-- ---------------------------------------------------------------------------
+CREATE TABLE hatvp_decl_interets (
+    uuid                     TEXT PRIMARY KEY,   -- uuid natif de la déclaration
+    elu_id                   TEXT NOT NULL,      -- elus.id (appariement nom+prénom+naissance)
+    type_declaration         TEXT NOT NULL,      -- 'DI' | 'DIA', jamais autre chose
+    type_declaration_libelle TEXT,               -- label natif HATVP
+    date_depot               TEXT,               -- ISO (jour), depuis dateDepot
+    modificative             INTEGER NOT NULL DEFAULT 0,
+    qualite_declarant        TEXT,               -- « Vice-président délégué à… », verbatim
+    organe_libelle           TEXT,               -- « Ain (01) », « Assemblée nationale »…
+    type_mandat              TEXT,               -- codTypeMandatFichier natif
+    nb_lignes                INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX idx_hatvp_decl_interets_elu ON hatvp_decl_interets(elu_id);
+CREATE TABLE hatvp_decl_rubriques (
+    declaration_uuid TEXT NOT NULL,
+    rubrique         TEXT NOT NULL,
+    rubrique_ordre   INTEGER NOT NULL,
+    -- 1 = « néant » déclaré par la personne (un FAIT, affichable) ;
+    -- 0 = rubrique renseignée ; NULL = rubrique absente de la déclaration.
+    -- Une rubrique absente de cette table = donnée que NOUS n'avons pas.
+    neant            INTEGER,
+    nb_lignes        INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (declaration_uuid, rubrique)
+);
+CREATE TABLE hatvp_decl_lignes (
+    id                   INTEGER PRIMARY KEY,
+    declaration_uuid     TEXT NOT NULL,
+    elu_id               TEXT NOT NULL,
+    rubrique             TEXT NOT NULL,
+    rubrique_ordre       INTEGER NOT NULL,
+    rang                 INTEGER NOT NULL,   -- ordre d'apparition dans la rubrique
+    libelle              TEXT,               -- société, employeur, structure, mandat
+    description          TEXT,               -- activité exercée / texte libre
+    date_debut           TEXT,               -- verbatim ('11/2019'), jamais recomposé
+    date_fin             TEXT,
+    commentaire          TEXT,
+    conservee            INTEGER,            -- 1/0/NULL — activité conservée pendant le mandat
+    evaluation           TEXT,               -- participation financière : évaluation déclarée
+    capital_detenu       TEXT,               -- … part du capital détenue
+    nombre_parts         TEXT,               -- … nombre de parts
+    remuneration_libre   TEXT,               -- … champ texte libre (« Néant », « 0 », « NS »)
+    activite_conseil     TEXT,               -- 'Oui' | 'Non' natifs
+    organisation_conseil TEXT
+);
+CREATE INDEX idx_hatvp_decl_lignes_elu  ON hatvp_decl_lignes(elu_id);
+CREATE INDEX idx_hatvp_decl_lignes_decl ON hatvp_decl_lignes(declaration_uuid, rubrique_ordre, rang);
+CREATE TABLE hatvp_decl_montants (
+    ligne_id INTEGER NOT NULL,
+    annee    TEXT NOT NULL,
+    montant  TEXT NOT NULL,   -- verbatim, ex. '70 676' (espace fine insécable native)
+    brut_net TEXT,            -- 'Net' | 'Brut' natifs
+    PRIMARY KEY (ligne_id, annee)
+);
 CREATE TABLE rne_cm_agregats (
     code_departement    TEXT PRIMARY KEY,
     libelle_departement TEXT,
@@ -664,7 +757,10 @@ CREATE TABLE campagnes_2024 (
     remboursement_etat REAL,
     decision           TEXT NOT NULL,
     decision_famille   TEXT NOT NULL
-);
+-- Ajoutée par migration (ALTER TABLE) : marqueur « (*) » sorti du nom CNCCFP.
+-- Sa signification n'est PAS documentée par le jeu de données amont ; la
+-- colonne le restitue sans l'interpréter.
+, marqueur_etoile INTEGER NOT NULL DEFAULT 0);
 CREATE INDEX idx_campagnes_2024_decision ON campagnes_2024(decision_famille);
 CREATE TABLE partis_aide_annuelle (
     annee             INTEGER PRIMARY KEY,
@@ -772,6 +868,45 @@ CREATE VIEW v_campagnes_2024_top_depenses AS
             FROM campagnes_2024
             ORDER BY COALESCE(depenses_retenues, 0) DESC
 /* v_campagnes_2024_top_depenses(candidat_id,nom,circonscription,departement,nuance,depenses_declarees,depenses_retenues,remboursement_etat,decision,decision_famille) */;
+-- ---------------------------------------------------------------------------
+-- S26 — Participation électorale (résultats agrégés du ministère de
+-- l'Intérieur), pipeline `pipelines/ingest_elections.py`. Sept scrutins :
+-- municipales 2026 T1/T2, législatives 2024 T1/T2, européennes 2024,
+-- présidentielle 2022 T1/T2.
+-- CE QUI EST INGÉRÉ : la participation, et rien d'autre. Pas de nuance
+-- politique (attribuée par les préfectures, vide à 25,2 % aux municipales
+-- 2026, grille changée entre 2020 et 2026 — aucune série possible), pas de
+-- nom de candidat (la ressource nominative n'est ni téléchargée ni lue), pas
+-- de bureau de vote (grain natif de 3,16 M de lignes, exposé nulle part).
+-- AUCUN TAUX N'EST STOCKÉ : les ratios se calculent à l'affichage sur les
+-- effectifs bruts, pour qu'une donnée absente reste absente — un taux stocké
+-- se lirait comme un zéro.
+-- ---------------------------------------------------------------------------
+CREATE TABLE elections_participation_departement (
+    id_election         TEXT NOT NULL,     -- ex. '2026_muni_t1' (identifiant natif MI)
+    code_departement    TEXT NOT NULL,     -- DÉRIVÉ de code_commune (cf. piège 1)
+    libelle_departement TEXT NOT NULL,
+    inscrits            INTEGER NOT NULL,
+    votants             INTEGER NOT NULL,
+    blancs              INTEGER NOT NULL,
+    nuls                INTEGER NOT NULL,
+    exprimes            INTEGER NOT NULL,
+    PRIMARY KEY (id_election, code_departement)
+);
+CREATE TABLE elections_participation_ville (
+    id_election      TEXT NOT NULL,
+    code_commune     TEXT NOT NULL,        -- code INSEE 5 caractères
+    libelle_commune  TEXT NOT NULL,
+    code_departement TEXT NOT NULL,        -- DÉRIVÉ de code_commune (cf. piège 1)
+    inscrits         INTEGER NOT NULL,
+    votants          INTEGER NOT NULL,
+    blancs           INTEGER NOT NULL,
+    nuls             INTEGER NOT NULL,
+    exprimes         INTEGER NOT NULL,
+    PRIMARY KEY (id_election, code_commune)
+);
+CREATE INDEX idx_elections_ville_commune
+    ON elections_participation_ville(code_commune);
 CREATE TABLE collectivites_departements (
     code_dep           TEXT NOT NULL,
     nom                TEXT NOT NULL,
@@ -899,14 +1034,19 @@ CREATE TABLE trainvie_faits (
     libelle     TEXT NOT NULL,
     valeur      REAL NOT NULL CHECK (valeur > 0),
     unite       TEXT NOT NULL,
-    assiette    TEXT CHECK (assiette IS NULL OR assiette IN ('brut', 'net')),
     periode     TEXT NOT NULL,
     institution TEXT NOT NULL,
     source_nom  TEXT NOT NULL,
     source_url  TEXT NOT NULL CHECK (source_url LIKE 'http%'),
     date_source TEXT NOT NULL,
     notes       TEXT
-);
+-- Ajoutée par migration (ALTER TABLE), d'où la dernière position ET l'absence
+-- de contrainte : SQLite ne sait pas attacher un CHECK à une colonne ajoutée
+-- après coup. Le schéma de création porte bien
+-- `CHECK (assiette IS NULL OR assiette IN ('brut','net'))`, mais une base
+-- migrée — dont la base servie — ne l'a PAS. Le vocabulaire ('brut' | 'net' |
+-- NULL) n'est tenu que par le pipeline et ses tests : le vérifier en lecture.
+, assiette TEXT);
 CREATE INDEX idx_trainvie_faits_categorie
     ON trainvie_faits(categorie);
 CREATE TABLE trainvie_opacites (
@@ -976,15 +1116,28 @@ CREATE INDEX idx_sirene_etat
 - decp_derniers_marches : 200 lignes
 - decp_marches : 586229 lignes
 - decp_repartition : 15 lignes
+- decp_qualite_montants : 1 ligne, et une seule — `CHECK (id = 1)` (structurel)
 - decp_top_acheteurs : 50 lignes
 - decp_top_titulaires : 50 lignes
 - deputes : 577 lignes
 - dotations_dgf : 618 lignes
+- elections_participation_departement : 740 lignes (comptage du 21/08/2026 —
+  7 scrutins × 102 à 107 départements et collectivités ; volume borné par le
+  nombre de scrutins ingérés, non par un flux quotidien)
+- elections_participation_ville : 1524 lignes (comptage du 21/08/2026 —
+  233 communes distinctes, celles que le site connaît déjà, présentes dans
+  156 à 233 scrutins selon le scrutin)
 - elus : 36018 lignes
 - entites : 1059 lignes
 - groupes_an : 12 lignes
 - hatvp_agregats : 37 lignes
 - hatvp_declarations : 12930 lignes
+- hatvp_decl_interets : 2261 lignes (comptage du 21/08/2026)
+- hatvp_decl_rubriques : 15827 lignes (comptage du 21/08/2026 — exactement
+  7 × 2261 : le grain est complet, cf. § dédié)
+- hatvp_decl_lignes : 27711 lignes (comptage du 21/08/2026)
+- hatvp_decl_montants : 94487 lignes (comptage du 21/08/2026 ; de l'ordre de
+  33 500 portent une valeur autre que le zéro littéral)
 - jorf_nominations_ministere : 19 lignes
 - jorf_par_jour_nature : 216 lignes
 - jorf_textes : 2778 lignes
@@ -1276,3 +1429,269 @@ part le volume des NULL. La même règle vaut pour `annee_effectifs`,
 `etat_administratif` porte `'A'` (active) ou `'C'` (cessée) : une unité cessée
 reste dans la table si la base la cite, et c'est voulu — un marché notifié à
 une entreprise aujourd'hui radiée est un fait, pas une erreur.
+
+## La table `decp_qualite_montants` (S1) — ce qu'il faut savoir avant de s'en servir
+
+### 1. Une ligne, et c'est structurel
+
+`CHECK (id = 1)` : la table ne peut en contenir qu'une. Ce n'est pas une série,
+c'est une **fiche d'auto-critique du total affiché** sur `/marches`. Elle
+répond à une seule question — que vaut le chiffre que le lecteur voit ? — en
+décomposant ce total en parts dont chacune a une cause identifiée. Elle se
+lit donc toujours en entier, jamais colonne par colonne.
+
+### 2. Son périmètre est celui de `decp_repartition`, pas celui de la carte
+
+Même fenêtre de 12 mois et même vue `recents` que `decp_repartition` : au
+21/08/2026, `nb_marches` valait 297 323, exactement la somme de
+`decp_repartition.nb_marches` pour chacune de ses deux dimensions, et pour un
+`montant_total` identique au centime. C'est le contrôle croisé à faire quand
+un doute survient.
+
+`decp_agg_departement`, lui, ne couvre **que** les acheteurs à département
+connu : à la même date il totalisait 295 457 marchés pour 268,6 Md€, contre
+297 323 et 270,6 Md€ ici. `SUM(decp_agg_departement.nb_marches_ecretes)`
+valait 399 quand `nb_ecretes` valait 401 — deux marchés écrêtés dont
+l'acheteur n'a pas de département. Les deux compteurs portent des noms
+voisins et ne comptent pas la même chose ; les additionner ou les substituer
+l'un à l'autre est l'erreur type.
+
+### 3. `montant_ecretes` n'est pas ce que valent les marchés écrêtés
+
+C'est leur contribution **après** écrêtage, donc exactement
+`nb_ecretes × plafond` : au 21/08/2026, 401 × 100 M€ = 40,1 Md€, vérifiable à
+l'euro près. La grandeur retranchée par l'écrêtage ne se lit nulle part
+directement ; elle se déduit de `montant_brut − montant_total`. À la même
+date, `montant_brut` (468,7 Md€) valait **1,73 fois** `montant_total`
+(270,6 Md€) : l'écrêtage n'est pas un détail de présentation, il retire la
+majorité du volume brut, et c'est précisément ce que cette table sert à
+avouer.
+
+Cette disproportion est le fait saillant : 0,135 % des marchés portaient
+14,82 % du total affiché. Un plafond fixe de 100 M€ appliqué à une poignée de
+lignes gouverne donc une part à deux chiffres du chiffre publié.
+
+### 4. `montant_hors_suspects` est une BORNE BASSE, jamais un total « propre »
+
+Le drapeau `montant_suspect` combine la classification de la source et le
+dépassement du plafond ; il n'a **pas** été audité ligne à ligne. Un marché
+marqué suspect peut être parfaitement exact — les maximums d'accords-cadres
+d'énergie le sont. `montant_hors_suspects` (189,7 Md€ au 21/08/2026, soit
+70,09 % du total) dit donc « au moins cela », jamais « seulement cela », et ne
+doit jamais être présenté comme le vrai montant de la commande publique.
+
+`montant_total` se décompose exactement en `montant_suspects +
+montant_hors_suspects` : au 21/08/2026 l'écart mesuré était de 1,8 millième
+d'euro, résidu d'arithmétique flottante sur des REAL, sans signification.
+Ne pas le prendre pour une fuite de lignes.
+
+### 5. `nb_sans_montant` compte des marchés, pas des zéros
+
+297 marchés au 21/08/2026 avaient un `montant_retenu` NULL. Ils sont comptés
+dans `nb_marches` et exclus de toutes les sommes — aucune donnée n'est
+inventée. Conséquence : `montant_total / nb_marches` n'est pas un montant
+moyen par marché, puisque le dénominateur inclut des lignes que le numérateur
+ignore. Le diviseur honnête est `nb_marches − nb_sans_montant`.
+
+### 6. Toutes ces valeurs dérivent, sauf le plafond
+
+`plafond` est une constante du pipeline (`PLAFOND_ECRETAGE_EUR`, 100 000 000 €)
+et ne bouge qu'avec le code. Les dix autres colonnes sont recalculées à chaque
+ingestion sur une fenêtre glissante de 12 mois : les citer sans date n'a pas
+de sens. La latence légale de publication des DECP allant jusqu'à deux mois,
+le bord récent de cette fenêtre est de plus structurellement incomplet.
+
+## Les tables `hatvp_decl_*` (S15) — ce qu'il faut savoir avant de s'en servir
+
+### 1. Quatre tables, un seul grain d'entrée : la déclaration
+
+`hatvp_decl_interets` porte la déclaration (1 ligne = 1 DI ou DIA rattachée à
+un élu), `hatvp_decl_rubriques` le couple déclaration × rubrique,
+`hatvp_decl_lignes` l'intérêt déclaré, `hatvp_decl_montants` le montant annuel
+et daté attaché à une ligne. La chaîne se remonte par `uuid` →
+`declaration_uuid` → `id` → `ligne_id`, et elle est cohérente : au 21/08/2026,
+`SUM(hatvp_decl_interets.nb_lignes)`, `SUM(hatvp_decl_rubriques.nb_lignes)` et
+`COUNT(*) FROM hatvp_decl_lignes` valaient tous trois 27 711, sans un montant
+orphelin ni un `elu_id` inconnu de `elus`. Les colonnes `nb_lignes` sont donc
+des dénormalisations fiables, utilisables sans jointure.
+
+À ne pas confondre avec `hatvp_declarations` (S14), qui dit qu'une déclaration
+**existe** et à quelle date : ces quatre tables-ci disent ce qu'elle
+**contient**, et sur un périmètre bien plus étroit.
+
+### 2. Le périmètre est celui des fiches d'élus publiées, pas celui de la HATVP
+
+Le rattachement est restreint aux élus qui ont une fiche sur le site
+(députés, sénateurs, présidents de conseil départemental et régional) : au
+21/08/2026, 2 261 déclarations pour **948 élus distincts**, quand
+`hatvp_declarations` en recensait plus de douze mille. C'est une minimisation
+délibérée au titre de l'article 5(1)(c) du RGPD, pas un défaut d'ingestion.
+Un élu absent de `hatvp_decl_interets` n'a donc pas « rien déclaré » : dans la
+quasi-totalité des cas, il n'a simplement pas de fiche. Rien dans ces tables
+ne permet de conclure à l'absence de déclaration — seul `hatvp_declarations`
+le permet.
+
+### 3. Un élu porte plusieurs déclarations, et il faut choisir laquelle
+
+2,4 déclarations par élu en moyenne au 21/08/2026, jusqu'à **9** pour un seul.
+`modificative` valait 1 pour 1 060 d'entre elles, soit près de la moitié :
+une déclaration modificative ne remplace pas la précédente dans ces tables,
+elle s'y ajoute. Compter les intérêts d'un élu en sommant toutes ses lignes
+revient donc à compter plusieurs fois le même intérêt redéclaré. Toute
+restitution par personne doit trancher explicitement — dernière `date_depot`,
+ou déclaration désignée — et le dire.
+
+`type_declaration` ne vaut que `'DI'` ou `'DIA'` (287 et 1 974 au 21/08/2026) :
+c'est une garantie structurelle du pipeline, qui refuse les types
+patrimoniaux DSP/DSPM/DSPFM par deux barrières indépendantes, l'une sur le
+type, l'autre sur le nom de balise.
+
+### 4. `neant` distingue « rien à déclarer » de « pas de donnée » — et il faut s'en servir
+
+C'est la raison d'être de `hatvp_decl_rubriques`. `neant = 1` est un **fait
+déclaré par la personne**, affichable comme tel ; `neant = 0` est une rubrique
+renseignée ; `NULL` serait une rubrique présente sans mention. Et une rubrique
+**absente de la table** signifie que nous n'avons pas la donnée.
+
+Au 21/08/2026 la grille était complète : 15 827 lignes, soit exactement
+7 × 2 261, avec un minimum et un maximum de 7 rubriques par déclaration et
+**aucune** valeur NULL — les sept rubriques (`mandat_electif`, `dirigeant`,
+`participation_financiere`, `activite_5ans`, `consultant`, `benevole`,
+`observation`, dans cet ordre de `rubrique_ordre`) sont présentes pour chaque
+déclaration. 8 562 rubriques portaient `neant = 1`, 7 265 `neant = 0`. Le code
+de restitution ne doit pas pour autant présumer cette complétude : elle est
+constatée, pas garantie par une contrainte.
+
+Un garde-fou tient, un autre non : aucune rubrique n'avait `neant = 1` avec
+`nb_lignes > 0` (la cohérence forte est vérifiée), mais **11** avaient
+`neant = 0` avec `nb_lignes = 0` — rubrique déclarée renseignée dont aucune
+ligne n'a survécu au nettoyage du marqueur de caviardage. Afficher « 0 »
+sans plus pour ces onze-là dirait « rien à déclarer », ce qui est faux.
+
+### 5. Aucune colonne numérique de montant, et c'est voulu
+
+`hatvp_decl_montants.montant` est du `TEXT` verbatim. C'est une contrainte
+éditoriale inscrite dans le schéma : un total, un classement ou une moyenne
+bâtis sur ces libellés sont structurellement impossibles, donc jamais commis
+par inadvertance.
+
+Le piège est ailleurs, et il est massif : au 21/08/2026, **60 952** des
+94 487 montants — 64,5 % — valaient le **zéro littéral** `'0'`. Seules 8 845
+des 22 564 lignes portant au moins un montant en portaient un autre que zéro.
+Une restitution qui affiche « 94 487 montants déclarés » ou qui trace une
+courbe sans écarter ces zéros donne une image fausse. `montant = '0'` est une
+déclaration de rémunération nulle, pas une rémunération inconnue.
+
+Le commentaire porté par le DDL annonce une « espace fine insécable native » ;
+la mesure dit autrement. Les seuls caractères non numériques observés au
+21/08/2026 sont l'**espace ASCII ordinaire** `U+0020` (parfois doublée), le
+trait d'union-moins et une virgule. Onze montants sont **négatifs**
+(`'-13477'`, `'-9316'`…) et un porte une décimale à la virgule
+(`'13633,8'`). Quiconque tenterait malgré tout une conversion numérique doit
+donc traiter le signe, l'espace simple **et** double, et la virgule — et
+n'obtiendrait de toute façon qu'un nombre que la source ne garantit pas.
+
+`annee` est du `TEXT` mais valait partout quatre chiffres, de 2011 à 2026.
+`brut_net` ne prend que `'Net'` (92 526) et `'Brut'` (1 961), sans NULL : les
+deux ne sont pas comparables entre eux, et le rapport de 1 à 47 fait qu'un
+agrégat qui les mélangerait serait dominé par le net sans le dire.
+
+### 6. Le texte est brut de saisie, et les absences sont nombreuses
+
+Aucune normalisation : « Education Nationale », « Education nationale » et
+« ASSEMBLEE NATIONALE » cohabitent, les doublons de saisie sont fréquents.
+Le marqueur `[Données non publiées]` est retiré systématiquement et un champ
+qui n'en garde rien devient **NULL** — une absence, jamais une chaîne vide et
+jamais un zéro. Au 21/08/2026, `description` était NULL sur 10 010 des 27 711
+lignes, `libelle` sur 430.
+
+Trois colonnes sont à trois états et leur NULL domine : `conservee` (NULL sur
+17 121 lignes, `1` sur 8 120, `0` sur 2 470) et `activite_conseil` (NULL sur
+24 540, `'Non'` sur 3 090, `'Oui'` sur 81). Traiter ces NULL comme des « non »
+transformerait une absence de question en réponse négative. `date_debut` et
+`date_fin` sont verbatim et non recomposées (`'01/2018'`, `'11/2019'`) : elles
+ne se trient pas comme des dates.
+
+Enfin la distribution des lignes est très inégale — au 21/08/2026,
+`dirigeant` en portait 13 145 et `consultant` 239 — et celle des montants
+plus encore, `dirigeant` en concentrant 57 270 sur 94 487. Une lecture
+transversale par rubrique est trompeuse si elle ne le mentionne pas.
+
+## Les tables `elections_participation_*` (S26) — ce qu'il faut savoir avant de s'en servir
+
+### 1. `code_departement` est dérivé du code commune, et 6 codes ne joignent pas
+
+La codification des départements **change selon le scrutin** dans la source :
+la Guadeloupe est `ZA` jusqu'en 2024 et `971` en 2026, et onze territoires
+sont dans ce cas. Le pipeline s'en affranchit en dérivant toujours le
+département des deux ou trois premiers caractères de `code_commune`, stable
+d'un scrutin à l'autre. Résultat vérifié au 21/08/2026 : les seuls codes non
+numériques restants sont `2A` et `2B`, et aucun `Z*` ne subsiste.
+
+Le piège s'est déplacé, il n'a pas disparu. Six codes de ces tables n'ont
+**aucune correspondance** dans `ref_departements`, qui n'en compte que 101 :
+`975` Saint-Pierre-et-Miquelon, `977` Saint-Barthélemy, `978` Saint-Martin,
+`986` Wallis-et-Futuna, `987` Polynésie française, `988` Nouvelle-Calédonie.
+Une jointure interne sur `ref_departements` perd donc 34 des 740 lignes — sans
+erreur, sans avertissement — dont 463 336 inscrits pour la seule
+présidentielle 2022 T1. Toute jointure sur ce référentiel doit être externe,
+et l'écart affiché.
+
+### 2. Aucun taux n'est stocké, et c'est délibéré
+
+Les tables ne portent que des effectifs : `inscrits`, `votants`, `blancs`,
+`nuls`, `exprimes`. Les ratios se calculent à l'affichage, pour qu'une donnée
+absente reste absente — un taux stocké se lirait comme un zéro. Attention au
+dénominateur : le taux de participation se calcule sur `inscrits`, mais les
+parts de blancs et de nuls se calculent sur `votants`, dont `exprimes` est le
+complément. `votants = blancs + nuls + exprimes` est vrai partout, aux deux
+grains, sans une exception au 21/08/2026.
+
+### 3. La somme des départements n'est pas le résultat national
+
+`ZZ` — les Français établis hors de France, rangés par le parquet amont sous
+210 à 213 « communes » consulaires (`docs/ELECTIONS.md`) — est exclu : ce
+n'est pas un département, l'inclure dans une table départementale serait une
+erreur de catégorie. Conséquence à dire au lecteur chaque fois que le total
+est affiché : la somme des départements **exclut** ces électeurs et diffère
+donc du taux publié par le ministère. Mesuré au 21/08/2026 sur ces tables, la
+présidentielle 2022 T1 ressort à **74,86 %** de participation, là où le
+ministère publie 73,69 % (chiffre amont relevé dans `docs/ELECTIONS.md`, non
+recalculable depuis la base) — l'écart, ce sont ces électeurs-là.
+
+### 4. Le grain communal est un échantillon choisi, jamais la France entière
+
+`elections_participation_ville` est restreinte aux communes que le site
+connaît déjà — `ref_villes` ∪ `collectivites_communes_top200`, 234 au
+21/08/2026. Elle en contenait 233 distinctes : Uvea (98613) est absente de
+**tous** les scrutins, Wallis-et-Futuna n'ayant pas de communes et le
+ministère publiant sous une entité unique. Ces 233 communes ne forment ni un
+échantillon représentatif ni un classement : agréger cette table pour en
+tirer un chiffre « national », ou même départemental, est un contresens —
+`elections_participation_departement` est là pour ça.
+
+Le nombre de communes varie fortement d'un scrutin à l'autre : 233 aux
+présidentielle, législatives T1 et européennes, 231 aux municipales 2026 T1,
+mais 205 aux législatives 2024 T2 et 156 aux municipales 2026 T2. Ces écarts
+sont des faits électoraux — pas de second tour là où le premier a suffi — et
+non des trous de données. Comparer deux scrutins sans réaligner le périmètre
+de communes produit un écart entièrement artificiel. Même prudence au grain
+départemental, où le nombre de lignes va de 102 à 107 selon le scrutin.
+
+### 5. Ce qui n'est pas dans ces tables
+
+Ni nuance politique, ni nom de candidat, ni bureau de vote — aucune de ces
+données n'est ingérée, et la ressource nominative amont n'est ni téléchargée
+ni lue. Ces tables ne répondent qu'à une question, la participation ; toute
+lecture partisane des chiffres qu'elles portent est hors de leur portée.
+
+Les deux anomalies arithmétiques publiées par le ministère aux municipales
+2026 T1 et relevées au grain du bureau de vote par `docs/ELECTIONS.md` — un
+`nuls` négatif à Saint-Cyr-du-Gault (41205), 212 votants pour 209 inscrits au
+Mesnil-sur-Bulles (60400) — sont des données réelles, ni corrigées ni
+supprimées en amont. Elles n'apparaissent pas ici, ce qui se vérifie sur la
+base : au 21/08/2026, aucune ligne des deux tables ne violait
+`inscrits >= votants`.
+Ces communes sont hors du périmètre communal du site, et l'agrégation
+départementale absorbe l'écart. Le contrôle reste à refaire après tout
+élargissement du périmètre : rien dans le schéma ne l'interdit.
