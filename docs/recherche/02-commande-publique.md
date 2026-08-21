@@ -4,6 +4,19 @@ Recherche pour le dashboard « France Transparence », axe commande publique. **
 
 Rappel des besoins du dashboard sur cet axe : (a) attributions récentes + carte de France des marchés, (b) module « appels d'offres en cours », (c) contexte (seuils, acheteurs, titulaires).
 
+> **Rectification datée du 21/08/2026 — ce document est un relevé du 19/08/2026 et n'est pas
+> réécrit ; ce qu'il prescrivait sur un point est faux et le voici corrigé.** Deux de ses
+> « pièges » (§ 1 *Pièges* et § *Pièges de méthode* n° 3) prescrivent de dédoublonner un marché
+> par `uid` **en filtrant `donneesActuelles = true` avant tout comptage**. Appliqué à la DATE,
+> ce geste date le marché de son DERNIER AVENANT : à la source, la ligne d'un avenant porte
+> comme `dateNotification` la date de l'avenant, et `donneesActuelles` ne vaut que sur la
+> dernière modification. La règle qui fait autorité aujourd'hui est celle de `docs/SOURCES.md`
+> (fiche S1) : les ATTRIBUTS (montant, titulaires, objet, procédure) se lisent bien sur la
+> version courante, mais la DATE du marché est `min(dateNotification)` sur TOUTES ses lignes,
+> avenants compris. `dateNotification` identifie une VERSION du marché, pas le marché — c'est
+> le modèle de données amont, assumé et documenté dans le code de `decp-processing` ; l'erreur
+> était de notre côté, à la lecture.
+
 ---
 
 ## 1. DECP consolidées au format tabulaire (data.gouv.fr) — la source n° 1 pour les attributions et la carte
@@ -32,7 +45,7 @@ Rappel des besoins du dashboard sur cet axe : (a) attributions récentes + carte
   → HTTP 200, **`meta.total` = 24 554 lignes**.
 - **Licence** : Licence Ouverte / Open Licence v2.0 (lov2).
 - **Pièges** :
-  - 1 marché = n lignes (multi-titulaires, modifications) → dédoublonner par `uid` + filtrer `donneesActuelles=true`.
+  - 1 marché = n lignes (multi-titulaires, modifications) → dédoublonner par `uid` + filtrer `donneesActuelles=true`. ⚠ **Rectifié le 21/08/2026, voir l'encadré en tête : ce filtre vaut pour les ATTRIBUTS, jamais pour la DATE.**
   - Montants d'accords-cadres = montants **maximum**, pas dépensés ; champ `montant_anomalie` fourni pour les aberrations — l'utiliser.
   - Doublons inter-sources suivis dans la ressource `statistiques-doublons-sources.parquet` (publiée à côté) ; `schema.json` documente les colonnes.
   - decp.info (ancienne interface) → **redirection 301 vers colibre.fr** (« Outils pour l'exploration des marchés publics ») ; l'API « premium » de colibre est sur abonnement, mais l'API tabulaire data.gouv.fr ci-dessus est gratuite.
@@ -145,7 +158,7 @@ Vérifiés le 19/08/2026 (la page DAJ economie.gouv.fr renvoie 403 anti-bot en f
 
 1. **Latence légale DECP** : jusqu'à 2 mois entre notification et publication → biais de récence sur toute fenêtre courte.
 2. **Montants** : les accords-cadres portent des montants **maximum** ; erreurs de saisie fréquentes (démonstration réelle : 4,33 Md€/30 j sur l'Oise en sommant les montants bruts) → utiliser `montant_rationalise`/`montant_anomalie` (source n° 1) ou écrêter (p99) côté dashboard.
-3. **Multi-lignes** : 1 marché = n lignes (titulaires, modifications) dans la source n° 1 → `donneesActuelles=true` + dédup `uid` avant tout comptage.
+3. **Multi-lignes** : 1 marché = n lignes (titulaires, modifications) dans la source n° 1 → `donneesActuelles=true` + dédup `uid` avant tout comptage. ⚠ **Rectifié le 21/08/2026, voir l'encadré en tête : « avant tout comptage » ne s'applique pas à la datation, qui prend `min(dateNotification)` sur toutes les lignes.**
 4. **Lieu d'exécution** : `lieuexecution_code` mélange départements, communes, pays (« 60 », « 14000 », « FR ») → pour la carte, utiliser `acheteur_departement_code`/lat-lng (source n° 1) ou normaliser.
 5. **Exhaustivité** : couverture DECP incomplète (acheteurs défaillants), nettement améliorée depuis 2024 (PES Marché) ; concessions quasi absentes (589 enregistrements « valides »).
 6. **Plateformes Opendatasoft** (BOAMP + data.economie) : `/records` plafonné à **offset+limit ≤ 10 000** (constaté), quota **50 000 appels/jour** (en-tête constaté) → bulk via `/exports/{csv,parquet,json}` (streaming filtrable, testé).

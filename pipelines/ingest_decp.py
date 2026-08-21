@@ -66,6 +66,37 @@ Tables produites (module UI « Commande publique » + carte de France + Accueil)
 - decp_derniers_marches — flux « derniers marchés notifiés » : les 200 plus
   récents de decp_marches, colonnes identiques précédées de rang (PK).
 
+- decp_publication_qualite / decp_publication_annees /
+  decp_publication_acheteurs — respect du délai légal de publication, sur
+  TOUTE la profondeur du parquet et non sur une fenêtre glissante (cf. règle
+  de mesure du délai plus bas).
+
+Règle de mesure du délai de publication (les trois tables decp_publication_*) :
+1. Population = tous les uid du parquet, sans borne de date : la question est
+   historique, elle se lit d'une année sur l'autre. Ces trois tables sont donc
+   calculées par une passe SÉPARÉE, qui ne partage aucune table intermédiaire
+   avec les agrégats ci-dessus — ceux-ci sont bornés (détail, agrégats, série)
+   et donneraient des taux calculés sur un reste arbitraire.
+2. notification = min(dateNotification) sur toutes les lignes du uid (la
+   notification INITIALE, même règle que pour les autres tables) ;
+   publication = min(datePublicationDonnees) sur toutes les lignes (la
+   PREMIÈRE mise en ligne — une republication lors d'un avenant ne défait pas
+   une publication faite à temps) ; délai = écart en jours entre les deux.
+3. Publié dans le délai légal ⇔ publication <= notification + 2 MOIS
+   calendaires. Écrit en mois et non en « 60 jours » : voir DELAI_LEGAL_MOIS.
+4. Un marché n'est RETENU que si ses deux dates existent, tiennent dans
+   [BORNE_DATE_MIN, BORNE_DATE_MAX] et sont dans l'ordre. Les autres sont
+   classés en catégories EXCLUSIVES (sans notification, sans publication,
+   dates hors bornes, publication antérieure à la notification) et comptés
+   dans decp_publication_qualite : la somme des cinq classes recompose
+   exactement la population de départ. Aucun n'est repêché avec un délai de
+   zéro — un défaut de saisie n'est pas une publication à l'heure.
+5. Une cohorte annuelle n'est CLOSE qu'au bout de DECALAGE_COHORTE_CLOSE
+   années ; les cohortes ouvertes sont publiées avec cohorte_close = 0, leur
+   dénominateur étant incomplet. La ventilation par catégorie d'acheteur ne
+   porte que sur les cohortes closes, et seulement sur les marchés dont la
+   catégorie est renseignée — les autres sont comptés dans nb_sans_categorie.
+
 Règle d'écrêtage des montants (documentée aussi en colonne montant_suspect) :
 1. montant_retenu = montant_rationalise si présent, sinon montant. La source
    ne corrige que la classe 'aberrant' (ex. réel : 100 Md€ → 115 k€) ; la
@@ -157,6 +188,50 @@ NB_DERNIERS = 200
 # Plafond d'écrêtage des agrégats (cf. règle en docstring, point 2).
 PLAFOND_ECRETAGE_EUR = 100_000_000.0
 
+# Délai légal de publication des données essentielles : DEUX MOIS CALENDAIRES
+# à compter de la notification. POURQUOI l'écrire en mois et non en « 60
+# jours » : un mois calendaire n'a pas de longueur fixe, et l'écart n'est pas
+# théorique — un marché notifié le 11 mars a jusqu'au 11 mai, soit 61 jours,
+# qu'une règle « 60 jours » déclarerait hors délai ; un marché notifié le
+# 31 décembre a jusqu'au 28 février, soit 59 jours, qu'elle déclarerait dans
+# les temps. Le décompte suit donc le texte, pas une approximation en jours.
+DELAI_LEGAL_MOIS = 2
+
+# Première année de la série annuelle de qualité de publication. Avant 2018,
+# les effectifs sont résiduels et la série n'y veut rien dire : mesuré le
+# 21/08/2026 sur data/raw/decp.parquet, 92 marchés retenus en 2015, 377 en
+# 2016, 834 en 2017, contre 20 000 en 2018 et plus de 100 000 par an ensuite.
+ANNEE_MIN_PUBLICATION = 2018
+
+# Ventilation par catégorie d'acheteur : première année retenue. C'est
+# DÉLIBÉRÉMENT la même que celle de la série annuelle. POURQUOI le dire plutôt
+# que d'écrire la constante deux fois : deux fenêtres différentes obligeraient
+# le lecteur à comprendre pourquoi, et la mesure ne fournit aucune raison de
+# les séparer. Écarter 2018 de la seule ventilation a été mesuré le 21/08/2026
+# sur data/raw/decp.parquet : 2018 pèse 1,25 % de la population ventilée, ne
+# déplace aucun taux de catégorie de plus de 0,5 point, et le seul changement
+# de rang qu'il provoque départage deux catégories à égalité au dixième près.
+# Une fenêtre unique, expliquée une fois, vaut mieux qu'un écart sans cause.
+ANNEE_MIN_COHORTE = ANNEE_MIN_PUBLICATION
+
+# Une cohorte annuelle n'est CLOSE qu'au bout de deux ans. POURQUOI deux :
+# le 9ᵉ décile du délai de publication se compte en centaines de jours
+# (558 jours mesurés le 21/08/2026) ; dans une cohorte plus récente, les
+# marchés notifiés mais encore non publiés MANQUENT AU DÉNOMINATEUR, ce qui
+# rend le taux optimiste par construction. Les cohortes ouvertes restent
+# publiées, marquées `cohorte_close = 0` pour que la lecture en tienne compte.
+DECALAGE_COHORTE_CLOSE = 2
+
+# Bornes de plausibilité des dates. La source livre des sentinelles
+# (0001-01-01) et des saisies à quatre chiffres fantaisistes ; hors de cet
+# intervalle, une date ne décrit pas un marché public réel. Le marché n'est
+# pas corrigé ni remplacé par zéro : il est écarté du calcul et compté à part.
+BORNE_DATE_MIN = "1980-01-01"
+BORNE_DATE_MAX = "2030-01-01"
+
+# Seuil du retard « de plus d'un an », en jours.
+JOURS_RETARD_LONG = 365
+
 # Garde-fous « build cassé » (SOURCES.md S1, plan B/C1) : en deçà, on refuse
 # d'écraser les tables (le parquet consolidé fait ~3,2 M de lignes).
 MIN_LIGNES_PARQUET = 1_000_000
@@ -165,6 +240,12 @@ MAX_RETARD_JOURS = 60
 # Écrêtage SQL d'un montant : NULL reste NULL (least() DuckDB IGNORE les
 # NULL — sans ce garde, un montant manquant « deviendrait » le plafond).
 _SQL_ECRETE = "CASE WHEN {col} IS NULL THEN NULL ELSE least({col}, {plafond}) END"
+
+# Test « publié dans le délai légal », isolé ici pour n'exister qu'à un seul
+# endroit : c'est la définition dont dépendent les trois tables de qualité de
+# publication, et la seule chose qui sépare le décompte en mois calendaires
+# d'un décompte en jours (cf. DELAI_LEGAL_MOIS).
+_SQL_DANS_DELAI = "{publication} <= {notification} + INTERVAL {mois} MONTH"
 
 # Normalisation d'un libellé pour regroupement (casse, accents, apostrophes) :
 # « Appel d'offres ouvert » et « Appel d offres ouvert » → même clé.
@@ -256,6 +337,45 @@ CREATE TABLE IF NOT EXISTS decp_qualite_montants (
     montant_brut          REAL,
     nb_sans_montant       INTEGER NOT NULL,
     plafond               REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS decp_publication_qualite (
+    id                        INTEGER PRIMARY KEY CHECK (id = 1),
+    nb_marches_source         INTEGER NOT NULL,
+    nb_retenus                INTEGER NOT NULL,
+    nb_sans_notification      INTEGER NOT NULL,
+    nb_sans_publication       INTEGER NOT NULL,
+    nb_dates_hors_bornes      INTEGER NOT NULL,
+    nb_publication_anterieure INTEGER NOT NULL,
+    nb_sans_categorie         INTEGER NOT NULL,
+    delai_q1                  INTEGER,
+    delai_median              INTEGER,
+    delai_q3                  INTEGER,
+    delai_d9                  INTEGER,
+    delai_legal_mois          INTEGER NOT NULL,
+    cohorte_min               INTEGER NOT NULL,
+    cohorte_max               INTEGER NOT NULL,
+    date_observation_max      TEXT
+);
+
+CREATE TABLE IF NOT EXISTS decp_publication_annees (
+    annee           INTEGER PRIMARY KEY,
+    nb_marches      INTEGER NOT NULL,
+    nb_dans_delai   INTEGER NOT NULL,
+    taux_dans_delai REAL,
+    delai_median    INTEGER,
+    nb_plus_un_an   INTEGER NOT NULL,
+    cohorte_close   INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS decp_publication_acheteurs (
+    categorie       TEXT PRIMARY KEY,
+    nb_marches      INTEGER NOT NULL,
+    nb_dans_delai   INTEGER NOT NULL,
+    taux_dans_delai REAL,
+    delai_median    INTEGER,
+    nb_plus_un_an   INTEGER NOT NULL,
+    taux_plus_un_an REAL
 );
 
 CREATE TABLE IF NOT EXISTS decp_repartition (
@@ -592,6 +712,178 @@ def transformer(
         """
     )
 
+    # -----------------------------------------------------------------
+    # Qualité de PUBLICATION : l'obligation légale est-elle respectée ?
+    # -----------------------------------------------------------------
+    # Passe SÉPARÉE sur le parquet, et non un dérivé des tables ci-dessus.
+    # POURQUOI : tout ce qui précède est borné à une fenêtre glissante
+    # (t_date_initiale coupe à MOIS_SERIE par son HAVING, `recents` à
+    # MOIS_AGGREGATS), or la question posée ici est historique — le
+    # respect du délai se compare d'une année sur l'autre depuis le début
+    # de l'obligation. Réutiliser ces tables tronquerait la population et
+    # donnerait des taux calculés sur un reste arbitraire.
+    # POURQUOI c'est abordable : le parquet est colonnaire et cette passe
+    # ne lit que 4 colonnes sur 64 (uid, dateNotification,
+    # datePublicationDonnees, acheteur_categorie) ; mesuré le 21/08/2026
+    # sur data/raw/decp.parquet (3 240 022 lignes), moins d'une seconde.
+    # Agrégation par uid d'abord, toujours : une ligne du parquet est un
+    # couple marché × titulaire × modification, pas un marché.
+    #   notification = min(dateNotification) — la notification INITIALE,
+    #     même règle et même raison que t_date_initiale ;
+    #   publication  = min(datePublicationDonnees) — la PREMIÈRE mise en
+    #     ligne, celle que le délai légal vise ; une republication tardive
+    #     lors d'un avenant ne défait pas une publication faite à temps.
+    # `acheteur_categorie` est un attribut de l'acheteur, donc constant sur
+    # les lignes d'un uid : max() le prend de façon déterministe en
+    # ignorant les lignes où il manque.
+    duck.execute(
+        f"""
+        CREATE TEMP TABLE t_publication_marches AS
+        SELECT uid,
+               min(dateNotification)       AS notification,
+               min(datePublicationDonnees) AS publication,
+               max(acheteur_categorie)     AS categorie
+        FROM read_parquet('{chemin}')
+        GROUP BY uid
+        """
+    )
+
+    # Classement des marchés en catégories EXCLUSIVES, dans cet ordre. Un
+    # marché qui cumule deux défauts (ni notification ni publication, date
+    # sentinelle ET publication antérieure) ne doit être compté qu'une fois,
+    # sans quoi la somme des écarts dépasse la population et le lecteur ne
+    # peut plus rien recomposer. L'ordre va du défaut le plus radical au
+    # plus fin : sans date, on ne peut rien dire ; hors bornes, la date
+    # existe mais ne décrit rien ; publication antérieure, les deux dates
+    # sont plausibles mais leur ordre est impossible.
+    # Ces marchés écartés sont COMPTÉS, jamais remplacés par un délai de 0 :
+    # un défaut de saisie ne se raconte pas comme une publication à l'heure.
+    dans_delai = _SQL_DANS_DELAI.format(
+        publication="publication", notification="notification", mois=DELAI_LEGAL_MOIS
+    )
+    duck.execute(
+        f"""
+        CREATE TEMP TABLE t_publication_classee AS
+        SELECT uid,
+               notification,
+               publication,
+               -- Une catégorie vide est une absence, pas un libellé : elle
+               -- est ramenée à NULL ici pour n'avoir qu'un seul cas à
+               -- traiter en aval (la ventilation l'exclut, le compteur
+               -- nb_sans_categorie la retient).
+               nullif(trim(categorie), '')                 AS categorie,
+               CASE
+                   WHEN notification IS NULL THEN 'sans_notification'
+                   WHEN publication  IS NULL THEN 'sans_publication'
+                   WHEN notification NOT BETWEEN DATE '{BORNE_DATE_MIN}'
+                                             AND DATE '{BORNE_DATE_MAX}'
+                     OR publication  NOT BETWEEN DATE '{BORNE_DATE_MIN}'
+                                             AND DATE '{BORNE_DATE_MAX}'
+                        THEN 'dates_hors_bornes'
+                   WHEN publication < notification THEN 'publication_anterieure'
+                   ELSE 'retenu'
+               END                                         AS classe,
+               date_diff('day', notification, publication) AS delai,
+               year(notification)                          AS annee,
+               {dans_delai}                                AS dans_delai
+        FROM t_publication_marches
+        """
+    )
+
+    duck.execute(
+        """
+        CREATE TEMP VIEW publies AS
+        SELECT * FROM t_publication_classee WHERE classe = 'retenu'
+        """
+    )
+
+    cohorte_max = date_ref.year - DECALAGE_COHORTE_CLOSE
+
+    # Série annuelle par année de NOTIFICATION (pas de publication) : la
+    # question est « les marchés notifiés cette année-là ont-ils été publiés
+    # à temps ? ». Ranger par année de publication mélangerait dans une même
+    # colonne les marchés à l'heure et les rattrapages de retard.
+    duck.execute(
+        f"""
+        CREATE TEMP TABLE t_publication_annees AS
+        SELECT annee,
+               count(*)                                        AS nb_marches,
+               count(*) FILTER (dans_delai)                    AS nb_dans_delai,
+               100.0 * count(*) FILTER (dans_delai) / count(*) AS taux_dans_delai,
+               CAST(quantile_disc(delai, 0.5) AS INTEGER)      AS delai_median,
+               count(*) FILTER (delai > {JOURS_RETARD_LONG})   AS nb_plus_un_an,
+               CAST(annee <= {cohorte_max} AS INTEGER)         AS cohorte_close
+        FROM publies
+        WHERE annee >= {ANNEE_MIN_PUBLICATION}
+        GROUP BY annee
+        ORDER BY annee
+        """
+    )
+
+    # Ventilation par catégorie d'acheteur, restreinte aux cohortes CLOSES :
+    # comparer l'État à une commune sur une cohorte encore ouverte
+    # avantagerait mécaniquement celui qui publie vite : à la date de
+    # l'ingestion, les retards de l'autre restent hors d'observation.
+    # Les marchés sans catégorie ne forment PAS une catégorie « inconnue » :
+    # les agréger en ligne fabriquerait un acteur qui n'existe pas. Ils sont
+    # comptés à part (nb_sans_categorie) pour que la page puisse dire quelle
+    # part de la population la ventilation laisse de côté.
+    duck.execute(
+        f"""
+        CREATE TEMP TABLE t_publication_acheteurs AS
+        SELECT categorie,
+               count(*)                                             AS nb_marches,
+               count(*) FILTER (dans_delai)                         AS nb_dans_delai,
+               100.0 * count(*) FILTER (dans_delai) / count(*)      AS taux_dans_delai,
+               CAST(quantile_disc(delai, 0.5) AS INTEGER)           AS delai_median,
+               count(*) FILTER (delai > {JOURS_RETARD_LONG})        AS nb_plus_un_an,
+               100.0 * count(*) FILTER (delai > {JOURS_RETARD_LONG})
+                     / count(*)                                     AS taux_plus_un_an
+        FROM publies
+        WHERE categorie IS NOT NULL
+          AND annee BETWEEN {ANNEE_MIN_COHORTE} AND {cohorte_max}
+        GROUP BY categorie
+        ORDER BY taux_dans_delai DESC, categorie
+        """
+    )
+
+    # Ce que vaut la série : population de départ, écarts par motif, forme de
+    # la distribution des délais. Une seule ligne (id = 1), même facture que
+    # t_qualite_montants. Les quantiles sont DISCRETS : un délai est un
+    # nombre entier de jours effectivement observé sur un marché ; interpoler
+    # entre deux marchés produirait une demi-journée que personne n'a
+    # attendue. Ils portent sur les seuls retenus — les écartés n'ont pas de
+    # délai calculable, et leur en prêter un fausserait la médiane.
+    duck.execute(
+        f"""
+        CREATE TEMP TABLE t_publication_qualite AS
+        SELECT 1                                                  AS id,
+               count(*)                                           AS nb_marches_source,
+               count(*) FILTER (classe = 'retenu')                AS nb_retenus,
+               count(*) FILTER (classe = 'sans_notification')     AS nb_sans_notification,
+               count(*) FILTER (classe = 'sans_publication')      AS nb_sans_publication,
+               count(*) FILTER (classe = 'dates_hors_bornes')     AS nb_dates_hors_bornes,
+               count(*) FILTER (classe = 'publication_anterieure') AS nb_publication_anterieure,
+               count(*) FILTER (classe = 'retenu' AND categorie IS NULL
+                                AND annee BETWEEN {ANNEE_MIN_COHORTE}
+                                            AND {cohorte_max})    AS nb_sans_categorie,
+               CAST(quantile_disc(delai, 0.25)
+                    FILTER (classe = 'retenu') AS INTEGER)        AS delai_q1,
+               CAST(quantile_disc(delai, 0.50)
+                    FILTER (classe = 'retenu') AS INTEGER)        AS delai_median,
+               CAST(quantile_disc(delai, 0.75)
+                    FILTER (classe = 'retenu') AS INTEGER)        AS delai_q3,
+               CAST(quantile_disc(delai, 0.90)
+                    FILTER (classe = 'retenu') AS INTEGER)        AS delai_d9,
+               {DELAI_LEGAL_MOIS}                                 AS delai_legal_mois,
+               {ANNEE_MIN_COHORTE}                                AS cohorte_min,
+               {cohorte_max}                                      AS cohorte_max,
+               CAST(max(publication) FILTER (classe = 'retenu')
+                    AS VARCHAR)                                   AS date_observation_max
+        FROM t_publication_classee
+        """
+    )
+
     nb_marches, date_max, nb_suspects = duck.execute(
         "SELECT count(*), max(date_notification), "
         "count(*) FILTER (montant_suspect = 1) FROM t_marches"
@@ -634,6 +926,24 @@ _TABLES = {
         ["id", "nb_marches", "montant_total", "nb_ecretes", "montant_ecretes",
          "nb_suspects", "montant_suspects", "montant_hors_suspects",
          "montant_brut", "nb_sans_montant", "plafond"],
+    ),
+    "decp_publication_qualite": (
+        "t_publication_qualite",
+        ["id", "nb_marches_source", "nb_retenus", "nb_sans_notification",
+         "nb_sans_publication", "nb_dates_hors_bornes",
+         "nb_publication_anterieure", "nb_sans_categorie", "delai_q1",
+         "delai_median", "delai_q3", "delai_d9", "delai_legal_mois",
+         "cohorte_min", "cohorte_max", "date_observation_max"],
+    ),
+    "decp_publication_annees": (
+        "t_publication_annees",
+        ["annee", "nb_marches", "nb_dans_delai", "taux_dans_delai",
+         "delai_median", "nb_plus_un_an", "cohorte_close"],
+    ),
+    "decp_publication_acheteurs": (
+        "t_publication_acheteurs",
+        ["categorie", "nb_marches", "nb_dans_delai", "taux_dans_delai",
+         "delai_median", "nb_plus_un_an", "taux_plus_un_an"],
     ),
     "decp_derniers_marches": ("t_derniers_marches", ["rang"] + _CHAMPS_MARCHE),
 }
@@ -680,7 +990,7 @@ def _assainir_lot(lot: list[tuple], champs: list[str]) -> list[tuple]:
 
 
 def charger(conn: sqlite3.Connection, duck: duckdb.DuckDBPyConnection) -> dict[str, int]:
-    """Réécrit les 8 tables decp_* depuis les tables temp DuckDB.
+    """Réécrit les 11 tables decp_* depuis les tables temp DuckDB.
 
     CREATE TABLE IF NOT EXISTS puis DELETE/INSERT dans la transaction en
     cours (aucun commit ici — l'appelant commet, cf. main, ou annule).

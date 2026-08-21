@@ -26,6 +26,15 @@
  *   (corrigé à la source / signalé non corrigé / écrêté seul), sur la même
  *   fenêtre, cf. `chargerDecompositionSuspects`.
  *
+ * Qualité de PUBLICATION (decp_publication_qualite / _annees / _acheteurs) :
+ * délai entre la notification initiale et la PREMIÈRE publication des
+ * données du marché, et respect du délai légal. Les trois tables sont
+ * produites par le pipeline ; `chargerQualitePublication` renvoie `null`
+ * quand elles ne sont pas en base, et la page n'affiche alors pas la
+ * section. Tout taux de respect du délai qui en sort est une BORNE HAUTE :
+ * un marché jamais publié n'a pas de délai mesurable, il ne pèse donc dans
+ * aucun dénominateur.
+ *
  * BOAMP : ao_en_cours est un instantané quotidien — on re-filtre TOUJOURS
  * annulee = 0 ET date_limite_reponse > datetime('now') à la requête.
  * APProch : acheteur = SIREN seul (nom récupéré via entites quand connu),
@@ -147,6 +156,105 @@ export type DecompositionSuspects = {
   montantHorsPlafond: number | null;
 };
 
+/**
+ * Qualité de publication, ligne de synthèse (`decp_publication_qualite`,
+ * une seule ligne). Toutes les définitions sont arrêtées DANS le pipeline,
+ * jamais recalculées ici :
+ *
+ * - notification = la plus ancienne date de notification du marché
+ *   (notification INITIALE) ; publication = la plus ancienne date de
+ *   publication de ses données (PREMIÈRE publication) ;
+ * - un marché est RETENU quand les deux dates existent, tiennent dans des
+ *   bornes plausibles, et que la publication ne précède pas la notification ;
+ * - les marchés à publication ANTÉRIEURE à la notification sont écartés du
+ *   calcul et comptés à part (`nb_publication_anterieure`) : un délai
+ *   négatif n'est jamais ramené à 0.
+ *
+ * Ce que ces compteurs ne disent pas : un marché jamais publié n'a pas de
+ * délai, il est absent du numérateur COMME du dénominateur. Tout taux de
+ * respect du délai bâti là-dessus est une BORNE HAUTE.
+ */
+export type SynthesePublication = {
+  /** Marchés distincts présents dans la source. */
+  nb_marches_source: number;
+  /** Marchés dont le délai a pu être mesuré. */
+  nb_retenus: number;
+  nb_sans_notification: number;
+  /** Marchés sans aucune date de première publication : hors de tout taux. */
+  nb_sans_publication: number;
+  /** Dates sentinelles ou hors bornes plausibles. */
+  nb_dates_hors_bornes: number;
+  /** Publication antérieure à la notification : écartés, comptés à part. */
+  nb_publication_anterieure: number;
+  /** Retenus des cohortes CLOSES sans catégorie d'acheteur renseignée. */
+  nb_sans_categorie: number;
+  delai_q1: number | null;
+  delai_median: number | null;
+  delai_q3: number | null;
+  /** 9e décile du délai — c'est lui qui impose d'attendre pour clore une cohorte. */
+  delai_d9: number | null;
+  /** Délai légal de publication, en MOIS (pas en jours). */
+  delai_legal_mois: number;
+  /** Première année de notification de la ventilation par acheteur. */
+  cohorte_min: number;
+  /** Dernière année de notification considérée comme CLOSE. */
+  cohorte_max: number;
+  /** Publication retenue la plus récente, ISO — `null` si aucune. */
+  date_observation_max: string | null;
+};
+
+/**
+ * Respect du délai légal par année de NOTIFICATION
+ * (`decp_publication_annees`, ordre chronologique).
+ *
+ * `cohorte_close = 0` : le dénominateur de l'année est incomplet — les
+ * marchés notifiés cette année-là et restés non publiés à ce jour n'y
+ * figurent pas, ce qui rend le taux optimiste par construction. La page doit
+ * distinguer ces années et les dire provisoires.
+ */
+export type PublicationAnnee = {
+  annee: number;
+  nb_marches: number;
+  nb_dans_delai: number;
+  /** Pourcentage 0-100 (pas une fraction) — `null` si l'année est vide. */
+  taux_dans_delai: number | null;
+  delai_median: number | null;
+  /** Délai supérieur à un an. */
+  nb_plus_un_an: number;
+  /** 1 = cohorte close, 0 = provisoire (dénominateur incomplet). */
+  cohorte_close: number;
+};
+
+/**
+ * Respect du délai légal par catégorie d'acheteur
+ * (`decp_publication_acheteurs`), sur les seules cohortes CLOSES
+ * `cohorte_min..cohorte_max`.
+ *
+ * Les marchés sans catégorie renseignée ne sont PAS une catégorie : ils sont
+ * absents de cette table et comptés dans `SynthesePublication.nb_sans_categorie`.
+ * La ventilation ne couvre donc pas tout, et la page le dit.
+ */
+export type PublicationAcheteur = {
+  categorie: string;
+  nb_marches: number;
+  nb_dans_delai: number;
+  /** Pourcentage 0-100. */
+  taux_dans_delai: number | null;
+  delai_median: number | null;
+  nb_plus_un_an: number;
+  /** Pourcentage 0-100. */
+  taux_plus_un_an: number | null;
+};
+
+/** Les trois tables de la qualité de publication, chargées ensemble. */
+export type QualitePublication = {
+  synthese: SynthesePublication;
+  /** Ordre chronologique. */
+  annees: PublicationAnnee[];
+  /** Taux de respect du délai décroissant. */
+  acheteurs: PublicationAcheteur[];
+};
+
 export type FamilleAO = {
   famille: string;
   famille_libelle: string | null;
@@ -211,6 +319,10 @@ export type DonneesMarches = {
    *  source / signalé non corrigé / écrêté seul. `null` si la fenêtre 12 mois
    *  n'a pas pu être reconstituée à l'unité près (rien n'est alors deviné). */
   decompositionSuspects: DecompositionSuspects | null;
+  /** Délai entre notification et première publication, respect du délai
+   *  légal par année et par catégorie d'acheteur. `null` tant que les trois
+   *  tables ne sont pas en base — la section n'est alors pas rendue. */
+  qualitePublication: QualitePublication | null;
   departements: DepartementAgg[];
   serieMensuelle: MoisAgg[]; // 36 mois, ordre chronologique
   topAcheteurs: TopAcheteur[];
@@ -320,6 +432,72 @@ function chargerDecompositionSuspects(
   return null;
 }
 
+/** Les trois tables de la qualité de publication — chargées ou aucune. */
+const TABLES_PUBLICATION = [
+  "decp_publication_qualite",
+  "decp_publication_annees",
+  "decp_publication_acheteurs",
+] as const;
+
+/**
+ * Charge la qualité de publication telle quelle : dénominateurs, taux et
+ * médianes sont lus en base, aucun n'est recomposé ici. La page met en
+ * forme, elle ne refait pas la fenêtre — une fenêtre reconstituée côté front
+ * ne retombe pas sur celle du pipeline.
+ *
+ * `null` (et rien d'affiché) dans deux cas : les tables ne sont pas en base,
+ * ou la ligne de synthèse manque. Une section muette vaut mieux qu'une
+ * section dont les chiffres viendraient d'ailleurs.
+ */
+function chargerQualitePublication(db: Db): QualitePublication | null {
+  const presentes = (
+    db
+      .prepare(
+        `SELECT COUNT(*) AS n FROM sqlite_master
+          WHERE type = 'table' AND name IN (?, ?, ?)`,
+      )
+      .get(...TABLES_PUBLICATION) as { n: number }
+  ).n;
+  if (presentes !== TABLES_PUBLICATION.length) return null;
+
+  const synthese =
+    (db
+      .prepare(
+        `SELECT nb_marches_source, nb_retenus, nb_sans_notification,
+                nb_sans_publication, nb_dates_hors_bornes,
+                nb_publication_anterieure, nb_sans_categorie,
+                delai_q1, delai_median, delai_q3, delai_d9,
+                delai_legal_mois, cohorte_min, cohorte_max,
+                date_observation_max
+         FROM decp_publication_qualite WHERE id = 1`,
+      )
+      .get() as SynthesePublication | undefined) ?? null;
+  if (!synthese) return null;
+
+  // Série par année de NOTIFICATION, ordre chronologique. Les années
+  // provisoires (cohorte_close = 0) sont chargées comme les autres : c'est
+  // la page qui les distingue, jamais une coupe silencieuse ici.
+  const annees = db
+    .prepare(
+      `SELECT annee, nb_marches, nb_dans_delai, taux_dans_delai,
+              delai_median, nb_plus_un_an, cohorte_close
+       FROM decp_publication_annees ORDER BY annee`,
+    )
+    .all() as PublicationAnnee[];
+
+  // Ventilation acheteurs, taux décroissant (les taux inconnus en dernier).
+  const acheteurs = db
+    .prepare(
+      `SELECT categorie, nb_marches, nb_dans_delai, taux_dans_delai,
+              delai_median, nb_plus_un_an, taux_plus_un_an
+       FROM decp_publication_acheteurs
+       ORDER BY taux_dans_delai IS NULL, taux_dans_delai DESC, nb_marches DESC`,
+    )
+    .all() as PublicationAcheteur[];
+
+  return { synthese, annees, acheteurs };
+}
+
 /**
  * Charge tout le nécessaire de la page /marches en une passe.
  * `null` tant que la base n'existe pas (message honnête côté page).
@@ -401,6 +579,11 @@ export function chargerDonneesMarches(
     qualiteMontants,
     metaPar("S1"),
   );
+
+  // Qualité de PUBLICATION : délai notification -> première publication.
+  // Les trois tables arrivent ensemble ou pas du tout ; tous les taux et
+  // quantiles en sortent tels quels (voir la fonction).
+  const qualitePublication = chargerQualitePublication(db);
 
   // Carte : 107 départements, montants déjà écrêtés, NULL = aucun montant
   // connu.
@@ -551,6 +734,7 @@ export function chargerDonneesMarches(
     },
     qualiteMontants,
     decompositionSuspects,
+    qualitePublication,
     departements,
     serieMensuelle,
     topAcheteurs,

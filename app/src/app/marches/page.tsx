@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { AlertItem, type Gravite } from "@/components/ui/AlertItem";
 import { AppelsOffres } from "@/components/client/AppelsOffres";
+import { BarChart } from "@/components/ui/BarChart";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
 import { JsonLd } from "@/components/JsonLd";
@@ -14,7 +15,13 @@ import { SerieMensuelleMarches } from "@/components/client/SerieMensuelleMarches
 import { Sparkline } from "@/components/ui/Sparkline";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { TableTronquee } from "@/components/client/TableTronquee";
-import { formatDateFr, formatEuros, formatNombre, formatPct } from "@/lib/format";
+import {
+  ESPACE_FINE,
+  formatDateFr,
+  formatEuros,
+  formatNombre,
+  formatPct,
+} from "@/lib/format";
 import { chargerDonneesMarches, type AlerteMarches } from "@/lib/queries/marches";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
@@ -57,6 +64,15 @@ function tronque(s: string | null, max: number): string {
   return s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s;
 }
 
+/**
+ * Durée en jours, unité collée par une espace fine insécable (DATAVIZ §4).
+ * `null` (quantile non calculable) ne devient jamais 0 : il s'affiche « — ».
+ */
+function formatJours(v: number | null): string {
+  if (v === null) return "—";
+  return `${formatNombre(v)}${ESPACE_FINE}${Math.abs(v) < 2 ? "jour" : "jours"}`;
+}
+
 /** La date de donnée est-elle celle du jour de construction du site ? */
 function estJourDeConstruction(iso: string): boolean {
   return formatDateFr(iso) === formatDateFr(new Date().toISOString());
@@ -85,6 +101,20 @@ function VueTableau({ children, resume = "Vue tableau" }: { children: ReactNode;
       </summary>
       <div className="mt-2">{children}</div>
     </details>
+  );
+}
+
+/** Un quantile du délai de publication : valeur au-dessus, libellé dessous. */
+function Quantile({ libelle, valeur }: { libelle: string; valeur: number | null }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-lg font-semibold text-ink [font-variant-numeric:tabular-nums]">
+        {formatJours(valeur)}
+      </span>
+      <span className="text-[11px] uppercase tracking-[0.06em] text-ink-muted">
+        {libelle}
+      </span>
+    </div>
   );
 }
 
@@ -150,6 +180,7 @@ export default async function PageMarches() {
     alertes,
     qualiteMontants,
     decompositionSuspects,
+    qualitePublication,
   } = donnees;
 
   /* ---- « Ce que vaut ce total » : parts écrêtée et suspecte du KPI héros.
@@ -179,6 +210,32 @@ export default async function PageMarches() {
   const partAberrants =
     ds && totalQm && ds.montantAberrants !== null
       ? (100 * ds.montantAberrants) / totalQm
+      : null;
+
+  /* ---- Qualité de publication : délai notification -> 1re publication.
+     Rien n'est recalculé ici — quantiles, dénominateurs et taux viennent de
+     la base tels quels. Les seules opérations faites côté page sont des
+     mises en forme et deux rapports entre entiers déjà publiés :
+     - la part des marchés sans catégorie d'acheteur, rapportée aux marchés
+       des cohortes CLOSES, c'est-à-dire ceux que la ventilation couvre
+       (somme des lignes affichées) plus ceux qu'elle ne couvre pas ;
+     - la part des marchés à publication antérieure à la notification, sur
+       les marchés de la source.
+     `null` tant que les tables ne sont pas en base : la section entière
+     disparaît, aucun chiffre n'est deviné. */
+  const qp = qualitePublication;
+  const anneesChiffrees = (qp?.annees ?? []).filter((a) => a.taux_dans_delai !== null);
+  const anneesProvisoires = (qp?.annees ?? []).filter((a) => a.cohorte_close === 0);
+  const acheteursChiffres = (qp?.acheteurs ?? []).filter((a) => a.taux_dans_delai !== null);
+  const nbAcheteursCouverts = (qp?.acheteurs ?? []).reduce((s, a) => s + a.nb_marches, 0);
+  const nbCohortesCloses = qp ? nbAcheteursCouverts + qp.synthese.nb_sans_categorie : 0;
+  const partSansCategorie =
+    qp && nbCohortesCloses > 0
+      ? (100 * qp.synthese.nb_sans_categorie) / nbCohortesCloses
+      : null;
+  const partPublicationAnterieure =
+    qp && qp.synthese.nb_marches_source > 0
+      ? (100 * qp.synthese.nb_publication_anterieure) / qp.synthese.nb_marches_source
       : null;
 
   /* ---- KPI : tendances 12 derniers mois de la série mensuelle ---- */
@@ -489,6 +546,260 @@ export default async function PageMarches() {
       >
         <SerieMensuelleMarches serie={serieMensuelle} />
       </Card>
+
+      {/* ---------------------------------------------------------- */}
+      {/* Qualité de publication : délai notification -> publication  */}
+      {/* ---------------------------------------------------------- */}
+      {qp && (
+        <Card
+          titre="Qualité de publication"
+          sousTitre="Délai entre la notification d’un marché et la première publication de ses données"
+          droite={badgeS1}
+        >
+          <p className="max-w-3xl text-sm leading-relaxed text-ink-secondary">
+            Les données d’un marché notifié doivent être publiées dans un
+            délai légal de {formatNombre(qp.synthese.delai_legal_mois)}&nbsp;mois. Ce délai
+            se mesure sur{" "}
+            <strong className="font-medium text-ink">
+              {formatNombre(qp.synthese.nb_retenus)} marchés
+            </strong>{" "}
+            — ceux dont la notification et la première publication sont l’une
+            et l’autre connues et cohérentes — sur les{" "}
+            {formatNombre(qp.synthese.nb_marches_source)} marchés que compte la
+            source.
+            {qp.synthese.date_observation_max !== null && (
+              <>
+                {" "}
+                La publication la plus récente prise en compte date du{" "}
+                {formatDateFr(qp.synthese.date_observation_max)}.
+              </>
+            )}{" "}
+            Un marché jamais publié n’a, lui, aucun délai : il ne figure dans
+            aucun des taux qui suivent, alors qu’il y serait hors délai. Ces
+            taux sont donc à lire comme une{" "}
+            <strong className="font-medium text-ink">borne haute</strong> du
+            respect du délai, et non comme le respect réel : prendre ces
+            marchés en compte ne pourrait que faire baisser ces taux.
+          </p>
+
+          {/* ---- Distribution du délai : quartiles + 9e décile ---- */}
+          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <Quantile libelle="1er quartile" valeur={qp.synthese.delai_q1} />
+            <Quantile libelle="Médiane" valeur={qp.synthese.delai_median} />
+            <Quantile libelle="3e quartile" valeur={qp.synthese.delai_q3} />
+            <Quantile libelle="9e décile" valeur={qp.synthese.delai_d9} />
+          </div>
+          <p className="mt-3 max-w-3xl text-xs leading-relaxed text-ink-muted">
+            Un quart des marchés retenus sont publiés en{" "}
+            {formatJours(qp.synthese.delai_q1)} ou moins et la moitié en{" "}
+            {formatJours(qp.synthese.delai_median)} ou moins ; un quart dépasse{" "}
+            {formatJours(qp.synthese.delai_q3)} et un dixième dépasse{" "}
+            {formatJours(qp.synthese.delai_d9)}. C’est cette queue longue qui
+            commande la fenêtre de la ventilation par acheteur ci-dessous : une
+            année de notification récente compte encore des marchés dont les
+            données ne sont pas publiées, et son taux repose donc sur un
+            dénominateur incomplet.
+          </p>
+
+          {/* grid-cols-1 explicite : piste minmax(0,1fr) — sans elle, la piste
+              implicite « auto » s'élargit au min-content des libellés (débord mobile). */}
+          <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-2">
+            {/* ---- Série par année de notification ---- */}
+            <div>
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-ink-secondary">
+                Publication dans le délai légal, par année de notification
+              </h3>
+              <BarChart
+                items={anneesChiffrees.map((a) => ({
+                  libelle:
+                    a.cohorte_close === 1
+                      ? String(a.annee)
+                      : `${a.annee}${ESPACE_FINE}*`,
+                  // Dé-emphase des cohortes provisoires : leur dénominateur
+                  // est incomplet, elles ne se comparent pas aux autres.
+                  couleur: a.cohorte_close === 1 ? undefined : "var(--viz-autre)",
+                  valeur: a.taux_dans_delai ?? 0,
+                }))}
+                formatValeur={(v) => formatPct(v, 0)}
+                // Chaque abscisse est une ANNÉE : elle porte l'information et
+                // ne se devine pas d'après ses voisines. On étiquette donc
+                // toutes les colonnes plutôt que d'en laisser éclaircir une
+                // sur deux par le réglage par défaut.
+                maxEtiquettesX={anneesChiffrees.length}
+                ariaLabel={`Part des marchés publiés dans le délai légal de ${qp.synthese.delai_legal_mois} mois, par année de notification`}
+              />
+              <p className="mt-2 text-xs leading-relaxed text-ink-muted">
+                Part des marchés d’une année de notification dont les données
+                ont été publiées dans le délai légal.
+                {anneesProvisoires.length > 0 && (
+                  <>
+                    {" "}
+                    Les colonnes grises suivies d’un astérisque —{" "}
+                    {anneesProvisoires.map((a) => a.annee).join(", ")} — sont{" "}
+                    <strong className="font-medium text-ink">provisoires</strong>{" "}
+                    : leur dénominateur est incomplet, car les marchés notifiés
+                    ces années-là et restés non publiés à ce jour n’y figurent
+                    pas. Leur taux est optimiste par construction et ne se
+                    compare pas aux années closes, qui vont jusqu’à{" "}
+                    {qp.synthese.cohorte_max}.
+                  </>
+                )}
+              </p>
+              <VueTableau resume="Vue tableau — par année de notification">
+                <DataTable
+                  colonnes={[
+                    {
+                      cle: "annee",
+                      entete: "Année",
+                      largeur: "4.5rem",
+                      rendu: (a) => String(a.annee),
+                    },
+                    { cle: "nb_marches", entete: "Marchés", type: "nombre" },
+                    { cle: "nb_dans_delai", entete: "Dans le délai", type: "nombre" },
+                    { cle: "taux_dans_delai", entete: "Part", type: "pourcent" },
+                    {
+                      cle: "delai_median",
+                      entete: "Délai médian (j)",
+                      type: "nombre",
+                    },
+                    { cle: "nb_plus_un_an", entete: "Plus d’un an", type: "nombre" },
+                    {
+                      cle: "cohorte_close",
+                      entete: "Cohorte",
+                      rendu: (a) =>
+                        a.cohorte_close === 1 ? "Close" : "Provisoire",
+                    },
+                  ]}
+                  lignes={qp.annees}
+                  cleLigne={(a) => String(a.annee)}
+                  vide="Aucune année mesurée"
+                />
+              </VueTableau>
+            </div>
+
+            {/* ---- Ventilation par catégorie d'acheteur ---- */}
+            <div>
+              <h3 className="mb-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-secondary">
+                Écart entre catégories d’acheteurs
+              </h3>
+              <p className="mb-3 text-xs text-ink-muted">
+                Marchés notifiés de {qp.synthese.cohorte_min} à{" "}
+                {qp.synthese.cohorte_max} — cohortes closes seules.
+              </p>
+              <BarList
+                items={acheteursChiffres.map((a) => ({
+                  libelle: a.categorie,
+                  valeur: a.taux_dans_delai ?? 0,
+                }))}
+                formatValeur={(v) => formatPct(v)}
+                largeurLibelle="45%"
+              />
+              <p className="mt-2 text-xs leading-relaxed text-ink-muted">
+                Part des marchés publiés dans le délai légal, par catégorie
+                d’acheteur ; barres proportionnelles au taux le plus élevé de
+                la liste. L’écart d’une catégorie à l’autre décrit une pratique
+                de publication : il ne dit rien des raisons du retard, et cette
+                donnée seule ne qualifie aucun manquement.
+              </p>
+              <VueTableau resume="Vue tableau — par catégorie d’acheteur">
+                <DataTable
+                  colonnes={[
+                    { cle: "categorie", entete: "Catégorie d’acheteur" },
+                    { cle: "nb_marches", entete: "Marchés", type: "nombre" },
+                    { cle: "nb_dans_delai", entete: "Dans le délai", type: "nombre" },
+                    { cle: "taux_dans_delai", entete: "Part", type: "pourcent" },
+                    {
+                      cle: "delai_median",
+                      entete: "Délai médian (j)",
+                      type: "nombre",
+                    },
+                    { cle: "nb_plus_un_an", entete: "Plus d’un an", type: "nombre" },
+                    {
+                      cle: "taux_plus_un_an",
+                      entete: "Part plus d’un an",
+                      type: "pourcent",
+                    },
+                  ]}
+                  lignes={qp.acheteurs}
+                  cleLigne={(a) => a.categorie}
+                  vide="Aucune catégorie d’acheteur renseignée"
+                />
+              </VueTableau>
+            </div>
+          </div>
+
+          {/* ---- Les limites, sur la page et non en note de bas de page ---- */}
+          <div className="mt-6 max-w-3xl rounded-xl border border-card-border bg-raised p-4">
+            <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+              Ce que cette mesure ne couvre pas
+            </h3>
+            <ul className="flex flex-col gap-1.5 text-xs leading-relaxed text-ink-secondary">
+              <li>
+                Seuls les marchés{" "}
+                <strong className="font-medium text-ink">publiés</strong> ont un
+                délai mesurable :{" "}
+                <strong className="font-medium text-ink">
+                  {formatNombre(qp.synthese.nb_sans_publication)} marchés
+                </strong>{" "}
+                de la source n’ont aucune date de première publication. Ils
+                manquent au numérateur comme au dénominateur de chaque taux, et
+                y seraient hors délai — c’est ce qui fait de tous les taux de
+                cette section des bornes hautes.
+              </li>
+              <li>
+                La ventilation par catégorie d’acheteur ne couvre pas tout :
+                elle porte sur {formatNombre(nbAcheteursCouverts)} marchés des
+                cohortes closes, et{" "}
+                <strong className="font-medium text-ink">
+                  {formatNombre(qp.synthese.nb_sans_categorie)} marchés
+                </strong>{" "}
+                de ces mêmes cohortes n’ont aucune catégorie d’acheteur
+                renseignée
+                {partSansCategorie !== null && (
+                  <>, soit {formatPct(partSansCategorie)} d’entre eux</>
+                )}
+                . Ils ne figurent dans aucune barre et ne forment pas une
+                catégorie de plus.
+              </li>
+              <li>
+                <strong className="font-medium text-ink">
+                  {formatNombre(qp.synthese.nb_publication_anterieure)} marchés
+                </strong>{" "}
+                portent une première publication antérieure à leur notification
+                {partPublicationAnterieure !== null && (
+                  <>, soit {formatPct(partPublicationAnterieure)} de la source</>
+                )}
+                . Ils sont écartés du calcul du délai et comptés à part : un
+                délai négatif n’est pas ramené à zéro.
+              </li>
+              <li>
+                {formatNombre(qp.synthese.nb_sans_notification)} marchés n’ont
+                pas de date de notification et{" "}
+                {formatNombre(qp.synthese.nb_dates_hors_bornes)} portent des
+                dates hors des bornes plausibles (dates sentinelles). Eux aussi
+                restent hors du calcul, plutôt que comptés au hasard.
+              </li>
+              <li>
+                La ventilation par acheteur porte sur les seules années de
+                notification{" "}
+                <strong className="font-medium text-ink">
+                  {qp.synthese.cohorte_min} à {qp.synthese.cohorte_max}
+                </strong>
+                , celles dont le dénominateur est complet
+                {anneesProvisoires.length > 0 && (
+                  <>
+                    {" "}
+                    ; les cohortes{" "}
+                    {anneesProvisoires.map((a) => a.annee).join(", ")} restent
+                    provisoires et n’y entrent pas
+                  </>
+                )}
+                .
+              </li>
+            </ul>
+          </div>
+        </Card>
+      )}
 
       {/* ---------------------------------------------------------- */}
       {/* Top acheteurs / top titulaires                              */}

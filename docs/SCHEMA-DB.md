@@ -4,13 +4,19 @@
 # et le 21/08/2026 (table sirene_unites_legales, S18 ; puis decp_qualite_montants,
 # elections_participation_departement, elections_participation_ville et les quatre
 # tables hatvp_decl_*, jusque-là absentes ; corrections campagnes_2024.marqueur_etoile
-# et trainvie_faits.assiette)
+# et trainvie_faits.assiette ; enfin les trois tables decp_publication_* de la qualité
+# de publication des marchés, dont le DDL est celui du pipeline qui les produit)
 
-> **Extrait daté.** Ce document décrit **les 70 tables**, **les 6 vues** et **les 55 index** que
-> `sqlite_master` recense au 21/08/2026 : la couverture du schéma y est entière à cette date. Le DDL
-> reproduit a été confronté objet par objet à celui de la base servie — noms, types, `NOT NULL`,
-> valeurs par défaut et clés primaires coïncident colonne à colonne pour les 70 tables, et les noms
-> d'index coïncident un à un. Les comptages de lignes cités décrivent le jour de leur mesure et
+> **Extrait daté.** Ce document décrit **73 tables**, **6 vues** et **55 index**. Soixante-dix de ces
+> tables, les 6 vues et les 55 index sont ceux que `sqlite_master` recense au 21/08/2026 : sur ce
+> périmètre la couverture du schéma est entière à cette date, et le DDL reproduit a été confronté
+> objet par objet à celui de la base servie — noms, types, `NOT NULL`, valeurs par défaut et clés
+> primaires coïncident colonne à colonne pour les 70 tables, et les noms d'index coïncident un à un.
+> Les trois autres — `decp_publication_qualite`, `decp_publication_annees` et
+> `decp_publication_acheteurs` — sont reproduites d'après le `CREATE TABLE` de leur pipeline
+> producteur, `pipelines/ingest_decp.py` : c'est la seule partie du document dont le DDL ne provient
+> pas d'un `.schema` de la base servie, et le contrôle colonne à colonne décrit ci-dessus ne porte
+> pas sur elles. Les comptages de lignes cités décrivent le jour de leur mesure et
 > **dérivent à chaque ingestion** ; le catalogue vivant est la page `/donnees`, régénérée à chaque
 > publication. Le schéma qui fait foi reste celui de la base elle-même :
 > `sqlite3 -readonly data/france.db ".schema"`.
@@ -273,6 +279,42 @@ CREATE TABLE decp_derniers_marches (
     lieu_execution_code       TEXT,
     lieu_execution_typecode   TEXT
 
+);
+CREATE TABLE decp_publication_qualite (
+    id                        INTEGER PRIMARY KEY CHECK (id = 1),  -- table à ligne unique
+    nb_marches_source         INTEGER NOT NULL,  -- uid distincts du parquet, sans filtre
+    nb_retenus                INTEGER NOT NULL,  -- marchés mesurables (les deux dates valides)
+    nb_sans_notification      INTEGER NOT NULL,  -- aucune dateNotification sur aucune ligne
+    nb_sans_publication       INTEGER NOT NULL,  -- aucune datePublicationDonnees
+    nb_dates_hors_bornes      INTEGER NOT NULL,  -- sentinelles 0001-01-01 et dates aberrantes
+    nb_publication_anterieure INTEGER NOT NULL,  -- publication < notification : écartés, comptés
+    nb_sans_categorie         INTEGER NOT NULL,  -- retenus des cohortes closes sans catégorie
+    delai_q1                  INTEGER,           -- quartiles du délai, en jours, sur nb_retenus
+    delai_median              INTEGER,
+    delai_q3                  INTEGER,
+    delai_d9                  INTEGER,           -- 9e décile : la queue longue de la série
+    delai_legal_mois          INTEGER NOT NULL,  -- 2 — le délai légal est en MOIS, pas en jours
+    cohorte_min               INTEGER NOT NULL,  -- première année de la ventilation acheteurs
+    cohorte_max               INTEGER NOT NULL,  -- dernière année CLOSE = year(date_ref) - 2
+    date_observation_max      TEXT               -- max(publication) retenue, ISO : l'horizon vu
+);
+CREATE TABLE decp_publication_annees (
+    annee           INTEGER PRIMARY KEY,  -- année de la notification initiale
+    nb_marches      INTEGER NOT NULL,     -- retenus de la cohorte = dénominateur du taux
+    nb_dans_delai   INTEGER NOT NULL,     -- publication <= notification + 2 mois
+    taux_dans_delai REAL,                 -- pourcentage 0-100, pas une fraction
+    delai_median    INTEGER,              -- jours
+    nb_plus_un_an   INTEGER NOT NULL,     -- délai > 365 jours
+    cohorte_close   INTEGER NOT NULL      -- 1 = close ; 0 = dénominateur incomplet
+);
+CREATE TABLE decp_publication_acheteurs (
+    categorie       TEXT PRIMARY KEY,  -- acheteur_categorie de la source, telle quelle
+    nb_marches      INTEGER NOT NULL,  -- retenus des cohortes closes portant cette catégorie
+    nb_dans_delai   INTEGER NOT NULL,
+    taux_dans_delai REAL,              -- pourcentage 0-100
+    delai_median    INTEGER,           -- jours
+    nb_plus_un_an   INTEGER NOT NULL,
+    taux_plus_un_an REAL               -- pourcentage 0-100
 );
 CREATE TABLE ao_en_cours (
     idweb               TEXT PRIMARY KEY,
@@ -1115,6 +1157,15 @@ CREATE INDEX idx_sirene_etat
 - decp_agg_mois : 36 lignes
 - decp_derniers_marches : 200 lignes
 - decp_marches : 586229 lignes
+- decp_publication_qualite : 1 ligne, et une seule — `CHECK (id = 1)` (structurel)
+- decp_publication_annees : une ligne par année de notification à partir de 2018 incluse ;
+  le volume gagne donc une ligne par année écoulée. Les années antérieures à 2018 ne sont
+  pas peuplées : l'obligation de publication n'y était pas en place et les effectifs y sont
+  résiduels (de l'ordre de la centaine de marchés par an), ce qui rend le taux ininterprétable
+- decp_publication_acheteurs : une ligne par valeur renseignée de `acheteur_categorie` dans
+  la source — neuf catégories au 21/08/2026, dont l'inventaire appartient à la consolidation
+  amont et non au pipeline. Les marchés sans catégorie ne forment pas une ligne : ils sont
+  comptés dans `decp_publication_qualite.nb_sans_categorie`
 - decp_repartition : 15 lignes
 - decp_qualite_montants : 1 ligne, et une seule — `CHECK (id = 1)` (structurel)
 - decp_top_acheteurs : 50 lignes
@@ -1500,6 +1551,163 @@ et ne bouge qu'avec le code. Les dix autres colonnes sont recalculées à chaque
 ingestion sur une fenêtre glissante de 12 mois : les citer sans date n'a pas
 de sens. La latence légale de publication des DECP allant jusqu'à deux mois,
 le bord récent de cette fenêtre est de plus structurellement incomplet.
+
+## Les tables `decp_publication_*` (S1) — ce qu'il faut savoir avant de s'en servir
+
+### 1. Trois tables, une seule question : le temps entre la notification et la publication
+
+`decp_publication_qualite` est une **fiche à ligne unique** (`CHECK (id = 1)`,
+comme `decp_qualite_montants`) : elle décrit le périmètre de la mesure et tout
+ce qui en a été retiré. `decp_publication_annees` porte la série par cohorte de
+notification, `decp_publication_acheteurs` la ventilation par catégorie
+d'acheteur. Les trois alimentent la page `/marches`.
+
+Elles se lisent **ensemble** : les deux dernières publient des taux dont la
+première donne le dénominateur écarté. Un taux de `decp_publication_annees`
+sorti sans le contenu de `decp_publication_qualite` est un chiffre sans
+périmètre.
+
+Différence de périmètre avec `decp_qualite_montants`, sa voisine de pipeline :
+celle-ci est bornée à une fenêtre glissante de 12 mois, celles-ci portent sur
+**toute la profondeur du parquet**, sans borne de date. La question est
+historique — elle se lit d'une année sur l'autre — et un taux calculé sur une
+fenêtre serait un taux calculé sur un reste arbitraire. Les trois tables sont
+donc produites par une passe séparée, qui ne partage aucune table
+intermédiaire avec les agrégats bornés.
+
+### 2. Le grain est le marché, jamais la ligne du parquet
+
+Une ligne du parquet DECP vaut marché × titulaire × modification. Le premier
+geste est donc d'agréger par `uid` : au 21/08/2026, le parquet portait
+3 240 022 lignes pour 1 827 781 `uid`, soit un facteur 1,77. Compter les lignes
+au lieu des marchés ne multiplie pas la mesure par un facteur constant — les
+marchés à avenants pèsent plusieurs lignes, les autres une seule — et déforme
+donc la série au lieu de la translater.
+
+Les trois définitions qui gouvernent tout le reste :
+
+| Grandeur | Règle |
+|---|---|
+| notification | `min(dateNotification)` sur **toutes** les lignes du `uid` — la notification initiale |
+| publication | `min(datePublicationDonnees)` sur toutes les lignes — la première mise à disposition |
+| délai | nombre de jours entre les deux |
+
+C'est un `min()` global, et non la lecture de la ligne `modification_id = 0`.
+Les deux routes donnent la même date quand cette ligne existe — `modification_id`
+est le rang de `dateNotification` en amont, et au 21/08/2026 aucun `uid` n'avait
+de ligne de rang 0 portant autre chose que le minimum. Le `min()` global a
+l'avantage de ne rien supposer du rang et de couvrir les `uid` dépourvus de
+ligne de rang 0, qui sont, à la même date, exactement ceux qui n'ont de
+`dateNotification` sur aucune de leurs lignes. Ce qu'il ne faut en aucun cas
+faire, c'est lire la date sur la seule ligne `donneesActuelles = true` : elle
+date alors le marché de son dernier avenant. Pourquoi — et pourquoi
+`dateNotification` décrit une version du marché et non le marché : fiche S1 de
+`docs/SOURCES.md`, § lecture bitemporelle.
+
+### 3. `nb_marches_source` n'est pas `nb_retenus`, et l'écart est la matière de la table
+
+Un marché est **retenu** quand ses deux dates existent, tombent dans
+`[1980-01-01, 2030-01-01]`, et que la publication n'est pas antérieure à la
+notification. Chaque motif d'exclusion a son compteur —
+`nb_sans_notification`, `nb_sans_publication`, `nb_dates_hors_bornes`,
+`nb_publication_anterieure` — de sorte que l'entonnoir se rebâtit de tête,
+sans avoir à refaire la requête.
+
+Les marchés dont la publication précède la notification sont **écartés et
+comptés à part, jamais ramenés à un délai de zéro**. C'est une règle de la
+maison : un délai négatif n'est pas un délai nul, c'est le signe d'une
+incohérence de dates dans la source ; le passer à zéro le ferait entrer dans
+les « publiés dans les délais » et gonflerait mécaniquement le taux. Même
+traitement pour les dates sentinelles `0001-01-01` et les dates aberrantes,
+que `nb_dates_hors_bornes` isole.
+
+Les quatre motifs sont **exclusifs**, et c'est ce qui rend l'entonnoir
+vérifiable : `nb_retenus + nb_sans_notification + nb_sans_publication +
+nb_dates_hors_bornes + nb_publication_anterieure` redonne exactement
+`nb_marches_source`. C'est le contrôle à faire en premier quand un doute
+survient sur ces tables ; un écart signale une fuite de marchés, pas un
+arrondi.
+
+Ordre de grandeur de l'entonnoir, mesuré le 21/08/2026 : 12 278 `uid` sans
+aucune `dateNotification`, 14 838 sans aucune `datePublicationDonnees`. Ces
+valeurs dérivent à chaque ingestion et ne se citent pas sans leur date.
+
+### 4. Tout taux publié est une BORNE HAUTE
+
+Le parquet ne contient que des marchés **publiés** : un marché notifié et
+jamais publié n'y a aucune ligne. Il ne manque donc pas seulement au
+numérateur, il manque aussi au dénominateur — il est invisible à la mesure.
+
+Conséquence à tenir dans toute formulation : ces tables ne disent pas
+« x % des marchés ont été publiés dans les deux mois », elles disent
+« x % des marchés **publiés** l'ont été dans les deux mois ». La grandeur
+réelle est inférieure, d'une quantité que la source ne permet pas de mesurer.
+
+### 5. `cohorte_close` : les cohortes récentes sont optimistes par construction
+
+`cohorte_max = year(date_ref) - 2`, et le deux n'est pas un arrondi de
+confort : le 9ᵉ décile du délai se compte en centaines de jours (558 jours
+mesurés le 21/08/2026). Une cohorte plus récente contient des marchés notifiés
+dont la publication n'est pas observée à la date d'ingestion ; ils manquent au
+**dénominateur**, et ce sont précisément les lents qui manquent. Le taux d'une
+telle cohorte monte donc pour une raison d'observation, pas pour une raison de
+comportement.
+
+`cohorte_close = 0` marque ces lignes. Elles sont publiées — les masquer
+reviendrait à cacher le bord récent de la série — mais elles ne se comparent
+pas à une cohorte close, ne se citent pas comme une amélioration, et ne
+servent pas de point de comparaison dans un classement.
+
+### 6. La ventilation par acheteur ne couvre pas tous les marchés
+
+`decp_publication_acheteurs` ne porte que les cohortes closes
+(`cohorte_min`…`cohorte_max`) et que les marchés dont `acheteur_categorie` est
+renseignée. Cette catégorie est un attribut de l'acheteur, constant sur les
+lignes d'un même marché : au 21/08/2026, la somme des `uid` distincts par
+catégorie, valeur absente comprise, égalait exactement le nombre de `uid`
+distincts du parquet — aucun marché n'en porte deux.
+
+Les marchés sans catégorie **ne sont pas une catégorie**. Ils ne forment
+aucune ligne « Autre » ni « Non renseigné » : ils sont comptés dans
+`decp_publication_qualite.nb_sans_categorie`, qui est le chiffre à porter à
+côté de toute ventilation par acheteur. Ils pèsent de l'ordre du cinquième des
+marchés retenus (mesuré le 21/08/2026). Deux conséquences pratiques :
+`SUM(nb_marches)` sur cette table ne redonne pas l'effectif de la période, et
+comparer deux catégories, c'est comparer deux populations dont rien ne
+garantit qu'elles soient renseignées dans les mêmes proportions.
+
+Les libellés (`Commune`, `Groupement de communes`, `Département`, `EPIC`,
+`Établissement hospitalier`, `Syndicat mixte`, `État`, `Région`,
+`Département outre-mer` au 21/08/2026) sont ceux de la consolidation amont,
+repris tels quels. Le pipeline n'en crée, n'en fusionne et n'en traduit aucun :
+leur inventaire appartient à la source et peut bouger avec elle.
+
+### 7. Le délai légal est de DEUX MOIS, jamais de 60 jours
+
+`delai_legal_mois` vaut 2 et son unité est le **mois** : le test est
+`publication <= notification + 2 mois`, pas `délai <= 60 jours`. Les deux ne
+coïncident sur aucune période contenant février ou deux mois de 31 jours, et
+l'écart déplace exactement les marchés limites, ceux qui décident du taux.
+Base légale : arrêté du 22/12/2022 (alerte A10 de `docs/SOURCES.md`).
+
+Les quantiles `delai_q1`, `delai_median`, `delai_q3` et `delai_d9`, comme les
+`delai_median` des deux autres tables, sont en revanche exprimés en
+**jours** : c'est l'unité de lecture des durées observées. Seuil en mois,
+durées en jours — ne pas convertir l'un dans l'unité de l'autre pour
+« homogénéiser » l'affichage.
+
+### 8. Ce qui dérive et ce qui ne dérive pas
+
+`delai_legal_mois` (2) et `cohorte_min` (2019) sont des constantes du
+pipeline et ne bougent qu'avec le code. `cohorte_max` se déduit de la date de
+référence de l'ingestion. Tout le reste — effectifs, taux, quantiles — est
+recalculé à chaque passage sur un parquet remplacé en entier chaque jour.
+
+`date_observation_max` porte la publication la plus récente retenue : c'est
+l'horizon d'observation de la mesure, et donc la date à afficher à côté de
+tout chiffre tiré de ces trois tables. Un taux de publication sans sa date
+d'observation ne veut rien dire, puisque c'est cette date qui fixe ce que la
+mesure a pu voir.
 
 ## Les tables `hatvp_decl_*` (S15) — ce qu'il faut savoir avant de s'en servir
 

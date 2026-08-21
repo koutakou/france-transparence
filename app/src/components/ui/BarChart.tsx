@@ -38,6 +38,17 @@ export interface BarChartProps {
   depuisZero?: boolean;
   /** Description accessible du graphique. */
   ariaLabel?: string;
+  /**
+   * Nombre d'étiquettes d'axe X visé (défaut 8). POURQUOI ce réglage existe :
+   * l'éclaircissement procède par PAS ENTIER (`ceil(total / maxVisibles)`), il
+   * saute donc brutalement d'une étiquette sur une à une sur deux dès qu'on
+   * dépasse la limite d'une seule unité — 9 colonnes sous une limite de 8 n'en
+   * étiquettent plus que 5. C'est sans conséquence sur une série dont les
+   * abscisses se devinent, et c'en est une sur une série d'ANNÉES, où chaque
+   * abscisse est l'information. Relever la limite au nombre exact de colonnes
+   * les étiquette toutes ; l'étroitesse reste bornée par la largeur du tracé.
+   */
+  maxEtiquettesX?: number;
   className?: string;
 }
 
@@ -48,6 +59,7 @@ export function BarChart({
   hauteur = 240,
   depuisZero = true,
   ariaLabel,
+  maxEtiquettesX = 8,
   className,
 }: BarChartProps) {
   if (items.length === 0) return null;
@@ -67,7 +79,7 @@ export function BarChart({
   const bande = traceL / items.length;
   const epaisseur = Math.min(24, Math.max(4, bande * 0.55));
   const yBase = y(Math.max(yMin, 0));
-  const visiblesX = indicesEtiquettesX(items.length, 8);
+  const visiblesX = indicesEtiquettesX(items.length, maxEtiquettesX);
   const etiquettesSommet = items.length <= 8;
 
   /** Colonne au bout arrondi 4px (haut), carrée à la base. */

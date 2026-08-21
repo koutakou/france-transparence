@@ -3,6 +3,15 @@
 **Mission menée le 19/08/2026 (§ 10 ajouté le 20/08/2026). Tous les chiffres de ce rapport ont été vérifiés ces jours-là dans `data/france.db` (lecture seule), `meta_sources`, la table `alertes`, le Makefile et le journal du projet (JOURNAL.md).**
 
 > **Document daté — à lire au passé, en entier.** Les volumétries ci-dessous (nombre de pipelines, de sources, de tables, de tests, taille de la base, comptes de marchés, d'élus, de fiches, de pages) décrivent l'état constaté le 19-20/08/2026 et **ont dérivé depuis** : les sources publient quotidiennement et le périmètre ingéré s'est étendu. Rien n'est réécrit ici — ce qui est consigné a bien eu lieu. L'état courant se lit sur la page `/donnees` du site, régénérée à chaque publication, dans la variable `PIPELINES` du `Makefile` pour les pipelines, et dans `README.md` pour le reste.
+>
+> **Rectification datée du 21/08/2026 — elle porte sur une MÉTHODE, non sur un chiffre.** Le § 2
+> décrit les marchés comme « dédupliqués (`donneesActuelles`, `uid`) ». C'est bien ce qui a été
+> fait ce jour-là, et c'était faux sur un point : lire la date sur la seule ligne
+> `donneesActuelles` date le marché de son DERNIER AVENANT, la ligne d'un avenant portant comme
+> `dateNotification` la date de l'avenant. Le compte de marchés consigné ici en subit l'effet.
+> La règle en vigueur depuis le 21/08/2026 prend les ATTRIBUTS sur la version courante mais la
+> DATE sur `min(dateNotification)` de toutes les lignes du marché — voir `docs/SOURCES.md`
+> (fiche S1). Conformément au principe de ce document, rien n'est réécrit ci-dessous.
 
 ---
 

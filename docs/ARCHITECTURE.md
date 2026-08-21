@@ -81,6 +81,7 @@ Règles du flux :
 - **data/raw est jetable** : tout pipeline doit pouvoir reconstruire ses tables depuis un répertoire vide (re-téléchargement).
 - **Remplacement complet par défaut** (le fichier source EST l'état — DECP, HATVP, RNE) ; l'incrémental est l'exception documentée (JORF : deltas quotidiens cumulés).
 - **Jamais de donnée fabriquée** : un champ absent reste NULL ; une source en panne laisse l'ancienne donnée en place avec sa `date_ingestion` inchangée (le moniteur de fraîcheur A11 la signalera).
+- **Aucune historisation en base** : la base porte l'état courant de chaque source, jamais ses états antérieurs. Une mesure de délai n'est donc calculable que si la source porte elle-même les deux axes du temps — la période décrite et la date d'observation. C'est le cas des DECP (`dateNotification` / `datePublicationDonnees`), et c'est ce qui rend le délai de publication des marchés mesurable au passage du pipeline, sans mécanisme de suivi côté base.
 - Les URLs `static.data.gouv.fr` horodatées sont re-résolues via l'API data.gouv à chaque ingestion (SOURCES.md §0.3).
 
 ---
@@ -152,7 +153,7 @@ Un module par pipeline : `pipelines/ingest_<source>.py`, exécutable par `python
 |---|---|---|
 | `ingest-budget_mensuel` | `ingest_budget_mensuel.py` | P1 — SMB mensuelles (S13) |
 | `ingest-budget_structure` | `ingest_budget_structure.py` | P2 — PLF/jaunes annuels (S20, S21, S23) |
-| `ingest-decp` | `ingest_decp.py` | P3 — DECP consolidées (S1) |
+| `ingest-decp` | `ingest_decp.py` | P3 — DECP consolidées (S1). Outre les tables qui servent la carte, le flux des derniers marchés et l'auto-critique des montants, il écrit les trois tables de **qualité de publication** — `decp_publication_qualite`, `decp_publication_annees`, `decp_publication_acheteurs` — calculées au grain du marché (agrégation par `uid` avant tout comptage) directement depuis le parquet, et lues par la page `/marches`. Lecture de la source dans la fiche S1 de SOURCES.md (§ lecture bitemporelle) ; schéma, périmètre et pièges dans SCHEMA-DB.md. |
 | `ingest-boamp` | `ingest_boamp.py` | P4 — AO en cours (S2) |
 | `ingest-approch` | `ingest_approch.py` | P5 — projets d'achats (S9) |
 | `ingest-jorf` | `ingest_jorf.py` | P6 — Journal officiel (S3) |
