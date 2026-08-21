@@ -1,6 +1,6 @@
 # France Transparence
 
-Dashboard web sur la transparence de la vie politique française : dépenses de l'État, commande publique, élus, lobbying, financement politique, frais et train de vie, Journal officiel — **100 % données publiques réelles**, aucun chiffre fabriqué. L'honnêteté est le principe produit : chaque module affiche la date réelle de ses données (badge de fraîcheur alimenté par la table `meta_sources`), le mot « en direct » est banni parce qu'aucune source publique ne le permet, et ce que l'open data ne contient pas est documenté comme tel (la « boîte noire » du module Frais & train de vie). L'ensemble tient dans une base SQLite unique, reconstruite localement depuis 29 sources officielles tracées.
+Dashboard web sur la transparence de la vie politique française : dépenses de l'État, commande publique, élus, lobbying, financement politique, frais et train de vie, Journal officiel — **100 % données publiques réelles**, aucun chiffre fabriqué. L'honnêteté est le principe produit : chaque module affiche la date réelle de ses données (badge de fraîcheur alimenté par la table `meta_sources`), le mot « en direct » est banni parce qu'aucune source publique ne le permet, et ce que l'open data ne contient pas est documenté comme tel (la « boîte noire » du module Frais & train de vie). L'ensemble tient dans une base SQLite unique, reconstruite localement depuis 30 sources officielles tracées.
 
 ![Page d'accueil de France Transparence](docs/screenshots/accueil.png)
 
@@ -43,7 +43,7 @@ make dev          # http://localhost:3620
 
 Production : `make build` puis `cd app && npm run start` (port 3620 dans les deux cas).
 
-La base `data/france.db` (~470 Mo, 69 tables) est gitignorée : elle se reconstruit entièrement par `make ingest`.
+La base `data/france.db` (~490 Mo, 70 tables) est gitignorée : elle se reconstruit entièrement par `make ingest`.
 
 ## Ré-ingérer
 
@@ -91,7 +91,7 @@ Détails : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | `/collectivites` | Finances locales | Comptes OFGL 2025 (provisoires, chargés en juillet 2026), dotations DGF 2018-2026, carte en €/habitant. |
 | `/documents` | Journal officiel | Environ 2 700 textes des 30 derniers JO (quotidien, JO du jour disponible vers 00h30), filtres lois/décrets/nominations. |
 | `/alertes` | Alertes transparence | Environ 1 600 alertes sur 8 types, chacune avec sa règle de calcul et sa base légale, recalculées à chaque ingestion. |
-| `/donnees` | Données & exports | Catalogue des 29 sources avec fraîcheur mesurée (le moniteur de santé des sources), licences, règles des alertes, 6 exports JSON statiques (méta, alertes, élus, budget mensuel, agrégats marchés, index de recherche) reconstruits à chaque publication. |
+| `/donnees` | Données & exports | Catalogue des 30 sources avec fraîcheur mesurée (le moniteur de santé des sources), licences, règles des alertes, 6 exports JSON statiques (méta, alertes, élus, budget mensuel, agrégats marchés, index de recherche) reconstruits à chaque publication. |
 
 Les volumes de ce tableau sont donnés en **ordre de grandeur** : la plupart des sources publient quotidiennement, ces nombres bougent à chaque ingestion. La seule valeur qui fait foi est celle affichée par le site lui-même, avec la date de ses données — c'est le rôle du badge de fraîcheur et de la page `/donnees`, régénérée à chaque publication.
 

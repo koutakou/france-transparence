@@ -1,11 +1,15 @@
 # Schéma de la base data/france.db — généré le 19/08/2026 16:16 après make ingest,
 # complété le 20/08/2026 (renommage collectivites_communes → collectivites_communes_top200 ;
 # tables collectivites_communes_series et collectivites_communes_strates, comptages du 20/08)
+# et le 21/08/2026 (table sirene_unites_legales, S18)
 
-> **Extrait daté.** Ce document reproduit le schéma **tel qu'il était le 20/08/2026** : 62 tables
-> décrites, alors que la base en compte davantage depuis (les tables ajoutées après cette date n'y
-> figurent pas encore). Les comptages de lignes cités décrivent ce jour-là et **dérivent à chaque
-> ingestion**. Le schéma qui fait foi est celui de la base elle-même :
+> **Extrait daté et partiel.** Ce document décrit **63 des 70 tables** de la base. Sept tables y sont
+> absentes : `decp_qualite_montants`, `elections_participation_departement`,
+> `elections_participation_ville`, `hatvp_decl_interets`, `hatvp_decl_lignes`, `hatvp_decl_montants`
+> et `hatvp_decl_rubriques`. Le DDL reproduit ci-dessous est celui du 20/08/2026, augmenté de
+> `sirene_unites_legales` (21/08/2026). Les comptages de lignes cités décrivent le jour de leur
+> mesure et **dérivent à chaque ingestion** ; le catalogue vivant est la page `/donnees`, régénérée à
+> chaque publication. Le schéma qui fait foi est celui de la base elle-même :
 > `sqlite3 -readonly data/france.db ".schema"`.
 
 ```
@@ -914,6 +918,40 @@ CREATE TABLE trainvie_opacites (
     source_url    TEXT NOT NULL CHECK (source_url LIKE 'http%'),
     date          TEXT NOT NULL
 );
+-- ---------------------------------------------------------------------------
+-- S18 — Stock Sirene (INSEE), pipeline `pipelines/ingest_sirene.py`.
+-- Référentiel d'ATTRIBUTS, pas de noms : il qualifie les SIREN que les AUTRES
+-- tables citent déjà (decp_marches, subventions_associations, lobby_entites,
+-- marches_a_venir, entites, collectivites_*, decp_top_*). Table DÉRIVÉE : son
+-- périmètre est celui de la base à l'instant de l'ingestion, jamais le stock
+-- amont — d'où un pipeline qui doit passer APRÈS les autres.
+-- Minimisation : aucun nom, prénom, pseudonyme ni sexe de personne physique
+-- n'est lu du fichier amont, et les unités non diffusibles
+-- (statutDiffusionUniteLegale <> 'O', droit d'opposition de l'article A123-96
+-- du code de commerce) ne sont pas écrites.
+-- ---------------------------------------------------------------------------
+CREATE TABLE sirene_unites_legales (
+    siren                      TEXT PRIMARY KEY,  -- 9 chiffres, tel que publié
+    denomination               TEXT,      -- raison sociale ; NULL pour les personnes physiques
+    sigle                      TEXT,      -- sigle déclaré, NULL si absent
+    est_personne_physique      INTEGER NOT NULL DEFAULT 0,  -- 1 = entrepreneur individuel
+    categorie_juridique        TEXT,      -- code INSEE à 4 chiffres, TEXTE (jamais un entier)
+    activite_principale        TEXT,      -- code NAF/APE, tel que publié ('84.11Z')
+    nomenclature_activite      TEXT,      -- nomenclature du code ci-dessus : 'NAFRev2', 'NAP'…
+    tranche_effectifs          TEXT,      -- CODE de tranche INSEE ('00', '01'… '53'), pas un effectif
+    annee_effectifs            INTEGER,   -- année de validité de la tranche ci-dessus
+    categorie_entreprise       TEXT,      -- 'PME' / 'ETI' / 'GE'
+    etat_administratif         TEXT,      -- 'A' active / 'C' cessée
+    date_creation              TEXT,      -- date du parquet rendue en texte (ISO)
+    economie_sociale_solidaire INTEGER,   -- 1 / 0 / NULL (non renseigné)
+    societe_mission            INTEGER    -- 1 / 0 / NULL (non renseigné)
+);
+CREATE INDEX idx_sirene_cat_juridique
+    ON sirene_unites_legales(categorie_juridique);
+CREATE INDEX idx_sirene_activite
+    ON sirene_unites_legales(activite_principale);
+CREATE INDEX idx_sirene_etat
+    ON sirene_unites_legales(etat_administratif);
 ```
 
 ## Volumes par table
@@ -962,7 +1000,10 @@ CREATE TABLE trainvie_opacites (
 - cada_motifs : 2034 lignes (comptage du 20/08/2026)
 - cada_saisines : 32614 lignes (comptage du 20/08/2026)
 - cada_sens : 47297 lignes (comptage du 20/08/2026)
-- meta_sources : 29 lignes (comptage du 20/08/2026, S38 et S40 comprises)
+- meta_sources : 30 lignes (une par source tracée, S18 comprise depuis le 21/08/2026)
+- sirene_unites_legales : de l'ordre de 163 000 lignes (21/08/2026 — c'est le
+  nombre de SIREN cités par le reste de la base, et il dérive avec elle ;
+  ~24 Mio en base, index compris)
 - partis : 718 lignes
 - partis_aide_annuelle : 2 lignes
 - partis_comptes : 2179 lignes
@@ -1148,3 +1189,90 @@ ordre alphabétique de clé normalisée. Reproductible à corpus identique, mais
 **instable dans le temps** : ne le stockez nulle part ailleurs, ne le mettez
 dans aucune URL. Les quatre tables sont reconstruites ensemble à chaque
 passage, rien d'autre en base ne les référence.
+
+## La table `sirene_unites_legales` (S18) — ce qu'il faut savoir avant de s'en servir
+
+### 1. C'est un référentiel d'attributs, pas un dictionnaire de noms
+
+L'intuition première est qu'un référentiel Sirene sert à donner un nom aux
+SIREN. La mesure dit le contraire : sur les quelque 164 000 SIREN cités par
+l'ensemble des tables, à peine **0,25 %** n'avaient aucun nom nulle part — les
+autres sources le fournissent déjà. Ce qui manquait, c'étaient les attributs :
+environ **deux tiers** des SIREN cités n'avaient ni catégorie juridique, ni
+code d'activité, ni état administratif, ni appartenance à l'économie sociale
+et solidaire. `denomination` et `sigle` sont donc un bonus — la valeur de la
+table est dans les colonnes qui les suivent.
+
+Deux usages en découlent, du côté des tables qui citent des SIREN :
+une **dénomination de référence** là où quelque 2 500 SIREN titulaires de
+marchés portent de l'ordre de 6 400 libellés distincts dans les DECP (la même
+entreprise écrite de deux ou trois façons, ce qui éclate tout classement par
+nom) ; et un **test de validité de l'identifiant** pour les ~7 400 lignes DECP
+qui portent un SIRET malformé (numéros de TVA intracommunautaire, `00001`,
+`999999999`…) — un SIREN absent de Sirene n'est pas un SIREN.
+
+### 2. Le périmètre est celui de la base, pas celui de Sirene
+
+La table ne contient **que** les SIREN que les autres tables citent
+réellement — de l'ordre de 163 000 lignes, quand le stock amont en compte
+environ 30 millions. Un SIREN absent de `sirene_unites_legales` n'est donc pas
+un SIREN inconnu de l'INSEE : c'est, dans la quasi-totalité des cas, un SIREN
+que rien d'autre en base ne mentionne. Le coût mesuré est de **≈ 155 octets
+par ligne** : de l'ordre de 24 Mio pour ce périmètre, contre ≈ 5,8 Gio pour le
+stock entier — 238 fois plus de données pour un usage identique.
+
+Conséquence pratique : la table est **dérivée**, elle se reconstruit
+entièrement à chaque passage (`DELETE` puis `INSERT` dans une transaction
+unique) et son pipeline doit s'exécuter **après** ceux dont il lit les SIREN.
+Son volume suit celui de la base, pas celui de l'INSEE.
+
+### 3. `denomination` est NULL pour les personnes physiques — délibérément
+
+`StockUniteLegale` décrit aussi les entrepreneurs individuels : nom de
+naissance, nom d'usage, quatre prénoms, prénom usuel, pseudonyme, sexe. Ce
+sont des données à caractère personnel, et le périmètre en compte de l'ordre
+de 6 000. **Aucune de ces colonnes n'est lue du fichier amont** : elles ne
+figurent pas dans la requête d'extraction. Une personne physique entre au
+référentiel avec sa catégorie juridique, son activité et son état — jamais
+avec son identité.
+
+Donc : `denomination IS NULL AND est_personne_physique = 1` signifie « unité
+légale exploitée par une personne physique, dont l'identité n'est pas en
+base ». Ce n'est **pas** une donnée manquante à aller chercher ailleurs, et
+ce n'est pas un trou à combler : c'est le résultat voulu. Toute restitution
+qui trie ou groupe par `denomination` doit traiter ce NULL comme une classe à
+part entière, jamais comme une anomalie de qualité.
+
+`est_personne_physique` vaut 1 quand la catégorie juridique amont est `1000`,
+et 0 sinon ; la colonne est `NOT NULL DEFAULT 0`, il n'y a pas de troisième
+état. Les unités **non diffusibles** (droit d'opposition de l'article A123-96
+du code de commerce, de l'ordre d'un millier dans le périmètre) sont écartées
+à l'extraction : elles ne sont ni dans la table, ni comptées dans ses lignes.
+
+### 4. `categorie_juridique` est du texte de 4 caractères, jamais un entier
+
+Le parquet livre `categorieJuridiqueUniteLegale` en entier alors que c'est un
+**code** à quatre chiffres. Il est reformaté sur 4 positions à l'ingestion et
+stocké en `TEXT` : un code à zéro initial resterait autrement amputé, et deux
+codes distincts se confondraient. À l'usage : comparer avec des chaînes
+(`categorie_juridique = '1000'`), jamais avec des nombres, et ne jamais
+recalculer un préfixe par arithmétique — `substr()` sur le texte.
+
+Même prudence pour `activite_principale` (code NAF, `'84.11Z'` — le point fait
+partie du code) et pour `tranche_effectifs`, qui est le **code** de tranche
+INSEE et non un effectif : `'02'` ne vaut pas 2 salariés, et l'ordre
+alphabétique de ces codes n'est pas l'ordre des tailles.
+
+### 5. Les booléens valent 1, 0 ou NULL — et NULL n'est pas 0
+
+`economie_sociale_solidaire` et `societe_mission` traduisent un champ amont à
+trois états (`'O'`, `'N'`, vide) en **1 / 0 / NULL**. NULL dit « non
+renseigné par l'INSEE », pas « non ». Compter les entreprises de l'ESS avec
+`WHERE economie_sociale_solidaire = 1` est correct ; en déduire que tout le
+reste n'en est pas ne l'est pas — il faut opposer `= 1` à `= 0` et publier à
+part le volume des NULL. La même règle vaut pour `annee_effectifs`,
+`categorie_entreprise` et `date_creation`, tous facultatifs à la source.
+
+`etat_administratif` porte `'A'` (active) ou `'C'` (cessée) : une unité cessée
+reste dans la table si la base la cite, et c'est voulu — un marché notifié à
+une entreprise aujourd'hui radiée est un fait, pas une erreur.

@@ -14,6 +14,14 @@
 > périmètre d'ingestion tel qu'arrêté le 19/08/2026 et sont conservées à ce titre : la liste qui fait
 > autorité est la variable `PIPELINES` du `Makefile`.
 >
+> **Mise à jour du 21/08/2026.** **S18** (stock Sirene, `pipelines/ingest_sirene.py`) s'ajoute au
+> périmètre ingéré : un **référentiel d'attributs** — catégorie juridique, code NAF, état
+> administratif, tranche d'effectifs, économie sociale et solidaire, date de création — restreint aux
+> SIREN que les autres tables citent réellement, et **sans aucune identité de personne physique**.
+> L'ingestion compte donc **18 pipelines** et **30 sources tracées dans `meta_sources`**. S18 étant
+> dérivée des autres tables, son pipeline les lit et figure **en dernier** dans la variable
+> `PIPELINES` du `Makefile` — cette place-là n'est pas arbitraire.
+>
 > **Document daté.** Les fraîcheurs et volumétries amont relevées ici l'ont été par appels réels le
 > 19/08/2026 (et le 20/08 pour S38 et S40) : elles décrivent ces jours-là et **ont dérivé depuis**.
 > Le catalogue vivant, avec la date réellement ingérée de chaque source, est la page `/donnees`
@@ -146,9 +154,27 @@ Contexte 2026 à garder en tête : LFI 2026 promulguée tardivement le 19/02/202
 - **Fraîcheur** : trimestrielle. **Licence** : lov2. **Pièges** : URLs static horodatées → re-résoudre ; pas d'identifiant commun HATVP → jointure nom+prénom+département ; ~500 000 lignes municipales (04).
 - **Modules** : Élus & Institutions (référentiel « qui est élu où », démographie), **dénominateur des alertes HATVP** (date de début de fonction).
 
-#### S18. Stock Sirene (INSEE via data.gouv.fr) — résolution massive
-- **URL testée** : ressources du dataset « Base Sirene… » — StockUniteLegale CSV zip 970,6 Mo / **Parquet 705 Mo** (StockEtablissement Parquet 2,20 Go), last-modified **01/08/2026**, mensuel (09).
-- **Licence** : lov2. **Pièges** : l'ancien chemin `files.data.gouv.fr/insee-sirene/` = 404 (09). **Modules** : transverse (table SIREN→nom/catégorie via DuckDB) — non ingéré, S1 fournissant déjà noms et géoloc.
+#### S18. Stock Sirene (INSEE via data.gouv.fr) — référentiel d'attributs des unités légales citées en base
+- **URLs testées le 21/08/2026** (codes HTTP constatés par `curl`) : page du jeu `https://www.data.gouv.fr/datasets/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret` → **200** ; API du jeu `https://www.data.gouv.fr/api/1/datasets/5b7ffc618b4c4169d30727e0/` → **200** (24 ressources, `"license": "lov2"`, `"frequency": "monthly"`) ; ressource retenue `https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20260801-073937/stock-stockunitelegale-parquet.parquet` → **200**, `content-length: 705090270`, `last-modified: 01/08/2026`.
+- **Accès/format** : `StockUniteLegale` en **parquet** (≈ 705 Mo) plutôt qu'en CSV zippé (≈ 971 Mo, même millésime). Le parquet se lit par colonnes, et le référentiel n'a besoin que de 13 des 35 colonnes du fichier ; la semi-jointure sur les SIREN à retenir s'exécute en moins d'une seconde, là où un parcours du CSV en Python demande plus de deux minutes et demie. DuckDB est déjà une dépendance du projet (S1/DECP). **Granularité** : 1 ligne = 1 unité légale (SIREN) ; le stock amont en compte de l'ordre de **30 millions**.
+- **Licence** : `lov2` — **Licence Ouverte 2.0**, lue dans la réponse de l'API. **Fréquence** : **mensuelle**, un millésime publié le 1er de chaque mois.
+- **Pièges** :
+  - **URL horodatée** (`…/20260801-073937/…`) : le chemin change à chaque millésime, la ressource est donc **re-résolue par l'API du jeu à chaque exécution** (convention §0.3, comme S17/RNE et S38/CADA). Le titre de la ressource sert de sélecteur (`StockUniteLegale` + `parquet`) avec **exclusion explicite de « Historique »** : le même jeu publie un `StockUniteLegaleHistorique` en parquet, qui répondrait sinon aux mêmes marqueurs.
+  - **L'ancien chemin `files.data.gouv.fr/insee-sirene/` n'est plus une source de fichiers** : contrairement à ce qui était noté en 09, il répond **HTTP 200** (constaté le 21/08/2026) — mais l'index ne contient plus qu'un `migration-fichiers-sirene.txt` de 215 octets qui renvoie vers la page data.gouv.fr, et les fichiers eux-mêmes ont disparu (`…/insee-sirene/StockUniteLegale_utf8.zip` → **HTTP 404**). Illustration exacte de la convention §0.2 : un 200 ne prouve pas qu'une source vit.
+  - `categorieJuridiqueUniteLegale` est livré **en entier** dans le parquet alors que c'est un **code à quatre chiffres** : il doit être reformaté sur 4 positions, faute de quoi tout code à zéro initial s'affiche amputé.
+  - **Le fichier porte des données à caractère personnel** : `StockUniteLegale` décrit aussi les entrepreneurs individuels — nom de naissance, nom d'usage, quatre prénoms, prénom usuel, pseudonyme, sexe. La colonne `statutDiffusionUniteLegale` porte par ailleurs le **droit d'opposition** de l'article A123-96 du code de commerce : les unités non diffusibles ne se republient pas.
+  - **Source dérivée, donc dépendante de l'ordre d'ingestion** : le périmètre retenu est celui des SIREN que les autres tables citent. Le pipeline lit ces tables et doit passer **après** elles ; sur une base neuve il refuse d'écrire plutôt que de produire un référentiel vide.
+- **Modules** : transverse (qualification des acheteurs, titulaires de marchés, associations subventionnées et entités de lobbying).
+
+**INGÉRÉE le 21/08/2026 — pipeline `pipelines/ingest_sirene.py`.** À ne pas confondre avec `pipelines/sirene.py`, qui est la résolution **unitaire** par API de S10 et n'a jamais été ingérée. Ce que cette source apporte, et ce qu'elle n'apporte pas :
+- **Ce n'est pas un référentiel « SIREN → nom ».** Sur l'ordre de 164 000 SIREN cités par l'ensemble des tables, à peine **0,25 %** (quelques centaines) n'avaient aucun nom nulle part : les autres sources fournissent déjà le nom. Ce qui manquait, ce sont les **attributs** — environ **deux tiers** des SIREN cités n'avaient ni catégorie juridique, ni code d'activité, ni état administratif, ni appartenance à l'économie sociale et solidaire.
+- **Périmètre restreint, et c'est une décision mesurée.** La base ne cite qu'environ **0,5 %** du stock amont. Le coût mesuré est de **≈ 155 octets par ligne** : de l'ordre de **24 Mio** pour le référentiel restreint, contre **≈ 5,8 Gio** pour le stock entier — 238 fois plus de données pour un usage identique, le surplus ne décrivant que des unités légales qu'aucune autre table ne mentionne.
+- **Volumétrie** : de l'ordre de **163 000 unités légales** retenues, soit **plus de 99 %** des SIREN cités, après mise à l'écart d'environ **un millier d'unités non diffusibles**. Les comptes exacts du jour vivent sur la page `/donnees`, régénérée à chaque publication : eux seuls font foi.
+- **Ce qui n'est délibérément PAS ingéré** : aucun nom, prénom, pseudonyme ni sexe de personne physique n'est lu du fichier — ces colonnes ne figurent pas dans la requête d'extraction. Les quelque **6 000 entrepreneurs individuels** du périmètre entrent au référentiel avec leur catégorie juridique, leur activité et leur état, **jamais avec leur identité** (`denomination` reste NULL, `est_personne_physique` vaut 1). Les unités non diffusibles sont écartées. Le référentiel sert à qualifier des personnes morales attributaires de marchés ou de subventions : cet usage n'a besoin d'aucune identité de personne physique.
+- **Ce que la source répare, mesuré côté aval** : de l'ordre de **2 500 SIREN titulaires de marchés portent quelque 6 400 libellés distincts** dans les DECP (la même entreprise écrite de deux ou trois façons) — sans dénomination de référence, tout classement par nom éclate une entreprise en plusieurs ; et de l'ordre de **7 400 lignes DECP portent un SIRET malformé** (numéros de TVA intracommunautaire, `00001`, `999999999`…), que le rapprochement rend enfin distinguables d'un identifiant valide.
+- **Table** : `sirene_unites_legales` (une seule table, trois index) — colonnes et conventions détaillées dans `docs/SCHEMA-DB.md`.
+- **Fraîcheur** : `meta_sources.date_donnees` porte la **date du dernier traitement des unités retenues**, jamais la date de publication du jeu. Seuils `S18 |jc|40|55|10` — l'âge oscille de ~0 à ~32 jours en régime mensuel normal ; 55 jours = un millésime entièrement sauté.
+- **Cache** : le millésime étant mensuel, le parquet est conservé 30 jours dans `data/raw/sirene/` — exception déclarée côté serveur dans `/etc/france-transparence/cache-long.conf`, sans quoi la purge quotidienne de `data/raw` le rendrait inopérant.
 
 #### S19. HowTheyVote.eu — votes des eurodéputés français
 - **URLs testées** : `https://howtheyvote.eu/api/votes` (200 ; 2 421 votes, positions des **81 eurodéputés FR**) + dumps hebdo GitHub `HowTheyVote/data` (release 15/08/2026, export 68,6 Mo) (09).
@@ -471,20 +497,18 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 | P12 | Référentiels | S27, S10 | annuelle / à la volée | geo.api.gouv 4,7 Mo one-shot ; france-geojson 569 Ko statique ; populations INSEE 1 Mo/an ; recherche-entreprises au fil de l'eau (≤ 7 req/s) (09) |
 | P13 | Train de vie (constantes) | S31 | à parution (annuelle) | **Zéro pipeline** : bloc de constantes sourcées (bloc YAML du §9 de 05-frais-indemnites.md, **à corriger avant usage** : ligne `mission_pouvoirs_publics_lfi_2026` invalide, `;` → clés/valeurs, 10-critique M2) ; revue à chaque rapport annuel (Élysée 2025 à surveiller) |
 
-**Bilan du périmètre ingéré** : ~290 Mo/jour téléchargés (dominés par le parquet DECP), stockage vif de l'ordre de 2 Go (base + cache `data/raw`), aucune authentification, tous les modules de la navigation alimentés honnêtement, alertes A1-A11 calculables. **Périmètre arrêté le 19/08/2026 après la critique de complétude : 13 pipelines** — les ajouts d'alors (S38 avis CADA, S39 jaune opérateurs, panels rémunérations/collaborateurs) étaient non ingérés ou documentaires : aucun ne conditionnait un module ingéré, et aucun n'avait été échantillonné ni extrait. S38 a depuis été ingérée en agrégats (encadré de tête et fiche S38).
+**Bilan du périmètre ingéré** : ~290 Mo/jour téléchargés (dominés par le parquet DECP), stockage vif de l'ordre de 2 Go (base + cache `data/raw`), aucune authentification, tous les modules de la navigation alimentés honnêtement, alertes A1-A11 calculables. **Périmètre arrêté le 19/08/2026 après la critique de complétude : 13 pipelines** — les ajouts d'alors (S38 avis CADA, S39 jaune opérateurs, panels rémunérations/collaborateurs) étaient non ingérés ou documentaires : aucun ne conditionnait un module ingéré, et aucun n'avait été échantillonné ni extrait. S38 a depuis été ingérée en agrégats (encadré de tête et fiche S38), et S18 l'a été le 21/08/2026 en référentiel d'attributs restreint aux SIREN cités (fiche S18) — l'un et l'autre pour quelques mébioctets en base.
 
 ### Non ingéré à ce jour — documenté et motivé
 
-1. **S15 declarations.xml** (88,8 Mo hebdo, parsing SAX) → fiches patrimoine/intérêts détaillées (04).
-2. **S30 SME PDF** (headless + parsing) → le seul mission/programme mensuel (01).
-3. **Sénat approfondi** : Dosleg (dump SQL 126,3 Mo → scrutins nominaux depuis 2006) + Ameli 154 Mo (03).
-4. **AN approfondi** : amendements 296,7 Mo/j ; questions écrites 45,8 Mo ; Agenda 7,8 Mo (reconstruction de la présence en commission — plus rien d'autre ne la fournit depuis la mort de NosDéputés) (03).
-5. **S28 balances collectivités** (requêtes ciblées par SIREN) + **S33 comptes individuels** (strates) + **S32 subventions SCDL** (panel Paris/Lyon/départements conformes, jamais « national ») (06).
-6. **S26 élections Parquet** (71 + 161 Mo) + **S19 HowTheyVote** (68,6 Mo hebdo, ODbL) + Europarl (09).
-7. **S18 stock Sirene Parquet** (705 Mo/mois, DuckDB) si les trous de résolution le justifient (09).
-8. **S22 CGE** (517 k lignes) + **S24 RAP** ; **S34 TED** ; **S12 BODACC/associations** ; **S35 LEGI/DOLE/Debats/RefOrgaAdminEtat** ; **S36 PISTE** (one-shot humain) ; **S37 décret d'aide publique** (01, 02, 07, 04).
-9. **Ajouts post-critique (19/08)** : **S38 avis CADA** (CSV consolidé 198,4 Mo, non échantillonné → carte des verrous) ; **S39 jaune opérateurs PLF 2026** (référentiel des opérateurs) ; **panel « 10 plus hautes rémunérations »** (25 datasets épars, patron S32 : jamais « national ») ; **collaborateurs parlementaires** (extraction HTML des fiches AN/Sénat, coûteuse) ; **comptes des groupes politiques** (PDF AN/Sénat à vérifier en Phase 1 → constantes S31 ou boîte noire) (10-critique I1, I3, I4, I10).
-10. **Veilles actives** (re-tester périodiquement) : open data du RIE (trimestriel) ; **export open data des avis de mobilité HATVP (pantouflage), au même rythme que la veille RIE** ; comptes de campagne municipales 2026 ; rapport Cour des comptes Élysée exercice 2025 ; jaune cabinets PLF 2027 ; jaune associations PLF 2026 ; publication éventuelle de la LFI en données ; **datasets PLF 2027** (famille destination/nature + budget vert, non parus au 19/08/2026 — même famille que S20/S21) ; **donnée consolidée « aides aux entreprises »** (0 dataset au 19/08) ; **réserve parlementaire historique** (7 datasets figés, vérifiés — chronologie IRFM → DFP / boîte noire ; successeur FDVA jamais traité) (04, 05, 01, 10-critique M8/I2/I7).
+1. **S30 SME PDF** (headless + parsing) → le seul mission/programme mensuel (01).
+2. **Sénat approfondi** : Dosleg (dump SQL 126,3 Mo → scrutins nominaux depuis 2006) + Ameli 154 Mo (03).
+3. **AN approfondi** : amendements 296,7 Mo/j ; questions écrites 45,8 Mo ; Agenda 7,8 Mo (reconstruction de la présence en commission — plus rien d'autre ne la fournit depuis la mort de NosDéputés) (03).
+4. **S28 balances collectivités** (requêtes ciblées par SIREN) + **S33 comptes individuels** (strates) + **S32 subventions SCDL** (panel Paris/Lyon/départements conformes, jamais « national ») (06).
+5. **S19 HowTheyVote** (68,6 Mo hebdo, ODbL) + Europarl (09).
+6. **S22 CGE** (517 k lignes) + **S24 RAP** ; **S34 TED** ; **S12 BODACC/associations** ; **S35 LEGI/DOLE/Debats/RefOrgaAdminEtat** ; **S36 PISTE** (one-shot humain) ; **S37 décret d'aide publique** (01, 02, 07, 04).
+7. **Ajouts post-critique (19/08)** : **S39 jaune opérateurs PLF 2026** (référentiel des opérateurs) ; **panel « 10 plus hautes rémunérations »** (25 datasets épars, patron S32 : jamais « national ») ; **collaborateurs parlementaires** (extraction HTML des fiches AN/Sénat, coûteuse) ; **comptes des groupes politiques** (PDF AN/Sénat à vérifier en Phase 1 → constantes S31 ou boîte noire) (10-critique I1, I3, I4, I10).
+8. **Veilles actives** (re-tester périodiquement) : open data du RIE (trimestriel) ; **export open data des avis de mobilité HATVP (pantouflage), au même rythme que la veille RIE** ; comptes de campagne municipales 2026 ; rapport Cour des comptes Élysée exercice 2025 ; jaune cabinets PLF 2027 ; jaune associations PLF 2026 ; publication éventuelle de la LFI en données ; **datasets PLF 2027** (famille destination/nature + budget vert, non parus au 19/08/2026 — même famille que S20/S21) ; **donnée consolidée « aides aux entreprises »** (0 dataset au 19/08) ; **réserve parlementaire historique** (7 datasets figés, vérifiés — chronologie IRFM → DFP / boîte noire ; successeur FDVA jamais traité) (04, 05, 01, 10-critique M8/I2/I7).
 
 ---
 
@@ -501,7 +525,7 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 | S7 Datan (scores députés) | Quotidienne (CSV du 19/08/2026) (03) | fr-lo | Élus & Institutions | **ingéré** |
 | S8 DECP data.economie (DAJ) | J-2 (02) | LO 2.0 | Commande publique (contrôle) | **ingéré** |
 | S9 APProch (projets d'achats) | Continue (maj 15/08) (02) | LO 2.0 | Commande publique | **ingéré** |
-| S10 API Recherche d'entreprises | Quotidienne (09) | LO 2.0 | Transverse (résolution SIRET) | **ingéré** |
+| S10 API Recherche d'entreprises | Quotidienne (09) | LO 2.0 | Transverse (résolution SIRET) | **non ingéré** — `pipelines/sirene.py` sait résoudre un SIRET à l'unité et ses tests le couvrent, mais aucun pipeline ne l'appelle et `meta_sources` ne porte aucune ligne S10 (vérifié le 21/08/2026). Le besoin de masse est couvert par S18. |
 | S11 Annuaire de l'administration | Vivante (94 117 fiches) (09) | DILA open data | Élus & Institutions, carte | non ingéré |
 | S12 BODACC / JO associations (ODS) | Parution du jour (07) | LO | Recoupements | non ingéré |
 | S13 SMB séries longues (DGFiP) | Mensuelle, données au 30/06/2026 (~6 sem.) (01) | LO 2.0 | Dépenses de l'État, Accueil | **ingéré** |
@@ -509,7 +533,7 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 | S15 HATVP declarations.xml | Hebdomadaire (14/08) (04) | LO Etalab | Élus & Institutions (fiches) | **ingérée** (20/08/2026) |
 | S16 OFGL (comptes + dotations) | Comptes 2025 (juil. 2026, provisoires) ; dotations 2026 (04/08) (06) | LO 2.0 | Finances locales, Accueil | **ingéré** |
 | S17 RNE | Trimestrielle (11/08/2026, post-municipales) (04) | lov2 | Élus & Institutions, Alertes | **ingéré** |
-| S18 Stock Sirene Parquet | Mensuelle (01/08/2026) (09) | lov2 | Transverse | non ingéré |
+| S18 Stock Sirene (StockUniteLegale, parquet) | Mensuelle, millésime du 1er du mois (21/08/2026) | lov2 | Transverse (attributs des unités légales citées) | **ingérée** (21/08/2026, attributs seuls, sans identité de personne physique) |
 | S19 HowTheyVote.eu | Hebdomadaire (release 15/08) (09) | **ODbL** | Élus & Institutions (UE) | non ingéré |
 | S20 PLF 2026 Budget vert | Annuelle (13/11/2025) (01) | LO 2.0 | Dépenses de l'État, Accueil | **ingéré** |
 | S21 PLF 2025 destination/nature | Annuelle (10/2024) (01) | LO 2.0 | Dépenses de l'État | **ingéré** |

@@ -3,7 +3,7 @@
  * statiques (/api/meta.json, /api/elus.json, /api/marches-agregats.json,
  * /api/budget-mensuel.json) — générés au build, servis en fichiers.
  *
- * La table pivot est `meta_sources` (28 sources tracées) : chaque source y
+ * La table pivot est `meta_sources` (30 sources tracées) : chaque source y
  * porte sa date de données réelle, sa date d'ingestion, sa fréquence déclarée,
  * sa licence et ses notes — c'est le « moniteur de fraîcheur » du projet
  * (docs/SOURCES.md, alerte A11).
@@ -80,7 +80,7 @@ type SeuilSource = { unite: UniteAge; retard: number; alerte: number };
  * seuils dans `meta_sources` (colonnes dédiées) via les pipelines.
  *
  * Ordre et valeurs repris ligne à ligne de `fraicheur.conf`.
- * Dernière synchronisation : 20/08/2026, 28 sources (ajout de S38).
+ * Dernière synchronisation : 21/08/2026, 30 sources (ajout de S18).
  */
 const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // Quotidiennes strictes, calendrier ouvré
@@ -103,6 +103,11 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // une seconde d'écart par la HATVP, d'où des seuils identiques.
   S15: { unite: "jc", retard: 10, alerte: 18 },
   S13: { unite: "jc", retard: 65, alerte: 80 },
+  // Mensuelle stricte : le stock Sirene paraît le 1er de chaque mois, et sa
+  // date de donnée est celle du dernier traitement des unités retenues (la
+  // veille de la publication). L'âge oscille donc de ~0 à ~32 jours en
+  // régime normal ; 55 jours = un millésime entièrement sauté.
+  S18: { unite: "jc", retard: 40, alerte: 55 },
   // Trimestrielle
   S17: { unite: "jc", retard: 110, alerte: 150 },
   // Annuelles « simples »
@@ -266,7 +271,7 @@ export function evalueFraicheur(
 
 export type SourceCataloguee = MetaSource & { fraicheur: Fraicheur };
 
-/** Les 28 sources tracées, avec leur fraîcheur calculée. */
+/** Les 30 sources tracées, avec leur fraîcheur calculée. */
 export function getCatalogueSources(): SourceCataloguee[] | null {
   const db = getDb();
   if (!db) return null;

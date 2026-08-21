@@ -352,6 +352,37 @@ export default function PageDonneesPersonnelles() {
             l&apos;avis sont conservés. Le texte des décisions, qui nomme des
             responsables publics dans ses motifs, n&apos;est jamais ingéré.
           </p>
+          {/*
+            Troisième occasion de commettre la même faute, évitée cette fois :
+            le stock Sirene décrit AUSSI des entrepreneurs individuels — nom de
+            naissance, nom d'usage, quatre prénoms, prénom usuel, pseudonyme,
+            sexe. Ces colonnes ne sont pas filtrées après coup : elles ne sont
+            pas lues du fichier, le SELECT du pipeline ne les contient pas.
+            Reste que les identifiants de ces entrepreneurs reçoivent des
+            attributs qu'ils n'avaient pas, et cela se dit.
+          */}
+          <p>
+            <strong className="text-ink">
+              Répertoire Sirene des entreprises (INSEE)
+            </strong>{" "}
+            — le site rattache aux identifiants d&apos;entreprise déjà présents
+            en base (titulaires de marchés, bénéficiaires de subventions,
+            représentants d&apos;intérêts, collectivités) leur catégorie
+            juridique, leur secteur d&apos;activité, leur tranche
+            d&apos;effectifs et leur état administratif. Aucune entreprise
+            nouvelle n&apos;est introduite : seuls les identifiants que les
+            autres sources citaient déjà sont interrogés.{" "}
+            <strong className="text-ink">
+              Le répertoire décrit aussi des entrepreneurs individuels, dont il
+              publie le nom, les prénoms, le pseudonyme et le sexe : rien de
+              tout cela n&apos;est ingéré
+            </strong>{" "}
+            — une entreprise en nom propre entre avec son activité et son état,
+            jamais avec l&apos;identité de la personne. Les unités que
+            l&apos;INSEE signale comme non diffusibles, parce que leur
+            titulaire s&apos;est opposé à la diffusion, sont écartées
+            entièrement.
+          </p>
           <p>
             <strong className="text-ink">
               Ce que la source contient et que le site ne publie pas

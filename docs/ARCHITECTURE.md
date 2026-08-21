@@ -87,7 +87,7 @@ Règles du flux :
 
 ```sql
 CREATE TABLE meta_sources (           -- fraîcheur : donnée de premier rang
-    source_id      TEXT PRIMARY KEY,  -- 'S1'…'S31' (ids de SOURCES.md)
+    source_id      TEXT PRIMARY KEY,  -- 'S1'…'S40' (ids de SOURCES.md)
     nom            TEXT NOT NULL,
     url            TEXT NOT NULL,
     licence        TEXT NOT NULL,     -- 'Licence Ouverte 2.0', 'ODbL'…
@@ -157,10 +157,15 @@ Un module par pipeline : `pipelines/ingest_<source>.py`, exécutable par `python
 | `ingest-integrite` | `ingest_integrite.py` | P7 — HATVP liste + RNE (S14, S17) |
 | `ingest-lobbying` | `ingest_lobbying.py` | P8 — HATVP AGORA (S4) |
 | `ingest-parlement` | `ingest_parlement.py` | P9 — AN + Sénat + Datan (S5, S6, S7) |
-| `ingest-financement` | `ingest_financement.py` | P10 — CNCCFP (S25, S29) |
+| `ingest-financement` | `ingest_financement.py` | P10 — CNCCFP + aide publique aux partis (S25, S29, S37) |
 | `ingest-collectivites` | `ingest_collectivites.py` | P11 — OFGL (S16) |
-| `ingest-referentiels` | `ingest_referentiels.py` | P12 — géo, populations, entreprises (S27, S10) |
+| `ingest-referentiels` | `ingest_referentiels.py` | P12 — géo, populations, annuaire et organisation de l'État (S27, S11, S35). Le module `pipelines/sirene.py` (S10, résolution unitaire par API) vit à côté mais n'est appelé par aucun pipeline : `meta_sources` ne porte aucune ligne S10. |
 | `ingest-trainvie` | `ingest_trainvie.py` | P13 — constantes sourcées (S31) |
+| `ingest-hatvp_declarations` | `ingest_hatvp_declarations.py` | Contenu des déclarations d'intérêts HATVP (S15). Passe **après** `ingest-integrite`, dont il lit les élus appariables. |
+| `ingest-elections` | `ingest_elections.py` | Résultats et participation électorale (S26). Passe **après** `ingest-referentiels` et `ingest-collectivites`, dont il lit le périmètre. |
+| `ingest-cada` | `ingest_cada.py` | Avis et conseils de la CADA, en agrégats (S38). Aucune dépendance d'ordre : n'écrit que ses propres tables. |
+| `ingest-registre_ue` | `ingest_registre_ue.py` | Registre de transparence de l'Union européenne (S40). Aucune dépendance d'ordre, et **aucun lien possible avec S4** : l'export UE ne porte ni SIREN ni numéro de TVA. |
+| `ingest-sirene` | `ingest_sirene.py` | Stock Sirene — attributs des unités légales citées (S18). **Pipeline dérivé** : il lit les SIREN cités par les autres tables et doit donc passer **après** elles ; sur une base neuve il échoue franchement au lieu d'écrire un référentiel vide. À ne pas confondre avec `pipelines/sirene.py`, qui est la résolution unitaire par API de S10. |
 
 Contrat d'un pipeline :
 1. importe `common` (session, `telecharger`, log) et `db` (`connexion`, `init_db`, `upsert_meta`) ;
@@ -191,8 +196,13 @@ Côté app : pages de module dans `app/src/app/<module>/page.tsx` (routes : `/de
 3. L'ajouter à la variable `PIPELINES` du `Makefile` → `make ingest-<source>` et inclusion dans `make ingest`.
 4. Écrire `pipelines/tests/test_<source>.py` + fixture réelle minimale ; `make test` vert.
 5. Exécuter réellement le pipeline ; vérifier la ligne `meta_sources` (compte de lignes, `date_donnees` cohérente avec la source).
-6. Côté app : requêtes dans `app/src/lib/`, page/composants avec **badge de fraîcheur** (§5), jetons DATAVIZ.md uniquement, mentions de licence/attribution si exigées (ODbL, Datan…).
-7. Si la source alimente une alerte (A1-A11), documenter la règle de calcul et sa base légale sur la page `/donnees`.
+6. **Calibrer le seuil de fraîcheur — en DEUX endroits, sinon la source s'affiche « sans seuil calibré » sur `/donnees`.** Une source sans seuil n'est pas neutre : elle est exclue de la supervision, et sa vignette de la page `/donnees` porte l'état `non_calibre` au lieu d'un état de santé.
+   - `/etc/france-transparence/fraicheur.conf` — **ce fichier vit hors du dépôt** : il est sur le serveur, en `0750 root:root`, non versionné, et un dépôt fraîchement cloné ne le contient pas. C'est le référentiel qui fait autorité, lu par la supervision quotidienne `ft-fraicheur`. Une ligne par source : `source_id | unite | seuil_retard_j | seuil_alerte_j | seuil_effondrement_pct | commentaire`, où `unite` vaut `jo` (jours ouvrés, sources qui suivent le calendrier ouvré français) ou `jc` (jours calendaires, tout le reste). Le seuil se calibre sur l'**âge normal observé** de la source, jamais sur le mot de `meta_sources.frequence` : deux sources « quotidiennes » peuvent avoir un âge normal de 2 jours (JORF) ou de 60 jours (scrutins de l'Assemblée pendant la trêve estivale).
+   - `app/src/lib/queries/donnees.ts`, table `SEUILS_SOURCES` — **copie versionnée** des mêmes valeurs. La duplication est assumée : le fichier `/etc` n'est pas lisible par l'utilisateur qui construit le site, et il n'existe ni dans un clone neuf ni en CI, qui doivent pourtant produire la même page. Toute modification d'un des deux doit être reportée dans l'autre ; `ft-fraicheur --json` affiche les seuils réellement appliqués côté serveur et sert à vérifier qu'ils n'ont pas divergé.
+   - Consigner la calibration retenue et son raisonnement dans la fiche de la source (`docs/SOURCES.md`), pour que le lecteur qui n'a pas accès à la machine sache quels seuils sont en vigueur.
+7. **Si le pipeline déclare un cache de plus de 23 h** (`max_age_heures`), l'inscrire dans `/etc/france-transparence/cache-long.conf` — **également hors dépôt**, sur le serveur. Sans cette exception, la purge quotidienne de `data/raw` (23 h) efface le fichier chaque nuit et le `max_age_heures` du pipeline reste sans effet : la source est re-téléchargée intégralement pour rien.
+8. Côté app : requêtes dans `app/src/lib/`, page/composants avec **badge de fraîcheur** (§5), jetons DATAVIZ.md uniquement, mentions de licence/attribution si exigées (ODbL, Datan…).
+9. Si la source alimente une alerte (A1-A11), documenter la règle de calcul et sa base légale sur la page `/donnees`.
 
 ---
 

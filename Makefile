@@ -21,9 +21,15 @@ PY     := $(VENV)/bin/python
 # autres et ne peut pas être joint au répertoire HATVP (l'export UE ne porte
 # ni SIREN ni numéro de TVA). Sa place en fin de liste est donc arbitraire —
 # elle ne doit surtout pas se lire comme une dépendance à lobbying.
+# sirene (S18) est en DERNIER, et cette place-là n'a rien d'arbitraire : le
+# référentiel Sirene n'est pas ingéré en entier, il est restreint aux SIREN
+# que les autres tables citent (decp, subventions, lobbying, collectivites,
+# entites, marches_a_venir). Il lit donc le résultat de presque tous les
+# autres ; placé avant eux, il n'aurait aucun SIREN à chercher et refuserait
+# d'écrire (MIN_SIREN_CITES).
 PIPELINES := referentiels budget_mensuel budget_structure decp boamp approch \
              jorf parlement integrite hatvp_declarations lobbying financement \
-             collectivites elections trainvie cada registre_ue
+             collectivites elections trainvie cada registre_ue sirene
 
 # NB : ne PAS déclarer les cibles ingest-<x> en .PHONY — make saute la
 # recherche de règles implicites (ingest-%) pour les cibles phony.
