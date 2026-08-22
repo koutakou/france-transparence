@@ -10,36 +10,41 @@
 # decp_top_titulaires perdent siret pour siren + nb_etablissements, et les tables
 # decp_titulaires_qualite et decp_acheteurs_qualite les accompagnent en comptant,
 # chacune de son côté, ce que ces classements écartent)
+# et le 22/08/2026 : l'ingestion du matin a posé en base les sept tables dont le DDL
+# ne venait jusque-là que du pipeline, et la comparaison document <-> base servie a été
+# rejouée en entier — 75 tables, 6 vues, 55 index, aucun écart, contraintes comprises.
 
 > **Extrait daté.** Ce document décrit **75 tables**, **6 vues** et **55 index**, et cette
 > couverture est sa propriété essentielle : une table de la base absente d'ici est un trou de
-> documentation, et une table décrite ici qui n'existe nulle part est une invention. **68** de ces
-> tables, les 6 vues et les 55 index sont ceux que `sqlite_master` recense au 21/08/2026 : sur ce
-> périmètre la couverture du schéma est entière à cette date, et le DDL reproduit a été confronté
-> objet par objet à celui de la base servie — noms, types, `NOT NULL`, valeurs par défaut et clés
-> primaires coïncident colonne à colonne pour ces 68 tables, et les noms d'index coïncident un à un.
-> Les **sept** autres sont reproduites d'après le `CREATE TABLE` de leur pipeline producteur,
-> `pipelines/ingest_decp.py` : c'est la seule partie du document dont le DDL ne provient pas d'un
-> `.schema` de la base servie, et le contrôle colonne à colonne décrit ci-dessus ne porte pas sur
-> elles. Elles ne sont pas dans le même état pour autant, et la différence compte :
+> documentation, et une table décrite ici qui n'existe nulle part est une invention. Les **75**
+> tables, les 6 vues et les 55 index sont ceux que `sqlite_master` recense au 22/08/2026, et le
+> DDL reproduit ici est celui de la base servie : le document a été rejoué dans une base SQLite
+> vide, puis les deux bases comparées objet par objet. Écart : **aucun, sur les 75 tables**.
 >
-> - `decp_publication_qualite`, `decp_publication_annees`, `decp_publication_acheteurs` — **présentes
->   dans la base servie**, avec les mêmes colonnes ; seule la provenance du texte diffère. Le
->   contrôle par rejeu du DDL ci-dessous les couvre et les trouve identiques à la base servie
->   jusqu'aux contraintes de colonne : leur provenance ne les laisse donc pas non vérifiées.
-> - `decp_top_acheteurs` et `decp_top_titulaires` — le DDL ci-dessous est celui du pipeline, et
->   **la base servie porte encore l'état antérieur** : une colonne `siret TEXT` là où le pipeline
->   écrit `siren TEXT`, et pas de colonne `nb_etablissements`. Un `SELECT siren` sur la base servie
->   échoue donc aujourd'hui.
-> - `decp_titulaires_qualite` et `decp_acheteurs_qualite` — **absentes de la base servie**, dont la
->   dernière ingestion est antérieure à ce changement de schéma. Le pipeline les écrit, la base
->   servie ne les porte pas.
+> Le contrôle porte, à cette date, sur plus que les colonnes. Noms, types, `NOT NULL`, valeurs par
+> défaut et clés primaires coïncident colonne à colonne ; le texte DDL intégral coïncide lui aussi,
+> ce qui couvre les contraintes de table (`CHECK`, `UNIQUE`, clés étrangères, `WITHOUT ROWID`) ; les
+> 55 index et les 6 vues coïncident un à un. Sept tables étaient jusqu'ici reproduites d'après le
+> `CREATE TABLE` de leur pipeline producteur, `pipelines/ingest_decp.py`, et non d'après un
+> `.schema` de la base servie : **l'ingestion du 22/08 les a posées en base, et leur DDL y est
+> désormais vérifié comme les autres.** Cela vaut pour `decp_publication_qualite`,
+> `decp_publication_annees`, `decp_publication_acheteurs`, `decp_top_acheteurs`,
+> `decp_top_titulaires`, `decp_titulaires_qualite` et `decp_acheteurs_qualite`.
 >
-> Cet écart n'exige aucune intervention manuelle : `charger()` de
-> `pipelines/ingest_decp.py` compare, à chaque chargement, les colonnes réelles de chaque table
-> `decp_*` à celles qu'il va écrire, supprime celles qui ne coïncident plus et laisse `_SCHEMA` les
-> recréer avec leurs index (`_reconcilier_schema`). Ces tables sont intégralement recalculées à
-> chaque passe : le `DROP` n'y perd aucune donnée.
+> Ce que ce contrôle ne couvre PAS, et il faut le savoir avant de s'y fier : la prose de ce
+> document — volumes par table, invariants, requêtes d'exemple — n'est vérifiée par aucun rejeu.
+> C'est là que la dérive se loge, le DDL étant tenu à jour par une machine et le texte qui l'entoure
+> par une main. Ne sont pas comparés non plus les collations ni les réglages de base
+> (`foreign_keys`, `journal_mode`, `user_version`).
+>
+> Une divergence transitoire entre le schéma du pipeline et celui de la base servie n'exige aucune
+> intervention manuelle : `charger()` de `pipelines/ingest_decp.py` compare, à chaque chargement,
+> les colonnes réelles de chaque table `decp_*` à celles qu'il va écrire, supprime celles qui ne
+> coïncident plus et laisse `_SCHEMA` les recréer avec leurs index (`_reconcilier_schema`). Ces
+> tables sont intégralement recalculées à chaque passe : le `DROP` n'y perd aucune donnée. **Le
+> filet ne couvre que les tables `decp_*`** — les douze autres pipelines gardent un
+> `CREATE TABLE IF NOT EXISTS` qui ne modifie pas une table existante, et la CI, qui ingère sur une
+> base neuve, ne peut pas le montrer.
 >
 > **Contrôle de couverture — la commande, à rejouer après toute modification de ce document.** Elle
 > ne compare pas des noms de tables lus au grep : elle **rejoue le DDL du document** dans une base
