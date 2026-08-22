@@ -359,7 +359,7 @@ export default async function PageDonnees() {
           Le manifeste de méthode du dashboard : données publiques réelles
           uniquement, fraîcheur mesurée et affichée, limites dites telles
           quelles. {formatNombre(sources.length)} sources tracées,{" "}
-          {formatNombre(totalLignes)} lignes en base locale
+          {formatNombre(totalLignes)} lignes ingérées
           {derniereIngestion
             ? `, dernière ingestion le ${formatDateFr(derniereIngestion)}`
             : ""}

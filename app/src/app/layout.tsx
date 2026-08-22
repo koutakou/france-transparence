@@ -110,19 +110,25 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-6">{children}</main>
         <footer className="border-t border-card-border">
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-1.5 px-5 py-4 text-xs leading-relaxed text-ink-muted">
-            {/* Licence exacte : les sources ingérées sont TOUTES en Licence
-                Ouverte (aucune ODbL en base — exigences-publiques.md §1.3). */}
+            {/* Licence : la PLUPART des sources sont en Licence Ouverte, pas
+                toutes. Trois relèvent d'un autre régime — publications
+                officielles hors open data, texte publié au JORF, décision
+                2011/833/UE. Le commentaire précédent affirmait « TOUTES en
+                Licence Ouverte » en le déduisant de « aucune ODbL en base » :
+                ce sont deux propriétés distinctes, et l'absence de l'une ne
+                démontre pas l'autre. meta_sources.licence fait foi ; ne pas
+                réintroduire ici un compte qui dérivera à la source suivante. */}
             <p>
-              Données publiques sous{" "}
+              Données publiques, pour la plupart sous{" "}
               <a
                 href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
               >
-                Licence&nbsp;Ouverte&nbsp;2.0
+                Licence&nbsp;Ouverte
               </a>{" "}
-              — sources et fraîcheur sur chaque module — page{" "}
+              — licence exacte et fraîcheur, source par source, page{" "}
               <Link
                 href="/donnees"
                 className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"

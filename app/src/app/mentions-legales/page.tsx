@@ -218,22 +218,27 @@ export default function PageMentionsLegales() {
           </p>
           <p>
             <strong className="text-ink">Données</strong> — les données
-            republiées proviennent exclusivement de publications officielles
-            ouvertes, diffusées sous{" "}
+            republiées proviennent exclusivement de publications officielles.
+            Leur licence, en revanche, n&apos;est pas uniforme : la plupart des
+            sources sont diffusées sous{" "}
             <a
               href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/"
               target="_blank"
               rel="noopener noreferrer"
               className={LIEN}
             >
-              Licence Ouverte 2.0
+              Licence Ouverte
             </a>{" "}
-            (Etalab). L&apos;attribution, source par source (producteur, URL
-            amont, licence, date des données), est publiée sur la page{" "}
+            (Etalab), d&apos;autres relèvent d&apos;un régime distinct —
+            décision 2011/833/UE pour les documents de la Commission
+            européenne, textes publiés au Journal officiel, publications
+            officielles hors open data. La licence exacte est indiquée source
+            par source sur la page{" "}
             <Link href="/donnees" className={LIEN}>
               Données
             </Link>
-            .
+            , avec le producteur, l&apos;URL amont et la date des données :
+            c&apos;est elle qui fait foi, et non le présent résumé.
           </p>
         </div>
       </Card>
