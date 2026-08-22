@@ -488,6 +488,18 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
             ))}
           </div>
         )}
+        <p className="mt-2 max-w-3xl text-xs text-ink-muted">
+          Une fiche nominative n&apos;existe que pour les mandats nationaux et
+          les exécutifs. Le site ne publie aucune nuance politique. Comment
+          lire ces pages&nbsp;:{" "}
+          <Link
+            href="/comprendre/#elus"
+            className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
+          >
+            comprendre ces données
+          </Link>
+          .
+        </p>
       </header>
 
       {depute && (

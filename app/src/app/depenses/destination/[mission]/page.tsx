@@ -211,6 +211,17 @@ export default async function PageMission({ params }: Props) {
             page Dépenses. Ministère{arbre.ministeres.length > 1 ? "s" : ""} de
             rattachement&nbsp;: {arbre.ministeres.join(" · ") || "non renseigné"}.
           </p>
+          <p className="mt-2 text-xs text-ink-muted">
+            Ce sont les crédits du projet de loi de finances, pas
+            l&apos;exécution. Comment lire PLF, LFI et exécution&nbsp;:{" "}
+            <Link
+              href="/comprendre/#depenses"
+              className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
+            >
+              comprendre ces données
+            </Link>
+            .
+          </p>
         </div>
         {badge}
       </section>

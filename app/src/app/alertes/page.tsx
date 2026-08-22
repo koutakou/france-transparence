@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AlertesListe } from "@/components/client/AlertesListe";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
+import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { JsonLd } from "@/components/JsonLd";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { formatDateFr, formatNombre } from "@/lib/format";
@@ -92,6 +93,33 @@ export default async function PageAlertes() {
           nominatifs (réserve&nbsp;: répertoire des élus trimestriel) — seuls
           les constats officiels de la HATVP sont nominatifs.
         </p>
+        <NoticeLecture
+          ancre="alertes"
+          commentLire={
+            <p>
+              Une alerte reprend un constat déjà formulé par une autorité, ou
+              un signal d’attention tiré des sources, avec sa règle et sa
+              base légale. Ce n’est pas un jugement du site. Les constats
+              officiels de la HATVP sont nominatifs ; les retards
+              «&nbsp;présumés&nbsp;» sont des agrégats, jamais un nom.
+            </p>
+          }
+          provenance={
+            <p>
+              Déclarations HATVP, répertoire des représentants d’intérêts,
+              comptes de campagne publiés par la CNCCFP. Recalcul à chaque
+              mise à jour des sources.
+            </p>
+          }
+          limites={
+            <p>
+              Une alerte n’est pas une infraction constatée par ce site. Un
+              homonyme non tranché ne donne lieu à aucune alerte nominative.
+              Une donnée manquante en amont exclut le cas, plutôt que
+              d’être estimée.
+            </p>
+          }
+        />
       </header>
 
       {/* KPI par gravité */}

@@ -67,7 +67,7 @@ Condensé des avertissements « pour le front » remontés par chaque pipeline a
 - Chaque page crée ses requêtes dans `app/src/lib/queries/<module>.ts` (fichier PAR module, jamais partagé entre agents).
 - Ne PAS toucher : layout.tsx, MainNav, globals.css, composants ui/* (signaler un besoin, ne pas modifier).
 - Vue tableau jumelle pour chaque graphique (règle DATAVIZ) ; deltas de dépense = neutres par défaut (upIsGood null).
-- **Appareil pédagogique** : page `/comprendre` (glossaire, provenance, limites, hors nav principale — 11 onglets déjà justes). Chaque module de données porte `NoticeLecture` (comment lire / d’où viennent / ce que ça ne dit pas) renvoyant vers `/comprendre/#…`. Pied de page + `/donnees` + accueil y renvoient.
+- **Appareil pédagogique** : page `/comprendre` (fonctionnement de chaque publication, glossaire, provenance, limites, hors nav principale — 11 onglets déjà justes). Chaque module de données porte `NoticeLecture` (comment lire / d’où viennent / ce que ça ne dit pas) renvoyant vers `/comprendre/#…` — y compris `/alertes` et `/depenses/destination`. Les fiches d’élus et les pages de mission renvoient vers l’ancre correspondante. Pied de page + `/donnees` + accueil y renvoient. L’ancre `#recettes` existe : ne pas la faire pointer vers `#depenses`.
 
 ## Référencement et cartes de partage (rappels)
 Le raisonnement complet vit dans les commentaires de `app/src/lib/seo.ts` — ne rien réimplémenter ailleurs. Ce qui suit est ce qu'une page doit savoir.

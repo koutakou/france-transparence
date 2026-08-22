@@ -9,7 +9,8 @@ import { jsonLdPage, metadonneesPage } from "@/lib/seo";
  * Page /comprendre — appareil pédagogique du site.
  *
  * Elle décrit la méthode actuellement pratiquée : republication de données
- * officielles, lecture, provenance, limites. Elle ne porte aucun chiffre
+ * officielles, fonctionnement de chaque publication, lecture, provenance,
+ * limites. Elle ne porte aucun chiffre
  * qui dérive (les valeurs vivantes restent sur les pages de données),
  * aucune projection, et ne présente pas l'éditeur comme une personne
  * morale — l'association porteuse n'a pas encore la capacité juridique.
@@ -20,7 +21,7 @@ import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 const CHEMIN = "/comprendre/";
 const TITRE = "Comprendre les données";
 const DESCRIPTION =
-  "Comment lire les chiffres de ce site : glossaire, provenance des sources, ce que ces données disent et ce qu’elles ne disent pas.";
+  "Comment fonctionnent les données publiques de ce site : glossaire, provenance, ce qu’elles disent et ce qu’elles ne disent pas.";
 
 export const metadata: Metadata = metadonneesPage({
   chemin: CHEMIN,
@@ -229,6 +230,82 @@ const GLOSSAIRE: EntreeGlossaire[] = [
     ),
   },
   {
+    terme: "Accord-cadre",
+    id: "accord-cadre",
+    def: (
+      <>
+        Contrat qui fixe un maximum et des conditions, sans commander à
+        lui seul les prestations. Le montant publié est un plafond, pas du
+        dépensé. Dans les totaux de ce site, un accord-cadre entre pour ce
+        maximum, après écrêtement.
+      </>
+    ),
+  },
+  {
+    terme: "PLF / LFI / exécution",
+    id: "plf-lfi",
+    def: (
+      <>
+        Le projet de loi de finances (PLF) est le texte déposé. La loi de
+        finances initiale (LFI) est le texte voté. L’exécution est ce qui a
+        été recouvré et dépensé, publié chaque mois. Ce site affiche
+        l’exécution mensuelle sur{" "}
+        <LienPage href="/depenses/">Dépenses</LienPage> et{" "}
+        <LienPage href="/recettes/">Recettes</LienPage>
+        ; la répartition par mission de 2025 est celle du PLF, pas de la
+        LFI — la LFI promulguée n’est pas publiée en open data.
+      </>
+    ),
+  },
+  {
+    terme: "Mission / programme",
+    id: "mission",
+    def: (
+      <>
+        Une mission est une politique publique du budget de l’État. Elle se
+        découpe en programmes, puis en actions et parfois en sous-actions.
+        Une mission n’est pas un ministère : plusieurs ministères peuvent
+        porter une même mission, et un ministère plusieurs missions.
+      </>
+    ),
+  },
+  {
+    terme: "CP / AE",
+    id: "cp-ae",
+    def: (
+      <>
+        Crédits de paiement (CP) : ce qui peut être payé dans l’année.
+        Autorisations d’engagement (AE) : ce qui peut être engagé, parfois
+        sur plusieurs années. Les pages «&nbsp;par destination&nbsp;»
+        affichent les deux, en brut. Ils ne sont pas comparables aux
+        dépenses nettes de l’exécution mensuelle.
+      </>
+    ),
+  },
+  {
+    terme: "Aide publique",
+    id: "aide-publique",
+    def: (
+      <>
+        Concours de l’État aux partis et groupements politiques, fixé par
+        décret, en deux fractions. Ce site affiche le montant du décret en
+        vigueur et celui inscrit aux comptes déposés : ce ne sont pas le
+        même exercice, ni le même objet.
+      </>
+    ),
+  },
+  {
+    terme: "Réformation",
+    id: "reformation",
+    def: (
+      <>
+        Correction apportée par la CNCCFP à un compte déposé. Elle peut
+        relever ou abaisser un montant déclaré. Le chiffre affiché sur ce
+        site est le montant retenu, pas le montant d’origine.
+      </>
+    ),
+  },
+  {
     terme: "Licence Ouverte",
     id: "licence-ouverte",
     def: (
@@ -253,9 +330,11 @@ const SOMMAIRE: { href: string; libelle: string }[] = [
   { href: "#lobbying", libelle: "Lobbying" },
   { href: "#financement", libelle: "Financement de la vie politique" },
   { href: "#depenses", libelle: "Budget de l’État" },
+  { href: "#recettes", libelle: "Recettes de l’État" },
   { href: "#collectivites", libelle: "Finances locales" },
   { href: "#frais", libelle: "Frais et train de vie" },
   { href: "#documents", libelle: "Documents officiels" },
+  { href: "#alertes", libelle: "Alertes" },
 ];
 
 export default function PageComprendre() {
@@ -269,9 +348,10 @@ export default function PageComprendre() {
         <p className="max-w-3xl text-sm leading-relaxed text-ink-secondary">
           Ce site met à portée d’un public non spécialiste des données
           publiques officielles qui, à l’état brut, sont dispersées et
-          techniques. Cette page dit comment les lire, d’où elles viennent, et
-          ce qu’elles ne disent pas. Les chiffres vivants restent sur chaque
-          module, avec leur date et leur source.
+          techniques. Cette page forme à leur lecture : comment fonctionne
+          chaque publication, d’où elle vient, et ce qu’elle ne dit pas. Les
+          chiffres vivants restent sur chaque module, avec leur date et leur
+          source.
         </p>
       </header>
 
@@ -297,10 +377,10 @@ export default function PageComprendre() {
         <div id="methode" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             France Transparence republie des données issues de publications
-            officielles. Il agrège, met en forme, date, qualifie la fraîcheur
-            et énonce les limites. Il ne produit pas de donnée. Il n’enquête
-            pas. Il ne commente pas, n’interprète pas, ne qualifie pas et ne
-            conclut pas.
+            officielles et en explique le fonctionnement. Il agrège, met en
+            forme, date, qualifie la fraîcheur et énonce les limites. Il ne
+            produit pas de donnée. Il n’enquête pas. Il ne commente pas,
+            n’interprète pas, ne qualifie pas et ne conclut pas.
           </p>
           <p>
             Une source n’entre que si elle est officielle, publiée, munie
@@ -387,22 +467,40 @@ export default function PageComprendre() {
       <Card titre="Commande publique">
         <div id="marches" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
             Un marché public est un contrat conclu à titre onéreux par un
             acheteur public avec un opérateur économique, pour répondre à ses
-            besoins en travaux, fournitures ou services. Après attribution,
-            l’acheteur notifie le marché au titulaire, puis en publie les
-            données essentielles. La loi lui laisse jusqu’à deux mois pour
-            cette publication : les fenêtres récentes sont donc
-            structurellement incomplètes, et un marché «&nbsp;apparu&nbsp;»
+            besoins en travaux, fournitures ou services. L’acheteur identifie
+            le besoin, met en concurrence selon la procédure qui s’applique,
+            attribue, puis notifie le marché au titulaire. Il publie ensuite
+            les données essentielles de ce marché. La loi lui laisse jusqu’à
+            deux mois pour cette publication : les fenêtres récentes sont
+            donc structurellement incomplètes, et un marché «&nbsp;apparu&nbsp;»
             aujourd’hui peut avoir été notifié il y a des mois.
           </p>
           <p>
-            <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
-            Les marchés notifiés viennent des DECP consolidées. Les appels
-            d’offres en cours viennent du BOAMP (bulletin officiel des
-            annonces de marchés publics). Les achats annoncés viennent
-            d’APProch. Voir{" "}
+            Trois publications distinctes coexistent, et ce site les tient
+            séparées. Les marchés déjà notifiés viennent des DECP. Les appels
+            d’offres encore ouverts viennent du BOAMP (bulletin officiel des
+            annonces de marchés publics). Les achats que l’acheteur annonce
+            sans encore les lancer viennent d’APProch. Un appel d’offres n’est
+            pas un marché notifié ; un achat annoncé n’est pas un appel
+            d’offres.
+          </p>
+          <p>
+            Un marché tient en plusieurs lignes à la source (titulaires ×
+            modifications). Ce site le date de sa notification{" "}
+            <strong className="font-medium text-ink">initiale</strong>
+            : un avenant change le montant ou les titulaires affichés, pas le
+            mois du marché. Lire la date de l’avenant comme date du marché
+            rangerait les avenants dans le mois courant. Voir{" "}
             <LienPage href="/marches/">Marchés publics</LienPage>.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
+            Les marchés notifiés viennent des DECP consolidées par le projet
+            communautaire decp-processing. Les appels d’offres en cours
+            viennent du BOAMP. Les achats annoncés viennent d’APProch.
           </p>
           <p>
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
@@ -417,8 +515,10 @@ export default function PageComprendre() {
           </p>
           <p>
             Le classement groupe par entreprise (SIREN), pas par établissement
-            (SIRET). Il s’arrête à la personne morale : il ne remonte pas au
-            groupe. Deux filiales restent deux lignes.
+            (SIRET). Classer par SIRET émiette une entreprise à réseau
+            d’agences en autant de lignes minuscules, dont aucune n’atteint le
+            seuil d’entrée. Le regroupement s’arrête à la personne morale : il
+            ne remonte pas au groupe. Deux filiales restent deux lignes.
           </p>
         </div>
       </Card>
@@ -426,27 +526,33 @@ export default function PageComprendre() {
       <Card titre="Élus et institutions">
         <div id="elus" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
             Les assemblées parlementaires publient leur composition, leurs
             groupes et les scrutins publics nominaux. Le ministère de
-            l’Intérieur tient le répertoire national des élus. La HATVP publie
-            les déclarations d’intérêts des responsables concernés. Voir{" "}
+            l’Intérieur tient le répertoire national des élus, mandat par
+            mandat. La HATVP publie les déclarations d’intérêts et
+            d’activités des responsables concernés ; le contenu des
+            déclarations de patrimoine consultables en préfecture n’est pas
+            en open data. Voir{" "}
             <LienPage href="/elus/">Élus &amp; institutions</LienPage>.
           </p>
           <p>
-            <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
             Une fiche nominative n’existe que pour les mandats nationaux et
             les exécutifs départementaux et régionaux. Les maires sont
             recensés ; ils n’ont pas de page dédiée. Les conseillers
-            municipaux du RNE n’entrent dans aucun chiffre d’élus affiché. Le
-            site ne publie aucune nuance ou sensibilité politique. Un taux de
-            participation aux scrutins n’est pas un jugement sur le travail
-            d’un élu : la présidence d’une assemblée y figure naturellement
-            très bas, parce qu’elle ne vote pas.
+            municipaux du RNE sont tenus en agrégat départemental : ils
+            n’entrent dans aucun chiffre d’élus affiché, et n’ont pas de
+            fiche.
           </p>
           <p>
-            Deux scores de participation cohabitent sur les fiches : l’un
-            calculé par ce site sur les scrutins publics de l’Assemblée, l’autre
-            publié par Datan. Ce sont deux méthodes, étiquetées comme telles.
+            <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
+            Le site ne publie aucune nuance ou sensibilité politique. Un taux
+            de participation aux scrutins n’est pas un jugement sur le
+            travail d’un élu : la présidence d’une assemblée y figure
+            naturellement très bas, parce qu’elle ne vote pas. Deux scores de
+            participation cohabitent sur les fiches : l’un calculé par ce
+            site sur les scrutins publics de l’Assemblée, l’autre publié par
+            Datan. Ce sont deux méthodes, étiquetées comme telles.
           </p>
         </div>
       </Card>
@@ -454,13 +560,23 @@ export default function PageComprendre() {
       <Card titre="Lobbying">
         <div id="lobbying" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
             Depuis la loi du 9 décembre 2016, certaines entités qui
             entreprennent d’influer sur la décision publique s’inscrivent au
-            répertoire des représentants d’intérêts et y déclarent leurs
-            activités, les institutions visées et une fourchette de moyens.
-            La HATVP publie ce répertoire et constate les défauts de
-            déclaration. Voir{" "}
+            répertoire des représentants d’intérêts tenu par la HATVP. Elles
+            y déclarent leurs activités, les institutions visées et une
+            fourchette de moyens. La Haute Autorité publie ce répertoire,
+            le met à jour chaque jour, et constate les défauts de
+            déclaration. Un «&nbsp;défaut de déclaration&nbsp;» affiché ici
+            reprend ce constat, ce n’est pas un jugement du site. Voir{" "}
             <LienPage href="/lobbying/">Lobbying</LienPage>.
+          </p>
+          <p>
+            Le répertoire français et le registre de transparence de l’Union
+            européenne sont deux publications distinctes, avec des seuils et
+            des obligations différents. Ce site les tient séparées. Un
+            croisement d’identifiants déjà publics relie, le cas échéant, un
+            titulaire de marché aussi inscrit comme représentant d’intérêts.
           </p>
           <p>
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
@@ -468,11 +584,10 @@ export default function PageComprendre() {
             n’est pas un montant exact. Le répertoire ne couvre pas toutes les
             formes d’influence : les seuils d’entrée, les personnes physiques
             et une partie de l’activité européenne y échappent. Le croisement
-            avec les marchés publics identifie les titulaires aussi inscrits
-            comme représentants d’intérêts ; il ne dit pas qu’un marché a été
-            obtenu par cette activité. Ce croisement n’applique pas le même
-            filtre de conformité d’identifiant que le classement des marchés :
-            les deux comptes ne portent pas sur la même population.
+            avec les marchés publics ne dit pas qu’un marché a été obtenu par
+            cette activité. Il n’applique pas le même filtre de conformité
+            d’identifiant que le classement des marchés : les deux comptes ne
+            portent pas sur la même population.
           </p>
         </div>
       </Card>
@@ -480,21 +595,30 @@ export default function PageComprendre() {
       <Card titre="Financement de la vie politique">
         <div id="financement" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
-            Les partis déposent chaque année leurs comptes certifiés à la
-            CNCCFP, qui les publie. Les campagnes électorales ont des comptes
-            distincts, arrêtés après chaque scrutin. L’aide publique aux
-            partis est fixée par décret. Voir{" "}
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
+            Les partis et groupements politiques déposent chaque année leurs
+            comptes, certifiés par un commissaire aux comptes, à la CNCCFP,
+            qui les publie. Ces comptes recouvrent les dons, les cotisations
+            d’adhérents et d’élus, l’aide publique, les contributions reçues
+            et les autres produits. L’aide publique est fixée par décret, en
+            deux fractions ; le montant du décret et celui inscrit aux
+            comptes déposés ne portent pas sur le même exercice. Voir{" "}
             <LienPage href="/financement/">Financement</LienPage>.
+          </p>
+          <p>
+            Les campagnes électorales ont des comptes distincts, arrêtés
+            après chaque scrutin, eux aussi publiés par la Commission. Un
+            compte de campagne n’est pas un compte de parti. Les montants en
+            francs CFP n’entrent pas dans les totaux en euros.
           </p>
           <p>
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
             Un compte publié n’est pas le patrimoine d’un parti, ni l’argent
             disponible. Une réformation par la Commission peut relever ou
             abaisser un montant déclaré : le site affiche le retenu. Les
-            comptes des municipales en cours d’instruction n’y figurent pas
-            tant que la Commission ne les a pas publiés. Ce site ne produit
-            aucun classement d’opinion, aucune intention de vote, aucune
-            mesure de notoriété.
+            comptes que la Commission n’a pas publiés n’y figurent pas.
+            Ce site ne produit aucun classement d’opinion, aucune intention
+            de vote, aucune mesure de notoriété.
           </p>
         </div>
       </Card>
@@ -502,18 +626,31 @@ export default function PageComprendre() {
       <Card titre="Budget de l’État">
         <div id="depenses" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
-            L’État publie chaque mois une situation d’exécution : recettes
-            nettes, dépenses nettes, solde, en cumuls depuis le 1<sup>er</sup>{" "}
-            janvier. Le détail par mission et programme est celui du projet
-            de loi de finances et du budget voté, pas celui des paiements
-            jour par jour. Les paiements du système Chorus ne sont pas en
-            open data. Voir <LienPage href="/depenses/">Dépenses</LienPage> et{" "}
-            <LienPage href="/recettes/">Recettes</LienPage>.
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
+            Le budget de l’État se lit en trois documents distincts. Le
+            projet de loi de finances (PLF) est le texte déposé. La loi de
+            finances initiale (LFI) est le texte voté. L’exécution est ce qui
+            a été recouvré et dépensé. L’État publie chaque mois une
+            situation d’exécution : recettes nettes, dépenses nettes, solde,
+            en cumuls depuis le 1<sup>er</sup> janvier. Ces situations
+            paraissent avec cinq à sept semaines de latence. Voir{" "}
+            <LienPage href="/depenses/">Dépenses</LienPage>.
+          </p>
+          <p>
+            Le détail par mission et programme est celui du PLF (et, pour
+            2026, du budget vert annexé au PLF), pas celui des paiements jour
+            par jour. La LFI promulguée n’est pas publiée en open data. Les
+            crédits de paiement et autorisations d’engagement de ces pages
+            sont bruts : ils ne sont pas comparables aux dépenses nettes de
+            l’exécution mensuelle. Les paiements du système Chorus ne sont
+            pas en open data.
           </p>
           <p>
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
             Un cumul mensuel n’est pas un rythme de dépense quotidien. Les
-            mois de l’année en cours sont provisoires jusqu’à la clôture. La
+            mois de l’année en cours sont provisoires jusqu’à la clôture. Un
+            delta d’une année sur l’autre n’est ni une hausse «&nbsp;bonne&nbsp;»
+            ni une baisse «&nbsp;mauvaise&nbsp;» : il est affiché neutre. La
             mission «&nbsp;Pensions&nbsp;» pèse lourd dans le budget par
             destination : c’est un compte d’affectation spéciale, pas une
             politique publique comparable aux autres missions. Les
@@ -523,28 +660,63 @@ export default function PageComprendre() {
         </div>
       </Card>
 
-      <Card titre="Finances locales">
-        <div id="collectivites" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+      <Card titre="Recettes de l’État">
+        <div id="recettes" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
-            Les communes, départements et régions votent un budget principal
-            et rendent des comptes. L’OFGL les consolide. Ce site affiche les
-            comptes de l’ensemble des départements et régions, et ceux des
-            200 communes les plus peuplées. La participation électorale
-            porte, elle, sur l’union de deux listes déjà connues du site :
-            les préfectures et communes de plus de 50&nbsp;000 habitants
-            (points de la carte), et ces 200 communes. Voir{" "}
-            <LienPage href="/collectivites/">Finances locales</LienPage>.
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
+            Les recettes du budget général sont publiées dans la même
+            situation mensuelle que les dépenses. Elles sont nettes des
+            remboursements et dégrèvements d’impôts : un impôt «&nbsp;net&nbsp;»
+            n’est pas le montant mis à la charge du contribuable. Comme les
+            dépenses, ce sont des cumuls depuis le 1<sup>er</sup> janvier, et
+            les mois de l’année en cours sont provisoires jusqu’à la
+            clôture. Voir <LienPage href="/recettes/">Recettes</LienPage>.
           </p>
           <p>
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
-            Un montant de fonctionnement n’inclut pas les budgets annexes ni
-            les dépenses portées par l’intercommunalité. Une commune absente
-            d’un exercice provisoire n’a pas dépensé zéro : sa donnée n’est
-            pas encore publiée. Un écart à la médiane de strate n’est ni une
-            faute ni un mérite. La participation affichée est celle des
-            inscrits des communes et départements suivis, pas «&nbsp;la
-            France&nbsp;» : les Français établis hors de France n’y sont pas.
-            Aucune nuance politique, aucun nom de candidat.
+            Ce n’est pas le détail des encaissements jour par jour, ni la
+            fiscalité locale, ni les recettes de la sécurité sociale. La
+            ligne TVA ne couvre que la part revenant au budget général : les
+            fractions affectées à d’autres administrations n’y figurent pas.
+            Les recettes non fiscales paraissent en un seul total : la
+            situation mensuelle n’en publie aucun détail, et ce site n’en
+            fabrique pas.
+          </p>
+        </div>
+      </Card>
+
+      <Card titre="Finances locales">
+        <div id="collectivites" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+          <p>
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
+            Les communes, départements et régions votent un budget principal
+            et rendent des comptes. L’OFGL les consolide à partir des données
+            DGFiP. Ce site affiche les comptes de l’ensemble des départements
+            et régions, et ceux des 200 communes les plus peuplées. Tous les
+            montants portent sur le budget principal seul : les budgets
+            annexes (eau, transports, régies) et les dépenses portées par
+            l’intercommunalité n’y sont pas. Voir{" "}
+            <LienPage href="/collectivites/">Finances locales</LienPage>.
+          </p>
+          <p>
+            La participation électorale porte, elle, sur l’union de deux
+            listes : les préfectures et communes de plus de
+            50&nbsp;000 habitants (points de la carte), et ces 200 communes.
+            Ce n’est pas «&nbsp;les communes de France&nbsp;». Un écart à la
+            médiane de strate n’est ni une faute ni un mérite : une commune
+            touristique ou une commune dont les compétences sont transférées
+            à l’EPCI n’est pas comparable à sa voisine hors de cette
+            médiane.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
+            Une commune absente d’un exercice provisoire n’a pas dépensé
+            zéro : sa donnée n’est pas publiée. Un montant de DGF à
+            zéro n’est pas une donnée manquante : c’est parfois un
+            écrêtement réel du calcul officiel. La participation affichée
+            est celle des inscrits des communes et départements suivis, pas
+            «&nbsp;la France&nbsp;» : les Français établis hors de France n’y
+            sont pas. Aucune nuance politique, aucun nom de candidat.
           </p>
         </div>
       </Card>
@@ -552,6 +724,7 @@ export default function PageComprendre() {
       <Card titre="Frais et train de vie">
         <div id="frais" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
             Les indemnités, dotations et avances des responsables publics
             ont des barèmes publiés. Les comptes de l’Élysée sont audités
             par la Cour des comptes. Les justificatifs de frais des
@@ -574,8 +747,10 @@ export default function PageComprendre() {
       <Card titre="Documents officiels">
         <div id="documents" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
             Le Journal officiel «&nbsp;Lois et décrets&nbsp;» paraît chaque
-            jour ouvrable. Ce site en republie les métadonnées (titre, type,
+            jour ouvrable, pas tous les jours civils : une série quotidienne
+            a des trous. Ce site en republie les métadonnées (titre, type,
             date) et renvoie vers Légifrance pour le texte. Voir{" "}
             <LienPage href="/documents/">Documents</LienPage>.
           </p>
@@ -584,6 +759,29 @@ export default function PageComprendre() {
             Une nomination au JO n’est pas une biographie. Un décret n’est
             pas résumé ici. La fenêtre affichée est celle des derniers JO
             parus, pas l’intégralité de l’historique.
+          </p>
+        </div>
+      </Card>
+
+      <Card titre="Alertes">
+        <div id="alertes" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+          <p>
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
+            Une alerte de ce site reprend un constat déjà formulé par une
+            autorité, ou un signal d’attention tiré des sources, avec sa
+            règle de calcul et sa base légale. Ce n’est pas un jugement du
+            site. Les constats officiels de la HATVP (déclaration non
+            déposée) sont nominatifs. Les retards «&nbsp;présumés&nbsp;»
+            sont des agrégats non nominatifs, parce que le répertoire des
+            élus est trimestriel. Voir{" "}
+            <LienPage href="/alertes/">Alertes</LienPage>.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
+            Une alerte n’est pas une infraction constatée par ce site. Un
+            homonyme non tranché ne donne lieu à aucune alerte nominative.
+            Une donnée manquante en amont exclut le cas, plutôt que d’être
+            estimée.
           </p>
         </div>
       </Card>

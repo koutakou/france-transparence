@@ -5,6 +5,7 @@ import { JsonLd } from "@/components/JsonLd";
 import { Card } from "@/components/ui/Card";
 import { DataTable } from "@/components/ui/DataTable";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
+import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { ESPACE_FINE, formatEuros, formatNombre } from "@/lib/format";
 import {
   getMissionsDestination2025Liste,
@@ -128,6 +129,32 @@ export default async function PageDestination() {
             </Link>
             .
           </p>
+          <NoticeLecture
+            ancre="depenses"
+            commentLire={
+              <p>
+                Ces montants sont ceux du projet de loi de finances, pas de
+                l’exécution mensuelle ni de la loi de finances votée. CP et
+                AE sont bruts : ils ne se comparent pas aux dépenses nettes
+                de la page Dépenses. Une mission n’est pas un ministère.
+              </p>
+            }
+            provenance={
+              <p>
+                Projet de loi de finances 2025, répartition par destination
+                (missions, programmes, actions). La LFI promulguée n’est pas
+                publiée en open data.
+              </p>
+            }
+            limites={
+              <p>
+                Ce n’est pas ce qui a été payé. Les paiements du système
+                Chorus ne sont pas en open data. La mission
+                «&nbsp;Pensions&nbsp;» est un compte d’affectation spéciale,
+                pas une politique comparable aux autres.
+              </p>
+            }
+          />
         </div>
         {badge}
       </section>
