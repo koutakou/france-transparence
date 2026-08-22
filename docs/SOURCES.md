@@ -28,6 +28,13 @@
 > placé avant `sirene` (qui reste dernier). Le secteur ESA S13 (APU) n'est pas la source S13 (SMB
 > DGFiP).
 >
+> **Mise à jour du 22/08/2026 (soir).** **S42** (déficit public des APU au sens de Maastricht,
+> Eurostat `gov_10dd_edpt1`, na_item=B9, via `pipelines/ingest_deficit_maastricht.py`) s'ajoute.
+> L'ingestion compte donc **20 pipelines** et **32 sources tracées dans `meta_sources`**.
+> Distinct de S41 (stock GD trimestriel) et de S13 (solde du budget général). Pas de
+> comparaison au seuil de 3 % du PIB. Pipeline sans dépendance d'ordre, placé avant
+> `sirene`.
+>
 > **Document daté.** Les fraîcheurs et volumétries amont relevées ici l'ont été par appels réels le
 > 19/08/2026 (et le 20/08 pour S38 et S40) : elles décrivent ces jours-là et **ont dérivé depuis**.
 > Le catalogue vivant, avec la date réellement ingérée de chaque source, est la page `/donnees`
@@ -317,6 +324,14 @@ Tous téléchargés/dépouillés le 19/08/2026 (05-frais-indemnites.md) :
 - **Piège d'unité** : native **MIO_EUR** (millions d'euros). Conversion Md€ = MIO_EUR **÷ 1000** à la lecture. Jamais ÷ 1e9 (unité des flux S13, en euros). Pas de `PC_GDP`, pas de montant par habitant, pas d'autre `na_item` que GD (pas de déficit).
 - **Modules** : Dépenses de l'État (bloc cloisonné après la décomposition par titre). **INGÉRÉE** — pipeline P17 `pipelines/ingest_dette_maastricht.py`.
 
+#### S42. Déficit public des APU au sens de Maastricht (Eurostat `gov_10dd_edpt1`, évalué le 22/08/2026)
+- **Producteur** : Eurostat (ESTAT). Datacode `gov_10dd_edpt1`. **URL** (DOI, stable) : `https://doi.org/10.2908/GOV_10DD_EDPT1`. API filtrée (re-fetch à chaque ingestion) : `geo=FR`, `sector=S13`, `na_item=B9`, deux extraits `unit=MIO_EUR` et `unit=PC_GDP`.
+- **Licence relue** (copyright-notice Eurostat, HTTP 200 le 22/08/2026) : **décision 2011/833/UE** — « Reuse of statistical data … commercial or non-commercial … source is acknowledged ». Libellé `meta_sources` : `Décision 2011/833/UE (réutilisation des données statistiques Eurostat)`. **Pas CC BY 4.0** (le CC BY 4.0 de la même page couvre le contenu éditorial du site, pas les données statistiques).
+- **Fréquence** : annuelle (notification EDP d'avril, TIME = année civile). **Date des données** = 31 décembre du TIME max (ex. 2025 → 2025-12-31), **jamais** le champ JSON-stat `updated` (date de diffusion : 2026-04-22 pour le millésime 2025).
+- **Objet** : `na_item=B9` = capacité (+) / besoin (−) de financement des administrations publiques. Un B9 négatif est un déficit ; un B9 positif est un excédent. Ce n'est **pas** le solde du budget général (S13, DGFiP, flux de l'État, cumul YTD). Ce n'est **pas** l'encours de dette (S41, na_item=GD, stock trimestriel). `source_id` = **S42**, jamais `'S13'` ni `'S41'`.
+- **Piège d'unité** : native **MIO_EUR**. Conversion Md€ = MIO_EUR **÷ 1000** à la lecture. Jamais ÷ 1e9. `PC_GDP` est le pourcentage du PIB, lu à part et affiché comme un fait ; **jamais comparé au seuil de 3 %** (aucun écart, aucun coloriage). Pas de montant par habitant, pas de série trimestrielle (`gov_10q_ggnfa`), pas de sous-secteur S.1311.
+- **Modules** : Dépenses de l'État (bloc cloisonné après l'encours S41). **INGÉRÉE** — pipeline P18 `pipelines/ingest_deficit_maastricht.py`.
+
 ### Groupe E — Sources écartées (raison prouvée le 19/08/2026)
 
 | Source écartée | Raison constatée | Rapport |
@@ -401,7 +416,7 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 - **Contenu concret** : compteur « dépenses de l'État depuis le 1er janvier » (cumul mensuel, ex. réel : 195,0 Md€ de dépenses nettes du BG au 31/05/2026, 01) avec variation vs même période 2025 ; donut par grands postes (titres, S13) ; top missions (S20, annuel, mention PLF) ; carte de France des marchés notifiés sur 30 jours (S1, lat/lng natives) ; flux « derniers marchés notifiés » (J-1) et « derniers textes au JO » (jour même) ; « X appels d'offres en cours » ; bandeau : marchés notifiés/12 mois, ~500 000 mandats d'élus (S17), 6 829 lobbyistes enregistrés (S4), 12 930 dossiers déclaratifs HATVP (S14).
 
 ### Dépenses de l'État
-- **Sources** : S13 (mensuel), S20 + S21 (structure mission→action), S23 (subventions aux associations), S24 (performance, non ingéré), S22 (patrimonial, non ingéré), S30 (missions mensuelles PDF, non ingéré), S39 (référentiel des opérateurs, non ingéré).
+- **Sources** : S13 (mensuel), S20 + S21 (structure mission→action), S23 (subventions aux associations), S41 (encours APU Maastricht, bloc cloisonné), S42 (déficit public APU Maastricht, bloc cloisonné), S24 (performance, non ingéré), S22 (patrimonial, non ingéré), S30 (missions mensuelles PDF, non ingéré), S39 (référentiel des opérateurs, non ingéré).
 - **Fraîcheur affichable** : « Exécution mensuelle : données au 30/06/2026, ~6 semaines de décalage » (01) · « Structure du budget : PLF 2026 (déposé oct. 2025) et exécution 2024 » (01) · « Subventions aux associations : versements 2023 (dernier millésime publié) » (01).
 - **Contenu concret** : courbes 2013-2026 dépenses/recettes/solde, N vs N-1 par titre ; treemap mission → programme → action (comparateur exéc. 2024 / LFI 2025 / PLF 2026 + cotation budget vert) ; recherche parmi 112 722 subventions (SIREN, programme, commune). **Avertissements obligatoires** : PLF ≠ LFI 2026 (jamais publiée en données) ; aucune donnée de paiement en temps réel n'existe (01).
 
@@ -574,6 +589,7 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 | S39 Jaune opérateurs PLF 2026 | Annuelle (13/01/2026) (10-critique) | lov2 (confirmée 20/08/2026) | Dépenses de l'État (référentiel opérateurs) | non ingéré |
 | S40 Registre de transparence UE | Export XML quotidien (exportDate) | décision 2011/833/UE (20/08/2026) | Lobbying (bloc cloisonné) | **ingérée** (P16) |
 | S41 Encours de dette des APU (Maastricht) | Trimestrielle (fin de trimestre de TIME max, jamais `updated`) | décision 2011/833/UE (22/08/2026) | Dépenses (bloc cloisonné) | **ingérée** (P17) |
+| S42 Déficit public des APU (Maastricht) | Annuelle (31/12 du TIME max, jamais `updated`) | décision 2011/833/UE (22/08/2026) | Dépenses (bloc cloisonné) | **ingérée** (P18) |
 
 ---
 

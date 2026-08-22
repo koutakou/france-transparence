@@ -80,7 +80,7 @@ type SeuilSource = { unite: UniteAge; retard: number; alerte: number };
  * seuils dans `meta_sources` (colonnes dédiées) via les pipelines.
  *
  * Ordre et valeurs repris ligne à ligne de `fraicheur.conf`.
- * Dernière synchronisation : 22/08/2026, 31 sources (ajout de S41).
+ * Dernière synchronisation : 22/08/2026, 32 sources (ajout de S42).
  */
 const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // Quotidiennes strictes, calendrier ouvré
@@ -118,6 +118,10 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   S20: { unite: "jc", retard: 400, alerte: 440 },
   S37: { unite: "jc", retard: 400, alerte: 440 },
   S31: { unite: "jc", retard: 450, alerte: 550 },
+  // Annuelle EDP (notification avril N+1). date_donnees = 31/12 du TIME
+  // max, jamais `updated`. 400/440 sonnerait dès février, avant la
+  // notification d'avril (~477 j après le 31/12). 520/600 = 17/20 mois.
+  S42: { unite: "jc", retard: 520, alerte: 600 },
   // Annuelles à décalage structurel documenté
   S21: { unite: "jc", retard: 400, alerte: 440 },
   S23: { unite: "jc", retard: 760, alerte: 850 },

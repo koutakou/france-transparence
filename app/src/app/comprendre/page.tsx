@@ -393,6 +393,20 @@ const GLOSSAIRE: EntreeGlossaire[] = [
     ),
   },
   {
+    terme: "B9 / déficit Maastricht",
+    id: "b9-maastricht",
+    def: (
+      <>
+        Indicateur de comptes nationaux (ESA 2010)&nbsp;: capacité (+) ou
+        besoin (−) de financement des administrations publiques, sur une
+        année civile. Un B9 négatif est un déficit. Ce n’est pas le solde
+        du budget de l’État, ni l’encours de dette. Le pourcentage du PIB
+        publié à côté est un fait de la même série, pas une comparaison à
+        un seuil.
+      </>
+    ),
+  },
+  {
     terme: "Licence Ouverte",
     id: "licence-ouverte",
     def: (
@@ -419,6 +433,7 @@ const SOMMAIRE: { href: string; libelle: string }[] = [
   { href: "#financement", libelle: "Financement de la vie politique" },
   { href: "#depenses", libelle: "Budget de l’État" },
   { href: "#dette-maastricht", libelle: "Dette des APU (Maastricht)" },
+  { href: "#deficit-maastricht", libelle: "Déficit des APU (Maastricht)" },
   { href: "#recettes", libelle: "Recettes de l’État" },
   { href: "#collectivites", libelle: "Finances locales" },
   { href: "#frais", libelle: "Frais et train de vie" },
@@ -632,6 +647,15 @@ export default function PageComprendre() {
               Les sources ne portent pas toutes la Licence Ouverte, ni
               toutes la même version. La licence exacte, source par source,
               est sur la page <LienPage href="/donnees/">Données</LienPage>.
+            </li>
+            <li>
+              <strong className="font-medium text-ink">
+                22 août 2026 — Stock, solde, déficit.
+              </strong>{" "}
+              L’encours Maastricht est un stock des APU. Le solde du
+              budget général est un flux cumulé de l’État. Le déficit
+              Maastricht (B9) est un flux annuel des APU. Ce ne sont pas
+              le même objet&nbsp;: ils ne s’additionnent pas.
             </li>
           </ul>
         </div>
@@ -910,6 +934,43 @@ export default function PageComprendre() {
             sur la même page (flux DGFiP, cumul depuis le 1<sup>er</sup>{" "}
             janvier). Ce n’est pas le déficit. Ce n’est pas un montant par
             habitant, ni un pourcentage du PIB.
+          </p>
+        </div>
+      </Card>
+
+      <Card titre="Déficit des APU (Maastricht)">
+        <div id="deficit-maastricht" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+          <p>
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
+            Le déficit Maastricht est le besoin de financement annuel des
+            administrations publiques (secteur ESA S13 : État, Odac,
+            administrations publiques locales, administrations de sécurité
+            sociale). L’indicateur s’appelle B9 : un nombre négatif est un
+            besoin (déficit), un nombre positif une capacité (excédent).
+            C’est un flux d’année civile, pas un stock. L’unité native
+            Eurostat est le million d’euros (MIO_EUR) ; le milliard affiché
+            est ce million divisé par 1&nbsp;000. Le pourcentage du PIB
+            vient de la même série, lu à part ; il n’est comparé à aucun
+            seuil. Un delta d’une année sur l’autre n’est ni «&nbsp;bon&nbsp;»
+            ni «&nbsp;mauvais&nbsp;». Voir{" "}
+            <LienPage href="/depenses/#deficit-maastricht">Dépenses</LienPage>.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
+            Eurostat, datacode gov_10dd_edpt1, DOI 10.2908/GOV_10DD_EDPT1.
+            Extraits geo=FR, sector=S13 (ESA), na_item=B9, unit=MIO_EUR et
+            unit=PC_GDP. C’est la notification d’avril (EDP). Réutilisation :
+            décision 2011/833/UE (données statistiques Eurostat). Le
+            secteur ESA S13 n’est pas la source S13 de ce site.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
+            Ce n’est pas le solde du budget général (flux de l’État, cumul
+            depuis le 1<sup>er</sup> janvier). Ce n’est pas l’encours de
+            dette (stock trimestriel déjà publié sur la même page). Ce
+            n’est pas le déficit de l’État seul (sous-secteur S.1311). Ce
+            n’est pas un montant par habitant. Le pourcentage du PIB n’est
+            comparé à aucun seuil.
           </p>
         </div>
       </Card>

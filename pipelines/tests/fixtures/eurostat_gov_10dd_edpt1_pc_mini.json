@@ -1,0 +1,51 @@
+{
+  "version": "2.0",
+  "class": "dataset",
+  "label": "Government deficit/surplus (fixture minimale inventée, PC_GDP)",
+  "source": "ESTAT",
+  "updated": "2026-01-01T00:00:00+0100",
+  "value": {
+    "0": -4.0,
+    "1": -4.5
+  },
+  "status": {
+    "1": "p"
+  },
+  "id": ["freq", "unit", "sector", "na_item", "geo", "time"],
+  "size": [1, 1, 1, 1, 1, 2],
+  "dimension": {
+    "freq": {
+      "label": "Time frequency",
+      "category": {"index": {"A": 0}, "label": {"A": "Annual"}}
+    },
+    "unit": {
+      "label": "Unit of measure",
+      "category": {
+        "index": {"PC_GDP": 0},
+        "label": {"PC_GDP": "Percentage of gross domestic product (GDP)"}
+      }
+    },
+    "sector": {
+      "label": "Sector",
+      "category": {"index": {"S13": 0}, "label": {"S13": "General government"}}
+    },
+    "na_item": {
+      "label": "National accounts indicator (ESA 2010)",
+      "category": {
+        "index": {"B9": 0},
+        "label": {"B9": "Net lending (+)/net borrowing (-)"}
+      }
+    },
+    "geo": {
+      "label": "Geopolitical entity (reporting)",
+      "category": {"index": {"FR": 0}, "label": {"FR": "France"}}
+    },
+    "time": {
+      "label": "Time",
+      "category": {
+        "index": {"2024": 0, "2025": 1},
+        "label": {"2024": "2024", "2025": "2025"}
+      }
+    }
+  }
+}

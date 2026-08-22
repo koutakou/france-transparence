@@ -17,6 +17,10 @@ import {
   perimetreDette,
 } from "@/lib/queries/dette-maastricht";
 import {
+  getDeficitMaastricht,
+  perimetreDeficit,
+} from "@/lib/queries/deficit-maastricht";
+import {
   getDepensesParTitre,
   getKpisBudgetMensuel,
   getMinisteresDestination2025,
@@ -113,6 +117,7 @@ export default async function PageDepenses() {
   const serie = getSerieDepensesNettes(3);
   const parTitre = getDepensesParTitre();
   const dette = getDetteMaastricht();
+  const deficit = getDeficitMaastricht();
   const missions = getMissionsPlf2026(10);
   const ministeres = getMinisteresDestination2025(10);
   const subventions = getSubventionsAssociations(10);
@@ -406,8 +411,140 @@ export default async function PageDepenses() {
                   Ce n’est pas la dette de l’État seul (sous-secteur S.1311).
                   Ce n’est pas la charge d’intérêts DGFiP déjà sur cette page
                   (flux, cumul depuis le 1er janvier, budget général). Ce n’est
-                  pas le déficit. Ce n’est pas un montant par habitant, ni un
-                  pourcentage du PIB.
+                  pas le déficit (bloc suivant, flux annuel B9). Ce n’est pas
+                  un montant par habitant, ni un pourcentage du PIB.
+                </p>
+              }
+            />
+            </div>
+          </Card>
+        </>
+      )}
+
+      {/* Déficit Maastricht (S42) — flux annuel APU, cloisonné du solde S13 et du stock S41 */}
+      {deficit && (
+        <>
+          <div className="flex items-center gap-3" role="separator">
+            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+              Autre objet · flux annuel des APU, pas le solde de l&apos;État
+            </span>
+            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+          </div>
+
+          <Card
+            titre="Déficit public des APU (Maastricht)"
+            sousTitre="Capacité (+) / besoin (−) de financement annuel — distinct du solde du budget général et de l'encours ci-dessus"
+            droite={
+              <FreshnessBadge
+                dateDonnees={deficit.meta.date_donnees}
+                source="Eurostat — gov_10dd_edpt1"
+                frequence={deficit.meta.frequence}
+                url={deficit.meta.url}
+              />
+            }
+          >
+            <div className="mb-4 rounded-xl border border-card-border bg-raised p-4">
+              <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+                Pourquoi ce bloc est séparé du reste de la page
+              </h3>
+              <p className="text-xs leading-relaxed text-ink-secondary">
+                Le solde du budget général (source S13, DGFiP) est un flux
+                de l&apos;État, cumulé depuis le 1er janvier. L&apos;encours
+                ci-dessus (S41) est un stock. Ce bloc est un{" "}
+                <strong className="font-medium text-ink">
+                  flux annuel des administrations publiques
+                </strong>{" "}
+                (secteur ESA S13&nbsp;: État, Odac, APUL, ASSO), publié par
+                Eurostat sous l&apos;indicateur B9. Les trois objets ne
+                s&apos;additionnent pas.
+              </p>
+            </div>
+            <KpiTile
+              nu
+              label={
+                deficit.estDeficit
+                  ? "Déficit public des APU (Maastricht)"
+                  : "Capacité de financement des APU (Maastricht)"
+              }
+              valeur={`${formatNombre(
+                deficit.estDeficit ? deficit.deficitMd : deficit.b9Md,
+                1,
+              )}${ESPACE_FINE}Md€`}
+              montantVedette
+              perimetre={perimetreDeficit(deficit.dernier)}
+              delta={
+                deficit.deltaPct === null
+                  ? undefined
+                  : {
+                      valeur: deficit.deltaPct,
+                      vs: deficit.precedent
+                        ? `année ${deficit.precedent.annee}`
+                        : "année précédente",
+                    }
+              }
+            />
+            <VueTableau>
+              <DataTable
+                colonnes={[
+                  { cle: "annee", entete: "Année" },
+                  {
+                    cle: "b9md",
+                    entete: "B9 (Md€)",
+                    type: "montant",
+                    decimales: 1,
+                  },
+                  {
+                    cle: "pc",
+                    entete: "% du PIB",
+                    type: "nombre",
+                    decimales: 1,
+                  },
+                ]}
+                lignes={deficit.serie.slice(-12).map((o) => ({
+                  annee: o.annee,
+                  b9md: o.valeur_mio_eur / 1000,
+                  pc: o.valeur_pc_gdp,
+                }))}
+                cleLigne={(l) => String(l.annee)}
+              />
+            </VueTableau>
+            <div className="mt-4">
+            <NoticeLecture
+              ancre="deficit-maastricht"
+              commentLire={
+                <p>
+                  C’est un flux d’année civile, pas un stock et pas un cumul
+                  depuis le 1er janvier. B9 est signé&nbsp;: un nombre
+                  négatif est un besoin de financement (déficit), un nombre
+                  positif une capacité (excédent). La tuile affiche la
+                  valeur absolue quand B9 est négatif, sous le libellé
+                  «&nbsp;déficit&nbsp;». L’unité affichée (Md€) est le
+                  million d’euros Eurostat divisé par 1&nbsp;000. Le
+                  pourcentage du PIB est un fait de la même série, pas une
+                  comparaison à un seuil. Un delta d’une année sur l’autre
+                  n’est ni «&nbsp;bon&nbsp;» ni «&nbsp;mauvais&nbsp;» : il
+                  est affiché neutre.
+                </p>
+              }
+              provenance={
+                <p>
+                  Eurostat, datacode gov_10dd_edpt1 (DOI{" "}
+                  10.2908/GOV_10DD_EDPT1), extraits geo=FR, sector=S13
+                  (ESA&nbsp;: administrations publiques), na_item=B9,
+                  unit=MIO_EUR et unit=PC_GDP. C’est la notification
+                  d’avril (EDP), pas la date de diffusion. Réutilisation&nbsp;:
+                  décision 2011/833/UE.
+                </p>
+              }
+              limites={
+                <p>
+                  Ce n’est pas le solde du budget général (S13, État, cumul
+                  depuis le 1er janvier). Ce n’est pas l’encours de dette
+                  (S41, stock trimestriel). Ce n’est pas le déficit de
+                  l’État seul (sous-secteur S.1311). Ce n’est pas un
+                  montant par habitant. Le pourcentage du PIB n’est comparé
+                  à aucun seuil.
                 </p>
               }
             />

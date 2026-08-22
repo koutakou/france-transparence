@@ -15,16 +15,20 @@
 # rejouée en entier — 75 tables, 6 vues, 55 index, aucun écart, contraintes comprises
 # ; le soir, table dette_apu_maastricht (S41, Eurostat gov_10q_ggdebt) — CREATE recopié
 # du pipeline P17 ; absente de la base servie tant que l'ingestion n'a pas tourné.
+# Puis table deficit_apu_maastricht (S42, Eurostat gov_10dd_edpt1, B9) — CREATE
+# recopié du pipeline P18.
 
-> **Extrait daté.** Ce document décrit **76 tables**, **6 vues** et **55 index**, et cette
+> **Extrait daté.** Ce document décrit **77 tables**, **6 vues** et **55 index**, et cette
 > couverture est sa propriété essentielle : une table de la base absente d'ici est un trou de
 > documentation, et une table décrite ici qui n'existe nulle part est une invention. Les **75**
 > tables, les 6 vues et les 55 index sont ceux que `sqlite_master` recense au 22/08/2026 (matin), et le
 > DDL reproduit ici est celui de la base servie : le document a été rejoué dans une base SQLite
 > vide, puis les deux bases comparées objet par objet. Écart : **aucun, sur les 75 tables**.
-> La 76e table, `dette_apu_maastricht` (S41), est celle du pipeline P17 : tant que
+> La 76e table, `dette_apu_maastricht` (S41), est celle du pipeline P17. La 77e,
+> `deficit_apu_maastricht` (S42), est celle du pipeline P18 : tant que
 > l'ingestion n'a pas tourné sur la base servie, le contrôle affiche
-> `doc sans base : ['dette_apu_maastricht']` — attendu, pas un trou.
+> `doc sans base : ['deficit_apu_maastricht']` (et éventuellement
+> `dette_apu_maastricht` si P17 n'a pas non plus tourné) — attendu, pas un trou.
 >
 > Le contrôle porte, à cette date, sur plus que les colonnes. Noms, types, `NOT NULL`, valeurs par
 > défaut et clés primaires coïncident colonne à colonne ; le texte DDL intégral coïncide lui aussi,
@@ -938,6 +942,24 @@ CREATE TABLE dette_apu_maastricht (
     valeur_mio_eur REAL NOT NULL CHECK (valeur_mio_eur > 0),
     statut         TEXT,
     PRIMARY KEY (geo, sector, na_item, unit, trimestre)
+);
+-- ---------------------------------------------------------------------------
+-- S42 — Déficit public des APU au sens de Maastricht (pipeline P18,
+-- Eurostat gov_10dd_edpt1). Flux annuel, na_item=B9 (capacité + / besoin −
+-- de financement). Le secteur ESA S13 n'est PAS la source FT S13 (solde
+-- du budget général DGFiP). Distinct de S41 (stock GD trimestriel).
+-- Unité native MIO_EUR ; Md€ à la lecture (÷ 1000), jamais ÷ 1e9.
+-- PC_GDP est le % du PIB, jamais comparé au seuil de 3 %.
+-- ---------------------------------------------------------------------------
+CREATE TABLE deficit_apu_maastricht (
+    geo            TEXT NOT NULL CHECK (geo = 'FR'),
+    sector         TEXT NOT NULL CHECK (sector = 'S13'), -- ESA APU, pas la source S13
+    na_item        TEXT NOT NULL CHECK (na_item = 'B9'), -- jamais GD (stock S41)
+    annee          INTEGER NOT NULL,
+    valeur_mio_eur REAL NOT NULL, -- signé : − = besoin de financement
+    valeur_pc_gdp  REAL NOT NULL, -- signé, % du PIB ; jamais un écart à 3 %
+    statut         TEXT,
+    PRIMARY KEY (geo, sector, na_item, annee)
 );
 CREATE TABLE partis (
     id               TEXT PRIMARY KEY REFERENCES entites(id),
