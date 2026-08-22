@@ -142,8 +142,9 @@ export default async function PageDestination() {
             provenance={
               <p>
                 Projet de loi de finances 2025, répartition par destination
-                (missions, programmes, actions). La LFI promulguée n’est pas
-                publiée en open data.
+                (missions, programmes, actions). Une LFI 2025 par mission
+                est publiée dans le budget vert ; ce n’est pas la
+                granularité sous-action × nature.
               </p>
             }
             limites={

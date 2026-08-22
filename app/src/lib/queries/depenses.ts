@@ -5,8 +5,9 @@
  * - S13 `budget_mensuel` — situations mensuelles budgétaires DGFiP :
  *   montants = CUMULS depuis le 1er janvier, dernier mois = max(date_fin_mois)
  *   (= 2026-06-30 à l'ingestion du 19/08/2026), colonnes `*_n1` pour N−1 ;
- * - S20 `budget_vert` — crédits PLF 2026 (≠ LFI promulguée, jamais publiée
- *   en données) : afficher `etiquette_2026`, filtrer
+ * - S20 `budget_vert` — crédits PLF 2026 (≠ LFI 2026, jamais publiée
+ *   en données ; une LFI 2025 par mission y figure) : afficher
+ *   `etiquette_2026`, filtrer
  *   `type_depense = 'Crédits budgétaires'` (total CP 479,5 Md€) ;
  * - S21 `budget_destination_2025` — CP BRUTS du PLF 2025 (projet), non
  *   comparables aux dépenses nettes de S13 ;

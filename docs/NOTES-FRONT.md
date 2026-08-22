@@ -5,7 +5,7 @@ Condensé des avertissements « pour le front » remontés par chaque pipeline a
 ## Budget de l'État (S13, S20, S21, S23)
 - `budget_mensuel` : montants = **cumuls depuis le 1er janvier** (`montant_mois` = flux mensuel) ; dernier mois = `max(date_fin_mois)` (= 2026-06-30). Décomposition par titre : `categorie='Dépenses' AND sous_categorie='Budget général' AND niveau=2`. Colonnes `*_n1` pour la variation vs N−1.
 - Dépenses nettes cumulées au 30/06/2026 = 240,54 Md€ (+5,44 %). PAS de temps réel : afficher « exécution mensuelle, données au 30/06/2026 ».
-- `budget_vert` : montants **PLF 2026** (≠ LFI promulguée, jamais publiée en données) → afficher l'`etiquette_2026`. Top missions : filtrer `type_depense='Crédits budgétaires'` (total CP 479,5 Md€).
+- `budget_vert` : montants **PLF 2026** (≠ LFI 2026, jamais publiée en données) → afficher l'`etiquette_2026`. Porte aussi une LFI 2025 par mission, en crédits budgétaires. Top missions : filtrer `type_depense='Crédits budgétaires'` (total CP 479,5 Md€).
 - `budget_destination_2025` : CP **bruts**, ne pas comparer aux « dépenses nettes » de S13.
 - `subventions_associations` : versements **2023** (décalage structurel de 2 ans, le dire).
 

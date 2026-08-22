@@ -323,7 +323,7 @@ export default async function PageDepenses() {
                 source="Budget vert — PLF 2026"
                 frequence={sources.S20.frequence}
                 url={sources.S20.url}
-                mention="PLF 2026 — la LFI promulguée n'est pas publiée en open data"
+                mention="PLF 2026 — la LFI 2026 n'est pas publiée en données"
               />
             )
           }
