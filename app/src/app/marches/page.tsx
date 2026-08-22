@@ -1227,7 +1227,10 @@ export default async function PageMarches() {
                 m.acheteur_nom ? (
                   <span title={`SIREN ${m.acheteur_siren ?? "inconnu"}`}>{m.acheteur_nom}</span>
                 ) : m.acheteur_siren ? (
-                  <span className="text-ink-secondary" title="SIREN absent du référentiel entités">
+                  <span
+                    className="text-ink-secondary"
+                    title="SIREN nommé par aucun référentiel"
+                  >
                     SIREN {m.acheteur_siren}
                   </span>
                 ) : (
@@ -1261,9 +1264,11 @@ export default async function PageMarches() {
           {formatNombre(donnees.marchesAVenir.length)} publications prévues
           les plus proches affichées sur{" "}
           {formatNombre(kpis.marchesAVenir)} projets. La source ne fournit que
-          le SIREN de l’acheteur — le nom est affiché quand ce SIREN figure au
-          référentiel des entités. Les montants sont des tranches indicatives
-          en texte, non sommables.
+          le SIREN de l’acheteur : le nom affiché est celui du référentiel des
+          entités, ou à défaut la dénomination légale du répertoire Sirene.
+          Quand aucun des deux ne nomme le SIREN, c’est le SIREN qui est
+          affiché — aucun nom n’est reconstitué. Les montants sont des
+          tranches indicatives en texte, non sommables.
         </p>
       </Card>
 

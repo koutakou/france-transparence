@@ -43,8 +43,8 @@
  *
  * BOAMP : ao_en_cours est un instantané quotidien — on re-filtre TOUJOURS
  * annulee = 0 ET date_limite_reponse > datetime('now') à la requête.
- * APProch : acheteur = SIREN seul (nom récupéré via entites quand connu),
- * montants en tranches TEXTE non sommables.
+ * APProch : acheteur = SIREN seul (nom résolu à la requête sur entites puis
+ * sur le référentiel Sirene), montants en tranches TEXTE non sommables.
  *
  * Toutes les requêtes de ce fichier ont été éprouvées sur la base réelle
  * (sqlite3 mode ro) le 19/08/2026, sauf celles des tops et de
@@ -378,7 +378,8 @@ export type MarcheAVenir = {
   code: string;
   intitule: string | null;
   acheteur_siren: string | null;
-  /** Nom résolu via entites (référentiel) — NULL si SIREN inconnu du référentiel. */
+  /** Nom résolu à la requête : `entites` d'abord, `sirene_unites_legales`
+   *  ensuite — NULL si le SIREN n'est nommé par aucun des deux. */
   acheteur_nom: string | null;
   categorie_achat: string | null;
   montant_estime_tranche: string | null; // tranche texte non sommable
@@ -603,6 +604,62 @@ const SQL_TOP_TITULAIRES_SANS_SIRENE = `
 const SQL_TOP_ACHETEURS_SANS_SIRENE = `
   SELECT rang, siren, nom, nb_etablissements, nb_marches, montant_total
     FROM decp_top_acheteurs ORDER BY rang LIMIT 10`;
+
+/**
+ * Achats annoncés (APProch) : la source ne publie QUE le SIREN de l'acheteur,
+ * le schéma le commente lui-même. Le nom est donc résolu à la LECTURE, sur
+ * deux référentiels et dans cet ordre :
+ *   1. `entites` — vocabulaire maison, mis en forme pour l'affichage
+ *      (« Ministère de l'Intérieur »), mais il ne couvre qu'une minorité des
+ *      SIREN acheteurs ;
+ *   2. `sirene_unites_legales` — dénomination légale en capitales, qui couvre
+ *      le reste.
+ * `entites` passe en premier délibérément : quand les deux nomment le même
+ * SIREN, c'est le libellé lisible qui doit s'afficher, pas la forme légale.
+ *
+ * POURQUOI À LA REQUÊTE et jamais par un UPDATE depuis le pipeline Sirene :
+ * `ingest_approch` fait DELETE+INSERT à chaque ingestion, un nom écrit par un
+ * autre pipeline serait effacé à la suivante — et cela créerait entre les deux
+ * pipelines un couplage d'écriture que le projet refuse déjà pour les tops
+ * (cf. SQL_TOP_TITULAIRES).
+ *
+ * RGPD, même règle qu'aux tops : `denomination` est NULL pour les personnes
+ * physiques, et aucun nom, prénom ni sexe de personne physique n'est lu du
+ * fichier Sirene. Un acheteur non nommé le RESTE — la page affiche alors son
+ * SIREN, jamais un nom emprunté à une autre source.
+ *
+ * `NULLIF(TRIM(...), '')` : les deux référentiels portent la chaîne vide au
+ * même titre que NULL, les deux doivent replier.
+ */
+const SQL_MARCHES_A_VENIR = `
+  SELECT m.code, m.intitule, m.acheteur_siren,
+         COALESCE(
+           NULLIF(TRIM((SELECT e.nom FROM entites e
+                         WHERE e.siren = m.acheteur_siren
+                         ORDER BY e.nom LIMIT 1)), ''),
+           NULLIF(TRIM(s.denomination), '')
+         ) AS acheteur_nom,
+         m.categorie_achat, m.montant_estime_tranche,
+         m.date_prev_publication, m.lien_consultation
+    FROM marches_a_venir m
+    LEFT JOIN sirene_unites_legales s ON s.siren = m.acheteur_siren
+   ORDER BY m.date_prev_publication ASC, m.code LIMIT 20`;
+
+/**
+ * Même liste sans le référentiel Sirene, produit par un AUTRE pipeline et
+ * qui peut donc manquer : SQLite refuserait la requête entière sur une table
+ * absente. On retombe sur `entites` seul, c'est-à-dire sur le comportement
+ * publié jusqu'ici. Dégradation propre, jamais une page en erreur.
+ */
+const SQL_MARCHES_A_VENIR_SANS_SIRENE = `
+  SELECT m.code, m.intitule, m.acheteur_siren,
+         NULLIF(TRIM((SELECT e.nom FROM entites e
+                       WHERE e.siren = m.acheteur_siren
+                       ORDER BY e.nom LIMIT 1)), '') AS acheteur_nom,
+         m.categorie_achat, m.montant_estime_tranche,
+         m.date_prev_publication, m.lien_consultation
+    FROM marches_a_venir m
+   ORDER BY m.date_prev_publication ASC, m.code LIMIT 20`;
 
 /** Une table est-elle présente en base ? (tables produites par d'autres
  *  pipelines : leur absence est un état normal, pas une erreur). */
@@ -911,20 +968,12 @@ export function chargerDonneesMarches(
     )
     .all() as AnnoncesJour[];
 
-  // APProch : nom d'acheteur via entites quand le SIREN y figure
-  // (sous-requête scalaire : un SIREN peut porter 2 entités — vérifié).
-  // Vérifié : 606 projets sur 4 060 avec nom résolu.
+  // APProch : nom d'acheteur résolu à la requête sur `entites` puis Sirene
+  // (sous-requête scalaire côté entites : un SIREN peut y porter 2 lignes —
+  // vérifié). Cf. SQL_MARCHES_A_VENIR pour l'ordre des référentiels et le
+  // refus du couplage d'écriture avec ingest_approch.
   const marchesAVenir = db
-    .prepare(
-      `SELECT m.code, m.intitule, m.acheteur_siren,
-              (SELECT e.nom FROM entites e
-                WHERE e.siren = m.acheteur_siren
-                ORDER BY e.nom LIMIT 1) AS acheteur_nom,
-              m.categorie_achat, m.montant_estime_tranche,
-              m.date_prev_publication, m.lien_consultation
-       FROM marches_a_venir m
-       ORDER BY m.date_prev_publication ASC, m.code LIMIT 20`,
-    )
+    .prepare(avecSirene ? SQL_MARCHES_A_VENIR : SQL_MARCHES_A_VENIR_SANS_SIRENE)
     .all() as MarcheAVenir[];
 
   // Alertes du domaine marchés — aucune à ce jour (vérifié : 0 ligne),
