@@ -26,6 +26,7 @@ import {
 } from "@/lib/queries/collectivites";
 import { getDonneesElectionsInline } from "@/lib/queries/elections";
 import { JsonLd } from "@/components/JsonLd";
+import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
 /**
@@ -310,6 +311,38 @@ export default async function PageCollectivites() {
           fonctionnement (DGF) : jusqu&apos;à l&apos;exercice {exerciceDgf ?? "—"}. Chaque bloc
           affiche sa source et sa fraîcheur — aucun montant estimé.
         </p>
+        <NoticeLecture
+          ancre="collectivites"
+          commentLire={
+            <p>
+              Tous les montants portent sur le budget principal seul. Une
+              commune absente d’un exercice provisoire n’a pas dépensé zéro :
+              sa donnée n’est pas encore publiée. Un écart à la médiane de
+              strate n’est ni une faute ni un mérite. La participation
+              électorale porte sur les préfectures, les communes de plus de
+              50&nbsp;000&nbsp;habitants, et les 200 communes les plus
+              peuplées — pas sur les 35&nbsp;000 communes de France.
+            </p>
+          }
+          provenance={
+            <p>
+              Comptes des collectivités consolidés par l’OFGL à partir des
+              données DGFiP. Participation : résultats agrégés du ministère
+              de l’Intérieur. Dotation globale de fonctionnement : montants
+              officiels de l’exercice affiché.
+            </p>
+          }
+          limites={
+            <p>
+              Les budgets annexes et les dépenses portées par
+              l’intercommunalité n’y sont pas. L’agrégat de participation
+              s’appelle «&nbsp;ensemble des départements&nbsp;», jamais
+              «&nbsp;la France&nbsp;» : les Français établis hors de France
+              n’y figurent pas. Aucune nuance politique, aucun nom de
+              candidat.
+            </p>
+          }
+        />
       </header>
 
       {/* ------------------------------------------------ KPI nationaux */}

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
 import { JsonLd } from "@/components/JsonLd";
+import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { KpiTile } from "@/components/ui/KpiTile";
@@ -158,6 +159,35 @@ export default async function PageDepenses() {
             cinq à sept semaines de latence — dernière publiée&nbsp;:{" "}
             {formatDateFr(kpis.dateFinMois)}.
           </p>
+          <NoticeLecture
+            ancre="depenses"
+            commentLire={
+              <p>
+                Les montants sont des cumuls depuis le 1er janvier, pas un
+                rythme quotidien. Les mois de l’année en cours sont
+                provisoires jusqu’à la clôture. Un delta d’une année sur
+                l’autre n’est ni une hausse «&nbsp;bonne&nbsp;» ni une baisse
+                «&nbsp;mauvaise&nbsp;» : il est affiché neutre.
+              </p>
+            }
+            provenance={
+              <p>
+                Situations mensuelles budgétaires de la DGFiP, projet de loi
+                de finances (missions, budget vert), jaune budgétaire des
+                subventions aux associations. Les paiements du système Chorus
+                ne sont pas en open data.
+              </p>
+            }
+            limites={
+              <p>
+                Le détail des paiements n’existe pas en donnée ouverte. La
+                mission «&nbsp;Pensions&nbsp;» est un compte d’affectation
+                spéciale, pas une politique comparable aux autres. Les
+                administrations de sécurité sociale, la dépense propre des
+                opérateurs et les entreprises publiques sont hors champ.
+              </p>
+            }
+          />
         </div>
         {sources.S13 && (
           <FreshnessBadge

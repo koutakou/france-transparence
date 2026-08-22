@@ -16,6 +16,7 @@ import {
   type VerrousCadaData,
 } from "@/lib/queries/frais";
 import { JsonLd } from "@/components/JsonLd";
+import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
 // Rendu statique : la donnée ne change qu'à l'ingestion, le site est
@@ -508,6 +509,33 @@ export default async function FraisPage() {
             matériellement impossibles&nbsp;: cette page montre ce qui est réellement publié
             — et documente ce qui ne l’est pas.
           </p>
+          <NoticeLecture
+            ancre="frais"
+            commentLire={
+              <p>
+                Un barème n’est pas un montant dépensé. Un rapport de
+                déontologue agrégé ne désigne personne. Cette page montre ce
+                qui est publié, et documente ce qui ne l’est pas.
+              </p>
+            }
+            provenance={
+              <p>
+                Barèmes des assemblées et de l’administration, rapports du
+                déontologue, comptes de l’Élysée audités par la Cour des
+                comptes. Les refus d’accès de l’Assemblée nationale et du
+                Sénat du 11 juin 2026 sont cités tels quels.
+              </p>
+            }
+            limites={
+              <p>
+                Aucune note de frais individuelle n’est publiée ni
+                communicable pour les parlementaires (ordonnance
+                n°&nbsp;58-1100 du 17 novembre 1958). L’absence d’une
+                catégorie n’est pas un oubli : c’est, dans les cas
+                documentés, un refus d’accès à la source.
+              </p>
+            }
+          />
         </div>
         {meta && (
           <FreshnessBadge

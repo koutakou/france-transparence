@@ -23,7 +23,9 @@
  *
  * Valeurs de contrôle, relevées le 20/08/2026 sur data/france.db en lecture
  * seule : 740 lignes départementales (7 scrutins × 102 à 107 collectivités),
- * 1 524 lignes communales, 234 communes suivies par le site.
+ * 1 524 lignes communales, 234 communes suivies par le site
+ * (`ref_villes` ∪ `collectivites_communes_top200` : préfectures et
+ * communes de plus de 50 000 habitants, plus les 200 plus peuplées).
  *
  * Convention « base absente » : `getDonneesElections()` renvoie `null` tant
  * que `make ingest` n'a pas produit la base ou que S26 n'y est pas ingérée —

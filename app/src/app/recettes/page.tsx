@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
 import { JsonLd } from "@/components/JsonLd";
+import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { DeltaPct } from "@/components/ui/DeltaPct";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
@@ -171,6 +172,32 @@ export default async function PageRecettes() {
             l&apos;exercice. Dernière situation publiée&nbsp;:{" "}
             {formatDateFr(kpis.dateFinMois)}.
           </p>
+          <NoticeLecture
+            ancre="recettes"
+            commentLire={
+              <p>
+                Les montants sont des cumuls depuis le 1er janvier, nets des
+                remboursements et dégrèvements. Les mois de l’année en cours
+                sont provisoires jusqu’à la clôture. Un tiret «&nbsp;—&nbsp;»
+                n’est pas un zéro.
+              </p>
+            }
+            provenance={
+              <p>
+                Situations mensuelles budgétaires de la DGFiP, même source
+                que les dépenses d’exécution. Fraîcheur et licence sur la
+                page Données.
+              </p>
+            }
+            limites={
+              <p>
+                Ce n’est pas le détail des encaissements jour par jour, ni
+                la fiscalité locale, ni les recettes de la sécurité sociale.
+                Un impôt «&nbsp;net&nbsp;» n’est pas le montant mis à la
+                charge du contribuable.
+              </p>
+            }
+          />
         </div>
         {badge}
       </section>

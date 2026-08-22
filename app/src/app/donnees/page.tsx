@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { JsonLd } from "@/components/JsonLd";
 import { DataTable } from "@/components/ui/DataTable";
@@ -358,7 +359,15 @@ export default async function PageDonnees() {
         <p className="max-w-3xl text-sm text-ink-secondary">
           Le manifeste de méthode du dashboard : données publiques réelles
           uniquement, fraîcheur mesurée et affichée, limites dites telles
-          quelles. {formatNombre(sources.length)} sources tracées,{" "}
+          quelles. Comment lire un chiffre, d’où il vient et ce qu’il ne dit
+          pas : page{" "}
+          <Link
+            href="/comprendre"
+            className="underline decoration-dotted underline-offset-2 hover:text-ink"
+          >
+            Comprendre les données
+          </Link>
+          . {formatNombre(sources.length)} sources tracées,{" "}
           {formatNombre(totalLignes)} lignes ingérées
           {derniereIngestion
             ? `, dernière ingestion le ${formatDateFr(derniereIngestion)}`

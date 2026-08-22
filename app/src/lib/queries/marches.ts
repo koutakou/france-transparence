@@ -176,6 +176,28 @@ export type QualiteAcheteurs = {
   nb_sirens_multi_etab: number;
 };
 
+/**
+ * Forme d'un identifiant d'acheteur écarté du classement. La règle d'écart
+ * est unique : n'est pas un SIRET (14 chiffres, rien d'autre). Cette table
+ * dit CE QU'EST la valeur écartée, sans la publier : un dump d'identifiants
+ * illisibles n'apprend rien, un décompte par forme si.
+ *
+ * Les libellés sont stables ; les comptes dérivent. `null` si la fenêtre
+ * 12 mois n'a pas pu être reconstituée à l'unité près.
+ */
+export type FormeIdentifiantEcarte = {
+  classe:
+    | "non_numerique"
+    | "lettres"
+    | "siren_espaces"
+    | "siren_nu"
+    | "longueur_13"
+    | "autre";
+  libelle: string;
+  nb_identifiants: number;
+  nb_marches: number;
+};
+
 export type RepartitionProcedure = {
   /** NULL = procédure non renseignée à la source (catégorie à afficher). */
   valeur: string | null;
@@ -428,6 +450,10 @@ export type DonneesMarches = {
    *  acheteur). `null` si la table n'est pas en base — la mention
    *  correspondante n'est alors pas rendue. */
   qualiteAcheteurs: QualiteAcheteurs | null;
+  /** Forme des identifiants d'acheteur écartés (même fenêtre). `null` si
+   *  la fenêtre n'a pas pu être reconstituée : on n'affiche alors que le
+   *  compteur, pas une ventilation portant sur une autre population. */
+  formesIdentifiantsEcartes: FormeIdentifiantEcarte[] | null;
   departements: DepartementAgg[];
   serieMensuelle: MoisAgg[]; // 36 mois, ordre chronologique
   topAcheteurs: TopAcheteur[];
@@ -533,6 +559,90 @@ function chargerDecompositionSuspects(
       nbHorsPlafond: l.nb_hors_plafond,
       montantHorsPlafond: l.montant_hors_plafond,
     };
+  }
+  return null;
+}
+
+const LIBELLES_FORME_ECARTEE: Record<FormeIdentifiantEcarte["classe"], string> = {
+  non_numerique: "valeur sans aucun chiffre",
+  lettres: "identifiant portant des lettres",
+  siren_espaces: "SIREN de 9 chiffres, avec espaces",
+  siren_nu: "SIREN de 9 chiffres, sans le numéro d’établissement",
+  longueur_13: "numéro de 13 chiffres — un caractère manque pour un SIRET",
+  autre: "autre forme non conforme",
+};
+
+/** Classe un identifiant d'acheteur déjà connu non-SIRET. */
+function classeIdentifiant(id: string): FormeIdentifiantEcarte["classe"] {
+  if (!/\d/.test(id)) return "non_numerique";
+  if (/[A-Za-z]/.test(id)) return "lettres";
+  const chiffres = id.replace(/\D/g, "");
+  if (/\s/.test(id) && chiffres.length === 9) return "siren_espaces";
+  if (/^[0-9]+$/.test(id) && id.length === 9) return "siren_nu";
+  if (/^[0-9]+$/.test(id) && id.length === 13) return "longueur_13";
+  return "autre";
+}
+
+/**
+ * Ventile les identifiants d'acheteur écartés par FORME, sur la fenêtre
+ * 12 mois exacte de `decp_acheteurs_qualite`.
+ *
+ * POURQUOI ici et pas dans le pipeline : la règle d'écart (14 chiffres) est
+ * déjà appliquée à l'ingestion ; ce qui manquait à la page est de dire ce
+ * que sont ces valeurs, pas d'en changer le compte. Rejouer le filtre à la
+ * lecture évite un `CREATE TABLE` sur la base migrée. On ne retient un
+ * candidat QUE s'il reconstitue à l'unité près les trois compteurs déjà
+ * publiés (marchés de la fenêtre, marchés écartés, identifiants distincts).
+ */
+function chargerFormesIdentifiantsEcartes(
+  db: Db,
+  qualite: QualiteAcheteurs | null,
+  s1: MetaSource | undefined,
+): FormeIdentifiantEcarte[] | null {
+  const jour = s1?.date_ingestion?.slice(0, 10);
+  if (!qualite || !jour || qualite.nb_identifiants_ecartes === 0) return null;
+
+  const requete = db.prepare(
+    `SELECT acheteur_siret AS id, COUNT(*) AS n
+       FROM decp_marches
+      WHERE date_notification > date(:jour, :decalage, '-12 months')
+        AND acheteur_siret IS NOT NULL
+        AND NOT (length(acheteur_siret) = 14 AND acheteur_siret GLOB '[0-9]*')
+      GROUP BY acheteur_siret`,
+  );
+  const compteFenetre = db.prepare(
+    `SELECT COUNT(*) AS n FROM decp_marches
+      WHERE date_notification > date(:jour, :decalage, '-12 months')`,
+  );
+
+  for (const decalage of DECALAGES_FENETRE) {
+    const nFenetre = (compteFenetre.get({ jour, decalage }) as { n: number }).n;
+    const lignes = requete.all({ jour, decalage }) as { id: string; n: number }[];
+    const nbMarches = lignes.reduce((s, l) => s + l.n, 0);
+    if (
+      nFenetre !== qualite.nb_marches ||
+      lignes.length !== qualite.nb_identifiants_ecartes ||
+      nbMarches !== qualite.nb_marches_ecartes
+    ) {
+      continue;
+    }
+    const parClasse = new Map<FormeIdentifiantEcarte["classe"], FormeIdentifiantEcarte>();
+    for (const l of lignes) {
+      const classe = classeIdentifiant(l.id);
+      const deja = parClasse.get(classe);
+      if (deja) {
+        deja.nb_identifiants += 1;
+        deja.nb_marches += l.n;
+      } else {
+        parClasse.set(classe, {
+          classe,
+          libelle: LIBELLES_FORME_ECARTEE[classe],
+          nb_identifiants: 1,
+          nb_marches: l.n,
+        });
+      }
+    }
+    return [...parClasse.values()].sort((a, b) => b.nb_marches - a.nb_marches);
   }
   return null;
 }
@@ -896,6 +1006,12 @@ export function chargerDonneesMarches(
         .get() as QualiteAcheteurs | undefined) ?? null)
     : null;
 
+  const formesIdentifiantsEcartes = chargerFormesIdentifiantsEcartes(
+    db,
+    qualiteAcheteurs,
+    metaPar("S1"),
+  );
+
   // Répartition par procédure (12 mois) — valeur NULL = non renseigné,
   // catégorie à afficher telle quelle et non à masquer.
   const repartitionProcedure = db
@@ -1005,6 +1121,7 @@ export function chargerDonneesMarches(
     qualitePublication,
     qualiteTitulaires,
     qualiteAcheteurs,
+    formesIdentifiantsEcartes,
     departements,
     serieMensuelle,
     topAcheteurs,

@@ -137,13 +137,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               </Link>
               .
             </p>
-            {/* `prefetch={false}` sur ces deux liens : ils sont dans le pied de
-                page de TOUTES les pages, donc préchargés au viewport dès qu'on
-                arrive en bas — ~11 Ko compressés par vue de page pour deux
-                pages que quasiment personne n'ouvre. Ici pas de réarmement au
-                survol possible (layout = Server Component, aucun handler) : en
+            {/* `prefetch={false}` sur ces liens légaux et de méthode : ils
+                sont dans le pied de page de TOUTES les pages, donc
+                préchargés au viewport dès qu'on arrive en bas. Ici pas de
+                réarmement au survol possible (layout = Server Component) : en
                 Next 16.3.1, `false` coupe aussi le survol, la navigation vers
-                ces deux pages sera donc froide. C'est le bon arbitrage vu leur
+                ces pages sera donc froide. C'est le bon arbitrage vu leur
                 probabilité de clic ; le lien vers /donnees juste au-dessus est
                 laissé en préchargement par défaut, la nav le couvre déjà. */}
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -161,6 +160,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
               >
                 Données personnelles
+              </Link>
+              <span aria-hidden="true">·</span>
+              <Link
+                href="/comprendre"
+                prefetch={false}
+                className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
+              >
+                Comprendre les données
               </Link>
               <span aria-hidden="true">·</span>
               <a

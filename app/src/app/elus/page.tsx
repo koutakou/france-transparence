@@ -21,6 +21,7 @@ import {
 } from "@/lib/queries/elus";
 import type { MetaSource } from "@/lib/db";
 import { JsonLd } from "@/components/JsonLd";
+import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
 /**
@@ -161,6 +162,34 @@ export default async function PageElus() {
           parlementaires&nbsp;: le RNE recense en outre les conseillers municipaux, qui ne
           sont pas ingérés nom par nom et ne comptent donc dans aucun chiffre de cette page.
         </p>
+        <NoticeLecture
+          ancre="elus"
+          commentLire={
+            <p>
+              Une fiche nominative n’existe que pour les mandats nationaux et
+              les exécutifs départementaux et régionaux. Les conseillers
+              municipaux du RNE n’entrent dans aucun chiffre de cette page.
+              Deux scores de participation cohabitent : l’un calculé ici, l’autre
+              publié par Datan — deux méthodes, étiquetées.
+            </p>
+          }
+          provenance={
+            <p>
+              Assemblée nationale et Sénat (composition, groupes, scrutins
+              publics), répertoire national des élus (ministère de
+              l’Intérieur), déclarations d’intérêts de la HATVP, scores Datan
+              cités avec leur méthode.
+            </p>
+          }
+          limites={
+            <p>
+              Cette page ne publie aucune nuance ou sensibilité politique. Un
+              taux de participation aux scrutins n’est pas un jugement sur le
+              travail d’un élu. Le contenu des déclarations de patrimoine
+              consultables en préfecture n’y entre pas.
+            </p>
+          }
+        />
       </section>
 
       {stats && (

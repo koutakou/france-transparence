@@ -4,6 +4,7 @@ import { AlertItem, type Gravite } from "@/components/ui/AlertItem";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
 import { JsonLd } from "@/components/JsonLd";
+import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { DataTable } from "@/components/ui/DataTable";
 import { Donut } from "@/components/ui/Donut";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
@@ -234,6 +235,33 @@ export default async function FinancementPage() {
             comptes de campagne et des financements politiques (CNCCFP).
             Dernier exercice publié : 2024, paru le 10 février 2026.
           </p>
+          <NoticeLecture
+            ancre="financement"
+            commentLire={
+              <p>
+                Un compte publié n’est pas le patrimoine d’un parti, ni
+                l’argent disponible. Une réformation par la Commission peut
+                relever ou abaisser un montant déclaré : le chiffre affiché
+                est le retenu. Les montants en francs CFP n’entrent pas dans
+                les totaux en euros.
+              </p>
+            }
+            provenance={
+              <p>
+                Comptes des partis et comptes de campagne publiés par la
+                Commission nationale des comptes de campagne et des
+                financements politiques (CNCCFP). L’aide publique est celle
+                du décret en vigueur.
+              </p>
+            }
+            limites={
+              <p>
+                Les comptes non encore publiés par la Commission n’y figurent
+                pas. Cette page ne produit aucun classement d’opinion, aucune
+                intention de vote, aucune mesure de notoriété.
+              </p>
+            }
+          />
         </div>
         {badgePartis}
       </header>

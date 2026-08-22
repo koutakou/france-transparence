@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
 import { JsonLd } from "@/components/JsonLd";
+import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { Donut } from "@/components/ui/Donut";
 import { FluxTextes } from "@/components/client/FluxTextes";
@@ -157,6 +158,32 @@ export default async function DocumentsPage() {
             {formatDateFr(kpis.premierJo)} au {formatDateFr(kpis.dernierJo)}. Chaque texte
             renvoie vers Légifrance.
           </p>
+          <NoticeLecture
+            ancre="documents"
+            commentLire={
+              <p>
+                Chaque ligne est un texte paru au Journal officiel, pas un
+                résumé. Le titre et la nature viennent de la DILA. Le texte
+                intégral se lit sur Légifrance, pas ici.
+              </p>
+            }
+            provenance={
+              <p>
+                Livraisons quotidiennes JORFSIMPLE de la DILA (Journal
+                officiel «&nbsp;Lois et décrets&nbsp;»). La fenêtre affichée
+                est celle des derniers JO parus, pas l’intégralité de
+                l’historique.
+              </p>
+            }
+            limites={
+              <p>
+                Une nomination au JO n’est pas une biographie. Un décret
+                n’est pas commenté. Les autres séries du Journal officiel
+                (annonces, associations, marchés) n’entrent pas dans cette
+                page.
+              </p>
+            }
+          />
         </div>
         {meta && (
           <FreshnessBadge

@@ -6,6 +6,7 @@ import { BarChart } from "@/components/ui/BarChart";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
 import { JsonLd } from "@/components/JsonLd";
+import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { CarteDepartements } from "@/components/client/CarteDepartements";
 import { DataTable } from "@/components/ui/DataTable";
 import { Donut, type DonutPart } from "@/components/ui/Donut";
@@ -183,6 +184,7 @@ export default async function PageMarches() {
     qualitePublication,
     qualiteTitulaires,
     qualiteAcheteurs,
+    formesIdentifiantsEcartes,
   } = donnees;
 
   /* ---- « Ce que vaut ce total » : parts écrêtée et suspecte du KPI héros.
@@ -357,6 +359,38 @@ export default async function PageMarches() {
           les montants et les titulaires affichés sont, eux, ceux de la
           version courante du marché.
         </p>
+        <NoticeLecture
+          ancre="marches"
+          commentLire={
+            <p>
+              Un marché est daté de sa notification initiale, pas de son
+              dernier avenant. Les totaux «&nbsp;12 mois&nbsp;» et
+              «&nbsp;30 jours&nbsp;» portent sur cette date. Les montants
+              agrégés sont écrêtés à 100&nbsp;M€ par marché avant sommation ;
+              un accord-cadre y entre pour son maximum, pas pour le dépensé.
+              Un tiret «&nbsp;—&nbsp;» n’est pas un zéro.
+            </p>
+          }
+          provenance={
+            <p>
+              Données essentielles de la commande publique (DECP),
+              consolidées par le projet communautaire decp-processing ;
+              appels d’offres en cours du BOAMP ; achats annoncés d’APProch.
+              La publication légale peut prendre jusqu’à deux mois : les
+              fenêtres récentes sont incomplètes.
+            </p>
+          }
+          limites={
+            <p>
+              Cette page ne dit pas si un marché a été exécuté, ni s’il a été
+              payé, ni s’il était le mieux-disant. Un identifiant qui n’est
+              pas un SIRET de 14 chiffres est écarté des classements et
+              compté à part — il n’est pas complété d’un zéro de tête. Le
+              classement s’arrête à l’entreprise : il ne remonte pas au
+              groupe.
+            </p>
+          }
+        />
       </section>
 
       {/* ---------------------------------------------------------- */}
@@ -855,13 +889,29 @@ export default async function PageMarches() {
             />
             {qa && (
               <p className="mt-2 text-xs leading-relaxed text-ink-muted">
-                Les identifiants d’acheteur non conformes sont écartés de ce
-                classement et comptés à part :{" "}
+                Les identifiants d’acheteur qui ne sont pas un SIRET (14
+                chiffres, rien d’autre) sont écartés de ce classement et
+                comptés à part :{" "}
                 {formatNombre(qa.nb_marches_ecartes)} marchés sur{" "}
                 {formatNombre(qa.nb_marches_avec_acheteur)}, portant{" "}
                 {qa.montant_ecarte !== null ? formatEuros(qa.montant_ecarte) : "—"},
                 sous {formatNombre(qa.nb_identifiants_ecartes)} valeurs
-                d’identifiant distinctes.
+                d’identifiant distinctes
+                {formesIdentifiantsEcartes && formesIdentifiantsEcartes.length > 0 ? (
+                  <>
+                    {" "}
+                    — {formesIdentifiantsEcartes.map((f, i) => (
+                      <span key={f.classe}>
+                        {i > 0 ? (i === formesIdentifiantsEcartes.length - 1 ? " et " : ", ") : ""}
+                        {f.libelle} ({formatNombre(f.nb_identifiants)},{" "}
+                        {formatNombre(f.nb_marches)}{" "}
+                        {f.nb_marches < 2 ? "marché" : "marchés"})
+                      </span>
+                    ))}
+                  </>
+                ) : null}
+                . Un numéro à 13 chiffres n’est pas complété d’un zéro de
+                tête.
               </p>
             )}
             <VueTableau resume="Vue tableau — top acheteurs">

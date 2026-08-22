@@ -21,6 +21,7 @@ import {
   type TitulaireLobbyiste,
 } from "@/lib/queries/croisement-lobbying-marches";
 import { JsonLd } from "@/components/JsonLd";
+import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 import {
   getDonneesLobbying,
@@ -942,6 +943,34 @@ export default async function LobbyingPage() {
             d&apos;intérêts et les moyens qui y sont consacrés ; le
             répertoire est mis à jour quotidiennement.
           </p>
+          <NoticeLecture
+            ancre="lobbying"
+            commentLire={
+              <p>
+                Une inscription au répertoire n’est pas une infraction. Un
+                «&nbsp;défaut de déclaration&nbsp;» reprend un constat de la
+                HATVP, ce n’est pas un jugement du site. Les budgets sont des
+                fourchettes déclarées, pas des montants exacts.
+              </p>
+            }
+            provenance={
+              <p>
+                Répertoire des représentants d’intérêts de la HATVP (loi du 9
+                décembre 2016), mis à jour quotidiennement. Le croisement avec
+                les marchés publics identifie les titulaires aussi inscrits
+                comme représentants d’intérêts.
+              </p>
+            }
+            limites={
+              <p>
+                Le répertoire ne couvre pas toutes les formes d’influence. Le
+                croisement avec les marchés ne dit pas qu’un marché a été
+                obtenu par cette activité, et n’applique pas le même filtre
+                d’identifiant que le classement de la page Marchés : les deux
+                comptes ne portent pas sur la même population.
+              </p>
+            }
+          />
         </div>
         {badge}
       </header>

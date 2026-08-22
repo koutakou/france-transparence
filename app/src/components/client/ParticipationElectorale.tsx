@@ -348,8 +348,10 @@ export function ParticipationElectorale({ donnees }: ParticipationElectoraleProp
           />
           {/* Une commune absente est DITE absente : jamais une ligne à zéro. */}
           <p className="mt-2 text-[11px] text-ink-muted">
-            {formatNombre(nbCommunes)} des {formatNombre(nbSuivies)} communes suivies par le site
-            figurent à ce scrutin.
+            {formatNombre(nbCommunes)} des {formatNombre(nbSuivies)} communes
+            suivies par le site (préfectures et communes de plus de
+            50&nbsp;000&nbsp;habitants, plus les 200 communes les plus
+            peuplées dont les comptes sont affichés) figurent à ce scrutin.
             {communesManquantes > 0 && (
               <>
                 {" "}

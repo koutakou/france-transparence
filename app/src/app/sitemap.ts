@@ -8,7 +8,7 @@ export const dynamic = "force-static";
 
 /**
  * Sitemap statique, généré au build (convention Next `app/sitemap.ts`) :
- * - les pages du site + les deux pages légales ;
+ * - les pages du site + les pages éditoriales (légales et méthode) ;
  * - les fiches élus réellement pré-rendues — mandats nationaux et exécutifs
  *   uniquement (docs/deploiement/DECISION.md : députés, sénateurs,
  *   présidents de conseil départemental et régional, ≈ 1 053 fiches).
@@ -21,8 +21,8 @@ export const dynamic = "force-static";
  * ingestion ne change rien au contenu, et annoncer une modification qui n'a
  * pas eu lieu apprend à un moteur à ignorer le champ. Toutes les pages de
  * données partagent la même valeur parce que c'est la vérité : le site
- * entier est régénéré à partir d'une seule ingestion nocturne. Les deux
- * pages légales, elles, ne dépendent d'aucune donnée : elles n'ont donc
+ * entier est régénéré à partir d'une seule ingestion nocturne. Les pages
+ * éditoriales, elles, ne dépendent d'aucune donnée : elles n'ont donc
  * PAS de `lastmod` plutôt qu'un `lastmod` faux.
  */
 
@@ -44,7 +44,7 @@ const PAGES_DONNEES = [
 ];
 
 /** Pages éditoriales, indépendantes de l'ingestion (aucun `lastmod`). */
-const PAGES_LEGALES = ["mentions-legales", "donnees-personnelles"];
+const PAGES_LEGALES = ["mentions-legales", "donnees-personnelles", "comprendre"];
 
 /** Types de mandat dont la fiche élu est pré-rendue (DECISION.md §R2). */
 const TYPES_MANDAT_FICHE = [
