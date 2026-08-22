@@ -276,6 +276,7 @@ export default async function FinancementPage() {
             label: "Produits totaux des partis (2024)",
             valeur: enMillions(kpi.produits2024),
             montantVedette: true,
+            perimetre: "comptes déposés, en euros",
           },
           ...decretsAide.map((d) => ({
             label: `Enveloppe légale ${d.annee} (décret)`,
@@ -538,7 +539,7 @@ export default async function FinancementPage() {
 
       <StatStrip
         stats={[
-          { label: "Candidats", valeur: formatNombre(campagnes.nb_candidats) },
+          { label: "Candidats (législatives 2024)", valeur: formatNombre(campagnes.nb_candidats) },
           {
             label: "Taux de rejet (comptes déposés)",
             valeur: formatPct(campagnes.taux_rejet_comptes_deposes * 100, 2),

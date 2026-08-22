@@ -212,7 +212,7 @@ export default async function PageDepenses() {
             ? []
             : [
                 {
-                  label: "Recettes nettes cumulées",
+                  label: `Recettes nettes cumulées au ${formatDateFr(kpis.dateFinMois)}`,
                   valeur: <MontantMd valeur={kpis.recettesNettes} />,
                   delta: deltaRecettes === null ? undefined : { valeur: deltaRecettes, vs: vsN1 },
                 },
@@ -221,7 +221,7 @@ export default async function PageDepenses() {
             ? []
             : [
                 {
-                  label: "Solde budgétaire",
+                  label: `Solde budgétaire au ${formatDateFr(kpis.dateFinMois)}`,
                   valeur: <MontantMd valeur={kpis.solde} />,
                   delta: deltaSolde === null ? undefined : { valeur: deltaSolde, vs: vsN1 },
                 },

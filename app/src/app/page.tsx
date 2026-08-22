@@ -342,7 +342,11 @@ export default async function Accueil() {
                   valeur: p.montant,
                 }))}
                 formatValeur={(v) => mdE(v, 1)}
-                libelleTotal="Cumul 2026"
+                libelleTotal={
+                  execution
+                    ? `Cumul au ${formatDateFr(execution.dateFinMois)}`
+                    : "Cumul"
+                }
                 taille={180}
                 ariaLabel="Décomposition des dépenses nettes de l'État par titre"
               />
@@ -400,8 +404,13 @@ export default async function Accueil() {
             <KpiTile label="Appels d'offres en cours (BOAMP)" valeur={formatNombre(kpis.aoEnCours)} />
             <KpiTile label="Textes au JO (30 j)" valeur={formatNombre(kpis.textesJo30j)} />
             <KpiTile
-              label="Exécution État (cumul 2026)"
+              label={
+                execution
+                  ? `Exécution de l'État au ${formatDateFr(execution.dateFinMois)}`
+                  : "Exécution de l'État"
+              }
               valeur={execution ? mdE(execution.cumul, 2) : "non publié"}
+              perimetre="dépenses nettes du budget général, cumul depuis le 1er janvier"
             />
           </div>
           <div className="flex flex-wrap gap-1.5">
