@@ -715,14 +715,8 @@ function SectionRegistreUe({ donnees }: { donnees: DonneesRegistreUe }) {
                   {formatNombre(compteurs.ueSiegeFrance)}
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-ink-secondary">
-                  inscrits au{" "}
-                  <strong className="font-medium text-ink">
-                    registre de l&apos;Union
-                  </strong>
-                  {", à siège en "}
-                  <strong className="font-medium text-ink">France</strong>
-                  {" — sur "}
-                  {formatNombre(compteurs.ueTotal)} inscrits, tous pays.
+                  inscrits au registre de l&apos;Union, à siège en France —
+                  sur {formatNombre(compteurs.ueTotal)} inscrits, tous pays.
                   C&apos;est une inscription à Bruxelles.
                 </p>
               </div>
