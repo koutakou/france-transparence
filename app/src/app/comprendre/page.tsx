@@ -253,7 +253,9 @@ const GLOSSAIRE: EntreeGlossaire[] = [
         <LienPage href="/depenses/">Dépenses</LienPage> et{" "}
         <LienPage href="/recettes/">Recettes</LienPage>
         ; la répartition par mission de 2025 est celle du PLF, pas de la
-        LFI — la LFI promulguée n’est pas publiée en open data.
+        LFI. Une LFI 2025 par mission est publiée à côté, dans le budget
+        vert, en crédits budgétaires. La LFI 2026 n’est pas publiée en
+        données.
       </>
     ),
   },
@@ -637,13 +639,14 @@ export default function PageComprendre() {
             <LienPage href="/depenses/">Dépenses</LienPage>.
           </p>
           <p>
-            Le détail par mission et programme est celui du PLF (et, pour
-            2026, du budget vert annexé au PLF), pas celui des paiements jour
-            par jour. La LFI promulguée n’est pas publiée en open data. Les
-            crédits de paiement et autorisations d’engagement de ces pages
-            sont bruts : ils ne sont pas comparables aux dépenses nettes de
-            l’exécution mensuelle. Les paiements du système Chorus ne sont
-            pas en open data.
+            Le détail par mission et programme de 2025 est celui du PLF, pas
+            de la LFI. Pour 2026, il vient du budget vert annexé au PLF :
+            la LFI 2026 n’est pas publiée en données. Une LFI 2025 par
+            mission figure dans ce même budget vert, en crédits budgétaires.
+            Les crédits de paiement et autorisations d’engagement de ces
+            pages sont bruts : ils ne sont pas comparables aux dépenses
+            nettes de l’exécution mensuelle. Les paiements du système Chorus
+            ne sont pas en open data.
           </p>
           <p>
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
