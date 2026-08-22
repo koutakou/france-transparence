@@ -4,13 +4,14 @@ import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { JsonLd } from "@/components/JsonLd";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
+import { CONTACT_ISSUES_URL } from "@/lib/site";
 
 /**
  * Page /comprendre — appareil pédagogique du site.
  *
  * Elle décrit la méthode actuellement pratiquée : republication de données
  * officielles, fonctionnement de chaque publication, lecture, provenance,
- * limites. Elle ne porte aucun chiffre
+ * limites, et un journal daté des lectures. Elle ne porte aucun chiffre
  * qui dérive (les valeurs vivantes restent sur les pages de données),
  * aucune projection, et ne présente pas l'éditeur comme une personne
  * morale — l'association porteuse n'a pas encore la capacité juridique.
@@ -92,6 +93,28 @@ const GLOSSAIRE: EntreeGlossaire[] = [
           decp-processing
         </a>
         ), pas un fichier unique produit par l’État.
+      </>
+    ),
+  },
+  {
+    terme: "BOAMP",
+    id: "boamp",
+    def: (
+      <>
+        Bulletin officiel des annonces de marchés publics. Il publie les
+        appels d’offres encore ouverts, pas les marchés déjà notifiés. Sur
+        ce site, c’est une publication distincte des DECP.
+      </>
+    ),
+  },
+  {
+    terme: "APProch",
+    id: "approch",
+    def: (
+      <>
+        Plateforme où un acheteur annonce un achat avant de le lancer. Un
+        achat annoncé n’est pas un appel d’offres, et n’est pas un marché
+        notifié. Ce site tient les trois listes séparées.
       </>
     ),
   },
@@ -183,6 +206,30 @@ const GLOSSAIRE: EntreeGlossaire[] = [
     ),
   },
   {
+    terme: "Datan",
+    id: "datan",
+    def: (
+      <>
+        Projet indépendant qui publie des scores de participation des
+        députés, calculés selon sa propre méthode. Sur les fiches de ce
+        site, ce score cohabite avec un taux calculé ici sur les scrutins
+        publics de l’Assemblée : deux méthodes, étiquetées comme telles.
+      </>
+    ),
+  },
+  {
+    terme: "EPCI",
+    id: "epci",
+    def: (
+      <>
+        Établissement public de coopération intercommunale : un groupement
+        de communes (métropole, communauté d’agglomération, communauté de
+        communes…). Les dépenses qu’il porte n’entrent pas dans les comptes
+        du budget principal d’une commune.
+      </>
+    ),
+  },
+  {
     terme: "CNCCFP",
     id: "cnccfp",
     def: (
@@ -260,6 +307,31 @@ const GLOSSAIRE: EntreeGlossaire[] = [
     ),
   },
   {
+    terme: "Budget vert",
+    id: "budget-vert",
+    def: (
+      <>
+        Annexe au PLF qui ventile les crédits par mission, programme et
+        action, y compris un marquage environnemental. Sur ce site, c’est
+        aussi la source d’une LFI 2025 par mission, en crédits budgétaires,
+        et de la répartition 2026 — la LFI 2026 n’étant pas publiée en
+        données.
+      </>
+    ),
+  },
+  {
+    terme: "Chorus",
+    id: "chorus",
+    def: (
+      <>
+        Système d’information financière de l’État, où s’enregistrent les
+        engagements et les paiements. Ces paiements ne sont pas en open
+        data. L’exécution affichée ici vient des situations mensuelles
+        publiées par la DGFiP, pas de Chorus.
+      </>
+    ),
+  },
+  {
     terme: "Mission / programme",
     id: "mission",
     def: (
@@ -326,6 +398,7 @@ const GLOSSAIRE: EntreeGlossaire[] = [
 const SOMMAIRE: { href: string; libelle: string }[] = [
   { href: "#methode", libelle: "Ce que ce site fait" },
   { href: "#lire-un-chiffre", libelle: "Comment lire un chiffre" },
+  { href: "#lectures", libelle: "Journal des lectures" },
   { href: "#glossaire", libelle: "Glossaire" },
   { href: "#marches", libelle: "Commande publique" },
   { href: "#elus", libelle: "Élus et institutions" },
@@ -403,7 +476,8 @@ export default function PageComprendre() {
             formulaire, pas d’inscription, pas de contrepartie. Le catalogue
             des sources, leur licence et leur fraîcheur mesurée sont sur la
             page <LienPage href="/donnees/">Données</LienPage>. Le code des
-            traitements est public.
+            traitements est public. Les lectures actuellement pratiquées, et
+            celles qu’elles ont remplacées, sont datées plus bas.
           </p>
         </div>
       </Card>
@@ -448,6 +522,102 @@ export default function PageComprendre() {
               Un taux n’a de sens que si l’on sait sur quoi il est calculé.
               Quand le site écarte une population, il la compte à part : rien
               ne disparaît en silence.
+            </li>
+          </ul>
+        </div>
+      </Card>
+
+      <Card titre="Journal des lectures">
+        <div id="lectures" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+          <p>
+            Ce site date ses lectures. Une lecture remplacée n’est pas
+            effacée : elle reste ici, avec ce qui la remplace. Un chiffre
+            vivant n’entre pas dans ce journal — les valeurs restent sur
+            chaque module, avec leur date et leur source. Une incohérence
+            de la source amont n’est pas corrigée en silence : elle est
+            constatée et documentée, sauf si la source l’a elle-même
+            corrigée.
+          </p>
+          <p>
+            Un signalement d’erreur de lecture, qui ne porte sur personne
+            en particulier, se dépose comme une{" "}
+            <a
+              href={CONTACT_ISSUES_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={LIEN}
+            >
+              issue sur le dépôt public
+            </a>
+            . Une demande qui porte sur une personne se fait par le canal
+            indiqué sur la page{" "}
+            <LienPage href="/donnees-personnelles/">
+              Données personnelles
+            </LienPage>
+            .
+          </p>
+          <ul className="list-disc space-y-3 pl-5">
+            <li>
+              <strong className="font-medium text-ink">
+                21 août 2026 — Date d’un marché.
+              </strong>{" "}
+              Un marché se date de sa notification initiale. À la source,
+              la ligne d’un avenant porte comme date de notification la
+              date de l’avenant. Lire cette date comme date du marché
+              rangeait les avenants dans le mois courant. Les attributs
+              affichés (montant, titulaires, objet) restent ceux de la
+              version courante.
+            </li>
+            <li>
+              <strong className="font-medium text-ink">
+                21 août 2026 — Unité d’un titulaire ou d’un acheteur.
+              </strong>{" "}
+              Le classement groupe par entreprise (SIREN), pas par
+              établissement (SIRET). Classer par SIRET émiette une
+              entreprise à réseau d’agences en autant de lignes minuscules,
+              dont aucune n’atteint le seuil d’entrée. Le regroupement
+              s’arrête à la personne morale : il ne remonte pas au groupe.
+            </li>
+            <li>
+              <strong className="font-medium text-ink">
+                21 août 2026 — Identifiants non conformes.
+              </strong>{" "}
+              Un identifiant qui n’est pas un SIRET de 14 chiffres est
+              écarté des classements et compté à part. Un numéro à 13
+              chiffres n’est pas complété d’un zéro de tête.
+            </li>
+            <li>
+              <strong className="font-medium text-ink">
+                22 août 2026 — Un chiffre borné porte sa borne.
+              </strong>{" "}
+              Une restriction écrite plus bas sur la page ne compte pas.
+              Fenêtre, strate, filtre de source et population exclue se
+              lisent à l’endroit du chiffre.
+            </li>
+            <li>
+              <strong className="font-medium text-ink">
+                22 août 2026 — Exécution de l’État.
+              </strong>{" "}
+              Un cumul depuis le 1<sup>er</sup> janvier, arrêté au dernier
+              mois publié, n’est pas l’année. Le dernier mois publié l’est
+              avec cinq à sept semaines de latence.
+            </li>
+            <li>
+              <strong className="font-medium text-ink">
+                22 août 2026 — PLF, LFI, exécution.
+              </strong>{" "}
+              La répartition par mission de 2025 affichée est celle du PLF,
+              pas de la LFI. Une LFI 2025 par mission est publiée dans le
+              budget vert, en crédits budgétaires. La LFI 2026 n’est pas
+              publiée en données.
+            </li>
+            <li>
+              <strong className="font-medium text-ink">
+                22 août 2026 — Licences.
+              </strong>{" "}
+              Les sources ne portent pas toutes la Licence Ouverte, ni
+              toutes la même version. La licence exacte, source par source,
+              est sur la page <LienPage href="/donnees/">Données</LienPage>.
             </li>
           </ul>
         </div>
@@ -547,6 +717,15 @@ export default function PageComprendre() {
             fiche.
           </p>
           <p>
+            <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
+            Le répertoire national des élus est tenu par le ministère de
+            l’Intérieur. La composition, les groupes et les scrutins
+            publics viennent des open data de l’Assemblée nationale et du
+            Sénat. Les déclarations d’intérêts et d’activités viennent de
+            la HATVP. Un second score de participation, étiqueté comme tel,
+            vient de Datan.
+          </p>
+          <p>
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
             Le site ne publie aucune nuance ou sensibilité politique. Un taux
             de participation aux scrutins n’est pas un jugement sur le
@@ -581,6 +760,14 @@ export default function PageComprendre() {
             titulaire de marché aussi inscrit comme représentant d’intérêts.
           </p>
           <p>
+            <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
+            Le répertoire des représentants d’intérêts et les constats de
+            défaut de déclaration viennent de la HATVP. Le registre de
+            transparence de l’Union européenne est une autre publication,
+            tenue par le secrétariat conjoint du Parlement européen et de
+            la Commission. Les marchés du croisement viennent des DECP.
+          </p>
+          <p>
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
             Une inscription n’est pas une infraction. Une fourchette de budget
             n’est pas un montant exact. Le répertoire ne couvre pas toutes les
@@ -612,6 +799,12 @@ export default function PageComprendre() {
             après chaque scrutin, eux aussi publiés par la Commission. Un
             compte de campagne n’est pas un compte de parti. Les montants en
             francs CFP n’entrent pas dans les totaux en euros.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
+            Les comptes des partis et les comptes de campagne viennent de
+            la CNCCFP. L’enveloppe d’aide publique vient du décret en
+            vigueur, distinct des montants inscrits aux comptes déposés.
           </p>
           <p>
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
@@ -649,6 +842,15 @@ export default function PageComprendre() {
             ne sont pas en open data.
           </p>
           <p>
+            <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
+            L’exécution mensuelle vient des situations publiées par la
+            DGFiP. La répartition 2026 et la LFI 2025 par mission viennent
+            du budget vert annexé au PLF. Le détail 2025 par ministère,
+            programme, action et sous-action vient du PLF par destination.
+            Le jaune des subventions aux associations est une annexe du
+            PLF, décalée de deux exercices.
+          </p>
+          <p>
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
             Un cumul mensuel n’est pas un rythme de dépense quotidien. Les
             mois de l’année en cours sont provisoires jusqu’à la clôture. Un
@@ -674,6 +876,13 @@ export default function PageComprendre() {
             dépenses, ce sont des cumuls depuis le 1<sup>er</sup> janvier, et
             les mois de l’année en cours sont provisoires jusqu’à la
             clôture. Voir <LienPage href="/recettes/">Recettes</LienPage>.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
+            La même situation mensuelle de la DGFiP que celle des dépenses,
+            nette des remboursements et dégrèvements. Aucune autre source
+            n’est ajoutée pour détailler les recettes non fiscales : la
+            situation n’en publie que le total.
           </p>
           <p>
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
@@ -712,6 +921,13 @@ export default function PageComprendre() {
             médiane.
           </p>
           <p>
+            <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
+            Les comptes des collectivités sont consolidés par l’OFGL à
+            partir des données DGFiP. La participation électorale vient des
+            résultats agrégés du ministère de l’Intérieur. La DGF vient des
+            montants officiels de l’exercice affiché.
+          </p>
+          <p>
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
             Une commune absente d’un exercice provisoire n’a pas dépensé
             zéro : sa donnée n’est pas publiée. Un montant de DGF à
@@ -737,6 +953,15 @@ export default function PageComprendre() {
             <LienPage href="/frais/">Frais</LienPage>.
           </p>
           <p>
+            <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
+            Les comptes de l’Élysée viennent des rapports de la Cour des
+            comptes. Les dotations de la mission «&nbsp;Pouvoirs
+            publics&nbsp;» viennent du rapport du Sénat sur la LFI. Les
+            barèmes d’indemnités viennent des textes publiés. Les refus
+            d’accès aux justificatifs de frais parlementaires sont des
+            décisions écrites de l’Assemblée et du Sénat.
+          </p>
+          <p>
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
             Cette page ne montre aucune note de frais individuelle. Un
             barème n’est pas un montant dépensé. Un rapport de déontologue
@@ -756,6 +981,12 @@ export default function PageComprendre() {
             a des trous. Ce site en republie les métadonnées (titre, type,
             date) et renvoie vers Légifrance pour le texte. Voir{" "}
             <LienPage href="/documents/">Documents</LienPage>.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
+            Les métadonnées du Journal officiel «&nbsp;Lois et
+            décrets&nbsp;» viennent de la DILA. Le texte lui-même n’est pas
+            recopié : le lien sort vers Légifrance.
           </p>
           <p>
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
@@ -778,6 +1009,14 @@ export default function PageComprendre() {
             sont des agrégats non nominatifs, parce que le répertoire des
             élus est trimestriel. Voir{" "}
             <LienPage href="/alertes/">Alertes</LienPage>.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
+            Chaque alerte cite sa source, sa règle de calcul et sa base
+            légale. Les constats nominatifs de déclaration non déposée
+            viennent de la HATVP. Les autres signaux sont calculés ici à
+            partir des mêmes publications que le reste du site, jamais d’une
+            source inédite.
           </p>
           <p>
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}

@@ -178,12 +178,14 @@ export default async function PageCollectivites() {
         label: `Fonctionnement des communes (${kpis.exercice})`,
         valeur: <Money valeur={kpis.total_fonctionnement} />,
         montantVedette: true,
-        perimetre: "budgets principaux seuls — hors budgets annexes",
+        perimetre:
+          "budgets principaux, comptes provisoires — toutes les communes via agrégats départementaux, hors budgets annexes",
       },
       {
         label: `Investissement des communes (${kpis.exercice})`,
         valeur: <Money valeur={kpis.total_investissement} />,
-        perimetre: "budgets principaux seuls — hors budgets annexes",
+        perimetre:
+          "budgets principaux, comptes provisoires — toutes les communes via agrégats départementaux, hors budgets annexes",
       },
     );
   }
@@ -191,6 +193,8 @@ export default async function PageCollectivites() {
     tuiles.push({
       label: `DGF nationale (${dgfDerniere.exercice})`,
       valeur: <Money valeur={dgfDerniere.montant} />,
+      perimetre:
+        "versée aux communes — les départements et les EPCI n’y sont pas",
       delta:
         deltaDgfDepuis2018 !== null
           ? { valeur: deltaDgfDepuis2018, vs: String(dgf2018?.exercice) }
@@ -202,6 +206,8 @@ export default async function PageCollectivites() {
     tuiles.push({
       label: `Communes agrégées (comptes ${kpis.exercice})`,
       valeur: formatNombre(kpis.nb_communes),
+      perimetre:
+        "ayant rendu leurs comptes, via les agrégats départementaux — ce n’est pas le top 200 affiché plus bas",
     });
   }
 
@@ -508,7 +514,7 @@ export default async function PageCollectivites() {
           titre="Dotation globale de fonctionnement — évolution nationale"
           sousTitre={
             dgfNationale.length > 0
-              ? `Montant national réparti entre collectivités, ${dgfNationale[0].exercice}-${dgfNationale.at(-1)?.exercice}`
+              ? `Dotation versée aux communes, ${dgfNationale[0].exercice}-${dgfNationale.at(-1)?.exercice} — hors départements et EPCI`
               : undefined
           }
           droite={badge(mentionDgf)}

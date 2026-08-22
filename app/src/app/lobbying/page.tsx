@@ -296,20 +296,28 @@ function SectionCroisement({
               {
                 label: "Représentants d'intérêts titulaires (hors accords-cadres)",
                 valeur: formatNombre(ag.sirensHorsAc),
+                perimetre:
+                  "titulaires sur les 24 derniers mois — notification initiale",
               },
               {
                 label: "Marchés notifiés (hors accords-cadres)",
                 valeur: formatNombre(ag.marchesHorsAc),
+                perimetre:
+                  "notifiés sur les 24 derniers mois — notification initiale",
               },
               {
                 label: "Montant notifié (écrêté, hors accords-cadres)",
                 valeur:
                   ag.montantHorsAc !== null ? formatEuros(ag.montantHorsAc) : "—",
                 montantVedette: true,
+                perimetre:
+                  "24 derniers mois, plafond 100 M€ par marché — notification initiale",
               },
               {
                 label: "Part du montant notifié hors accords-cadres",
                 valeur: partMontant !== null ? formatPct(partMontant) : "—",
+                perimetre:
+                  "part du montant DECP hors accords-cadres, 24 mois — pas de ce total lobbyiste",
               },
             ]}
           />
@@ -979,7 +987,11 @@ export default async function LobbyingPage() {
       <StatStrip
         stats={[
           { label: "Entités inscrites au répertoire", valeur: formatNombre(kpi.entites) },
-          { label: "Entités actives", valeur: formatNombre(kpi.actives) },
+          {
+            label: "Entités actives",
+            valeur: formatNombre(kpi.actives),
+            perimetre: "encore inscrites — une désinscription n’est pas une absence d’activité",
+          },
           {
             label: "Activités déclarées (historique)",
             valeur: formatNombre(kpi.activitesTotal),
