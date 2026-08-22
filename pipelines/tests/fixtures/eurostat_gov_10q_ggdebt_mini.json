@@ -1,0 +1,48 @@
+{
+  "version": "2.0",
+  "class": "dataset",
+  "label": "Quarterly government debt (fixture minimale inventée)",
+  "source": "ESTAT",
+  "updated": "2026-01-01T00:00:00+0100",
+  "value": {
+    "0": 1000.0,
+    "1": 1100.0
+  },
+  "status": {
+    "1": "p"
+  },
+  "id": ["freq", "na_item", "sector", "unit", "geo", "time"],
+  "size": [1, 1, 1, 1, 1, 2],
+  "dimension": {
+    "freq": {
+      "label": "Time frequency",
+      "category": {"index": {"Q": 0}, "label": {"Q": "Quarterly"}}
+    },
+    "na_item": {
+      "label": "National accounts indicator (ESA 2010)",
+      "category": {
+        "index": {"GD": 0},
+        "label": {"GD": "Government consolidated gross debt"}
+      }
+    },
+    "sector": {
+      "label": "Sector",
+      "category": {"index": {"S13": 0}, "label": {"S13": "General government"}}
+    },
+    "unit": {
+      "label": "Unit of measure",
+      "category": {"index": {"MIO_EUR": 0}, "label": {"MIO_EUR": "Million euro"}}
+    },
+    "geo": {
+      "label": "Geopolitical entity (reporting)",
+      "category": {"index": {"FR": 0}, "label": {"FR": "France"}}
+    },
+    "time": {
+      "label": "Time",
+      "category": {
+        "index": {"2025-Q4": 0, "2026-Q1": 1},
+        "label": {"2025-Q4": "2025-Q4", "2026-Q1": "2026-Q1"}
+      }
+    }
+  }
+}

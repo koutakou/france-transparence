@@ -90,7 +90,7 @@ Règles du flux :
 
 ```sql
 CREATE TABLE meta_sources (           -- fraîcheur : donnée de premier rang
-    source_id      TEXT PRIMARY KEY,  -- 'S1'…'S40' (ids de SOURCES.md)
+    source_id      TEXT PRIMARY KEY,  -- 'S1'…'S41' (ids de SOURCES.md)
     nom            TEXT NOT NULL,
     url            TEXT NOT NULL,
     licence        TEXT NOT NULL,     -- 'Licence Ouverte 2.0', 'ODbL'…
@@ -168,6 +168,7 @@ Un module par pipeline : `pipelines/ingest_<source>.py`, exécutable par `python
 | `ingest-elections` | `ingest_elections.py` | Résultats et participation électorale (S26). Passe **après** `ingest-referentiels` et `ingest-collectivites`, dont il lit le périmètre. |
 | `ingest-cada` | `ingest_cada.py` | Avis et conseils de la CADA, en agrégats (S38). Aucune dépendance d'ordre : n'écrit que ses propres tables. |
 | `ingest-registre_ue` | `ingest_registre_ue.py` | Registre de transparence de l'Union européenne (S40). Aucune dépendance d'ordre, et **aucun lien possible avec S4** : l'export UE ne porte ni SIREN ni numéro de TVA. |
+| `ingest-dette_maastricht` | `ingest_dette_maastricht.py` | Encours de dette des APU au sens de Maastricht (S41, Eurostat `gov_10q_ggdebt`). Aucune dépendance d'ordre : n'écrit que `dette_apu_maastricht`. Le secteur ESA S13 n'est pas la source S13. |
 | `ingest-sirene` | `ingest_sirene.py` | Stock Sirene — attributs des unités légales citées (S18). **Pipeline dérivé** : il lit les SIREN cités par les autres tables et doit donc passer **après** elles ; sur une base neuve il échoue franchement au lieu d'écrire un référentiel vide. À ne pas confondre avec `pipelines/sirene.py`, qui est la résolution unitaire par API de S10. |
 
 Contrat d'un pipeline :

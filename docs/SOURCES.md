@@ -22,6 +22,12 @@
 > dérivée des autres tables, son pipeline les lit et figure **en dernier** dans la variable
 > `PIPELINES` du `Makefile` — cette place-là n'est pas arbitraire.
 >
+> **Mise à jour du 22/08/2026.** **S41** (encours de dette des APU au sens de Maastricht, Eurostat
+> `gov_10q_ggdebt`, via `pipelines/ingest_dette_maastricht.py`) s'ajoute. L'ingestion compte donc
+> **19 pipelines** et **31 sources tracées dans `meta_sources`**. Pipeline sans dépendance d'ordre,
+> placé avant `sirene` (qui reste dernier). Le secteur ESA S13 (APU) n'est pas la source S13 (SMB
+> DGFiP).
+>
 > **Document daté.** Les fraîcheurs et volumétries amont relevées ici l'ont été par appels réels le
 > 19/08/2026 (et le 20/08 pour S38 et S40) : elles décrivent ces jours-là et **ont dérivé depuis**.
 > Le catalogue vivant, avec la date réellement ingérée de chaque source, est la page `/donnees`
@@ -303,6 +309,14 @@ Tous téléchargés/dépouillés le 19/08/2026 (05-frais-indemnites.md) :
 - **Ce qui n'est PAS ingéré** : le second export du registre (8 927 personnes physiques accréditées auprès du Parlement européen) n'est ni téléchargé ni écrit. Les 235 travailleurs indépendants sont comptés dans les agrégats et **exclus de la table nominative** ; l'écart est publié (`ue_registre_agg_pays.nb_personnes_physiques`) et affiché sur la page, pas dissimulé.
 - **Restitution** : bloc cloisonné en bas de `/lobbying`, séparé par une frontière explicite, avec son propre badge de fraîcheur et son propre cadrage. Les **deux compteurs sont posés côte à côte** (141 entités HATVP déclarant un niveau « Européen » sur 4 068 ; 1 654 organisations françaises inscrites à Bruxelles sur 17 711) avec la mention écrite qu'ils ne recouvrent pas le même ensemble — **aucun ratio n'est calculé entre eux**. La liste nominative complète (1 638 organisations) vit dans le fragment `/data/registre-ue/organisations.json`, chargé au clic : `/lobbying` est la page la plus lourde du site.
 
+#### S41. Encours de dette des APU au sens de Maastricht (Eurostat `gov_10q_ggdebt`, évalué le 22/08/2026)
+- **Producteur** : Eurostat (ESTAT). Datacode `gov_10q_ggdebt`. **URL** (DOI, stable) : `https://doi.org/10.2908/GOV_10Q_GGDEBT`. API filtrée (re-fetch à chaque ingestion, pas une constante figée) : `geo=FR`, `sector=S13`, `na_item=GD`, `unit=MIO_EUR`.
+- **Licence relue** (copyright-notice Eurostat, HTTP 200 le 22/08/2026) : **décision 2011/833/UE** — « Reuse of statistical data … commercial or non-commercial … source is acknowledged ». Libellé `meta_sources` : `Décision 2011/833/UE (réutilisation des données statistiques Eurostat)`. **Pas CC BY 4.0** (le CC BY 4.0 de la même page couvre le contenu éditorial du site, pas les données statistiques). La France est un État membre de l'UE : l'exception « pays tiers, réutilisation commerciale » ne s'applique pas à l'extrait `geo=FR`.
+- **Fréquence** : trimestrielle (~t+113 jours après la fin du trimestre). **Date des données** = dernier jour du TIME max (ex. 2026-Q1 → 2026-03-31), **jamais** le champ JSON-stat `updated` (date de diffusion).
+- **Piège S13** : le secteur ESA **S13** = administrations publiques (APU : État, Odac, APUL, ASSO). La source France Transparence **S13** = situations mensuelles budgétaires DGFiP (État, flux). `source_id` Eurostat = **S41**, jamais `'S13'`. Ne pas écrire « dette de l'État » pour ce chiffre : ce n'est pas le sous-secteur S.1311, et ce n'est pas la ligne DGFiP « Charges de la dette de l'État » (intérêts, cumul YTD).
+- **Piège d'unité** : native **MIO_EUR** (millions d'euros). Conversion Md€ = MIO_EUR **÷ 1000** à la lecture. Jamais ÷ 1e9 (unité des flux S13, en euros). Pas de `PC_GDP`, pas de montant par habitant, pas d'autre `na_item` que GD (pas de déficit).
+- **Modules** : Dépenses de l'État (bloc cloisonné après la décomposition par titre). **INGÉRÉE** — pipeline P17 `pipelines/ingest_dette_maastricht.py`.
+
 ### Groupe E — Sources écartées (raison prouvée le 19/08/2026)
 
 | Source écartée | Raison constatée | Rapport |
@@ -559,6 +573,7 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 | S38 Avis CADA (ensemble consolidé) | Consolidé maj 14/08/2026 + lots mensuels/trimestriels (10-critique) | fr-lo | Frais & train de vie (carte des verrous, boîte noire) | **ingérée** (agrégats seulement, 20/08/2026) |
 | S39 Jaune opérateurs PLF 2026 | Annuelle (13/01/2026) (10-critique) | lov2 (confirmée 20/08/2026) | Dépenses de l'État (référentiel opérateurs) | non ingéré |
 | S40 Registre de transparence UE | Export XML quotidien (exportDate) | décision 2011/833/UE (20/08/2026) | Lobbying (bloc cloisonné) | **ingérée** (P16) |
+| S41 Encours de dette des APU (Maastricht) | Trimestrielle (fin de trimestre de TIME max, jamais `updated`) | décision 2011/833/UE (22/08/2026) | Dépenses (bloc cloisonné) | **ingérée** (P17) |
 
 ---
 

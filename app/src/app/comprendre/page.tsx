@@ -380,6 +380,19 @@ const GLOSSAIRE: EntreeGlossaire[] = [
     ),
   },
   {
+    terme: "S13 (ESA)",
+    id: "s13-esa",
+    def: (
+      <>
+        Secteur des administrations publiques dans le système européen de
+        comptes (ESA 2010)&nbsp;: État, organismes divers d’administration
+        centrale, administrations publiques locales et administrations de
+        sécurité sociale. À ne pas confondre avec la source S13 de ce site
+        (situations mensuelles budgétaires de la DGFiP, budget de l’État).
+      </>
+    ),
+  },
+  {
     terme: "Licence Ouverte",
     id: "licence-ouverte",
     def: (
@@ -405,6 +418,7 @@ const SOMMAIRE: { href: string; libelle: string }[] = [
   { href: "#lobbying", libelle: "Lobbying" },
   { href: "#financement", libelle: "Financement de la vie politique" },
   { href: "#depenses", libelle: "Budget de l’État" },
+  { href: "#dette-maastricht", libelle: "Dette des APU (Maastricht)" },
   { href: "#recettes", libelle: "Recettes de l’État" },
   { href: "#collectivites", libelle: "Finances locales" },
   { href: "#frais", libelle: "Frais et train de vie" },
@@ -863,6 +877,39 @@ export default function PageComprendre() {
             politique publique comparable aux autres missions. Les
             administrations de sécurité sociale, la dépense propre des
             opérateurs et les entreprises publiques sont hors champ.
+          </p>
+        </div>
+      </Card>
+
+      <Card titre="Dette des APU (Maastricht)">
+        <div id="dette-maastricht" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+          <p>
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
+            L’encours Maastricht est un stock de dette brute consolidée, à la
+            valeur faciale, des administrations publiques (secteur ESA S13 :
+            État, Odac, administrations publiques locales, administrations de
+            sécurité sociale), arrêté en fin de trimestre. Ce n’est pas un
+            flux. L’unité native Eurostat est le million d’euros (MIO_EUR) ;
+            le milliard affiché est ce million divisé par 1&nbsp;000 — pas
+            l’euro des situations DGFiP divisé par un milliard. Un trimestre
+            peut porter le drapeau provisoire (p). Un delta d’un trimestre
+            sur l’autre n’est ni «&nbsp;bon&nbsp;» ni «&nbsp;mauvais&nbsp;».
+            Voir <LienPage href="/depenses/#dette-maastricht">Dépenses</LienPage>.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
+            Eurostat, datacode gov_10q_ggdebt, DOI 10.2908/GOV_10Q_GGDEBT.
+            Extrait geo=FR, sector=S13 (ESA), na_item=GD, unit=MIO_EUR.
+            Réutilisation : décision 2011/833/UE (données statistiques
+            Eurostat). Le secteur ESA S13 n’est pas la source S13 de ce site.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
+            Ce n’est pas la dette de l’État seul (sous-secteur S.1311). Ce
+            n’est pas la charge d’intérêts du budget général déjà publiée
+            sur la même page (flux DGFiP, cumul depuis le 1<sup>er</sup>{" "}
+            janvier). Ce n’est pas le déficit. Ce n’est pas un montant par
+            habitant, ni un pourcentage du PIB.
           </p>
         </div>
       </Card>

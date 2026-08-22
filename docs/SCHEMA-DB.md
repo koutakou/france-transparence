@@ -12,14 +12,19 @@
 # chacune de son côté, ce que ces classements écartent)
 # et le 22/08/2026 : l'ingestion du matin a posé en base les sept tables dont le DDL
 # ne venait jusque-là que du pipeline, et la comparaison document <-> base servie a été
-# rejouée en entier — 75 tables, 6 vues, 55 index, aucun écart, contraintes comprises.
+# rejouée en entier — 75 tables, 6 vues, 55 index, aucun écart, contraintes comprises
+# ; le soir, table dette_apu_maastricht (S41, Eurostat gov_10q_ggdebt) — CREATE recopié
+# du pipeline P17 ; absente de la base servie tant que l'ingestion n'a pas tourné.
 
-> **Extrait daté.** Ce document décrit **75 tables**, **6 vues** et **55 index**, et cette
+> **Extrait daté.** Ce document décrit **76 tables**, **6 vues** et **55 index**, et cette
 > couverture est sa propriété essentielle : une table de la base absente d'ici est un trou de
 > documentation, et une table décrite ici qui n'existe nulle part est une invention. Les **75**
-> tables, les 6 vues et les 55 index sont ceux que `sqlite_master` recense au 22/08/2026, et le
+> tables, les 6 vues et les 55 index sont ceux que `sqlite_master` recense au 22/08/2026 (matin), et le
 > DDL reproduit ici est celui de la base servie : le document a été rejoué dans une base SQLite
 > vide, puis les deux bases comparées objet par objet. Écart : **aucun, sur les 75 tables**.
+> La 76e table, `dette_apu_maastricht` (S41), est celle du pipeline P17 : tant que
+> l'ingestion n'a pas tourné sur la base servie, le contrôle affiche
+> `doc sans base : ['dette_apu_maastricht']` — attendu, pas un trou.
 >
 > Le contrôle porte, à cette date, sur plus que les colonnes. Noms, types, `NOT NULL`, valeurs par
 > défaut et clés primaires coïncident colonne à colonne ; le texte DDL intégral coïncide lui aussi,
@@ -913,6 +918,26 @@ CREATE TABLE ue_registre_agg_couts (
     borne_max        REAL,
     nb_organisations INTEGER NOT NULL,
     nb_france        INTEGER NOT NULL
+);
+-- ---------------------------------------------------------------------------
+-- S41 — Encours de dette des APU au sens de Maastricht (pipeline P17,
+-- Eurostat gov_10q_ggdebt). Stock consolidé brut, valeur faciale, fin de
+-- trimestre. Le secteur ESA S13 (administrations publiques) n'est PAS la
+-- source FT S13 (situations mensuelles DGFiP, flux de l'État) : le
+-- `source_id` dans meta_sources est S41. Unité native MIO_EUR (millions
+-- d'euros) ; la conversion en Md€ se fait à la lecture (÷ 1000), jamais
+-- ÷ 1e9 (unité des flux S13). N'ingère que na_item=GD (dette brute),
+-- jamais un déficit.
+-- ---------------------------------------------------------------------------
+CREATE TABLE dette_apu_maastricht (
+    geo            TEXT NOT NULL CHECK (geo = 'FR'),
+    sector         TEXT NOT NULL CHECK (sector = 'S13'), -- ESA APU, pas la source S13
+    na_item        TEXT NOT NULL CHECK (na_item = 'GD'), -- jamais un déficit
+    unit           TEXT NOT NULL CHECK (unit = 'MIO_EUR'),
+    trimestre      TEXT NOT NULL,
+    valeur_mio_eur REAL NOT NULL CHECK (valeur_mio_eur > 0),
+    statut         TEXT,
+    PRIMARY KEY (geo, sector, na_item, unit, trimestre)
 );
 CREATE TABLE partis (
     id               TEXT PRIMARY KEY REFERENCES entites(id),

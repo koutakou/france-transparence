@@ -3,7 +3,7 @@
  * statiques (/api/meta.json, /api/elus.json, /api/marches-agregats.json,
  * /api/budget-mensuel.json) — générés au build, servis en fichiers.
  *
- * La table pivot est `meta_sources` (30 sources tracées) : chaque source y
+ * La table pivot est `meta_sources` (31 sources tracées) : chaque source y
  * porte sa date de données réelle, sa date d'ingestion, sa fréquence déclarée,
  * sa licence et ses notes — c'est le « moniteur de fraîcheur » du projet
  * (docs/SOURCES.md, alerte A11).
@@ -80,7 +80,7 @@ type SeuilSource = { unite: UniteAge; retard: number; alerte: number };
  * seuils dans `meta_sources` (colonnes dédiées) via les pipelines.
  *
  * Ordre et valeurs repris ligne à ligne de `fraicheur.conf`.
- * Dernière synchronisation : 21/08/2026, 30 sources (ajout de S18).
+ * Dernière synchronisation : 22/08/2026, 31 sources (ajout de S41).
  */
 const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // Quotidiennes strictes, calendrier ouvré
@@ -110,6 +110,10 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   S18: { unite: "jc", retard: 40, alerte: 55 },
   // Trimestrielle
   S17: { unite: "jc", retard: 110, alerte: 150 },
+  // Trimestrielle GFS Eurostat t+113 ; date_donnees = fin du trimestre
+  // de TIME max, jamais `updated` ; 220 j ≈ Q+1 en retard de ~2 sem. ;
+  // 260 j ≈ Q+1 en retard d'~6 sem. (S17 110/150 sonnerait dès la parution).
+  S41: { unite: "jc", retard: 220, alerte: 260 },
   // Annuelles « simples »
   S20: { unite: "jc", retard: 400, alerte: 440 },
   S37: { unite: "jc", retard: 400, alerte: 440 },
@@ -271,7 +275,7 @@ export function evalueFraicheur(
 
 export type SourceCataloguee = MetaSource & { fraicheur: Fraicheur };
 
-/** Les 30 sources tracées, avec leur fraîcheur calculée. */
+/** Les 31 sources tracées, avec leur fraîcheur calculée. */
 export function getCatalogueSources(): SourceCataloguee[] | null {
   const db = getDb();
   if (!db) return null;

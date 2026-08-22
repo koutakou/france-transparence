@@ -12,6 +12,11 @@ import { LineChart } from "@/components/ui/LineChart";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { ESPACE_FINE, formatDateFr, formatEuros, formatNombre } from "@/lib/format";
 import {
+  getDetteMaastricht,
+  libelleTrimestre,
+  perimetreDette,
+} from "@/lib/queries/dette-maastricht";
+import {
   getDepensesParTitre,
   getKpisBudgetMensuel,
   getMinisteresDestination2025,
@@ -107,6 +112,7 @@ export default async function PageDepenses() {
 
   const serie = getSerieDepensesNettes(3);
   const parTitre = getDepensesParTitre();
+  const dette = getDetteMaastricht();
   const missions = getMissionsPlf2026(10);
   const ministeres = getMinisteresDestination2025(10);
   const subventions = getSubventionsAssociations(10);
@@ -309,6 +315,105 @@ export default async function PageDepenses() {
             />
           </VueTableau>
         </Card>
+      )}
+
+      {/* Encours Maastricht (S41) — stock APU, cloisonné des flux S13 */}
+      {dette && (
+        <>
+          <div className="flex items-center gap-3" role="separator">
+            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+              Autre objet · stock des APU, pas un flux de l&apos;État
+            </span>
+            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+          </div>
+
+          <Card
+            titre="Encours de dette des APU (Maastricht)"
+            sousTitre="Stock consolidé brut à la valeur faciale, fin de trimestre — distinct des charges d'intérêts du budget général ci-dessus"
+            droite={
+              <FreshnessBadge
+                dateDonnees={dette.meta.date_donnees}
+                source="Eurostat — gov_10q_ggdebt"
+                frequence={dette.meta.frequence}
+                url={dette.meta.url}
+              />
+            }
+          >
+            <div className="mb-4 rounded-xl border border-card-border bg-raised p-4">
+              <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+                Pourquoi ce bloc est séparé du reste de la page
+              </h3>
+              <p className="text-xs leading-relaxed text-ink-secondary">
+                Tout ce qui précède décrit le{" "}
+                <strong className="font-medium text-ink">budget de l&apos;État</strong>{" "}
+                (source S13, DGFiP)&nbsp;: des flux, cumulés depuis le 1er
+                janvier. Ce bloc est un{" "}
+                <strong className="font-medium text-ink">stock</strong>
+                &nbsp;: l&apos;encours de dette brute consolidée des
+                administrations publiques (secteur ESA S13&nbsp;: État, Odac,
+                APUL, ASSO), publié par Eurostat. Ce n&apos;est pas la dette
+                de l&apos;État seul, et ce n&apos;est pas la ligne «&nbsp;charges
+                de la dette de l&apos;État&nbsp;» du graphique ci-dessus.
+              </p>
+            </div>
+            <KpiTile
+              nu
+              label="Encours de dette des APU (Maastricht)"
+              valeur={`${formatNombre(dette.encoursMd, 1)}${ESPACE_FINE}Md€`}
+              montantVedette
+              perimetre={perimetreDette(dette.dernier)}
+              delta={
+                dette.deltaPct === null
+                  ? undefined
+                  : {
+                      valeur: dette.deltaPct,
+                      vs: dette.precedent
+                        ? `trimestre ${libelleTrimestre(dette.precedent.trimestre)}`
+                        : "trimestre précédent",
+                    }
+              }
+            />
+            <div className="mt-4">
+            <NoticeLecture
+              ancre="dette-maastricht"
+              commentLire={
+                <p>
+                  C’est un stock en fin de trimestre, pas un flux. L’unité
+                  affichée (Md€) est le million d’euros Eurostat divisé par
+                  1&nbsp;000 — pas l’euro des situations DGFiP divisé par un
+                  milliard.{" "}
+                  {dette.dernier.statut === "p" ? (
+                    <>
+                      Le trimestre {libelleTrimestre(dette.dernier.trimestre)}{" "}
+                      est flaggé provisoire (p).{" "}
+                    </>
+                  ) : null}
+                  Un delta d’un trimestre sur l’autre n’est ni «&nbsp;bon&nbsp;»
+                  ni «&nbsp;mauvais&nbsp;» : il est affiché neutre.
+                </p>
+              }
+              provenance={
+                <p>
+                  Eurostat, datacode gov_10q_ggdebt (DOI{" "}
+                  10.2908/GOV_10Q_GGDEBT), extrait geo=FR, sector=S13
+                  (ESA&nbsp;: administrations publiques), na_item=GD, unit=MIO_EUR.
+                  Réutilisation&nbsp;: décision 2011/833/UE.
+                </p>
+              }
+              limites={
+                <p>
+                  Ce n’est pas la dette de l’État seul (sous-secteur S.1311).
+                  Ce n’est pas la charge d’intérêts DGFiP déjà sur cette page
+                  (flux, cumul depuis le 1er janvier, budget général). Ce n’est
+                  pas le déficit. Ce n’est pas un montant par habitant, ni un
+                  pourcentage du PIB.
+                </p>
+              }
+            />
+            </div>
+          </Card>
+        </>
       )}
 
       {/* Budget voté et exécuté par mission (PLF 2026) */}
