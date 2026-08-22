@@ -233,10 +233,12 @@ export default async function PageMission({ params }: Props) {
             label: "Crédits de paiement 2025 (bruts)",
             valeur: <span title={`${formatNombre(arbre.cp)}${ESPACE_FINE}€`}>{enMd(arbre.cp)}</span>,
             montantVedette: true,
+            perimetre: "PLF 2025 — projet, pas l’exécution ni la LFI",
           },
           {
             label: "Autorisations d'engagement 2025 (brutes)",
             valeur: <span title={`${formatNombre(arbre.ae)}${ESPACE_FINE}€`}>{enMd(arbre.ae)}</span>,
+            perimetre: "PLF 2025 — projet, pas l’exécution ni la LFI",
           },
           {
             label: "Programmes / actions",

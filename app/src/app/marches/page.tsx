@@ -421,6 +421,7 @@ export default async function PageMarches() {
             {
               label: "Achats annoncés (APProch)",
               valeur: formatNombre(kpis.marchesAVenir),
+              perimetre: "projets à publication prévue — stock du jour, pas une fenêtre de 12 mois",
             },
           ]}
         />

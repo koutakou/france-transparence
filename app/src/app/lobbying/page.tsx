@@ -671,10 +671,12 @@ function SectionRegistreUe({ donnees }: { donnees: DonneesRegistreUe }) {
               {
                 label: "Organisations inscrites (tous pays)",
                 valeur: formatNombre(totalInscrits),
+                perimetre: "y compris les travailleurs indépendants, personnes physiques",
               },
               {
                 label: "Dont siège en France",
                 valeur: formatNombre(france.total),
+                perimetre: "y compris les travailleurs indépendants, non nommés dans la liste",
               },
               {
                 label: "Rang de la France par nombre d'inscrits",
@@ -713,15 +715,15 @@ function SectionRegistreUe({ donnees }: { donnees: DonneesRegistreUe }) {
                   {formatNombre(compteurs.ueSiegeFrance)}
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-ink-secondary">
-                  organisations à{" "}
+                  inscrits au{" "}
+                  <strong className="font-medium text-ink">
+                    registre de l&apos;Union
+                  </strong>
+                  , à{" "}
                   <strong className="font-medium text-ink">
                     siège en France
                   </strong>{" "}
-                  sont inscrites au{" "}
-                  <strong className="font-medium text-ink">
-                    registre de l&apos;Union
-                  </strong>{" "}
-                  — sur {formatNombre(compteurs.ueTotal)} inscrites, tous pays.
+                  — sur {formatNombre(compteurs.ueTotal)} inscrits, tous pays.
                   C&apos;est une inscription à Bruxelles.
                 </p>
               </div>

@@ -206,6 +206,7 @@ export default async function PageDepenses() {
             label: `Dépenses nettes cumulées au ${formatDateFr(kpis.dateFinMois)}`,
             valeur: <MontantMd valeur={kpis.depensesNettes} />,
             montantVedette: true,
+            perimetre: "budget général, cumul depuis le 1er janvier",
             delta: deltaDepenses === null ? undefined : { valeur: deltaDepenses, vs: vsN1 },
           },
           ...(kpis.recettesNettes === null
@@ -214,6 +215,7 @@ export default async function PageDepenses() {
                 {
                   label: `Recettes nettes cumulées au ${formatDateFr(kpis.dateFinMois)}`,
                   valeur: <MontantMd valeur={kpis.recettesNettes} />,
+                  perimetre: "budget général, cumul depuis le 1er janvier",
                   delta: deltaRecettes === null ? undefined : { valeur: deltaRecettes, vs: vsN1 },
                 },
               ]),
@@ -223,6 +225,7 @@ export default async function PageDepenses() {
                 {
                   label: `Solde budgétaire au ${formatDateFr(kpis.dateFinMois)}`,
                   valeur: <MontantMd valeur={kpis.solde} />,
+                  perimetre: "budget général, cumul depuis le 1er janvier",
                   delta: deltaSolde === null ? undefined : { valeur: deltaSolde, vs: vsN1 },
                 },
               ]),
@@ -443,7 +446,7 @@ export default async function PageDepenses() {
             <div className="bg-card">
               <KpiTile
                 nu
-                label="Nombre de versements"
+                label={`Nombre de versements en ${subventions.annee}`}
                 valeur={formatNombre(subventions.nbVersements)}
               />
             </div>

@@ -755,7 +755,9 @@ export default function PageComprendre() {
           <p>
             Le répertoire français et le registre de transparence de l’Union
             européenne sont deux publications distinctes, avec des seuils et
-            des obligations différents. Ce site les tient séparées. Un
+            des obligations différents. Ce site les tient séparées. Les totaux
+            du registre de l’Union incluent les travailleurs indépendants :
+            ce sont des personnes physiques, comptées, non nommées. Un
             croisement d’identifiants déjà publics relie, le cas échéant, un
             titulaire de marché aussi inscrit comme représentant d’intérêts.
           </p>

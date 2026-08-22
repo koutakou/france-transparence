@@ -209,6 +209,7 @@ export default async function PageRecettes() {
             label: `Recettes nettes cumulées au ${formatDateFr(kpis.dateFinMois)}`,
             valeur: <MontantMd valeur={kpis.totalNettes} />,
             montantVedette: true,
+            perimetre: "budget général, cumul depuis le 1er janvier",
             delta: deltaTotal === null ? undefined : { valeur: deltaTotal, vs: vsN1 },
           },
           ...(kpis.fiscalesNettes === null
@@ -217,6 +218,7 @@ export default async function PageRecettes() {
                 {
                   label: "Recettes fiscales nettes",
                   valeur: <MontantMd valeur={kpis.fiscalesNettes} />,
+                  perimetre: "budget général, cumul depuis le 1er janvier",
                   delta: deltaFiscales === null ? undefined : { valeur: deltaFiscales, vs: vsN1 },
                 },
               ]),
@@ -226,6 +228,7 @@ export default async function PageRecettes() {
                 {
                   label: "Recettes non fiscales",
                   valeur: <MontantMd valeur={kpis.nonFiscales} />,
+                  perimetre: "budget général, un seul total — aucun détail publié",
                   delta:
                     deltaNonFiscales === null ? undefined : { valeur: deltaNonFiscales, vs: vsN1 },
                 },
@@ -236,6 +239,7 @@ export default async function PageRecettes() {
                 {
                   label: "Fonds de concours et attributions de produits",
                   valeur: <MontantMd valeur={kpis.fondsConcours} />,
+                  perimetre: "budget général, cumul depuis le 1er janvier",
                   delta: deltaFonds === null ? undefined : { valeur: deltaFonds, vs: vsN1 },
                 },
               ]),
