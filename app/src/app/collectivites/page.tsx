@@ -177,10 +177,12 @@ export default async function PageCollectivites() {
         label: `Fonctionnement des communes (${kpis.exercice})`,
         valeur: <Money valeur={kpis.total_fonctionnement} />,
         montantVedette: true,
+        perimetre: "budgets principaux seuls — hors budgets annexes",
       },
       {
         label: `Investissement des communes (${kpis.exercice})`,
         valeur: <Money valeur={kpis.total_investissement} />,
+        perimetre: "budgets principaux seuls — hors budgets annexes",
       },
     );
   }
@@ -300,9 +302,13 @@ export default async function PageCollectivites() {
           (environ 97 communes encore manquantes). La colonne « Population » est la somme des
           seules communes ayant rendu leurs comptes : elle sous-estime donc les départements où
           il en manque, la Lozère de 13 % parce que Mende y figure parmi les manquantes.
-          Dotation globale de fonctionnement (DGF) :
-          jusqu&apos;à l&apos;exercice {exerciceDgf ?? "—"}. Chaque bloc affiche sa source et sa
-          fraîcheur — aucun montant estimé.
+          <strong className="font-medium text-ink">
+            Tous les montants de cette page portent sur les budgets principaux seuls
+          </strong>{" "}
+          : les budgets annexes (eau, assainissement, transports, CCAS) en sont absents, ainsi
+          que les dépenses portées par l&apos;intercommunalité. Dotation globale de
+          fonctionnement (DGF) : jusqu&apos;à l&apos;exercice {exerciceDgf ?? "—"}. Chaque bloc
+          affiche sa source et sa fraîcheur — aucun montant estimé.
         </p>
       </header>
 

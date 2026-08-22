@@ -399,6 +399,19 @@ Contrat de la **stat tile** :
   pour une dépense).
 - `trend` (optionnel) : sparkline **12 points**, trait 2px `--viz-autre`, période
   courante en `--viz-serie-1`, hauteur ~32px, sans axes ni grille.
+- `perimetre` (optionnel) : 11px `--ink-muted`, sous la valeur et avant le delta.
+  **Une tuile dont le chiffre est BORNÉ le porte, sans exception** — fenêtre
+  glissante (« notifiés sur les 24 derniers mois »), strate (« les 200 plus
+  grandes communes »), filtre de source (« budgets principaux seuls »),
+  population exclue (« hors conseillers municipaux »).
+
+  Cette ligne existe parce que son absence a produit des chiffres faux. Une
+  `Card` offre trois endroits où qualifier une valeur — `sousTitre`, `droite`,
+  note de bas de carte — et les vues qui passent par `Card` disent leurs bornes.
+  La tuile n'en offrait aucun : les seuls chiffres du site qui laissaient croire
+  à un total étaient exactement ceux que le composant empêchait de qualifier.
+  Une restriction dite ailleurs sur la page ne compte pas : elle doit être lue
+  au même endroit que le chiffre.
 
 **Chiffre héros** : LE chiffre par lequel la vue commence. ≥ 48px, même sans-serif
 que tout le reste (jamais de display/serif : ça se lit comme un décor hors-marque),

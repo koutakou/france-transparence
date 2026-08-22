@@ -157,7 +157,9 @@ export default async function PageElus() {
         </p>
         <p className="max-w-3xl text-xs text-ink-muted">
           Fiches détaillées&nbsp;: parlementaires et présidences d’exécutifs
-          départementaux/régionaux. Les autres élus figurent dans les listes et agrégats.
+          départementaux/régionaux. Le suivi nominatif s’arrête aux mandats exécutifs et
+          parlementaires&nbsp;: le RNE recense en outre les conseillers municipaux, qui ne
+          sont pas ingérés nom par nom et ne comptent donc dans aucun chiffre de cette page.
         </p>
       </section>
 
@@ -168,7 +170,12 @@ export default async function PageElus() {
               { label: "Députés", valeur: formatNombre(stats.deputes.nb) },
               { label: "Sénateurs", valeur: formatNombre(stats.senateurs.nb) },
               { label: "Maires (RNE)", valeur: formatNombre(stats.nb_maires) },
-              { label: "Élus recensés (RNE)", valeur: formatNombre(stats.nb_elus) },
+              {
+                label: "Élus suivis nominativement",
+                valeur: formatNombre(stats.nb_elus),
+                perimetre:
+                  "maires, présidences d’EPCI, de départements et de régions, parlementaires",
+              },
             ]}
           />
           <div className="-mt-3 flex flex-wrap gap-2">

@@ -185,7 +185,8 @@ const SOURCES_ACCUEIL = [
   "S2", // BOAMP (AO en cours)
   "S3", // JORF (textes au JO)
   "S17", // RNE (élus suivis)
-  "S35-reforga-admin-etat", // entités publiques
+  "S16", // OFGL (les 314 collectivités du référentiel d'entités)
+  "S35-reforga-admin-etat", // RefOrga : les 20 ministères du référentiel d'entités
 ] as const;
 
 const LIGNE_DEPENSES_NETTES =
@@ -324,7 +325,12 @@ export function getDonneesAccueil(): DonneesAccueil | null {
       db.prepare(`SELECT COUNT(*) AS n FROM decp_marches`).get() as { n: number }
     ).n,
     // « publiques » : ministères, institutions, collectivités, organismes —
-    // les 718 partis d'`entites` n'en font pas partie
+    // les partis d'`entites` n'en font pas partie.
+    // Ce compte est BORNÉ par ce que les pipelines producteurs ingèrent, et la
+    // tuile le dit : RefOrga fournit les ministères, l'OFGL les régions, les
+    // départements et les 200 communes les plus peuplées — pas les ~34 000
+    // autres communes. `'organisme'` ne ramène aucune ligne à ce jour ; le type
+    // reste dans le filtre parce qu'il est déclaré au schéma d'`entites`.
     entitesPubliques: (
       db
         .prepare(

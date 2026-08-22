@@ -63,6 +63,7 @@ const LIBELLES_SOURCES: Record<string, string> = {
   S2: "BOAMP",
   S3: "JO Lois et décrets",
   S17: "RNE",
+  S16: "OFGL · comptes des collectivités",
   "S35-reforga-admin-etat": "DILA · RefOrga État",
 };
 
@@ -368,7 +369,7 @@ export default async function Accueil() {
         <div className="flex min-w-0 flex-col gap-4">
           <Card
             titre="Marchés publics par département"
-            sousTitre="Marchés notifiés, 12 derniers mois — montants écrêtés (plafond 100 M€ par marché) · points : préfectures · outre-mer hors carte"
+            sousTitre="Marchés notifiés, 12 derniers mois — montants écrêtés (plafond 100 M€ par marché), acheteurs à département connu · points : préfectures · outre-mer hors carte"
             droite={<BadgeSource source={sources.S1} mention="J-1" />}
           >
             <CarteDepartements
@@ -389,7 +390,7 @@ export default async function Accueil() {
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <KpiTile label="Marchés notifiés (30 j)" valeur={formatNombre(kpis.marches30j)} />
-            <KpiTile label="Appels d'offres en cours" valeur={formatNombre(kpis.aoEnCours)} />
+            <KpiTile label="Appels d'offres en cours (BOAMP)" valeur={formatNombre(kpis.aoEnCours)} />
             <KpiTile label="Textes au JO (30 j)" valeur={formatNombre(kpis.textesJo30j)} />
             <KpiTile
               label="Exécution État (cumul 2026)"
@@ -405,15 +406,28 @@ export default async function Accueil() {
 
           <StatStrip
             stats={[
-              { label: "Marchés publics suivis", valeur: formatNombre(suivi.marchesSuivis) },
+              {
+                label: "Marchés publics suivis",
+                valeur: formatNombre(suivi.marchesSuivis),
+                perimetre: "notifiés sur les 24 derniers mois — ce n’est pas le stock total",
+              },
               {
                 label: "Entités publiques référencées",
                 valeur: formatNombre(suivi.entitesPubliques),
+                perimetre:
+                  "ministères, institutions, régions, départements et les 200 plus grandes communes",
               },
-              { label: "Élus suivis", valeur: formatNombre(suivi.elusSuivis) },
+              {
+                label: "Élus suivis nominativement",
+                valeur: formatNombre(suivi.elusSuivis),
+                perimetre:
+                  "maires, présidences d’exécutifs et parlementaires — hors conseillers municipaux",
+              },
             ]}
           />
           <div className="flex flex-wrap gap-1.5">
+            <BadgeSource source={sources.S1} mention="J-1" />
+            <BadgeSource source={sources.S16} />
             <BadgeSource source={sources.S17} />
             <BadgeSource source={sources["S35-reforga-admin-etat"]} />
           </div>

@@ -11,7 +11,16 @@ import { Sparkline } from "./Sparkline";
  * - `montantVedette` : peint la valeur en `--montant` (KPI montant vedette) ;
  * - `delta` : flèche + signe + période nommée, couleur = signe × upIsGood
  *   (§3.5 — NEUTRE par défaut : une dépense en hausse n'est pas « mauvaise ») ;
- * - `tendance` : sparkline 12 points, trait `--viz-autre`, fin `--viz-serie-1`.
+ * - `tendance` : sparkline 12 points, trait `--viz-autre`, fin `--viz-serie-1` ;
+ * - `perimetre` : ce que le chiffre COUVRE, quand le libellé ne suffit pas à le
+ *   dire — fenêtre glissante, strate, filtre de source, population exclue.
+ *
+ * POURQUOI cet emplacement existe : une tuile n'offrait que `label` et `valeur`,
+ * là où une `Card` offre `sousTitre`, `droite` et une note de bas de carte. Les
+ * chiffres bornés affichés en tuile n'avaient donc AUCUN endroit où dire leur
+ * borne, et ne la disaient pas — un compte sur 24 mois glissants se lisait comme
+ * un total, un dénombrement partiel comme un recensement. Un chiffre borné doit
+ * pouvoir dire sa borne à l'endroit où il est lu, pas ailleurs sur la page.
  *
  * @example
  * <KpiTile label="Dépenses payées (juillet)"
@@ -34,6 +43,12 @@ export interface KpiTileProps {
   };
   /** 12 points attendus (§6). */
   tendance?: number[];
+  /**
+   * Périmètre réel du chiffre, en une ligne, quand le libellé ne le dit pas :
+   * « notifiés sur 24 mois glissants », « budgets principaux seuls », « hors
+   * conseillers municipaux ». Rendu sous la valeur, avant le delta.
+   */
+  perimetre?: string;
   /** Sans chrome de carte — pour l'usage dans un StatStrip. */
   nu?: boolean;
   className?: string;
@@ -45,6 +60,7 @@ export function KpiTile({
   montantVedette = false,
   delta,
   tendance,
+  perimetre,
   nu = false,
   className,
 }: KpiTileProps) {
@@ -59,6 +75,9 @@ export function KpiTile({
         >
           {valeur}
         </div>
+        {perimetre && (
+          <div className="mt-1 text-[11px] leading-snug text-ink-muted">{perimetre}</div>
+        )}
         {delta && (
           <div className="mt-1">
             <DeltaPct valeur={delta.valeur} vs={delta.vs} upIsGood={delta.upIsGood ?? null} />
