@@ -80,7 +80,7 @@ type SeuilSource = { unite: UniteAge; retard: number; alerte: number };
  * seuils dans `meta_sources` (colonnes dédiées) via les pipelines.
  *
  * Ordre et valeurs repris ligne à ligne de `fraicheur.conf`.
- * Dernière synchronisation : 22/08/2026, 32 sources (ajout de S42).
+ * Dernière synchronisation : 22/08/2026, 33 sources (ajout de S43).
  */
 const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // Quotidiennes strictes, calendrier ouvré
@@ -97,6 +97,11 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   "S11-annuaire-administration": { unite: "jc", retard: 60, alerte: 120 },
   // Calendrier parlementaire (trêve estivale mi-juillet → début octobre)
   "S5-SCRUTINS": { unite: "jc", retard: 60, alerte: 95 },
+  // DOLE (DILA) : livraisons du soir jusqu'à 5 fois/semaine selon
+  // l'actualité parlementaire. date_donnees = max(DATE_DERNIERE_MODIFICATION),
+  // jamais last_update data.gouv. Gap max observé 12 j (listing 22/08/2026).
+  // 20/35 j couvre une quinzaine creuse sans attendre la trêve des scrutins.
+  S43: { unite: "jc", retard: 20, alerte: 35 },
   // Hebdomadaire / mensuelle (lag de clôture comptable pour S13)
   S14: { unite: "jc", retard: 10, alerte: 18 },
   // Même génération hebdomadaire que S14 : les deux fichiers sont publiés à

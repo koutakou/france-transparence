@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
 import { JsonLd } from "@/components/JsonLd";
@@ -7,10 +8,20 @@ import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { Donut } from "@/components/ui/Donut";
 import { FluxTextes } from "@/components/client/FluxTextes";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
+import { KpiTile } from "@/components/ui/KpiTile";
 import { Sparkline } from "@/components/ui/Sparkline";
 import { StatStrip } from "@/components/ui/StatStrip";
+import { libelleTypeDole } from "@/lib/dole-libelles";
 import { formatDateFr, formatNombre } from "@/lib/format";
 import { libelleNaturePluriel } from "@/lib/jorf-libelles";
+import {
+  getDole,
+  libelleLegislatureDole,
+  NAVETTE_APERCU,
+  perimetreDoleNavette,
+  perimetreDoleStock,
+  type DoleNavetteLigne,
+} from "@/lib/queries/dole";
 import {
   getFluxTextes,
   getJorfKpis,
@@ -126,6 +137,7 @@ export default async function DocumentsPage() {
   // Première page du flux complet, rendue dans le HTML statique — filtres
   // et pagination passent ensuite par le fragment côté client.
   const flux = getFluxTextes({ nature: null, nominationsSeules: false, page: 1 });
+  const dole = getDole();
 
   /* ------------------------------- Dérivés ------------------------------- */
   const serie = serieCalendaire(parutions);
@@ -139,6 +151,53 @@ export default async function DocumentsPage() {
   const colonnesParutions: Colonne<ParutionJour>[] = [
     { cle: "date_publi", entete: "JO du", type: "date" },
     { cle: "nb", entete: "Textes", type: "nombre" },
+  ];
+
+  const colonnesNavette: Colonne<DoleNavetteLigne>[] = [
+    {
+      cle: "titre",
+      entete: "Titre",
+      rendu: (l) => (
+        <span title={l.titre} className="block max-w-[48ch] truncate">
+          {l.titre}
+        </span>
+      ),
+    },
+    {
+      cle: "type",
+      entete: "Type",
+      largeur: "11rem",
+      rendu: (l) => libelleTypeDole(l.type),
+    },
+    { cle: "date_modif", entete: "Mise à jour", type: "date", largeur: "8rem" },
+    {
+      cle: "derniere_etape",
+      entete: "Dernière étape",
+      rendu: (l) =>
+        l.derniere_etape ? (
+          <span title={l.derniere_etape} className="block max-w-[36ch] truncate">
+            {l.derniere_etape}
+          </span>
+        ) : (
+          "—"
+        ),
+    },
+    {
+      cle: "lien_legifrance",
+      entete: "Lien",
+      largeur: "7rem",
+      rendu: (l) => (
+        <a
+          href={l.lien_legifrance}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="whitespace-nowrap text-ink-secondary underline decoration-dotted underline-offset-2 transition-colors hover:text-ink"
+        >
+          Légifrance<span aria-hidden="true"> ↗</span>
+          <span className="sr-only"> (nouvelle fenêtre)</span>
+        </a>
+      ),
+    },
   ];
 
   return (
@@ -305,6 +364,113 @@ export default async function DocumentsPage() {
         total={flux?.total ?? kpis.textesFenetre}
         pctSansMinistere={pctSansMinistere}
       />
+
+      {/* Dossiers législatifs (S43) — stock DOLE, cloisonné du JO du jour */}
+      {dole && (
+        <>
+          <div className="flex items-center gap-3" role="separator">
+            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+              Autre objet · dossiers législatifs, pas le JO du jour
+            </span>
+            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+          </div>
+
+          <Card
+            titre="Dossiers législatifs"
+            sousTitre={`Stock DILA (DOLE) et navette de la ${libelleLegislatureDole(dole.legislatureCourante)} — distinct du Journal officiel du jour`}
+            droite={
+              <FreshnessBadge
+                dateDonnees={dole.meta.date_donnees}
+                source={dole.meta.nom}
+                frequence={dole.meta.frequence}
+                url={dole.meta.url}
+              />
+            }
+          >
+            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <KpiTile
+                nu
+                label="Dossiers au fichier"
+                valeur={formatNombre(dole.nbDossiers)}
+                perimetre={perimetreDoleStock(dole)}
+              />
+              <KpiTile
+                nu
+                label="En navette"
+                valeur={formatNombre(dole.nbNavette)}
+                perimetre={perimetreDoleNavette(dole.legislatureCourante)}
+              />
+              <KpiTile
+                nu
+                label="Lois publiées au fichier"
+                valeur={formatNombre(dole.nbLoisPubliees)}
+                perimetre="lois publiées au fichier DILA, toutes législatures du stock"
+              />
+              <KpiTile
+                nu
+                label="Ordonnances publiées au fichier"
+                valeur={formatNombre(dole.nbOrdonnancesPubliees)}
+                perimetre="ordonnances publiées au fichier DILA, toutes législatures du stock"
+              />
+            </div>
+            <NoticeLecture
+              ancre="dossiers-legislatifs"
+              commentLire={
+                <p>
+                  Chaque dossier est un texte de l’article 39 de la Constitution
+                  (ou de l’article 53, hors forme simplifiée). La navette
+                  affichée est celle de la législature en cours : un projet
+                  d’une législature close n’est pas «&nbsp;en cours&nbsp;», même
+                  si son type reste «&nbsp;projet&nbsp;» dans le fichier.
+                </p>
+              }
+              provenance={
+                <p>
+                  Dumps XML DILA du fonds DOLE (Freemium puis incréments,
+                  last-write-wins), Licence Ouverte 2.0. Producteur&nbsp;: DILA
+                  ; catalogue data.gouv «&nbsp;dole-les-dossiers-legislatifs&nbsp;»,
+                  organisation Premier ministre. Chaque dossier renvoie vers
+                  Légifrance (lien sortant, le texte n’est pas recopié ici).
+                </p>
+              }
+              limites={
+                <p>
+                  Ce n’est pas le total des propositions de loi déposées : les
+                  PPL n’entrent dans le fichier qu’après adoption par la
+                  première assemblée, depuis la réforme de 2008. Ce n’est pas
+                  l’exposé des motifs, ni l’échéancier d’application des lois,
+                  ni le droit consolidé (LEGI). Ce n’est pas le Journal
+                  officiel du jour (source S3, ci-dessus).
+                </p>
+              }
+            />
+            <DataTable
+              className="mt-4"
+              hauteurMax="24rem"
+              colonnes={colonnesNavette}
+              lignes={dole.navette.slice(0, NAVETTE_APERCU)}
+              cleLigne={(l) => l.dossier_id}
+              vide="Aucun dossier en navette pour la législature en cours"
+            />
+            <p className="mt-3 text-xs text-ink-secondary">
+              {dole.navette.length > NAVETTE_APERCU ? (
+                <>
+                  {formatNombre(NAVETTE_APERCU)} dossiers les plus récemment
+                  mis à jour sur {formatNombre(dole.navette.length)} en
+                  navette.&nbsp;
+                </>
+              ) : null}
+              <Link
+                href="/documents/dossiers/"
+                className="underline decoration-dotted underline-offset-2 hover:text-ink"
+              >
+                Tous les dossiers en navette
+              </Link>
+            </p>
+          </Card>
+        </>
+      )}
     </section>
   );
 }

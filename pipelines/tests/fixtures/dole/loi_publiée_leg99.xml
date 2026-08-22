@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DOSSIER_LEGISLATIF>
+  <META>
+    <META_COMMUN>
+      <ID>JORFDOLEFAKE000000002</ID>
+      <ANCIEN_ID/>
+      <ORIGINE>JORF</ORIGINE>
+      <URL>fake/loi.xml</URL>
+      <NATURE/>
+    </META_COMMUN>
+    <META_DOSSIER_LEGISLATIF>
+      <TITRE>LOI n° 2026-1 du 2 janvier 2026 fictive</TITRE>
+      <TYPE>LOI_PUBLIEE</TYPE>
+      <DATE_CREATION>2025-09-01</DATE_CREATION>
+      <DATE_DERNIERE_MODIFICATION>2026-01-02</DATE_DERNIERE_MODIFICATION>
+      <LEGISLATURE>
+        <NUMERO>99</NUMERO>
+        <DATE_DEBUT>2026-01-01</DATE_DEBUT>
+        <DATE_FIN>2999-01-01</DATE_FIN>
+        <LIBELLE>IXème législature fictive</LIBELLE>
+      </LEGISLATURE>
+    </META_DOSSIER_LEGISLATIF>
+  </META>
+  <CONTENU>
+    <ARBORESCENCE>
+      <LIEN id="1" libelle="Loi publiée" lien="https://example.test/jo"/>
+    </ARBORESCENCE>
+  </CONTENU>
+</DOSSIER_LEGISLATIF>

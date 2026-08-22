@@ -35,8 +35,15 @@
 > comparaison au seuil de 3 % du PIB. Pipeline sans dépendance d'ordre, placé avant
 > `sirene`.
 >
+> **Mise à jour du 22/08/2026 (soir).** **S43** (dossiers législatifs DILA, fonds DOLE, via
+> `pipelines/ingest_dole.py`) s'ajoute. L'ingestion compte donc **21 pipelines** et
+> **33 sources tracées dans `meta_sources`**. Distinct de S3 (JORFSIMPLE, fenêtre 30 JO)
+> et de S35 (LEGI, Debats, RefOrgaAdminEtat — toujours non ingéré). Pipeline sans
+> dépendance d'ordre, placé avant `sirene`. La législature courante est le max des
+> numéros, jamais 17 en dur.
+>
 > **Document daté.** Les fraîcheurs et volumétries amont relevées ici l'ont été par appels réels le
-> 19/08/2026 (et le 20/08 pour S38 et S40) : elles décrivent ces jours-là et **ont dérivé depuis**.
+> 19/08/2026 (et le 20/08 pour S38 et S40, le 22/08 soir ~22:30 CEST pour S43) : elles décrivent ces jours-là et **ont dérivé depuis**.
 > Le catalogue vivant, avec la date réellement ingérée de chaque source, est la page `/donnees`
 > du site, régénérée à chaque publication.
 
@@ -278,7 +285,7 @@ Tous téléchargés/dépouillés le 19/08/2026 (05-frais-indemnites.md) :
 - **URL testée** : `POST https://api.ted.europa.eu/v3/notices/search` (200, sans clé) ; 58 379 avis FR publiés en 2026 ; largement **redondant avec BOAMP** (famille JOUE déjà incluse) ; vaut pour les eForms normalisés et la comparaison UE (02). **Modules** : Commande publique — non ingéré.
 
 #### S35. Autres fonds DILA (echanges.dila.gouv.fr/OPENDATA/)
-- **Testés le 19/08** : LEGI (consolidé, 18/08), DOLE (dossiers législatifs, 18/08), Debats (AN 31/07 — vacances), COMPTES_DES_ASSOCIATIONS (19/08 14:29), **RefOrgaAdminEtat** (référentiel de l'organisation de l'État, flux quotidien 19/08 08:30 — utile pour la table des intitulés ministériels par période) (07).
+- **Testés le 19/08** : LEGI (consolidé, 18/08), Debats (AN 31/07 — vacances), COMPTES_DES_ASSOCIATIONS (19/08 14:29), **RefOrgaAdminEtat** (référentiel de l'organisation de l'État, flux quotidien 19/08 08:30 — utile pour la table des intitulés ministériels par période) (07). **DOLE** (dossiers législatifs) a été détaché sous **S43** le 22/08/2026 : S35 reste LEGI, Debats, RefOrgaAdminEtat, **toujours non ingéré**. Ne pas recycler `source_id='S35'` pour DOLE.
 - **Licence** : fr-lo. **Modules** : Documents/JO (extensions) — non ingéré.
 
 #### S36. API Légifrance via PISTE — optionnelle
@@ -331,6 +338,15 @@ Tous téléchargés/dépouillés le 19/08/2026 (05-frais-indemnites.md) :
 - **Objet** : `na_item=B9` = capacité (+) / besoin (−) de financement des administrations publiques. Un B9 négatif est un déficit ; un B9 positif est un excédent. Ce n'est **pas** le solde du budget général (S13, DGFiP, flux de l'État, cumul YTD). Ce n'est **pas** l'encours de dette (S41, na_item=GD, stock trimestriel). `source_id` = **S42**, jamais `'S13'` ni `'S41'`.
 - **Piège d'unité** : native **MIO_EUR**. Conversion Md€ = MIO_EUR **÷ 1000** à la lecture. Jamais ÷ 1e9. `PC_GDP` est le pourcentage du PIB, lu à part et affiché comme un fait ; **jamais comparé au seuil de 3 %** (aucun écart, aucun coloriage). Pas de montant par habitant, pas de série trimestrielle (`gov_10q_ggnfa`), pas de sous-secteur S.1311.
 - **Modules** : Dépenses de l'État (bloc cloisonné après l'encours S41). **INGÉRÉE** — pipeline P18 `pipelines/ingest_deficit_maastricht.py`.
+
+#### S43. DILA — dossiers législatifs (DOLE, évalué le 22/08/2026 ~22:30 CEST)
+- **Producteur** : DILA. Organisation data.gouv : **Premier ministre**. Dataset slug `dole-les-dossiers-legislatifs`. **URL** (index Apache, sans authentification) : `https://echanges.dila.gouv.fr/OPENDATA/DOLE/` (HTTP 200, charset ISO-8859-1, mesuré le 22/08/2026 ~22:30 CEST). Catalogue : `https://www.data.gouv.fr/datasets/dole-les-dossiers-legislatifs`.
+- **Licence relue** (data.gouv `license: fr-lo` ; page `https://www.data.gouv.fr/pages/legal/licences/etalab-2.0` = Licence Ouverte 2.0 ; PDF DILA du 18/10/2018 « licence ouverte v2.0 ») : **Licence Ouverte 2.0**, paternité DILA + URL + nom de fichier. Libellé `meta_sources` : `Licence Ouverte 2.0`.
+- **Fréquence** : jusqu'à 5 livraisons/semaine (fiche producteur). Le 22/08/2026 ~22:30 CEST : Freemium `Freemium_dole_global_20250713-140000.tar.gz` **18 698 444 o**, Last-Modified 13 Jul 2025, 3411 XML ; **240 incréments** postérieurs, dernier `DOLE_20260820-220411.tar.gz` (20/08 22:12) ; gap max observé **12 j**. Ces volumes dérivent.
+- **Date des données** = max(`DATE_DERNIERE_MODIFICATION`) des dossiers écrits (**2026-08-20** ce soir-là). **Jamais** le `last_update` data.gouv (catalogue en retard : 2026-08-15 ce soir-là).
+- **Rebuild last-write-wins** (mesuré le 22/08/2026 ~22:30 CEST) : **3578 dossiers uniques** (3411 + 167 nouveaux, 1226 mises à jour), 0 parse fail. TYPES ce jour-là : 1245 LOI_PUBLIEE, 1136 ORDONNANCE_PUBLIEE, 692 PROJET_LOI, 500 PROPOSITION_LOI, 3 TYPE vide (lois 2008), 2 PROJET_ORDONNANCE. Législature de numéro max (17, **jamais en dur**) : 332 dossiers dont 190 en navette (TYPE ouvert). 1194 « TYPE ouvert » toutes législatures : **ne pas les appeler « en cours »**.
+- **Pièges** : `source_id` = **S43**, jamais `'S35'` (seau LEGI/Debats/RefOrgaAdminEtat, toujours non ingéré) ni `'S3'` (JORFSIMPLE, fenêtre 30 JO — un dossier législatif vit des mois et serait purgé). TYPE n'est pas « en navette aujourd'hui » : un PROJET_LOI d'une législature close reste typé projet. Navette affichée = type ∈ {PROJET_LOI, PROPOSITION_LOI, PROJET_ORDONNANCE} **ET** législature = max(legislature_num). TYPE vide est **licite** (trois lois 2008) — on ne le déduit pas du titre. N'ingère **pas** l'exposé des motifs ni les HTML d'échéancier : métadonnées + dernière étape (LIEN directs de ARBORESCENCE). Stock + incréments rejouable (Freemium ~19 Mo, pas 1 Go comme JORF).
+- **Modules** : Documents/JO. **INGÉRÉE** — pipeline P19 `pipelines/ingest_dole.py`.
 
 ### Groupe E — Sources écartées (raison prouvée le 19/08/2026)
 
@@ -452,7 +468,7 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 - **Contenu concret** : carte départementale en 1 requête `group_by` (101 départements) ; carte communale pré-calculée (34 778 communes, €/habitant natif) ; fiches collectivité (séries 2012/2018→2025, DGF 2018-2026, comparaison de strate) ; drill-down comptable par SIREN à la demande. **Jamais** de vue « subventions France entière » (aucune consolidation nationale SCDL, 06).
 
 ### Documents/JO
-- **Sources** : S3 (JORFSIMPLE quotidien), S35 (LEGI/DOLE/Debats/RefOrga, non ingéré), S36 (recherche Légifrance, optionnel), S12 (BODACC/associations, non ingéré).
+- **Sources** : S3 (JORFSIMPLE quotidien), **S43** (dossiers législatifs DILA, ingéré), S35 (LEGI/Debats/RefOrgaAdminEtat, non ingéré), S36 (recherche Légifrance, optionnel), S12 (BODACC/associations, non ingéré).
 - **Fraîcheur affichable** : « Journal officiel du jour (disponible chaque nuit vers 00h30) » (07).
 - **Contenu concret** : flux quotidien des textes (83 textes le 19/08 dont 5 lois) ; filtre **nominations** (38 textes « nominat » le 19/08) ; filtres lois/décrets/budget par rubrique du sommaire, nature et ministère ; chaque item lié vers `https://www.legifrance.gouv.fr/jorf/id/{ID}` (les liens navigateurs fonctionnent, seule la collecte est bloquée, 07).
 
@@ -538,7 +554,7 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 3. **AN approfondi** : amendements 296,7 Mo/j ; questions écrites 45,8 Mo ; Agenda 7,8 Mo (reconstruction de la présence en commission — plus rien d'autre ne la fournit depuis la mort de NosDéputés) (03).
 4. **S28 balances collectivités** (requêtes ciblées par SIREN) + **S33 comptes individuels** (strates) + **S32 subventions SCDL** (panel Paris/Lyon/départements conformes, jamais « national ») (06).
 5. **S19 HowTheyVote** (68,6 Mo hebdo, ODbL) + Europarl (09).
-6. **S22 CGE** (517 k lignes) + **S24 RAP** ; **S34 TED** ; **S12 BODACC/associations** ; **S35 LEGI/DOLE/Debats/RefOrgaAdminEtat** ; **S36 PISTE** (one-shot humain) ; **S37 décret d'aide publique** (01, 02, 07, 04).
+6. **S22 CGE** (517 k lignes) + **S24 RAP** ; **S34 TED** ; **S12 BODACC/associations** ; **S35 LEGI/Debats/RefOrgaAdminEtat** ; **S36 PISTE** (one-shot humain) ; **S37 décret d'aide publique** (01, 02, 07, 04).
 7. **Ajouts post-critique (19/08)** : **S39 jaune opérateurs PLF 2026** (référentiel des opérateurs) ; **panel « 10 plus hautes rémunérations »** (25 datasets épars, patron S32 : jamais « national ») ; **collaborateurs parlementaires** (extraction HTML des fiches AN/Sénat, coûteuse) ; **comptes des groupes politiques** (PDF AN/Sénat à vérifier en Phase 1 → constantes S31 ou boîte noire) (10-critique I1, I3, I4, I10).
 8. **Veilles actives** (re-tester périodiquement) : open data du RIE (trimestriel) ; **export open data des avis de mobilité HATVP (pantouflage), au même rythme que la veille RIE** ; comptes de campagne municipales 2026 ; rapport Cour des comptes Élysée exercice 2025 ; jaune cabinets PLF 2027 ; jaune associations PLF 2026 ; publication éventuelle de la LFI en données ; **datasets PLF 2027** (famille destination/nature + budget vert, non parus au 19/08/2026 — même famille que S20/S21) ; **donnée consolidée « aides aux entreprises »** (0 dataset au 19/08) ; **réserve parlementaire historique** (7 datasets figés, vérifiés — chronologie IRFM → DFP / boîte noire ; successeur FDVA jamais traité) (04, 05, 01, 10-critique M8/I2/I7).
 
@@ -582,7 +598,7 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 | S32 Subventions SCDL (panel) | Hétérogène (Armor 16/08/2026 ; Paris 28/07/2026) (06) | LO 2.0 (à vérifier) | Finances locales | non ingéré |
 | S33 Comptes individuels collectivités | 2024 max (01/12/2025) (06) | LO 2.0 | Finances locales (strates) | non ingéré |
 | S34 TED (UE) | Quotidienne (02) | réutilisation UE | Commande publique (UE) | non ingéré |
-| S35 Autres fonds DILA (LEGI/DOLE/Debats/RefOrga) | Quotidienne à J-1 (07) | fr-lo | Documents/JO | non ingéré |
+| S35 Autres fonds DILA (LEGI/Debats/RefOrgaAdminEtat) | Quotidienne à J-1 (07) | fr-lo | Documents/JO | non ingéré |
 | S36 API Légifrance (PISTE) | Temps réel (one-shot humain requis) (07) | CGU PISTE + fr-lo | Documents (recherche) | non ingéré (optionnel) |
 | S37 Décret aide publique partis | Annuel (décret 03/03/2026, 403 curl) (04) | — | Financement politique | non ingéré |
 | S38 Avis CADA (ensemble consolidé) | Consolidé maj 14/08/2026 + lots mensuels/trimestriels (10-critique) | fr-lo | Frais & train de vie (carte des verrous, boîte noire) | **ingérée** (agrégats seulement, 20/08/2026) |
@@ -590,6 +606,7 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 | S40 Registre de transparence UE | Export XML quotidien (exportDate) | décision 2011/833/UE (20/08/2026) | Lobbying (bloc cloisonné) | **ingérée** (P16) |
 | S41 Encours de dette des APU (Maastricht) | Trimestrielle (fin de trimestre de TIME max, jamais `updated`) | décision 2011/833/UE (22/08/2026) | Dépenses (bloc cloisonné) | **ingérée** (P17) |
 | S42 Déficit public des APU (Maastricht) | Annuelle (31/12 du TIME max, jamais `updated`) | décision 2011/833/UE (22/08/2026) | Dépenses (bloc cloisonné) | **ingérée** (P18) |
+| S43 DILA dossiers législatifs (DOLE) | Freemium + incréments (jusqu'à 5/sem. ; gap max observé 12 j le 22/08 soir) | LO 2.0 (fr-lo) | Documents/JO | **ingérée** (P19) |
 
 ---
 

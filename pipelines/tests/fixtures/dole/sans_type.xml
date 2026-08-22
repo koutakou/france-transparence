@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DOSSIER_LEGISLATIF>
+  <META>
+    <META_COMMUN>
+      <ID>JORFDOLEFAKE000000004</ID>
+      <ANCIEN_ID/>
+      <ORIGINE>JORF</ORIGINE>
+      <URL>fake/sans-type.xml</URL>
+      <NATURE/>
+    </META_COMMUN>
+    <META_DOSSIER_LEGISLATIF>
+      <TITRE>Loi n° 2008-1 du 1er janvier 2008 sans TYPE dans le fichier</TITRE>
+      <TYPE/>
+      <DATE_CREATION>2008-01-01</DATE_CREATION>
+      <DATE_DERNIERE_MODIFICATION>2008-01-02</DATE_DERNIERE_MODIFICATION>
+      <LEGISLATURE>
+        <NUMERO>13</NUMERO>
+        <LIBELLE>XIIIème législature</LIBELLE>
+      </LEGISLATURE>
+    </META_DOSSIER_LEGISLATIF>
+  </META>
+  <CONTENU>
+    <ARBORESCENCE>
+      <LIEN id="1" libelle="Petite loi" lien="https://example.test/petite"/>
+    </ARBORESCENCE>
+  </CONTENU>
+</DOSSIER_LEGISLATIF>

@@ -40,6 +40,7 @@ const PAGES_DONNEES = [
   "frais",
   "alertes",
   "documents",
+  "documents/dossiers",
   "donnees",
 ];
 

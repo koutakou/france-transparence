@@ -16,19 +16,24 @@
 # ; le soir, table dette_apu_maastricht (S41, Eurostat gov_10q_ggdebt) — CREATE recopié
 # du pipeline P17 ; absente de la base servie tant que l'ingestion n'a pas tourné.
 # Puis table deficit_apu_maastricht (S42, Eurostat gov_10dd_edpt1, B9) — CREATE
-# recopié du pipeline P18.
+# recopié du pipeline P18. Puis table dole_dossiers (S43, fonds DOLE DILA) —
+# CREATE recopié du pipeline P19 (sans IF NOT EXISTS) ; 3 index.
 
-> **Extrait daté.** Ce document décrit **77 tables**, **6 vues** et **55 index**, et cette
+> **Extrait daté.** Ce document décrit **78 tables**, **6 vues** et **58 index**, et cette
 > couverture est sa propriété essentielle : une table de la base absente d'ici est un trou de
 > documentation, et une table décrite ici qui n'existe nulle part est une invention. Les **75**
 > tables, les 6 vues et les 55 index sont ceux que `sqlite_master` recense au 22/08/2026 (matin), et le
 > DDL reproduit ici est celui de la base servie : le document a été rejoué dans une base SQLite
 > vide, puis les deux bases comparées objet par objet. Écart : **aucun, sur les 75 tables**.
 > La 76e table, `dette_apu_maastricht` (S41), est celle du pipeline P17. La 77e,
-> `deficit_apu_maastricht` (S42), est celle du pipeline P18 : tant que
-> l'ingestion n'a pas tourné sur la base servie, le contrôle affiche
-> `doc sans base : ['deficit_apu_maastricht']` (et éventuellement
-> `dette_apu_maastricht` si P17 n'a pas non plus tourné) — attendu, pas un trou.
+> `deficit_apu_maastricht` (S42), est celle du pipeline P18. La 78e,
+> `dole_dossiers` (S43), est celle du pipeline P19, avec ses **3 index**
+> (`idx_dole_dossiers_type`, `idx_dole_dossiers_leg`, `idx_dole_dossiers_modif`)
+> qui portent le compte d'index de 55 à **58**. Tant que l'ingestion n'a pas
+> tourné sur la base servie, le contrôle affichera
+> `doc sans base : ['dole_dossiers']` (et éventuellement
+> `deficit_apu_maastricht` / `dette_apu_maastricht` si P18/P17 n'ont pas
+> non plus tourné) — attendu, pas un trou.
 >
 > Le contrôle porte, à cette date, sur plus que les colonnes. Noms, types, `NOT NULL`, valeurs par
 > défaut et clés primaires coïncident colonne à colonne ; le texte DDL intégral coïncide lui aussi,
@@ -961,6 +966,30 @@ CREATE TABLE deficit_apu_maastricht (
     statut         TEXT,
     PRIMARY KEY (geo, sector, na_item, annee)
 );
+-- ---------------------------------------------------------------------------
+-- S43 — Dossiers législatifs DILA, fonds DOLE (pipeline P19). Métadonnées
+-- seulement : pas d'exposé des motifs, pas les HTML d'échéancier. TYPE vide
+-- est licite (trois lois 2008 dans le fichier — on ne le déduit pas du
+-- titre). TYPE n'est pas « en navette aujourd'hui » : un PROJET_LOI d'une
+-- législature close reste typé projet. La navette affichée est type ouvert
+-- ET législature = max(legislature_num), jamais 17 en dur. Distinct de S3
+-- (JORFSIMPLE, fenêtre 30 JO) et de S35 (LEGI, Debats, RefOrgaAdminEtat).
+-- ---------------------------------------------------------------------------
+CREATE TABLE dole_dossiers (
+    dossier_id           TEXT PRIMARY KEY,
+    titre                TEXT NOT NULL,
+    type                 TEXT NOT NULL DEFAULT '',
+    date_creation        TEXT,
+    date_modif           TEXT,
+    legislature_num      TEXT NOT NULL DEFAULT '',
+    legislature_libelle  TEXT NOT NULL DEFAULT '',
+    derniere_etape       TEXT NOT NULL DEFAULT '',
+    derniere_etape_url   TEXT NOT NULL DEFAULT '',
+    lien_legifrance      TEXT NOT NULL
+);
+CREATE INDEX idx_dole_dossiers_type  ON dole_dossiers(type);
+CREATE INDEX idx_dole_dossiers_leg   ON dole_dossiers(legislature_num);
+CREATE INDEX idx_dole_dossiers_modif ON dole_dossiers(date_modif);
 CREATE TABLE partis (
     id               TEXT PRIMARY KEY REFERENCES entites(id),
     code_cnccfp      TEXT NOT NULL UNIQUE,

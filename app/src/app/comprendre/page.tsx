@@ -1105,6 +1105,35 @@ export default function PageComprendre() {
             parus, pas l’intégralité de l’historique.
           </p>
         </div>
+        <div id="dossiers-legislatifs" className="scroll-mt-20 mt-8 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+          <h3 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
+            Dossiers législatifs
+          </h3>
+          <p>
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
+            Un dossier législatif est un texte de l’article 39 de la
+            Constitution (ou de l’article 53, hors forme simplifiée). La
+            navette affichée est celle de la législature en cours : un projet
+            d’une législature close n’est pas «&nbsp;en cours&nbsp;», même si
+            son type reste «&nbsp;projet&nbsp;» dans le fichier. Voir{" "}
+            <LienPage href="/documents/dossiers/">Dossiers législatifs</LienPage>.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
+            Dumps XML DILA du fonds DOLE (Freemium puis incréments), Licence
+            Ouverte 2.0. Producteur : DILA ; catalogue data.gouv
+            «&nbsp;dole-les-dossiers-legislatifs&nbsp;», organisation Premier
+            ministre. Chaque dossier renvoie vers Légifrance (lien sortant).
+          </p>
+          <p>
+            <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
+            Ce n’est pas le total des propositions de loi déposées : les PPL
+            n’entrent dans le fichier qu’après adoption par la première
+            assemblée, depuis la réforme de 2008. Ce n’est pas l’exposé des
+            motifs, ni l’échéancier d’application des lois, ni le droit
+            consolidé (LEGI). Ce n’est pas le Journal officiel du jour.
+          </p>
+        </div>
       </Card>
 
       <Card titre="Alertes">

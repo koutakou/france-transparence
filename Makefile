@@ -27,6 +27,9 @@ PY     := $(VENV)/bin/python
 # deficit_maastricht (S42, déficit public des APU au sens de Maastricht) n'a
 # AUCUNE dépendance d'ordre : il n'écrit que deficit_apu_maastricht. Distinct
 # de S41 (stock GD) et de S13 (solde du budget général). Placé avant sirene.
+# dole (S43, dossiers législatifs DILA) n'a AUCUNE dépendance d'ordre : il
+# n'écrit que dole_dossiers. Distinct de S3 (JORFSIMPLE, fenêtre 30 JO) et
+# de S35 (autres fonds DILA non ingérés). Placé avant sirene.
 # sirene (S18) est en DERNIER, et cette place-là n'a rien d'arbitraire : le
 # référentiel Sirene n'est pas ingéré en entier, il est restreint aux SIREN
 # que les autres tables citent (decp, subventions, lobbying, collectivites,
@@ -36,7 +39,7 @@ PY     := $(VENV)/bin/python
 PIPELINES := referentiels budget_mensuel budget_structure decp boamp approch \
              jorf parlement integrite hatvp_declarations lobbying financement \
              collectivites elections trainvie cada registre_ue \
-             dette_maastricht deficit_maastricht sirene
+             dette_maastricht deficit_maastricht dole sirene
 
 # NB : ne PAS déclarer les cibles ingest-<x> en .PHONY — make saute la
 # recherche de règles implicites (ingest-%) pour les cibles phony.

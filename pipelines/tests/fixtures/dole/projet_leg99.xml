@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DOSSIER_LEGISLATIF>
+  <META>
+    <META_COMMUN>
+      <ID>JORFDOLEFAKE000000001</ID>
+      <ANCIEN_ID/>
+      <ORIGINE>JORF</ORIGINE>
+      <URL>fake/projet.xml</URL>
+      <NATURE/>
+    </META_COMMUN>
+    <META_DOSSIER_LEGISLATIF>
+      <TITRE>Projet de loi fictif de test</TITRE>
+      <TYPE>PROJET_LOI</TYPE>
+      <DATE_CREATION>2026-01-01</DATE_CREATION>
+      <DATE_DERNIERE_MODIFICATION>2026-06-15</DATE_DERNIERE_MODIFICATION>
+      <LEGISLATURE>
+        <NUMERO>99</NUMERO>
+        <DATE_DEBUT>2026-01-01</DATE_DEBUT>
+        <DATE_FIN>2999-01-01</DATE_FIN>
+        <LIBELLE>IXème législature fictive</LIBELLE>
+      </LEGISLATURE>
+    </META_DOSSIER_LEGISLATIF>
+  </META>
+  <CONTENU>
+    <EXPOSE_MOTIF><p>Ce bloc ne doit pas être ingéré.</p></EXPOSE_MOTIF>
+    <ARBORESCENCE>
+      <LIEN id="1" libelle="Dépôt" lien="https://example.test/depot"/>
+      <LIEN id="2" libelle="Texte adopté en 1ère lecture par le Sénat le 1er juin 2026" lien="https://example.test/senat"/>
+      <NIVEAU id="3" libelle="Documents préparatoires">
+        <LIEN id="4" libelle="Rapport de Mme X" lien="https://example.test/rapport"/>
+      </NIVEAU>
+    </ARBORESCENCE>
+  </CONTENU>
+</DOSSIER_LEGISLATIF>

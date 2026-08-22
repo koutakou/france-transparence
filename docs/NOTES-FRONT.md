@@ -26,6 +26,15 @@ Condensé des avertissements « pour le front » remontés par chaque pipeline a
 - `jorf_textes` : 30 derniers JO ; le JO ne paraît PAS tous les jours → sparkline tolérante aux trous ; liens Légifrance = liens sortants uniquement (jamais de fetch serveur, anti-bot) ; ~13 % sans ministère (lois, CC — réel) ; `rubrique` NULL possible (1 cas).
 - Agrégat nominations par ministère = fenêtre 30 JO entière (recalculer par jour depuis `jorf_textes` si besoin).
 
+## JO / Documents — dossiers législatifs (S43)
+- Table `dole_dossiers`, `meta_sources.source_id = 'S43'` — jamais S3 (JO du jour) ni S35 (autres fonds DILA). Section sur `/documents` après le flux JORF, page `/documents/dossiers/` ; pas de 12e onglet.
+- TYPE ≠ navette : un `PROJET_LOI` d'une législature close reste un projet dans le fichier. Navette = type ∈ {PROJET_LOI, PROPOSITION_LOI, PROJET_ORDONNANCE} ET `legislature_num` = max des numéros entièrement numériques (jamais 17 en dur).
+- PPL du fichier : seulement après adoption par la 1re assemblée (réforme 2008) — ce n'est pas le total des propositions déposées. À dire dans `perimetre` / NoticeLecture.
+- Producteur annonce « depuis la XIIe législature (juin 2002) » ; le fichier porte aussi la XIe. Dire ce que le FICHIER contient, pas l'annonce.
+- Pas d'exposé des motifs, pas d'échéancier d'application, pas LEGI consolidé, pas le JO du jour (S3 au-dessus).
+- Liens Légifrance sortants uniquement (jamais de fetch : Légifrance répond 403).
+- Table absente = `getDole()` null, section non rendue, jamais un zéro inventé. Les volumes dérivent à chaque ingestion.
+
 ## Élus & intégrité (S5, S6, S7, S14, S17)
 - Jointures : `elus.uid_an ↔ deputes.uid_an ↔ votes_recents.uid_an` ; `deputes.groupe_ref ↔ groupes_an.organe_ref` ; `elus.matricule_senat ↔ senateurs.matricule`.
 - 577 députés, 348 sénateurs, ~36 000 élus au total (maires, présidents CD/CR/EPCI ; conseillers municipaux = agrégats `rne_cm_agregats` seulement).
