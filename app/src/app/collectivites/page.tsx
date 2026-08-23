@@ -24,7 +24,13 @@ import {
   getNbRegionsReferentiel,
   getRegions,
 } from "@/lib/queries/collectivites";
-import { getDonneesElectionsInline } from "@/lib/queries/elections";
+import {
+  getDonneesElectionsInline,
+  PERIMETRE_BLANCS_NULS,
+  PERIMETRE_INSCRITS,
+  PERIMETRE_PARTICIPATION,
+  PERIMETRE_VOTANTS,
+} from "@/lib/queries/elections";
 import { JsonLd } from "@/components/JsonLd";
 import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
@@ -641,7 +647,13 @@ export default async function PageCollectivites() {
           réserves (participation seulement, aucune nuance politique, scrutins
           non comparables entre eux). Voir docs/ELECTIONS.md. */}
       <section id="participation">
-        <ParticipationElectorale donnees={getDonneesElectionsInline()} />
+        <ParticipationElectorale
+          donnees={getDonneesElectionsInline()}
+          perimetreInscrits={PERIMETRE_INSCRITS}
+          perimetreVotants={PERIMETRE_VOTANTS}
+          perimetreParticipation={PERIMETRE_PARTICIPATION}
+          perimetreBlancsNuls={PERIMETRE_BLANCS_NULS}
+        />
       </section>
     </div>
   );

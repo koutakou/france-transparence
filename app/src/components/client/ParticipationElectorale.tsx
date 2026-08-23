@@ -57,6 +57,11 @@ import type {
 export interface ParticipationElectoraleProps {
   /** `null` si la base ou la source S26 manque : le bloc le dit et s'arrête. */
   donnees: DonneesElectionsInline | null;
+  /** Bornes des tuiles — constantes `PERIMETRE_*` de `@/lib/queries/elections`. */
+  perimetreInscrits: string;
+  perimetreVotants: string;
+  perimetreParticipation: string;
+  perimetreBlancsNuls: string;
 }
 
 /**
@@ -140,7 +145,21 @@ function extremes(lignes: LigneParticipation[]) {
   return { haut: avecTaux[0] ?? null, bas: avecTaux[avecTaux.length - 1] ?? null };
 }
 
-function Tuiles({ ensemble, nbDepartements }: { ensemble: Effectifs; nbDepartements: number }) {
+function Tuiles({
+  ensemble,
+  nbDepartements,
+  perimetreInscrits,
+  perimetreVotants,
+  perimetreParticipation,
+  perimetreBlancsNuls,
+}: {
+  ensemble: Effectifs;
+  nbDepartements: number;
+  perimetreInscrits: string;
+  perimetreVotants: string;
+  perimetreParticipation: string;
+  perimetreBlancsNuls: string;
+}) {
   const participation = tauxParticipation(ensemble);
   const blancsNuls = partBlancsNuls(ensemble);
   return (
@@ -149,22 +168,35 @@ function Tuiles({ ensemble, nbDepartements }: { ensemble: Effectifs; nbDeparteme
         {
           label: `Inscrits (${formatNombre(nbDepartements)} départements et collectivités)`,
           valeur: formatNombre(ensemble.inscrits),
+          perimetre: perimetreInscrits,
         },
-        { label: "Votants", valeur: formatNombre(ensemble.votants) },
+        {
+          label: "Votants",
+          valeur: formatNombre(ensemble.votants),
+          perimetre: perimetreVotants,
+        },
         {
           label: "Participation",
           valeur: participation === null ? "—" : formatPct(participation),
+          perimetre: perimetreParticipation,
         },
         {
           label: "Bulletins blancs et nuls",
           valeur: blancsNuls === null ? "—" : formatPct(blancsNuls),
+          perimetre: perimetreBlancsNuls,
         },
       ]}
     />
   );
 }
 
-export function ParticipationElectorale({ donnees }: ParticipationElectoraleProps) {
+export function ParticipationElectorale({
+  donnees,
+  perimetreInscrits,
+  perimetreVotants,
+  perimetreParticipation,
+  perimetreBlancsNuls,
+}: ParticipationElectoraleProps) {
   const resumes = donnees?.resumes ?? [];
   const [idChoisi, setIdChoisi] = useState<string | null>(null);
   // Fragment complet une fois chargé ; undefined = jamais demandé,
@@ -233,14 +265,14 @@ export function ParticipationElectorale({ donnees }: ParticipationElectoraleProp
     <Card
       titre="Participation électorale"
       sousTitre={
-        scrutin.date
+        (scrutin.date
           ? `${scrutin.libelle} — scrutin du ${new Intl.DateTimeFormat("fr-FR", {
               day: "2-digit",
               month: "long",
               year: "numeric",
               timeZone: "Europe/Paris",
             }).format(new Date(scrutin.date))}`
-          : scrutin.libelle
+          : scrutin.libelle) + " · participation seulement, sans nuance ni nom de candidat"
       }
       droite={badge}
     >
@@ -292,17 +324,23 @@ export function ParticipationElectorale({ donnees }: ParticipationElectoraleProp
         )}
       </div>
 
-      <Tuiles ensemble={scrutin.ensembleDepartements} nbDepartements={scrutin.departements.length} />
+      <Tuiles
+        ensemble={scrutin.ensembleDepartements}
+        nbDepartements={scrutin.departements.length}
+        perimetreInscrits={perimetreInscrits}
+        perimetreVotants={perimetreVotants}
+        perimetreParticipation={perimetreParticipation}
+        perimetreBlancsNuls={perimetreBlancsNuls}
+      />
 
       {/* Mise en garde éditoriale : elle précède les tableaux, elle n'est pas
           reléguée en note de bas de bloc. */}
       <p className="mt-3 max-w-3xl text-xs text-ink-secondary">
         Les taux ci-dessus portent sur l&apos;<strong className="font-medium text-ink">ensemble
         des départements et collectivités</strong> ({formatNombre(scrutin.departements.length)} à ce
-        scrutin), et non sur la France entière : les électeurs inscrits auprès des consulats
-        (« Français établis hors de France ») ne relèvent d&apos;aucun département et ne sont pas
-        comptés ici — le taux publié par le ministère, qui les inclut, diffère donc de quelques
-        dixièmes de point.{" "}
+        scrutin), pas sur un total « France » du ministère. Les Français établis hors de France
+        n&apos;y figurent pas : aux municipales ils ne votent pas ; aux autres scrutins ils votent
+        dans les consulats, hors de tout département.{" "}
         <strong className="font-medium text-ink">
           Les {formatNombre(resumes.length)} scrutins proposés ne se comparent pas entre eux
         </strong>{" "}
@@ -333,9 +371,14 @@ export function ParticipationElectorale({ donnees }: ParticipationElectoraleProp
           />
         </div>
         <div>
-          <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+          <h3 className="mb-1 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
             Communes suivies par le site
           </h3>
+          <p className="mb-2 text-[11px] text-ink-muted">
+            Préfectures, communes de plus de 50&nbsp;000&nbsp;habitants, et les
+            200 communes les plus peuplées — pas les 35&nbsp;000 communes de
+            France ({formatNombre(nbSuivies)} suivies).
+          </p>
           <TableTronquee
             colonnes={COLONNES("Commune")}
             lignes={lignesCommunes.map(versLigne)}
@@ -349,9 +392,7 @@ export function ParticipationElectorale({ donnees }: ParticipationElectoraleProp
           {/* Une commune absente est DITE absente : jamais une ligne à zéro. */}
           <p className="mt-2 text-[11px] text-ink-muted">
             {formatNombre(nbCommunes)} des {formatNombre(nbSuivies)} communes
-            suivies par le site (préfectures et communes de plus de
-            50&nbsp;000&nbsp;habitants, plus les 200 communes les plus
-            peuplées dont les comptes sont affichés) figurent à ce scrutin.
+            suivies par le site figurent à ce scrutin.
             {communesManquantes > 0 && (
               <>
                 {" "}

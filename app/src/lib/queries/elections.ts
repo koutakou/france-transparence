@@ -161,6 +161,32 @@ export type DonneesElections = {
   nbCommunesSuivies: number;
 };
 
+/**
+ * Bornes des tuiles StatStrip de participation. Un chiffre borné porte sa
+ * borne dans la tuile (`perimetre`) : le paragraphe sous les tuiles ne
+ * compte pas. La page /collectivites les passe au composant client — ce
+ * module ouvre la base, une importation de valeur casserait le bundle.
+ *
+ * Formule vraie pour tous les scrutins (les tuiles changent au clic).
+ * Ne pas y écrire « hors Français établis hors de France » : aux
+ * municipales les consulaires ne votent pas, et ZZ est exclu à l'ingest
+ * pour tous les scrutins (0 ligne en base).
+ */
+export const PERIMETRE_INSCRITS =
+  "ensemble des départements et collectivités de ce scrutin — pas un total France du ministère";
+
+/** Même couverture que les inscrits, quel que soit le scrutin. */
+export const PERIMETRE_VOTANTS =
+  "même périmètre que les inscrits — pas un total France du ministère";
+
+/** Ratio recalculé ici ; un tiret n’est pas une participation nulle. */
+export const PERIMETRE_PARTICIPATION =
+  "votants / inscrits, départements de ce scrutin — un tiret n’est pas un zéro";
+
+/** Blancs et nuls rapportés aux votants, jamais aux inscrits. */
+export const PERIMETRE_BLANCS_NULS =
+  "part des votants — pas des inscrits";
+
 /** `2026_muni_t1` → { annee: 2026, famille: 'Municipales', tour: 1 }. */
 function decrireScrutin(id: string): Pick<Scrutin, "libelle" | "famille" | "annee" | "tour"> {
   const [anneeBrute, codeFamille, tourBrut] = id.split("_");

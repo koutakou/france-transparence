@@ -162,6 +162,54 @@ export function getJorfKpis(): JorfKpis | null {
 }
 
 /**
+ * Périmètre de la tuile « Textes publiés » : fenêtre JORF, pas le fonds DOLE.
+ * `nbJours` vient de la base, jamais une constante.
+ */
+export function perimetreTextesFenetre(nbJours: number): string {
+  return [
+    "JORF « Lois et décrets »",
+    `${nbJours} derniers JO parus`,
+    "ce n’est pas le fonds DOLE",
+  ].join(" · ");
+}
+
+/**
+ * Périmètre de la tuile « Dont nominations » : même fenêtre, textes marqués
+ * nomination — ce n'est pas une biographie.
+ */
+export function perimetreNominationsFenetre(nbJours: number): string {
+  return [
+    "même fenêtre",
+    `${nbJours} derniers JO parus`,
+    "textes marqués nomination",
+    "ce n’est pas une biographie",
+  ].join(" · ");
+}
+
+/**
+ * Périmètre de la tuile « Textes du JO du … » : un seul jour de parution.
+ * La date est déjà dans le libellé — ne pas la reformater ici.
+ */
+export function perimetreTextesJour(): string {
+  return "un seul JO paru — pas la fenêtre entière";
+}
+
+/**
+ * Périmètre de la tuile « Nominations du JO du … » : un seul jour,
+ * textes marqués nomination.
+ */
+export function perimetreNominationsJour(): string {
+  return "un seul JO paru — textes marqués nomination — pas la fenêtre entière";
+}
+
+/**
+ * Mention de fraîcheur S3 : la date n'est pas un stock, c'est une fenêtre.
+ */
+export function mentionFenetreJo(nbJours: number): string {
+  return `${nbJours} derniers JO parus`;
+}
+
+/**
  * Textes par JOUR DE PARUTION réelle (30 points — le JO ne paraît PAS tous
  * les jours : les trous du calendrier sont réels, la page les comble à 0
  * pour la sparkline). Testé : 2026-07-14 → 70, pic 2026-07-23 → 182,

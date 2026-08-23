@@ -29,6 +29,11 @@ import {
   getNominationsParMinistere,
   getParutionsParJour,
   getRepartitionNatures,
+  mentionFenetreJo,
+  perimetreNominationsFenetre,
+  perimetreNominationsJour,
+  perimetreTextesFenetre,
+  perimetreTextesJour,
   type ParutionJour,
 } from "@/lib/queries/documents";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
@@ -250,6 +255,7 @@ export default async function DocumentsPage() {
             source={meta.nom}
             frequence={meta.frequence}
             url={meta.url}
+            mention={mentionFenetreJo(kpis.nbJours)}
           />
         )}
       </header>
@@ -260,15 +266,22 @@ export default async function DocumentsPage() {
           {
             label: `Textes publiés (${formatNombre(kpis.nbJours)} derniers JO)`,
             valeur: formatNombre(kpis.textesFenetre),
+            perimetre: perimetreTextesFenetre(kpis.nbJours),
           },
-          { label: "Dont nominations", valeur: formatNombre(kpis.nominationsFenetre) },
+          {
+            label: "Dont nominations",
+            valeur: formatNombre(kpis.nominationsFenetre),
+            perimetre: perimetreNominationsFenetre(kpis.nbJours),
+          },
           {
             label: `Textes du JO du ${formatDateFr(kpis.dernierJo)}`,
             valeur: formatNombre(kpis.textesJour),
+            perimetre: perimetreTextesJour(),
           },
           {
             label: `Nominations du JO du ${formatDateFr(kpis.dernierJo)}`,
             valeur: formatNombre(kpis.nominationsJour),
+            perimetre: perimetreNominationsJour(),
           },
         ]}
       />
@@ -363,6 +376,7 @@ export default async function DocumentsPage() {
         initiales={flux?.lignes ?? []}
         total={flux?.total ?? kpis.textesFenetre}
         pctSansMinistere={pctSansMinistere}
+        nbJours={kpis.nbJours}
       />
 
       {/* Dossiers législatifs (S43) — stock DOLE, cloisonné du JO du jour */}
@@ -385,6 +399,7 @@ export default async function DocumentsPage() {
                 source={dole.meta.nom}
                 frequence={dole.meta.frequence}
                 url={dole.meta.url}
+                mention="distinct du JO du jour"
               />
             }
           >

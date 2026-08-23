@@ -180,6 +180,34 @@ function trierParOrdre<T extends { id: string }>(lignes: T[], ordre: string[]): 
   });
 }
 
+/* ------------------------------------------------------------------ */
+/* Périmètres des chiffres clés (StatStrip)                            */
+/* ------------------------------------------------------------------ */
+
+/** Barème publié, identique aux deux chambres — pas un montant versé. */
+export const PERIMETRE_IP_BRUT =
+  "barème publié, identique AN et Sénat — ce n’est pas un montant dépensé";
+
+/** Enveloppe forfaitaire d’un député de métropole — pas les dépenses. */
+export const PERIMETRE_DFP_METROPOLE =
+  "barème DFP métropole, dotation créée au 01/01/2026 — pas le détail des dépenses";
+
+/** Total anonymisé du déontologue — un agrégat, pas un nom. */
+export const PERIMETRE_REVERSEMENTS_AN =
+  "agrégat anonymisé du déontologue, exercice 2024 — ne désigne personne";
+
+/** Comptes de la présidence, exercice audité — pas une dotation LFI. */
+export const PERIMETRE_ELYSEE_CHARGES =
+  "comptes audités par la Cour des comptes, exercice 2024";
+
+/** Dotation votée en LFI — pas le projet de loi de finances. */
+export const PERIMETRE_LFI2026_AN =
+  "LFI 2026, mission Pouvoirs publics — loi votée, pas le PLF";
+
+/** Même LFI ; le Sénat inclut le jardin et le musée du Luxembourg. */
+export const PERIMETRE_LFI2026_SENAT =
+  "LFI 2026, mission Pouvoirs publics — jardin et musée du Luxembourg compris, pas le PLF";
+
 /**
  * Charge tout le module en une passe.
  * Testé le 19/08/2026 : 56 faits (7 catégories), 8 opacités,

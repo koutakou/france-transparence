@@ -131,6 +131,7 @@ export default async function DossiersLegislatifsPage() {
           source={dole.meta.nom}
           frequence={dole.meta.frequence}
           url={dole.meta.url}
+          mention="distinct du JO du jour"
         />
       </header>
 

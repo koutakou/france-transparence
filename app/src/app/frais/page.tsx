@@ -10,6 +10,12 @@ import {
   getFraisData,
   getVerrousCada,
   grouperParCategorie,
+  PERIMETRE_DFP_METROPOLE,
+  PERIMETRE_ELYSEE_CHARGES,
+  PERIMETRE_IP_BRUT,
+  PERIMETRE_LFI2026_AN,
+  PERIMETRE_LFI2026_SENAT,
+  PERIMETRE_REVERSEMENTS_AN,
   SENS_REFUS,
   type TrainvieCategorie,
   type TrainvieFait,
@@ -471,22 +477,48 @@ export default async function FraisPage() {
   const parId = new Map(faits.map((f) => [f.id, f]));
 
   // Chiffres clés (mise en avant) — uniquement des faits réellement en base.
-  const tuiles: { fait: TrainvieFait; label: string; vedette?: boolean }[] = [];
-  const pousser = (id: string, label: (f: TrainvieFait) => string, vedette = false) => {
+  const tuiles: { fait: TrainvieFait; label: string; vedette?: boolean; perimetre: string }[] = [];
+  const pousser = (
+    id: string,
+    label: (f: TrainvieFait) => string,
+    perimetre: string,
+    vedette = false,
+  ) => {
     const f = parId.get(id);
-    if (f) tuiles.push({ fait: f, label: label(f), vedette });
+    if (f) tuiles.push({ fait: f, label: label(f), vedette, perimetre });
   };
-  pousser("ip-total-brut", () => "Indemnité parlementaire mensuelle brute", true);
-  pousser("dfp-metropole", () => "Dotation de fonctionnement d’un député (créée au 01/01/2026)");
-  pousser("ctrl-an-total-reversements", () => {
-    const demandes = parId.get("ctrl-an-demandes-reversement");
-    return demandes
-      ? `Reversements demandés à ${formatNombre(demandes.valeur)} députés (2024)`
-      : "Reversements demandés aux députés (2024)";
-  });
-  pousser("elysee-charges-2024", () => "Charges de la présidence de la République (2024)");
-  pousser("lfi2026-an", () => "Dotation de l’Assemblée nationale (LFI 2026)");
-  pousser("lfi2026-senat", () => "Dotation du Sénat (LFI 2026)");
+  pousser(
+    "ip-total-brut",
+    () => "Indemnité parlementaire mensuelle brute",
+    PERIMETRE_IP_BRUT,
+    true,
+  );
+  pousser(
+    "dfp-metropole",
+    () => "Dotation de fonctionnement d’un député de métropole (créée au 01/01/2026)",
+    PERIMETRE_DFP_METROPOLE,
+  );
+  pousser(
+    "ctrl-an-total-reversements",
+    () => {
+      const demandes = parId.get("ctrl-an-demandes-reversement");
+      return demandes
+        ? `Reversements demandés à ${formatNombre(demandes.valeur)} députés (2024)`
+        : "Reversements demandés aux députés (2024)";
+    },
+    PERIMETRE_REVERSEMENTS_AN,
+  );
+  pousser(
+    "elysee-charges-2024",
+    () => "Charges de la présidence de la République (2024)",
+    PERIMETRE_ELYSEE_CHARGES,
+  );
+  pousser(
+    "lfi2026-an",
+    () => "Dotation de l’Assemblée nationale (LFI 2026)",
+    PERIMETRE_LFI2026_AN,
+  );
+  pousser("lfi2026-senat", () => "Dotation du Sénat (LFI 2026)", PERIMETRE_LFI2026_SENAT);
   const sourcesTuiles = [...new Map(tuiles.map((t) => [t.fait.source_url, t.fait])).values()];
 
   return (
@@ -555,6 +587,7 @@ export default async function FraisPage() {
               label: t.label,
               valeur: <ValeurFait fait={t.fait} />,
               montantVedette: t.vedette,
+              perimetre: t.perimetre,
             }))}
           />
           <p className="text-[11px] leading-relaxed text-ink-muted">

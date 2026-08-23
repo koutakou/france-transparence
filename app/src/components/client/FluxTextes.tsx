@@ -34,6 +34,8 @@ export interface FluxTextesProps {
   total: number;
   /** Part de textes sans ministère émetteur (réel), pour le sous-titre. */
   pctSansMinistere: number;
+  /** Nombre de JO parus dans la fenêtre (vient de la base, jamais figé). */
+  nbJours: number;
 }
 
 let textesPromesse: Promise<TextesFragment | null> | null = null;
@@ -111,7 +113,13 @@ const COLONNES_FLUX: Colonne<TexteVue>[] = [
   },
 ];
 
-export function FluxTextes({ natures, initiales, total, pctSansMinistere }: FluxTextesProps) {
+export function FluxTextes({
+  natures,
+  initiales,
+  total,
+  pctSansMinistere,
+  nbJours,
+}: FluxTextesProps) {
   // Filtres : état initial restauré d'une URL partagée
   // `?nature=…&nominations=1&page=…` (validée), surchargé par toute action.
   const urlInitiale = new URLSearchParams(useUrlInitiale());
@@ -228,7 +236,7 @@ export function FluxTextes({ natures, initiales, total, pctSansMinistere }: Flux
 
       <Card
         titre="Flux des textes"
-        sousTitre={`Du plus récent au plus ancien — ministère absent sur ${formatPct(
+        sousTitre={`Fenêtre des ${formatNombre(nbJours)} derniers JO parus, JORF « Lois et décrets » — ce n’est pas le fonds DOLE. Du plus récent au plus ancien — ministère absent sur ${formatPct(
           pctSansMinistere,
         )} des textes (lois, Conseil constitutionnel… — réel), affiché « — »`}
       >
