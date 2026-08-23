@@ -391,123 +391,8 @@ export default async function Accueil() {
         <BadgeSource source={sources["S35-reforga-admin-etat"]} />
       </div>
 
-      {/* Carte pleine largeur : collée à deux listes empilées, elle
-          s'arrêtait à mi-colonne et laissait un vide sous le fond
-          (viewport 1280, sous le pli). */}
-      <Card
-        titre="Marchés publics par département"
-        sousTitre="Marchés notifiés, 12 derniers mois — montants écrêtés (plafond 100 M€ par marché), acheteurs à département connu · points : préfectures · outre-mer hors carte"
-        droite={<BadgeSource source={sources.S1} mention="J-1" />}
-      >
-        <CarteDepartements
-          valeurs={valeursCarte}
-          points={pointsPrefectures}
-          format="euros"
-          legendeTitre="Montant notifié (12 mois)"
-          ariaLabel="Carte de France des montants de marchés publics notifiés par département sur 12 mois"
-          messageAbsent="Fond de carte non disponible (data/geo/departements.geojson manquant)."
-        />
-        <p className="mt-2 text-[11px] leading-relaxed text-ink-muted">
-          Consolidation DECP&nbsp;: decp-processing (C.&nbsp;Maudry) —
-          latence légale de publication ≤&nbsp;2&nbsp;mois. Marchés datés
-          de leur notification initiale, un avenant ne les redate pas.
-        </p>
-        <LienModule href="/marches" libelle="Voir les marchés publics" />
-      </Card>
-
-      {/* Deux listes de même nature, côte à côte — items-start : une
-          carte ne s'étire pas en océan vide pour égaler l'autre. */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
-        <div className="min-w-0">
-          <Card
-            titre="Derniers marchés notifiés"
-            droite={<BadgeSource source={sources.S1} mention="J-1" />}
-          >
-            <ul className="flex flex-col">
-              {derniersMarches.map((m) => (
-                <li
-                  key={m.rang}
-                  className="flex items-start justify-between gap-3 py-2"
-                  style={{ borderBottom: "1px solid var(--viz-grid)" }}
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-baseline gap-2 text-[11px]">
-                      <span className="shrink-0 text-ink-muted [font-variant-numeric:tabular-nums]">
-                        {formatDateFr(m.date)}
-                      </span>
-                      <span className="min-w-0 break-words text-ink-secondary">
-                        {m.acheteur?.trim() ? m.acheteur : "acheteur non renseigné"}
-                      </span>
-                    </div>
-                    <p
-                      className="line-clamp-2 break-words text-[13px] text-ink"
-                      title={m.objet ?? undefined}
-                    >
-                      {m.objet?.trim() ? m.objet : "objet non publié"}
-                    </p>
-                  </div>
-                  <span className="shrink-0 pt-3 text-[13px] [font-variant-numeric:tabular-nums]">
-                    {m.montant !== null ? (
-                      <Money valeur={m.montant} />
-                    ) : (
-                      <span className="text-ink-muted">non publié</span>
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-2 text-[11px] text-ink-muted">
-              Montants d&apos;accords-cadres = maximums.
-            </p>
-            <LienModule href="/marches" libelle="Voir les marchés publics" />
-          </Card>
-        </div>
-
-        <div className="min-w-0">
-          <Card
-            titre="Derniers textes au JO"
-            sousTitre="Le JO ne paraît pas tous les jours — liens vers Légifrance"
-            droite={<BadgeSource source={sources.S3} />}
-          >
-            <ul className="flex flex-col">
-              {textesJo.map((t) => (
-                <li
-                  key={t.id}
-                  className="py-2"
-                  style={{ borderBottom: "1px solid var(--viz-grid)" }}
-                >
-                  <div className="flex items-baseline gap-2 text-[11px]">
-                    <span className="shrink-0 text-ink-muted [font-variant-numeric:tabular-nums]">
-                      {formatDateFr(t.date)}
-                    </span>
-                    {t.nature && (
-                      <span className="shrink-0 rounded bg-raised px-1.5 py-0.5 text-[10px] uppercase tracking-[0.04em] text-ink-secondary">
-                        {t.nature}
-                      </span>
-                    )}
-                  </div>
-                  <a
-                    href={t.lien}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title={t.titre}
-                    className="mt-0.5 block line-clamp-2 break-words text-[13px] text-ink underline-offset-2 hover:underline"
-                  >
-                    {t.titre}
-                    <span aria-hidden="true" className="ml-1 text-ink-muted">
-                      ↗
-                    </span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-            <LienModule href="/documents" libelle="Voir les documents" />
-          </Card>
-        </div>
-      </div>
-
-      {/* Composition : deux viz côte à côte, tableau ministères en
-          pleine largeur (en 1/3 il rognait « CP (Md€) »). */}
+      {/* Le 240 Md€ se lit ensuite : de quoi il est fait, tout de suite
+          — pas après un poster de carte. */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
         <Card
           titre="Décomposition par titre"
@@ -559,6 +444,178 @@ export default async function Accueil() {
         </Card>
       </div>
 
+      {/* Carte = outil, pas un poster. Largeur plafonnée (~22 rem) à
+          côté de la liste qu'elle éclaire. G3c en pleine largeur
+          faisait ~1150 px de haut à 1280 px. */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] xl:items-start">
+        <Card
+          titre="Marchés publics par département"
+          sousTitre="Marchés notifiés, 12 derniers mois — montants écrêtés (plafond 100 M€ par marché), acheteurs à département connu · points : préfectures · outre-mer hors carte"
+          droite={<BadgeSource source={sources.S1} mention="J-1" />}
+        >
+          <div className="mx-auto w-full max-w-[22rem]">
+            <CarteDepartements
+              valeurs={valeursCarte}
+              points={pointsPrefectures}
+              format="euros"
+              legendeTitre="Montant notifié (12 mois)"
+              ariaLabel="Carte de France des montants de marchés publics notifiés par département sur 12 mois"
+              messageAbsent="Fond de carte non disponible (data/geo/departements.geojson manquant)."
+            />
+          </div>
+          <p className="mt-2 text-[11px] leading-relaxed text-ink-muted">
+            Consolidation DECP&nbsp;: decp-processing (C.&nbsp;Maudry) —
+            latence légale de publication ≤&nbsp;2&nbsp;mois. Marchés datés
+            de leur notification initiale, un avenant ne les redate pas.
+          </p>
+          <LienModule href="/marches" libelle="Voir les marchés publics" />
+        </Card>
+
+        <div className="min-w-0">
+          <Card
+            titre="Derniers marchés notifiés"
+            droite={<BadgeSource source={sources.S1} mention="J-1" />}
+          >
+            <ul className="flex flex-col">
+              {derniersMarches.map((m) => (
+                <li
+                  key={m.rang}
+                  className="flex items-start justify-between gap-3 py-2"
+                  style={{ borderBottom: "1px solid var(--viz-grid)" }}
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-baseline gap-2 text-[11px]">
+                      <span className="shrink-0 text-ink-muted [font-variant-numeric:tabular-nums]">
+                        {formatDateFr(m.date)}
+                      </span>
+                      <span className="min-w-0 break-words text-ink-secondary">
+                        {m.acheteur?.trim() ? m.acheteur : "acheteur non renseigné"}
+                      </span>
+                    </div>
+                    <p
+                      className="line-clamp-2 break-words text-[13px] text-ink"
+                      title={m.objet ?? undefined}
+                    >
+                      {m.objet?.trim() ? m.objet : "objet non publié"}
+                    </p>
+                  </div>
+                  <span className="shrink-0 pt-3 text-[13px] [font-variant-numeric:tabular-nums]">
+                    {m.montant !== null ? (
+                      <Money valeur={m.montant} />
+                    ) : (
+                      <span className="text-ink-muted">non publié</span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-[11px] text-ink-muted">
+              Montants d&apos;accords-cadres = maximums.
+            </p>
+            <LienModule href="/marches" libelle="Voir les marchés publics" />
+          </Card>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
+        <div className="min-w-0">
+          <Card
+            titre="Derniers textes au JO"
+            sousTitre="Le JO ne paraît pas tous les jours — liens vers Légifrance"
+            droite={<BadgeSource source={sources.S3} />}
+          >
+            <ul className="flex flex-col">
+              {textesJo.map((t) => (
+                <li
+                  key={t.id}
+                  className="py-2"
+                  style={{ borderBottom: "1px solid var(--viz-grid)" }}
+                >
+                  <div className="flex items-baseline gap-2 text-[11px]">
+                    <span className="shrink-0 text-ink-muted [font-variant-numeric:tabular-nums]">
+                      {formatDateFr(t.date)}
+                    </span>
+                    {t.nature && (
+                      <span className="shrink-0 rounded bg-raised px-1.5 py-0.5 text-[10px] uppercase tracking-[0.04em] text-ink-secondary">
+                        {t.nature}
+                      </span>
+                    )}
+                  </div>
+                  <a
+                    href={t.lien}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={t.titre}
+                    className="mt-0.5 block line-clamp-2 break-words text-[13px] text-ink underline-offset-2 hover:underline"
+                  >
+                    {t.titre}
+                    <span aria-hidden="true" className="ml-1 text-ink-muted">
+                      ↗
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+            <LienModule href="/documents" libelle="Voir les documents" />
+          </Card>
+        </div>
+
+        <div className="min-w-0">
+          <Card
+            titre="Appels d'offres proches de la clôture"
+            sousTitre="Date limite de réponse (heure de Paris) — annonces BOAMP non annulées"
+            droite={<BadgeSource source={sources.S2} />}
+          >
+            <ul className="flex flex-col">
+              {aoCloture.map((ao) => (
+                <li
+                  key={ao.id}
+                  className="py-2"
+                  style={{ borderBottom: "1px solid var(--viz-grid)" }}
+                >
+                  <div className="flex items-baseline justify-between gap-3 text-[11px]">
+                    <span className="shrink-0 font-medium text-ink-secondary [font-variant-numeric:tabular-nums]">
+                      Clôture le {formatDateHeureFr(ao.dateLimite)}
+                    </span>
+                    <span className="min-w-0 break-words text-right text-ink-muted">
+                      {ao.acheteur?.trim() ? ao.acheteur : "acheteur non renseigné"}
+                    </span>
+                  </div>
+                  <p
+                    className="line-clamp-2 break-words text-[13px] text-ink"
+                    title={ao.objet ?? undefined}
+                  >
+                    {ao.url ? (
+                      <a
+                        href={ao.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline-offset-2 hover:underline"
+                      >
+                        {ao.objet?.trim() ? ao.objet : "objet non publié"}
+                      </a>
+                    ) : ao.objet?.trim() ? (
+                      ao.objet
+                    ) : (
+                      "objet non publié"
+                    )}
+                  </p>
+                  <p className="text-[11px] text-ink-muted">
+                    Montant estimé&nbsp;:{" "}
+                    {ao.montantEstime !== null ? (
+                      <Money valeur={ao.montantEstime} className="text-ink-secondary" />
+                    ) : (
+                      "non publié"
+                    )}
+                  </p>
+                </li>
+              ))}
+            </ul>
+            <LienModule href="/marches" libelle="Voir les marchés publics" />
+          </Card>
+        </div>
+      </div>
+
       <Card
         titre="Budget par ministère (destination 2025)"
         sousTitre="Crédits de paiement BRUTS du PLF 2025 — non comparables aux dépenses nettes du budget général"
@@ -578,91 +635,36 @@ export default async function Accueil() {
         <LienModule href="/depenses" libelle="Voir les dépenses" />
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
-        <Card
-          titre="Appels d'offres proches de la clôture"
-          sousTitre="Date limite de réponse (heure de Paris) — annonces BOAMP non annulées"
-          droite={<BadgeSource source={sources.S2} />}
-        >
-          <ul className="flex flex-col">
-            {aoCloture.map((ao) => (
-              <li
-                key={ao.id}
-                className="py-2"
-                style={{ borderBottom: "1px solid var(--viz-grid)" }}
-              >
-                <div className="flex items-baseline justify-between gap-3 text-[11px]">
-                  <span className="shrink-0 font-medium text-ink-secondary [font-variant-numeric:tabular-nums]">
-                    Clôture le {formatDateHeureFr(ao.dateLimite)}
-                  </span>
-                  <span className="min-w-0 break-words text-right text-ink-muted">
-                    {ao.acheteur?.trim() ? ao.acheteur : "acheteur non renseigné"}
-                  </span>
-                </div>
-                <p
-                  className="line-clamp-2 break-words text-[13px] text-ink"
-                  title={ao.objet ?? undefined}
-                >
-                  {ao.url ? (
-                    <a
-                      href={ao.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline-offset-2 hover:underline"
-                    >
-                      {ao.objet?.trim() ? ao.objet : "objet non publié"}
-                    </a>
-                  ) : ao.objet?.trim() ? (
-                    ao.objet
-                  ) : (
-                    "objet non publié"
-                  )}
-                </p>
-                <p className="text-[11px] text-ink-muted">
-                  Montant estimé&nbsp;:{" "}
-                  {ao.montantEstime !== null ? (
-                    <Money valeur={ao.montantEstime} className="text-ink-secondary" />
-                  ) : (
-                    "non publié"
-                  )}
-                </p>
-              </li>
-            ))}
-          </ul>
-          <LienModule href="/marches" libelle="Voir les marchés publics" />
-        </Card>
-
-        <Card
-          titre="Alertes transparence"
-          sousTitre={
-            dernierCalculAlertes
-              ? `Les plus récentes de chaque gravité — dernier calcul le ${formatDateFr(dernierCalculAlertes)}`
-              : "Les plus récentes de chaque gravité"
-          }
-        >
-          <div className="flex flex-col gap-2">
-            {alertes.map((a) => {
-              const ui = GRAVITES_UI[a.gravite] ?? {
-                gravite: "attention" as Gravite,
-                libelle: a.gravite,
-              };
-              return (
-                <AlertItem
-                  key={a.id}
-                  gravite={ui.gravite}
-                  graviteLibelle={ui.libelle}
-                  titre={a.titre}
-                  detail={a.detail ?? undefined}
-                  regle={a.regle ?? undefined}
-                  baseLegale={a.baseLegale ?? undefined}
-                  source={sourceAlerte(a)}
-                />
-              );
-            })}
-          </div>
-          <LienModule href="/alertes" libelle="Toutes les alertes" />
-        </Card>
-      </div>
+      <Card
+        titre="Alertes transparence"
+        sousTitre={
+          dernierCalculAlertes
+            ? `Les plus récentes de chaque gravité — dernier calcul le ${formatDateFr(dernierCalculAlertes)}`
+            : "Les plus récentes de chaque gravité"
+        }
+      >
+        <div className="flex flex-col gap-2">
+          {alertes.map((a) => {
+            const ui = GRAVITES_UI[a.gravite] ?? {
+              gravite: "attention" as Gravite,
+              libelle: a.gravite,
+            };
+            return (
+              <AlertItem
+                key={a.id}
+                gravite={ui.gravite}
+                graviteLibelle={ui.libelle}
+                titre={a.titre}
+                detail={a.detail ?? undefined}
+                regle={a.regle ?? undefined}
+                baseLegale={a.baseLegale ?? undefined}
+                source={sourceAlerte(a)}
+              />
+            );
+          })}
+        </div>
+        <LienModule href="/alertes" libelle="Toutes les alertes" />
+      </Card>
     </div>
   );
 }
