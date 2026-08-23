@@ -179,13 +179,13 @@ export default async function PageCollectivites() {
         valeur: <Money valeur={kpis.total_fonctionnement} />,
         montantVedette: true,
         perimetre:
-          "budgets principaux, comptes provisoires — toutes les communes via agrégats départementaux, hors budgets annexes",
+          "budgets principaux, comptes provisoires — communes ayant rendu leurs comptes, via agrégats départementaux, hors budgets annexes",
       },
       {
         label: `Investissement des communes (${kpis.exercice})`,
         valeur: <Money valeur={kpis.total_investissement} />,
         perimetre:
-          "budgets principaux, comptes provisoires — toutes les communes via agrégats départementaux, hors budgets annexes",
+          "budgets principaux, comptes provisoires — communes ayant rendu leurs comptes, via agrégats départementaux, hors budgets annexes",
       },
     );
   }
