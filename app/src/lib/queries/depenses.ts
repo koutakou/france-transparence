@@ -390,6 +390,18 @@ export function getSubventionsAssociations(limite = 10): SubventionsAssociations
   };
 }
 
+/**
+ * Périmètre obligatoire de la tuile (DATAVIZ §6) : année des versements,
+ * jaune du PLF (décalage structurel de deux ans).
+ */
+export function perimetreSubventions(annee: number): string {
+  return [
+    `versements ${annee}`,
+    `jaune du PLF ${annee + 2}`,
+    "décalage de deux ans",
+  ].join(" · ");
+}
+
 /* ------------------------------------------------------------------ */
 /* Exploration descendante de S21 (destination 2025)                   */
 /* mission → programme → action → sous-action, et ventilation par titre */

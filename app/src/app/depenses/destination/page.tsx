@@ -152,7 +152,11 @@ export default async function PageDestination() {
                 Ce n’est pas ce qui a été payé. Les paiements du système
                 Chorus ne sont pas en open data. La mission
                 «&nbsp;Pensions&nbsp;» est un compte d’affectation spéciale,
-                pas une politique comparable aux autres.
+                pas une politique comparable aux autres. Les prestations de
+                protection sociale tous régimes sont sur la page Dépenses
+                (bloc DREES). Hors champ&nbsp;: la loi de financement de la
+                sécurité sociale en tant que texte voté, la dépense propre
+                des opérateurs et les entreprises publiques.
               </p>
             }
           />
@@ -251,7 +255,15 @@ export default async function PageDestination() {
             Les retraites du régime général (CNAV), l&apos;assurance maladie
             et les prestations familiales (CAF) relèvent de la loi de
             financement de la sécurité sociale, hors budget de
-            l&apos;État&nbsp;: elles ne figurent pas ici.
+            l&apos;État&nbsp;: elles ne figurent pas ici. Les prestations de
+            protection sociale tous régimes sont sur la page{" "}
+            <Link
+              href="/depenses/#protection-sociale"
+              className="underline decoration-[var(--viz-grid)] underline-offset-2 hover:decoration-current"
+            >
+              Dépenses
+            </Link>{" "}
+            (bloc DREES).
           </p>
         </div>
       </Card>

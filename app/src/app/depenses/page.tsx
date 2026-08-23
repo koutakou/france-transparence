@@ -42,6 +42,7 @@ import {
   getSerieDepensesNettes,
   getSourcesBudget,
   getSubventionsAssociations,
+  perimetreSubventions,
 } from "@/lib/queries/depenses";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
@@ -54,7 +55,7 @@ import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 const CHEMIN = "/depenses/";
 const TITRE = "Dépenses de l'État";
 const DESCRIPTION =
-  "Exécution budgétaire mensuelle de l'État (DGFiP), budget voté par mission, dépenses par ministère et subventions aux associations — données publiques réelles.";
+  "Exécution budgétaire mensuelle de l'État (DGFiP), crédits du PLF 2026 par mission, crédits du PLF 2025 par ministère et subventions aux associations — données publiques réelles.";
 
 export const metadata: Metadata = metadonneesPage({
   chemin: CHEMIN,
@@ -193,8 +194,13 @@ export default async function PageDepenses() {
             ancre="depenses"
             commentLire={
               <p>
-                Les montants sont des cumuls depuis le 1er janvier, pas un
-                rythme quotidien. Les mois de l’année en cours sont
+                Les montants du bandeau et des graphiques d’exécution sont
+                des cumuls depuis le 1er janvier, pas un rythme quotidien.
+                Les crédits par mission de cette page sont le PLF 2026, pas
+                la LFI 2026. La destination 2025 est le PLF 2025 (projet,
+                CP bruts, pas les dépenses nettes). Les subventions aux
+                associations sont les versements d’un exercice clos, publiés
+                deux ans plus tard. Les mois de l’année en cours sont
                 provisoires jusqu’à la clôture. Un delta d’une année sur
                 l’autre n’est ni une hausse «&nbsp;bonne&nbsp;» ni une baisse
                 «&nbsp;mauvaise&nbsp;» : il est affiché neutre.
@@ -214,9 +220,16 @@ export default async function PageDepenses() {
                 mission «&nbsp;Pensions&nbsp;» est un compte d’affectation
                 spéciale, pas une politique comparable aux autres. Ce bloc
                 (budget général) ne couvre pas les prestations de protection
-                sociale&nbsp;: elles figurent dans le bloc DREES, plus bas.
-                La dépense propre des opérateurs et les entreprises
-                publiques restent hors champ.
+                sociale&nbsp;: elles figurent dans le{" "}
+                <Link
+                  href="#protection-sociale"
+                  className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
+                >
+                  bloc DREES
+                </Link>
+                . Hors champ&nbsp;: la loi de financement de la sécurité
+                sociale en tant que texte voté, la dépense propre des
+                opérateurs et les entreprises publiques.
               </p>
             }
           />
@@ -728,9 +741,8 @@ export default async function PageDepenses() {
                 Tout ce qui précède décrit soit le{" "}
                 <strong className="font-medium text-ink">budget de l&apos;État</strong>{" "}
                 (source S13, caisse, cumul depuis le 1er janvier), soit des
-                agrégats{" "}
-                <strong className="font-medium text-ink">Maastricht / ESA des APU</strong>{" "}
-                (S41, S42, S44). Ce bloc est le{" "}
+                agrégats des APU — Maastricht (S41, S42) ou ESA (S44),
+                qui ne sont pas le même objet. Ce bloc est le{" "}
                 <strong className="font-medium text-ink">
                   bilan patrimonial de l&apos;État
                 </strong>
@@ -890,9 +902,9 @@ export default async function PageDepenses() {
               <p className="text-xs leading-relaxed text-ink-secondary">
                 Le budget général (source S13, DGFiP) est un flux de
                 l&apos;État, cumulé depuis le 1er janvier (caisse). L&apos;encours
-                (S41), le déficit (S42) et les agrégats ESA (S44) relèvent de
-                Maastricht / ESA des APU. Le CGE (S22) est un stock
-                patrimonial de l&apos;État. Ce bloc est le{" "}
+                (S41) et le déficit (S42) relèvent de Maastricht des APU.
+                Les agrégats ESA (S44) ne sont pas Maastricht. Le CGE (S22)
+                est un stock patrimonial de l&apos;État. Ce bloc est le{" "}
                 <strong className="font-medium text-ink">
                   flux annuel des prestations de protection sociale
                 </strong>
@@ -1046,10 +1058,10 @@ export default async function PageDepenses() {
         </>
       )}
 
-      {/* Budget voté et exécuté par mission (PLF 2026) */}
+      {/* Crédits par mission (S20, PLF 2026) */}
       {missions && (
         <Card
-          titre="Budget voté et exécuté par mission"
+          titre="Crédits par mission"
           sousTitre={`${missions.etiquette} · Crédits budgétaires seuls (hors dépenses fiscales), en crédits de paiement`}
           droite={
             sources.S20 && (
@@ -1063,12 +1075,17 @@ export default async function PageDepenses() {
             )
           }
         >
+          <div className="mb-4">
+            <KpiTile
+              nu
+              label="Crédits de paiement du PLF 2026"
+              valeur={<MontantMd valeur={missions.totalPlf2026Cp} decimales={1} />}
+              montantVedette
+              perimetre="PLF 2026 — projet, pas la LFI ; crédits budgétaires seuls, hors dépenses fiscales"
+            />
+          </div>
           <p className="mb-4 text-sm text-ink-secondary">
-            Total des crédits de paiement du PLF 2026&nbsp;:{" "}
-            <span className="font-medium text-ink">
-              <MontantMd valeur={missions.totalPlf2026Cp} decimales={1} />
-            </span>
-            . Top 10 des missions&nbsp;:
+            Top 10 des missions, en crédits de paiement&nbsp;:
           </p>
           <BarList
             items={missions.missions.flatMap((m) =>
@@ -1097,11 +1114,11 @@ export default async function PageDepenses() {
         </Card>
       )}
 
-      {/* Dépenses 2025 par ministère (destination) */}
+      {/* Crédits 2025 par ministère (S21, destination) */}
       {ministeres && (
         <Card
-          titre="Dépenses 2025 par ministère (destination)"
-          sousTitre={`${ministeres.etiquette} · Crédits de paiement bruts — non comparables aux dépenses nettes ci-dessus`}
+          titre="Crédits 2025 par ministère (destination)"
+          sousTitre={`${ministeres.etiquette} · Crédits de paiement bruts — non comparables aux dépenses nettes du budget général (exécution DGFiP)`}
           droite={
             sources.S21 && (
               <FreshnessBadge
@@ -1114,6 +1131,15 @@ export default async function PageDepenses() {
             )
           }
         >
+          <div className="mb-4">
+            <KpiTile
+              nu
+              label="Crédits de paiement 2025 (bruts, tous budgets)"
+              valeur={<MontantMd valeur={ministeres.totalCp} decimales={1} />}
+              montantVedette
+              perimetre="PLF 2025 — projet, pas la LFI ni l’exécution ; CP bruts, non comparables aux dépenses nettes"
+            />
+          </div>
           <DataTable
             colonnes={[
               { cle: "ministere", entete: "Ministère" },
@@ -1176,6 +1202,7 @@ export default async function PageDepenses() {
                 label={`Total versé en ${subventions.annee}`}
                 valeur={<MontantMd valeur={subventions.total} />}
                 montantVedette
+                perimetre={perimetreSubventions(subventions.annee)}
               />
             </div>
             <div className="bg-card">
@@ -1183,6 +1210,7 @@ export default async function PageDepenses() {
                 nu
                 label={`Nombre de versements en ${subventions.annee}`}
                 valeur={formatNombre(subventions.nbVersements)}
+                perimetre={perimetreSubventions(subventions.annee)}
               />
             </div>
           </div>

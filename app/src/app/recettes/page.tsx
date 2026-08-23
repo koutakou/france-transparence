@@ -198,8 +198,11 @@ export default async function PageRecettes() {
             }
             limites={
               <p>
-                Ce n’est pas le détail des encaissements jour par jour, ni
-                la fiscalité locale, ni les recettes de la sécurité sociale.
+                Ce n’est pas le détail des encaissements jour par jour. Les
+                recettes de la sécurité sociale et des collectivités
+                territoriales ne figurent pas ici. Les prestations de
+                protection sociale (tous régimes) sont sur la page Dépenses.
+                La LFSS, comme texte voté, n’est pas un module de recettes.
                 Un impôt «&nbsp;net&nbsp;» n’est pas le montant mis à la
                 charge du contribuable.
               </p>
@@ -417,10 +420,19 @@ export default async function PageRecettes() {
             recettes de la sécurité sociale et des collectivités territoriales
             relèvent d&apos;autres comptes et d&apos;autres textes&nbsp;: elles
             ne figurent pas ici, et les montants de cette page ne peuvent pas
-            leur être comparés ni s&apos;y additionner. Les fonds de concours
-            et attributions de produits — versements de tiers que l&apos;État
-            emploie à une dépense déterminée — sont publiés sur une ligne
-            propre, hors du total des recettes nettes.
+            leur être comparés ni s&apos;y additionner. Les prestations de
+            protection sociale (tous régimes) sont sur la page{" "}
+            <Link
+              href="/depenses/#protection-sociale"
+              className="underline decoration-[var(--viz-grid)] underline-offset-2 transition-colors hover:decoration-current"
+            >
+              Dépenses
+            </Link>
+            . La LFSS, comme texte voté, n&apos;est pas un module de
+            recettes. Les fonds de concours et attributions de produits —
+            versements de tiers que l&apos;État emploie à une dépense
+            déterminée — sont publiés sur une ligne propre, hors du total
+            des recettes nettes.
           </p>
           <p>
             La situation mensuelle est provisoire tant que l&apos;exercice

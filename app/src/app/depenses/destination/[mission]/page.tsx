@@ -5,6 +5,7 @@ import { BarList } from "@/components/ui/BarList";
 import { JsonLd } from "@/components/JsonLd";
 import { Card } from "@/components/ui/Card";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
+import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { ESPACE_FINE, formatEuros, formatNombre } from "@/lib/format";
 import {
@@ -211,17 +212,37 @@ export default async function PageMission({ params }: Props) {
             page Dépenses. Ministère{arbre.ministeres.length > 1 ? "s" : ""} de
             rattachement&nbsp;: {arbre.ministeres.join(" · ") || "non renseigné"}.
           </p>
-          <p className="mt-2 text-xs text-ink-muted">
-            Ce sont les crédits du projet de loi de finances, pas
-            l&apos;exécution. Comment lire PLF, LFI et exécution&nbsp;:{" "}
-            <Link
-              href="/comprendre/#depenses"
-              className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
-            >
-              comprendre ces données
-            </Link>
-            .
-          </p>
+          <NoticeLecture
+            ancre="depenses"
+            commentLire={
+              <p>
+                Ces montants sont ceux du projet de loi de finances, pas de
+                l’exécution mensuelle ni de la loi de finances votée. CP et
+                AE sont bruts : ils ne se comparent pas aux dépenses nettes
+                de la page Dépenses. Une mission n’est pas un ministère.
+              </p>
+            }
+            provenance={
+              <p>
+                Projet de loi de finances 2025, répartition par destination
+                (missions, programmes, actions). Une LFI 2025 par mission
+                est publiée dans le budget vert ; ce n’est pas la
+                granularité sous-action × nature.
+              </p>
+            }
+            limites={
+              <p>
+                Ce n’est pas ce qui a été payé. Les paiements du système
+                Chorus ne sont pas en open data. La mission
+                «&nbsp;Pensions&nbsp;» est un compte d’affectation spéciale,
+                pas une politique comparable aux autres. Les prestations de
+                protection sociale tous régimes sont sur la page Dépenses
+                (bloc DREES). Hors champ&nbsp;: la loi de financement de la
+                sécurité sociale en tant que texte voté, la dépense propre
+                des opérateurs et les entreprises publiques.
+              </p>
+            }
+          />
         </div>
         {badge}
       </section>
@@ -322,7 +343,15 @@ export default async function PageMission({ params }: Props) {
               Les retraites du régime général (CNAV), l&apos;assurance maladie
               et les prestations familiales (CAF) relèvent de la loi de
               financement de la sécurité sociale, hors budget de
-              l&apos;État&nbsp;: elles ne figurent pas ici.
+              l&apos;État&nbsp;: elles ne figurent pas ici. Les prestations de
+              protection sociale tous régimes sont sur la page{" "}
+              <Link
+                href="/depenses/#protection-sociale"
+                className="underline decoration-[var(--viz-grid)] underline-offset-2 hover:decoration-current"
+              >
+                Dépenses
+              </Link>{" "}
+              (bloc DREES).
             </p>
           </div>
         </Card>
