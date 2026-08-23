@@ -285,75 +285,77 @@ export default async function Accueil() {
         </p>
       </header>
 
-      {/* ---------- Héros : UN chiffre (DATAVIZ §6), S13 YTD (contrat F1) ---------- */}
-      <Card
-        titre="Dépenses de l'État"
-        sousTitre={
-          execution
-            ? `Exécution au ${formatDateFr(execution.dateFinMois)} — cumul depuis le 1er janvier, dépenses nettes du budget général`
-            : "Exécution mensuelle — dépenses nettes du budget général"
-        }
-        droite={<BadgeSource source={sources.S13} />}
-      >
-        {execution ? (
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between xl:gap-8">
-            <div className="min-w-0">
-              <p
-                className="text-5xl font-semibold leading-none tracking-tight"
-                style={{ color: "var(--montant)" }}
-                title={`${formatNombre(execution.cumul)}${ESPACE_FINE}€`}
-              >
-                {mdE(execution.cumul, 2)}
-              </p>
-              <div className="mt-3">
-                {execution.deltaPct !== null && dateN1 ? (
-                  <DeltaPct
-                    valeur={execution.deltaPct}
-                    vs={formatDateFr(dateN1)}
-                    decimales={2}
-                  />
-                ) : (
-                  <span className="text-xs text-ink-muted">
-                    comparaison N−1 non publiée
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="min-w-0 xl:max-w-sm">
-              <p className="text-xs leading-relaxed text-ink-muted">
-                Situation mensuelle DGFiP — pas de temps réel : dernier mois
-                publié au {formatDateFr(execution.dateFinMois)}.
-              </p>
-              <LienModule href="/depenses" libelle="Voir les dépenses" />
-            </div>
-          </div>
-        ) : (
-          <>
-            <p className="text-sm text-ink-muted">
-              Situation mensuelle non publiée dans la base.
-            </p>
-            <LienModule href="/depenses" libelle="Voir les dépenses" />
-          </>
-        )}
-      </Card>
+      {/* Entrée bureau : héros 2/3 + trois tuiles 1/3 (le justify-between
+          pleine largeur laissait un vide). Même ordre empilé au téléphone. */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3 xl:items-stretch">
+        <div className="min-w-0 xl:col-span-2">
+          <Card
+            titre="Dépenses de l'État"
+            sousTitre={
+              execution
+                ? `Exécution au ${formatDateFr(execution.dateFinMois)} — cumul depuis le 1er janvier, dépenses nettes du budget général`
+                : "Exécution mensuelle — dépenses nettes du budget général"
+            }
+            droite={<BadgeSource source={sources.S13} />}
+            className="h-full"
+          >
+            {execution ? (
+              <>
+                <p
+                  className="text-5xl font-semibold leading-none tracking-tight"
+                  style={{ color: "var(--montant)" }}
+                  title={`${formatNombre(execution.cumul)}${ESPACE_FINE}€`}
+                >
+                  {mdE(execution.cumul, 2)}
+                </p>
+                <div className="mt-3">
+                  {execution.deltaPct !== null && dateN1 ? (
+                    <DeltaPct
+                      valeur={execution.deltaPct}
+                      vs={formatDateFr(dateN1)}
+                      decimales={2}
+                    />
+                  ) : (
+                    <span className="text-xs text-ink-muted">
+                      comparaison N−1 non publiée
+                    </span>
+                  )}
+                </div>
+                <p className="mt-3 text-xs leading-relaxed text-ink-muted">
+                  Situation mensuelle DGFiP — pas de temps réel : dernier mois
+                  publié au {formatDateFr(execution.dateFinMois)}.
+                </p>
+                <LienModule href="/depenses" libelle="Voir les dépenses" />
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-ink-muted">
+                  Situation mensuelle non publiée dans la base.
+                </p>
+                <LienModule href="/depenses" libelle="Voir les dépenses" />
+              </>
+            )}
+          </Card>
+        </div>
 
-      {/* ---------- Trois tuiles d'activité bornées (contrat F1) ---------- */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <KpiTile
-          label="Marchés notifiés (30 j)"
-          valeur={formatNombre(kpis.marches30j)}
-          perimetre="notification initiale, 30 derniers jours — ce n’est pas le stock total"
-        />
-        <KpiTile
-          label="Appels d'offres en cours (BOAMP)"
-          valeur={formatNombre(kpis.aoEnCours)}
-          perimetre="annonces BOAMP non annulées, date limite encore ouverte — stock du jour, pas un flux 30 j"
-        />
-        <KpiTile
-          label="Textes au JO (30 j)"
-          valeur={formatNombre(kpis.textesJo30j)}
-          perimetre="JORF Lois et décrets, 30 derniers jours"
-        />
+        {/* Trois tuiles bornées (contrat F1) — rangée dès sm, colonne à xl. */}
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3 xl:grid-cols-1">
+          <KpiTile
+            label="Marchés notifiés (30 j)"
+            valeur={formatNombre(kpis.marches30j)}
+            perimetre="notification initiale, 30 derniers jours — ce n’est pas le stock total"
+          />
+          <KpiTile
+            label="Appels d'offres en cours (BOAMP)"
+            valeur={formatNombre(kpis.aoEnCours)}
+            perimetre="annonces BOAMP non annulées, date limite encore ouverte — stock du jour, pas un flux 30 j"
+          />
+          <KpiTile
+            label="Textes au JO (30 j)"
+            valeur={formatNombre(kpis.textesJo30j)}
+            perimetre="JORF Lois et décrets, 30 derniers jours"
+          />
+        </div>
       </div>
       <div className="flex flex-wrap gap-1.5">
         <BadgeSource source={sources.S1} mention="J-1" />
