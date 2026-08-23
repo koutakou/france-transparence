@@ -42,8 +42,15 @@
 > dépendance d'ordre, placé avant `sirene`. La législature courante est le max des
 > numéros, jamais 17 en dur.
 >
+> **Mise à jour du 23/08/2026.** **S44** (recettes et dépenses des APU, agrégats ESA, Eurostat
+> `gov_10a_main`, na_item TE/TR, via `pipelines/ingest_agregats_apu.py`) s'ajoute.
+> L'ingestion compte donc **22 pipelines** et **34 sources tracées dans `meta_sources`**.
+> Distinct de S13 (État YTD, SMB DGFiP), de S41 (stock GD) et de S42 (B9). TE et TR
+> ne sont pas des agrégats Maastricht — Maastricht est réservé à GD/B9. Pipeline
+> sans dépendance d'ordre, placé avant `sirene`.
+>
 > **Document daté.** Les fraîcheurs et volumétries amont relevées ici l'ont été par appels réels le
-> 19/08/2026 (et le 20/08 pour S38 et S40, le 22/08 soir ~22:30 CEST pour S43) : elles décrivent ces jours-là et **ont dérivé depuis**.
+> 19/08/2026 (et le 20/08 pour S38 et S40, le 22/08 soir ~22:30 CEST pour S43, le 23/08 pour S44) : elles décrivent ces jours-là et **ont dérivé depuis**.
 > Le catalogue vivant, avec la date réellement ingérée de chaque source, est la page `/donnees`
 > du site, régénérée à chaque publication.
 
@@ -348,6 +355,18 @@ Tous téléchargés/dépouillés le 19/08/2026 (05-frais-indemnites.md) :
 - **Pièges** : `source_id` = **S43**, jamais `'S35'` (seau LEGI/Debats/RefOrgaAdminEtat, toujours non ingéré) ni `'S3'` (JORFSIMPLE, fenêtre 30 JO — un dossier législatif vit des mois et serait purgé). TYPE n'est pas « en navette aujourd'hui » : un PROJET_LOI d'une législature close reste typé projet. Navette affichée = type ∈ {PROJET_LOI, PROPOSITION_LOI, PROJET_ORDONNANCE} **ET** législature = max(legislature_num). TYPE vide est **licite** (trois lois 2008) — on ne le déduit pas du titre. N'ingère **pas** l'exposé des motifs ni les HTML d'échéancier : métadonnées + dernière étape (LIEN directs de ARBORESCENCE). Stock + incréments rejouable (Freemium ~19 Mo, pas 1 Go comme JORF).
 - **Modules** : Documents/JO. **INGÉRÉE** — pipeline P19 `pipelines/ingest_dole.py`.
 
+#### S44. Recettes et dépenses des APU (agrégats ESA, Eurostat `gov_10a_main`, évalué le 23/08/2026)
+- **Producteur** : Eurostat (ESTAT). Datacode `gov_10a_main`. Label EN : *Government revenue, expenditure and main aggregates*. Label FR : *Principaux agrégats des administrations publiques, y compris recettes et dépenses*. **URL** (DOI, stable) : `https://doi.org/10.2908/GOV_10A_MAIN` → `https://ec.europa.eu/eurostat/databrowser/product/page/GOV_10A_MAIN`. API filtrée (re-fetch à chaque ingestion, pas une constante figée) : `geo=FR`, `sector=S13`, `na_item=TE` et `na_item=TR`, deux extraits `unit=MIO_EUR` et `unit=PC_GDP`. Re-fetch HTTP 200 le 23/08/2026, exemple : `https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/gov_10a_main?format=JSON&geo=FR&sector=S13&na_item=TE&unit=MIO_EUR&lang=EN`.
+- **Licence relue** (copyright-notice Eurostat `https://ec.europa.eu/eurostat/web/main/help/copyright-notice`, HTTP 200 le 23/08/2026) : **décision 2011/833/UE** du 12 décembre 2011 — « Reuse of statistical data … commercial or non-commercial … source is acknowledged ». Libellé `meta_sources` : `Décision 2011/833/UE (réutilisation des données statistiques Eurostat)`. **Pas CC BY 4.0** (le CC BY 4.0 de la même page couvre le contenu éditorial du site, pas les données statistiques).
+- **Fréquence** : annuelle (TIME = année civile). **Date des données** = 31 décembre du TIME max (ex. 2025 → 2025-12-31), **jamais** le champ JSON-stat `updated` (date de diffusion : 2026-07-21T11:00:00+0200 pour le millésime mesuré le 23/08). Seuils de fraîcheur **520/600** jours calendaires, comme S42.
+- **Objet** : `na_item=TE` = « Total des dépenses des administrations publiques » ; `na_item=TR` = « Total des recettes des administrations publiques ». Secteur ESA S13 FR = « Administrations publiques ». Ce n'est **pas** l'exécution YTD du budget général (S13, DGFiP, flux de l'État). Ce n'est **pas** l'encours de dette (S41, na_item=GD). Ce n'est **pas** le déficit (S42, na_item=B9). TE et TR **ne sont pas** des agrégats Maastricht — Maastricht est réservé à GD/B9. `source_id` = **S44**, jamais `'S13'` ni `'S41'` ni `'S42'`.
+- **Piège S13** : le secteur ESA **S13** = administrations publiques (APU : État, Odac, APUL, ASSO). La source France Transparence **S13** = situations mensuelles budgétaires DGFiP (État, flux). Ne pas écrire « dette de l'État » pour un chiffre APU : ce n'est pas le sous-secteur S.1311, et ce n'est pas une ligne DGFiP.
+- **Piège d'unité** : native **MIO_EUR** (millions d'euros). Conversion Md€ = MIO_EUR **÷ 1000** à la lecture. Jamais ÷ 1e9 (unité des flux S13, en euros). `PC_GDP` est le pourcentage du PIB, lu à part. Pas de montant par habitant, pas de sous-secteur S.1311.
+- **Hors périmètre** : COFOG `gov_10a_exp` 2025 = 0 observation (millésime 2024 seulement) — **non ingéré**. `taxag` 2025 = 0 — **non ingéré**, et **ne pas l'appeler prélèvements obligatoires**.
+- **Recomposition** : le site **ne recalcule pas B9**. Le 23/08/2026, TR 2025 − TE 2025 = 1 561 626,1 − 1 714 137,2 = −152 511,1 ≈ S42 B9 −152 511,0 (arrondi). **S42 reste la source du déficit**.
+- **Relevé daté du 23/08/2026** (re-fetch HTTP 200 ; `n_values` 31 par extrait ; TIME 1975–2025 dans la dimension, observations à partir de 1995) : TE 2025 = 1 714 137,2 MIO_EUR / 57,2 PC_GDP ; TE 2024 = 1 672 708,2 / 57,0 ; TR 2025 = 1 561 626,1 MIO_EUR / 52,1 PC_GDP ; TR 2024 = 1 503 590,1 / 51,2. Ces montants décrivent ce jour-là et **dérivent** : ce n'est pas une constante du document.
+- **Modules** : `/depenses` (bloc TE) et `/recettes` (bloc TR). **INGÉRÉE** — pipeline P20 `pipelines/ingest_agregats_apu.py`.
+
 ### Groupe E — Sources écartées (raison prouvée le 19/08/2026)
 
 | Source écartée | Raison constatée | Rapport |
@@ -432,7 +451,7 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 - **Contenu concret** : compteur « dépenses de l'État depuis le 1er janvier » (cumul mensuel, ex. réel : 195,0 Md€ de dépenses nettes du BG au 31/05/2026, 01) avec variation vs même période 2025 ; donut par grands postes (titres, S13) ; top missions (S20, annuel, mention PLF) ; carte de France des marchés notifiés sur 30 jours (S1, lat/lng natives) ; flux « derniers marchés notifiés » (J-1) et « derniers textes au JO » (jour même) ; « X appels d'offres en cours » ; bandeau : marchés notifiés/12 mois, ~500 000 mandats d'élus (S17), 6 829 lobbyistes enregistrés (S4), 12 930 dossiers déclaratifs HATVP (S14).
 
 ### Dépenses de l'État
-- **Sources** : S13 (mensuel), S20 + S21 (structure mission→action), S23 (subventions aux associations), S41 (encours APU Maastricht, bloc cloisonné), S42 (déficit public APU Maastricht, bloc cloisonné), S24 (performance, non ingéré), S22 (patrimonial, non ingéré), S30 (missions mensuelles PDF, non ingéré), S39 (référentiel des opérateurs, non ingéré).
+- **Sources** : S13 (mensuel), S20 + S21 (structure mission→action), S23 (subventions aux associations), S41 (encours APU Maastricht, bloc cloisonné), S42 (déficit public APU Maastricht, bloc cloisonné), S44 (agrégats ESA TE/TR, bloc TE sur `/depenses` et bloc TR sur `/recettes`), S24 (performance, non ingéré), S22 (patrimonial, non ingéré), S30 (missions mensuelles PDF, non ingéré), S39 (référentiel des opérateurs, non ingéré).
 - **Fraîcheur affichable** : « Exécution mensuelle : données au 30/06/2026, ~6 semaines de décalage » (01) · « Structure du budget : PLF 2026 (déposé oct. 2025) et exécution 2024 » (01) · « Subventions aux associations : versements 2023 (dernier millésime publié) » (01).
 - **Contenu concret** : courbes 2013-2026 dépenses/recettes/solde, N vs N-1 par titre ; treemap mission → programme → action (comparateur exéc. 2024 / LFI 2025 / PLF 2026 + cotation budget vert) ; recherche parmi 112 722 subventions (SIREN, programme, commune). **Avertissements obligatoires** : PLF ≠ LFI 2026 (jamais publiée en données) ; aucune donnée de paiement en temps réel n'existe (01).
 
@@ -607,6 +626,7 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 | S41 Encours de dette des APU (Maastricht) | Trimestrielle (fin de trimestre de TIME max, jamais `updated`) | décision 2011/833/UE (22/08/2026) | Dépenses (bloc cloisonné) | **ingérée** (P17) |
 | S42 Déficit public des APU (Maastricht) | Annuelle (31/12 du TIME max, jamais `updated`) | décision 2011/833/UE (22/08/2026) | Dépenses (bloc cloisonné) | **ingérée** (P18) |
 | S43 DILA dossiers législatifs (DOLE) | Freemium + incréments (jusqu'à 5/sem. ; gap max observé 12 j le 22/08 soir) | LO 2.0 (fr-lo) | Documents/JO | **ingérée** (P19) |
+| S44 Recettes et dépenses des APU (agrégats ESA) | Annuelle (31/12 du TIME max, jamais `updated` ; 520/600) | décision 2011/833/UE (23/08/2026) | Dépenses (bloc TE) / Recettes (bloc TR) | **ingérée** (P20) |
 
 ---
 

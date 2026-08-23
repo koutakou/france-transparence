@@ -18,8 +18,10 @@
 # Puis table deficit_apu_maastricht (S42, Eurostat gov_10dd_edpt1, B9) — CREATE
 # recopié du pipeline P18. Puis table dole_dossiers (S43, fonds DOLE DILA) —
 # CREATE recopié du pipeline P19 (sans IF NOT EXISTS) ; 3 index.
+# Puis table agregats_apu_esa (S44, Eurostat gov_10a_main, TE+TR) —
+# CREATE recopié du pipeline P20 (sans IF NOT EXISTS).
 
-> **Extrait daté.** Ce document décrit **78 tables**, **6 vues** et **58 index**, et cette
+> **Extrait daté.** Ce document décrit **79 tables**, **6 vues** et **58 index**, et cette
 > couverture est sa propriété essentielle : une table de la base absente d'ici est un trou de
 > documentation, et une table décrite ici qui n'existe nulle part est une invention. Les **75**
 > tables, les 6 vues et les 55 index sont ceux que `sqlite_master` recense au 22/08/2026 (matin), et le
@@ -29,11 +31,12 @@
 > `deficit_apu_maastricht` (S42), est celle du pipeline P18. La 78e,
 > `dole_dossiers` (S43), est celle du pipeline P19, avec ses **3 index**
 > (`idx_dole_dossiers_type`, `idx_dole_dossiers_leg`, `idx_dole_dossiers_modif`)
-> qui portent le compte d'index de 55 à **58**. Tant que l'ingestion n'a pas
+> qui portent le compte d'index de 55 à **58**. La 79e, `agregats_apu_esa`
+> (S44), est celle du pipeline P20. Tant que l'ingestion n'a pas
 > tourné sur la base servie, le contrôle affichera
-> `doc sans base : ['dole_dossiers']` (et éventuellement
-> `deficit_apu_maastricht` / `dette_apu_maastricht` si P18/P17 n'ont pas
-> non plus tourné) — attendu, pas un trou.
+> `doc sans base : ['agregats_apu_esa']` (et éventuellement
+> `dole_dossiers` / `deficit_apu_maastricht` / `dette_apu_maastricht` si
+> P19/P18/P17 n'ont pas non plus tourné) — attendu, pas un trou.
 >
 > Le contrôle porte, à cette date, sur plus que les colonnes. Noms, types, `NOT NULL`, valeurs par
 > défaut et clés primaires coïncident colonne à colonne ; le texte DDL intégral coïncide lui aussi,
@@ -990,6 +993,26 @@ CREATE TABLE dole_dossiers (
 CREATE INDEX idx_dole_dossiers_type  ON dole_dossiers(type);
 CREATE INDEX idx_dole_dossiers_leg   ON dole_dossiers(legislature_num);
 CREATE INDEX idx_dole_dossiers_modif ON dole_dossiers(date_modif);
+-- ---------------------------------------------------------------------------
+-- S44 — Recettes et dépenses des APU, agrégats ESA (pipeline P20,
+-- Eurostat gov_10a_main). Flux annuel, na_item TE (total des dépenses)
+-- et TR (total des recettes). Le secteur ESA S13 n'est PAS la source FT S13
+-- (situations mensuelles DGFiP, flux de l'État). Distinct de S41 (stock GD)
+-- et de S42 (B9). TE et TR ne sont pas des agrégats Maastricht (réservé
+-- à GD/B9). Le site ne recalcule pas B9 : S42 reste la source du déficit.
+-- Unité native MIO_EUR ; Md€ à la lecture (÷ 1000), jamais ÷ 1e9.
+-- Pas de COFOG (gov_10a_exp), pas de taxag.
+-- ---------------------------------------------------------------------------
+CREATE TABLE agregats_apu_esa (
+    geo            TEXT NOT NULL CHECK (geo = 'FR'),
+    sector         TEXT NOT NULL CHECK (sector = 'S13'), -- ESA APU, pas la source S13
+    na_item        TEXT NOT NULL CHECK (na_item IN ('TE', 'TR')), -- jamais B9 ni GD
+    annee          INTEGER NOT NULL,
+    valeur_mio_eur REAL NOT NULL CHECK (valeur_mio_eur > 0),
+    valeur_pc_gdp  REAL NOT NULL CHECK (valeur_pc_gdp > 0),
+    statut         TEXT,
+    PRIMARY KEY (geo, sector, na_item, annee)
+);
 CREATE TABLE partis (
     id               TEXT PRIMARY KEY REFERENCES entites(id),
     code_cnccfp      TEXT NOT NULL UNIQUE,

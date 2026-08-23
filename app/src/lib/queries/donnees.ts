@@ -127,6 +127,10 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // max, jamais `updated`. 400/440 sonnerait dès février, avant la
   // notification d'avril (~477 j après le 31/12). 520/600 = 17/20 mois.
   S42: { unite: "jc", retard: 520, alerte: 600 },
+  // Annuelle GFS (juillet N+1). date_donnees = 31/12 du TIME max,
+  // jamais `updated`. 400/440 sonnerait dès février, avant la
+  // publication de juillet. 520/600 = 17/20 mois, comme S42 EDP.
+  S44: { unite: "jc", retard: 520, alerte: 600 },
   // Annuelles à décalage structurel documenté
   S21: { unite: "jc", retard: 400, alerte: 440 },
   S23: { unite: "jc", retard: 760, alerte: 850 },

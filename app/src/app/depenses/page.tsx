@@ -12,14 +12,18 @@ import { LineChart } from "@/components/ui/LineChart";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { ESPACE_FINE, formatDateFr, formatEuros, formatNombre } from "@/lib/format";
 import {
-  getDetteMaastricht,
-  libelleTrimestre,
-  perimetreDette,
-} from "@/lib/queries/dette-maastricht";
+  getAgregatApu,
+  perimetreAgregat,
+} from "@/lib/queries/agregats-apu";
 import {
   getDeficitMaastricht,
   perimetreDeficit,
 } from "@/lib/queries/deficit-maastricht";
+import {
+  getDetteMaastricht,
+  libelleTrimestre,
+  perimetreDette,
+} from "@/lib/queries/dette-maastricht";
 import {
   getDepensesParTitre,
   getKpisBudgetMensuel,
@@ -118,6 +122,7 @@ export default async function PageDepenses() {
   const parTitre = getDepensesParTitre();
   const dette = getDetteMaastricht();
   const deficit = getDeficitMaastricht();
+  const depensesApu = getAgregatApu("TE");
   const missions = getMissionsPlf2026(10);
   const ministeres = getMinisteresDestination2025(10);
   const subventions = getSubventionsAssociations(10);
@@ -545,6 +550,129 @@ export default async function PageDepenses() {
                   l’État seul (sous-secteur S.1311). Ce n’est pas un
                   montant par habitant. Le pourcentage du PIB n’est comparé
                   à aucun seuil.
+                </p>
+              }
+            />
+            </div>
+          </Card>
+        </>
+      )}
+
+      {/* Dépenses APU ESA (S44, TE) — flux annuel APU, cloisonné de l'exécution S13 et de Maastricht B9/GD */}
+      {depensesApu && (
+        <>
+          <div className="flex items-center gap-3" role="separator">
+            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+              Autre objet · flux annuel des APU, pas l&apos;exécution de l&apos;État
+            </span>
+            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+          </div>
+
+          <Card
+            titre="Dépenses des APU (ESA)"
+            sousTitre="Total des dépenses des administrations publiques, flux d'année civile — distinct de l'exécution du budget général"
+            droite={
+              <FreshnessBadge
+                dateDonnees={depensesApu.meta.date_donnees}
+                source="Eurostat — gov_10a_main"
+                frequence={depensesApu.meta.frequence}
+                url={depensesApu.meta.url}
+              />
+            }
+          >
+            <div className="mb-4 rounded-xl border border-card-border bg-raised p-4">
+              <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+                Pourquoi ce bloc est séparé du reste de la page
+              </h3>
+              <p className="text-xs leading-relaxed text-ink-secondary">
+                Le budget général (source S13, DGFiP) est un flux de
+                l&apos;État, cumulé depuis le 1er janvier. L&apos;encours
+                (S41) et le déficit (S42) ci-dessus relèvent de Maastricht
+                (GD, B9). Ce bloc est un{" "}
+                <strong className="font-medium text-ink">
+                  flux annuel des administrations publiques
+                </strong>{" "}
+                (secteur ESA S13&nbsp;: État, Odac, APUL, ASSO), publié par
+                Eurostat sous l&apos;indicateur TE (total des dépenses). Ce
+                n&apos;est pas Maastricht. Les objets ne s&apos;additionnent
+                pas.
+              </p>
+            </div>
+            <KpiTile
+              nu
+              label="Dépenses des APU (ESA)"
+              valeur={`${formatNombre(depensesApu.montantMd, 1)}${ESPACE_FINE}Md€`}
+              montantVedette
+              perimetre={perimetreAgregat(depensesApu.dernier, "TE")}
+              delta={
+                depensesApu.deltaPct === null
+                  ? undefined
+                  : {
+                      valeur: depensesApu.deltaPct,
+                      vs: depensesApu.precedent
+                        ? `année ${depensesApu.precedent.annee}`
+                        : "année précédente",
+                    }
+              }
+            />
+            <VueTableau>
+              <DataTable
+                colonnes={[
+                  { cle: "annee", entete: "Année" },
+                  {
+                    cle: "temd",
+                    entete: "TE (Md€)",
+                    type: "montant",
+                    decimales: 1,
+                  },
+                  {
+                    cle: "pc",
+                    entete: "% du PIB",
+                    type: "nombre",
+                    decimales: 1,
+                  },
+                ]}
+                lignes={depensesApu.serie.slice(-12).map((o) => ({
+                  annee: o.annee,
+                  temd: o.valeur_mio_eur / 1000,
+                  pc: o.valeur_pc_gdp,
+                }))}
+                cleLigne={(l) => String(l.annee)}
+              />
+            </VueTableau>
+            <div className="mt-4">
+            <NoticeLecture
+              ancre="depenses-apu-esa"
+              commentLire={
+                <p>
+                  C’est un flux d’année civile, pas un stock et pas un cumul
+                  depuis le 1er janvier. TE est le total des dépenses des
+                  administrations publiques. L’unité affichée (Md€) est le
+                  million d’euros Eurostat divisé par 1&nbsp;000. Le
+                  pourcentage du PIB est un fait de la même série. Un delta
+                  d’une année sur l’autre n’est ni «&nbsp;bon&nbsp;» ni
+                  «&nbsp;mauvais&nbsp;» : il est affiché neutre.
+                </p>
+              }
+              provenance={
+                <p>
+                  Eurostat, datacode gov_10a_main (DOI{" "}
+                  10.2908/GOV_10A_MAIN), extraits geo=FR, sector=S13
+                  (ESA&nbsp;: administrations publiques), na_item=TE,
+                  unit=MIO_EUR et unit=PC_GDP. C’est la publication annuelle
+                  des GFS (juillet), pas la date de diffusion.
+                  Réutilisation&nbsp;: décision 2011/833/UE.
+                </p>
+              }
+              limites={
+                <p>
+                  Ce n’est pas l’exécution du budget général (S13, État,
+                  cumul depuis le 1er janvier). Ce n’est pas une ventilation
+                  COFOG. Ce n’est pas la dépense de l’État seul (sous-secteur
+                  S.1311). Ce n’est pas un montant par habitant. Ce n’est
+                  pas le déficit (B9) ni l’encours (GD) au sens de
+                  Maastricht.
                 </p>
               }
             />

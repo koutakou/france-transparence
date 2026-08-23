@@ -434,6 +434,8 @@ const SOMMAIRE: { href: string; libelle: string }[] = [
   { href: "#depenses", libelle: "Budget de l’État" },
   { href: "#dette-maastricht", libelle: "Dette des APU (Maastricht)" },
   { href: "#deficit-maastricht", libelle: "Déficit des APU (Maastricht)" },
+  { href: "#depenses-apu-esa", libelle: "Dépenses des APU (ESA)" },
+  { href: "#recettes-apu-esa", libelle: "Recettes des APU (ESA)" },
   { href: "#recettes", libelle: "Recettes de l’État" },
   { href: "#collectivites", libelle: "Finances locales" },
   { href: "#frais", libelle: "Frais et train de vie" },
@@ -971,6 +973,81 @@ export default function PageComprendre() {
             n’est pas le déficit de l’État seul (sous-secteur S.1311). Ce
             n’est pas un montant par habitant. Le pourcentage du PIB n’est
             comparé à aucun seuil.
+          </p>
+        </div>
+      </Card>
+
+      <Card titre="Dépenses des APU (ESA)">
+        <div id="depenses-apu-esa" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+          <p>
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
+            Les dépenses des APU (ESA) sont le total des dépenses des
+            administrations publiques (indicateur TE), sur une année civile.
+            Le secteur ESA S13 couvre l’État, les Odac, les administrations
+            publiques locales et les administrations de sécurité sociale.
+            C’est un flux d’année civile, pas un cumul depuis le
+            1<sup>er</sup> janvier, pas un stock. L’unité native Eurostat
+            est le million d’euros (MIO_EUR) ; le milliard affiché est ce
+            million divisé par 1&nbsp;000. Le pourcentage du PIB vient de
+            la même série. Un delta d’une année sur l’autre n’est ni
+            «&nbsp;bon&nbsp;» ni «&nbsp;mauvais&nbsp;». Voir{" "}
+            <LienPage href="/depenses/#depenses-apu-esa">Dépenses</LienPage>.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
+            Eurostat, datacode gov_10a_main, DOI 10.2908/GOV_10A_MAIN.
+            Extraits geo=FR, sector=S13 (ESA), na_item=TE, unit=MIO_EUR et
+            unit=PC_GDP. C’est la publication annuelle des GFS (juillet).
+            Réutilisation : décision 2011/833/UE (données statistiques
+            Eurostat). Le secteur ESA S13 n’est pas la source S13 de ce
+            site.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
+            Ce n’est pas l’exécution du budget général (flux de l’État,
+            cumul depuis le 1<sup>er</sup> janvier). Ce n’est pas une
+            ventilation COFOG. Ce n’est pas la dépense de l’État seul
+            (sous-secteur S.1311). Ce n’est pas un montant par habitant.
+            Ce n’est pas le déficit (B9) ni l’encours (GD) au sens de
+            Maastricht.
+          </p>
+        </div>
+      </Card>
+
+      <Card titre="Recettes des APU (ESA)">
+        <div id="recettes-apu-esa" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+          <p>
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
+            Les recettes des APU (ESA) sont le total des recettes des
+            administrations publiques (indicateur TR), sur une année civile.
+            Le secteur ESA S13 couvre l’État, les Odac, les administrations
+            publiques locales et les administrations de sécurité sociale.
+            C’est un flux d’année civile, pas un cumul depuis le
+            1<sup>er</sup> janvier, pas un stock. L’unité native Eurostat
+            est le million d’euros (MIO_EUR) ; le milliard affiché est ce
+            million divisé par 1&nbsp;000. Le pourcentage du PIB vient de
+            la même série. Un delta d’une année sur l’autre n’est ni
+            «&nbsp;bon&nbsp;» ni «&nbsp;mauvais&nbsp;». Voir{" "}
+            <LienPage href="/recettes/#recettes-apu-esa">Recettes</LienPage>.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
+            Eurostat, datacode gov_10a_main, DOI 10.2908/GOV_10A_MAIN.
+            Extraits geo=FR, sector=S13 (ESA), na_item=TR, unit=MIO_EUR et
+            unit=PC_GDP. C’est la publication annuelle des GFS (juillet).
+            Réutilisation : décision 2011/833/UE (données statistiques
+            Eurostat). Le secteur ESA S13 n’est pas la source S13 de ce
+            site.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
+            Ce n’est pas le budget général de l’État (source S13, flux
+            cumulé depuis le 1<sup>er</sup> janvier, net des dégrèvements).
+            TR n’est pas un montant «&nbsp;net DGFiP&nbsp;». Ce n’est pas
+            la recette de l’État seul (sous-secteur S.1311). Ce n’est pas
+            un montant par habitant. Ce n’est pas le déficit (B9) ni
+            l’encours (GD) au sens de Maastricht. On ne recalcule pas
+            B9 = TR − TE : le déficit officiel reste S42.
           </p>
         </div>
       </Card>

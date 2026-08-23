@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
@@ -7,9 +8,14 @@ import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { DeltaPct } from "@/components/ui/DeltaPct";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
+import { KpiTile } from "@/components/ui/KpiTile";
 import { LineChart } from "@/components/ui/LineChart";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { ESPACE_FINE, formatDateFr, formatNombre } from "@/lib/format";
+import {
+  getAgregatApu,
+  perimetreAgregat,
+} from "@/lib/queries/agregats-apu";
 import {
   getKpisRecettes,
   getRecettesFiscalesDetail,
@@ -106,6 +112,7 @@ export default async function PageRecettes() {
   const serie = getSerieRecettesNettes(3);
   const detail = getRecettesFiscalesDetail();
   const longues = getSeriesLonguesRecettes();
+  const recettesApu = getAgregatApu("TR");
 
   // Les mois infra-annuels de la DGFiP sont provisoires : la mention
   // accompagne chaque badge tant que l'année en cours est incomplète.
@@ -427,6 +434,139 @@ export default async function PageRecettes() {
           </p>
         </div>
       </Card>
+
+      {/* Recettes APU ESA (S44, TR) — flux annuel APU, cloisonné des recettes nettes S13 */}
+      {recettesApu && (
+        <>
+          <div className="flex items-center gap-3" role="separator">
+            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+              Autre objet · flux annuel des APU, pas le budget général de l&apos;État
+            </span>
+            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+          </div>
+
+          <Card
+            titre="Recettes des APU (ESA)"
+            sousTitre="Total des recettes des administrations publiques, flux d'année civile — distinct des recettes nettes du budget général"
+            droite={
+              <FreshnessBadge
+                dateDonnees={recettesApu.meta.date_donnees}
+                source="Eurostat — gov_10a_main"
+                frequence={recettesApu.meta.frequence}
+                url={recettesApu.meta.url}
+              />
+            }
+          >
+            <div className="mb-4 rounded-xl border border-card-border bg-raised p-4">
+              <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+                Pourquoi ce bloc est séparé du reste de la page
+              </h3>
+              <p className="text-xs leading-relaxed text-ink-secondary">
+                Tout ce qui précède décrit le{" "}
+                <strong className="font-medium text-ink">
+                  budget général de l&apos;État
+                </strong>{" "}
+                (source S13, DGFiP)&nbsp;: des flux de l&apos;État, cumulés
+                depuis le 1er janvier, nets des dégrèvements. Ce bloc est un{" "}
+                <strong className="font-medium text-ink">
+                  flux annuel des administrations publiques
+                </strong>{" "}
+                (secteur ESA S13&nbsp;: État, Odac, APUL, ASSO), publié par
+                Eurostat sous l&apos;indicateur TR (total des recettes). Ce
+                n&apos;est pas un montant «&nbsp;net DGFiP&nbsp;». Les deux
+                objets ne s&apos;additionnent pas. Voir{" "}
+                <Link
+                  href="/comprendre/#recettes-apu-esa"
+                  className="underline decoration-[var(--viz-grid)] underline-offset-2 transition-colors hover:decoration-current"
+                >
+                  Comprendre
+                </Link>
+                .
+              </p>
+            </div>
+            <KpiTile
+              nu
+              label="Recettes des APU (ESA)"
+              valeur={`${formatNombre(recettesApu.montantMd, 1)}${ESPACE_FINE}Md€`}
+              montantVedette
+              perimetre={perimetreAgregat(recettesApu.dernier, "TR")}
+              delta={
+                recettesApu.deltaPct === null
+                  ? undefined
+                  : {
+                      valeur: recettesApu.deltaPct,
+                      vs: recettesApu.precedent
+                        ? `année ${recettesApu.precedent.annee}`
+                        : "année précédente",
+                    }
+              }
+            />
+            <VueTableau>
+              <DataTable
+                colonnes={[
+                  { cle: "annee", entete: "Année" },
+                  {
+                    cle: "trmd",
+                    entete: "TR (Md€)",
+                    type: "montant",
+                    decimales: 1,
+                  },
+                  {
+                    cle: "pc",
+                    entete: "% du PIB",
+                    type: "nombre",
+                    decimales: 1,
+                  },
+                ]}
+                lignes={recettesApu.serie.slice(-12).map((o) => ({
+                  annee: o.annee,
+                  trmd: o.valeur_mio_eur / 1000,
+                  pc: o.valeur_pc_gdp,
+                }))}
+                cleLigne={(l) => String(l.annee)}
+              />
+            </VueTableau>
+            <div className="mt-4">
+            <NoticeLecture
+              ancre="recettes-apu-esa"
+              commentLire={
+                <p>
+                  C’est un flux d’année civile, pas un stock et pas un cumul
+                  depuis le 1er janvier. TR est le total des recettes des
+                  administrations publiques. L’unité affichée (Md€) est le
+                  million d’euros Eurostat divisé par 1&nbsp;000. Le
+                  pourcentage du PIB est un fait de la même série. Un delta
+                  d’une année sur l’autre n’est ni «&nbsp;bon&nbsp;» ni
+                  «&nbsp;mauvais&nbsp;» : il est affiché neutre.
+                </p>
+              }
+              provenance={
+                <p>
+                  Eurostat, datacode gov_10a_main (DOI{" "}
+                  10.2908/GOV_10A_MAIN), extraits geo=FR, sector=S13
+                  (ESA&nbsp;: administrations publiques), na_item=TR,
+                  unit=MIO_EUR et unit=PC_GDP. C’est la publication annuelle
+                  des GFS (juillet), pas la date de diffusion.
+                  Réutilisation&nbsp;: décision 2011/833/UE.
+                </p>
+              }
+              limites={
+                <p>
+                  Ce n’est pas le budget général de l’État (S13, cumul
+                  depuis le 1er janvier, net des dégrèvements). TR n’est
+                  pas un montant «&nbsp;net DGFiP&nbsp;» : c’est un
+                  agrégat ESA annuel des APU. Ce n’est pas la recette de
+                  l’État seul (sous-secteur S.1311). Ce n’est pas un
+                  montant par habitant. Ce n’est pas le déficit (B9) ni
+                  l’encours (GD) au sens de Maastricht.
+                </p>
+              }
+            />
+            </div>
+          </Card>
+        </>
+      )}
     </div>
   );
 }
