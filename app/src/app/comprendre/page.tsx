@@ -436,6 +436,7 @@ const SOMMAIRE: { href: string; libelle: string }[] = [
   { href: "#deficit-maastricht", libelle: "Déficit des APU (Maastricht)" },
   { href: "#depenses-apu-esa", libelle: "Dépenses des APU (ESA)" },
   { href: "#recettes-apu-esa", libelle: "Recettes des APU (ESA)" },
+  { href: "#cge", libelle: "Situation nette de l’État (CGE)" },
   { href: "#recettes", libelle: "Recettes de l’État" },
   { href: "#collectivites", libelle: "Finances locales" },
   { href: "#frais", libelle: "Frais et train de vie" },
@@ -1048,6 +1049,45 @@ export default function PageComprendre() {
             un montant par habitant. Ce n’est pas le déficit (B9) ni
             l’encours (GD) au sens de Maastricht. On ne recalcule pas
             B9 = TR − TE : le déficit officiel reste S42.
+          </p>
+        </div>
+      </Card>
+
+      <Card titre="Situation nette de l’État (CGE)">
+        <div id="cge" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+          <p>
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
+            Le compte général de l’État est le bilan patrimonial de
+            l’État, en comptabilité générale (droits constatés), arrêté au
+            31 décembre. La situation nette est le total de l’actif (I)
+            moins le total du passif hors situation nette (II). C’est un
+            stock, pas un flux, pas un cumul depuis le 1<sup>er</sup>{" "}
+            janvier. La pièce mélange des colonnes en euros et des
+            colonnes en millions d’euros ; le site convertit tout en euros
+            puis affiche des milliards (euro divisé par un milliard) — pas
+            le million d’euros Eurostat divisé par 1&nbsp;000. Un delta d’une
+            année sur l’autre n’est ni «&nbsp;bon&nbsp;» ni
+            «&nbsp;mauvais&nbsp;». Voir{" "}
+            <LienPage href="/depenses/#cge">Dépenses</LienPage>.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
+            DGFiP, pièce de synthèse jointe au jeu « Données de
+            comptabilité générale de l’État sur dix ans »
+            (data.economie.gouv.fr,{" "}
+            <code>balances_des_comptes_etat</code>). Totaux I, II et III
+            lus dans l’onglet Bilan. Licence Ouverte 2.0. Le millésime est
+            celui de la pièce, pas la date de modification du catalogue.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
+            Ce n’est pas l’exécution du budget général (source S13, caisse,
+            cumul depuis le 1<sup>er</sup> janvier). Ce n’est pas
+            l’encours Maastricht des APU, ni le déficit B9, ni les
+            agrégats ESA TE/TR. Ce n’est pas « la dette de l’État ». Les
+            balances compte × programme ne sont pas sommées : un total
+            2025 n’est pas publié tant que la pièce de synthèse ne le
+            porte pas. Ce n’est pas un montant par habitant.
           </p>
         </div>
       </Card>

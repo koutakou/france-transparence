@@ -49,8 +49,16 @@
 > ne sont pas des agrégats Maastricht — Maastricht est réservé à GD/B9. Pipeline
 > sans dépendance d'ordre, placé avant `sirene`.
 >
+> **Mise à jour du 23/08/2026.** **S22** (bilan patrimonial de l'État, CGE, pièce
+> de synthèse xlsx du jeu `balances_des_comptes_etat`, via
+> `pipelines/ingest_cge.py`) s'ajoute. L'ingestion compte donc **23 pipelines**
+> et **35 sources tracées dans `meta_sources`**. Distinct de S13 (budget,
+> caisse, YTD), de S41/S42/S44 (Maastricht / ESA des APU). Les totaux I/II/III
+> sont lus dans la pièce, jamais sommés depuis les 517 489 lignes
+> compte×programme. Pipeline sans dépendance d'ordre, placé avant `sirene`.
+>
 > **Document daté.** Les fraîcheurs et volumétries amont relevées ici l'ont été par appels réels le
-> 19/08/2026 (et le 20/08 pour S38 et S40, le 22/08 soir ~22:30 CEST pour S43, le 23/08 pour S44) : elles décrivent ces jours-là et **ont dérivé depuis**.
+> 19/08/2026 (et le 20/08 pour S38 et S40, le 22/08 soir ~22:30 CEST pour S43, le 23/08 pour S44 et S22) : elles décrivent ces jours-là et **ont dérivé depuis**.
 > Le catalogue vivant, avec la date réellement ingérée de chaque source, est la page `/donnees`
 > du site, régénérée à chaque publication.
 
@@ -221,9 +229,11 @@ Contexte 2026 à garder en tête : LFI 2026 promulguée tardivement le 19/02/202
 - **URL testée** : `…/plf25-depenses-2025-selon-destination/records?limit=2` (200) ; 2 404 lignes ministère→mission→programme→action→sous-action × titre, AE et CP ; famille complète maj 11/10/2024 ; **aucun équivalent PLF/LFI 2026** (vérifié au catalogue) ; les crédits votés s'arrêtent à LFI 2023 (01).
 - **Licence** : LO v2.0. **Modules** : Dépenses de l'État (navigation fine du budget).
 
-#### S22. Balances des comptes de l'État (CGE) 2016-2025
-- **URL testée** : `…/balances_des_comptes_etat/records?limit=2` (200) ; **517 489 lignes** compte × programme × année, 2016→**2025** (le CGE 2025 est publié) (01).
-- **Licence** : LO v2.0. **Piège** : comptabilité générale ≠ budgétaire — ne pas additionner avec S13 (01). **Modules** : Dépenses de l'État (vue patrimoniale) — non ingéré.
+#### S22. Compte général de l'État — bilan patrimonial (CGE)
+- **URL testée** (23/08/2026) : jeu `balances_des_comptes_etat` HTTP 200, **517 489** lignes compte × programme × année, 2016→2025 ; pièce jointe « 2006-2024 Bilan, CDR, solde.xlsx » HTTP 200, 92 411 o. Licence relue sur la fiche : **Licence Ouverte v2.0 (Etalab)**.
+- **Ce qui est ingéré** : les totaux officiels I / II / III, les dettes financières et le solde de l'exercice, lus dans la pièce de synthèse — **pas** les 517 489 lignes. Millésime affiché = 31/12 du max de la pièce (**2024** au 23/08), jamais `modified` du catalogue (2026-04-22).
+- **Pièges** : comptabilité générale ≠ budgétaire (ne pas additionner avec S13) ; l'en-tête de la pièce dit « millions d'euros » alors que 2024 et 2022-2018 sont en euros, 2023 et 2017-2006 en millions — détection par l'ordre de grandeur de I, colonne par colonne ; situation nette ≠ « dette de l'État » ≠ Maastricht (S41) ; un TOTAL ACTIF 2025 n'est pas fabriqué par somme de lignes tant que la pièce ne le porte pas.
+- **Modules** : Dépenses de l'État (bloc cloisonné) — **ingérée** (23/08/2026, P21).
 
 #### S23. Subventions de l'État aux associations (jaune PLF 2025, versements 2023)
 - **URL testée** : `…/plf25-donnees-de-l-annexe-jaune-effort-financier-de-l-etat-en-faveur-des-associations/records?limit=2` (200) ; **112 722 lignes** — une par subvention (SIREN, montant, programme, commune) ; millésime = versements **2023**, publié décembre 2024 → décalage ~2 ans ; **le jaune PLF 2026 n'est pas publié en données** (01).
@@ -451,7 +461,7 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 - **Contenu concret** : compteur « dépenses de l'État depuis le 1er janvier » (cumul mensuel, ex. réel : 195,0 Md€ de dépenses nettes du BG au 31/05/2026, 01) avec variation vs même période 2025 ; donut par grands postes (titres, S13) ; top missions (S20, annuel, mention PLF) ; carte de France des marchés notifiés sur 30 jours (S1, lat/lng natives) ; flux « derniers marchés notifiés » (J-1) et « derniers textes au JO » (jour même) ; « X appels d'offres en cours » ; bandeau : marchés notifiés/12 mois, ~500 000 mandats d'élus (S17), 6 829 lobbyistes enregistrés (S4), 12 930 dossiers déclaratifs HATVP (S14).
 
 ### Dépenses de l'État
-- **Sources** : S13 (mensuel), S20 + S21 (structure mission→action), S23 (subventions aux associations), S41 (encours APU Maastricht, bloc cloisonné), S42 (déficit public APU Maastricht, bloc cloisonné), S44 (agrégats ESA TE/TR, bloc TE sur `/depenses` et bloc TR sur `/recettes`), S24 (performance, non ingéré), S22 (patrimonial, non ingéré), S30 (missions mensuelles PDF, non ingéré), S39 (référentiel des opérateurs, non ingéré).
+- **Sources** : S13 (mensuel), S20 + S21 (structure mission→action), S23 (subventions aux associations), S41 (encours APU Maastricht, bloc cloisonné), S42 (déficit public APU Maastricht, bloc cloisonné), S44 (agrégats ESA TE/TR, bloc TE sur `/depenses` et bloc TR sur `/recettes`), S22 (bilan patrimonial CGE, bloc cloisonné), S24 (performance, non ingéré), S30 (missions mensuelles PDF, non ingéré), S39 (référentiel des opérateurs, non ingéré).
 - **Fraîcheur affichable** : « Exécution mensuelle : données au 30/06/2026, ~6 semaines de décalage » (01) · « Structure du budget : PLF 2026 (déposé oct. 2025) et exécution 2024 » (01) · « Subventions aux associations : versements 2023 (dernier millésime publié) » (01).
 - **Contenu concret** : courbes 2013-2026 dépenses/recettes/solde, N vs N-1 par titre ; treemap mission → programme → action (comparateur exéc. 2024 / LFI 2025 / PLF 2026 + cotation budget vert) ; recherche parmi 112 722 subventions (SIREN, programme, commune). **Avertissements obligatoires** : PLF ≠ LFI 2026 (jamais publiée en données) ; aucune donnée de paiement en temps réel n'existe (01).
 
@@ -573,7 +583,7 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 3. **AN approfondi** : amendements 296,7 Mo/j ; questions écrites 45,8 Mo ; Agenda 7,8 Mo (reconstruction de la présence en commission — plus rien d'autre ne la fournit depuis la mort de NosDéputés) (03).
 4. **S28 balances collectivités** (requêtes ciblées par SIREN) + **S33 comptes individuels** (strates) + **S32 subventions SCDL** (panel Paris/Lyon/départements conformes, jamais « national ») (06).
 5. **S19 HowTheyVote** (68,6 Mo hebdo, ODbL) + Europarl (09).
-6. **S22 CGE** (517 k lignes) + **S24 RAP** ; **S34 TED** ; **S12 BODACC/associations** ; **S35 LEGI/Debats/RefOrgaAdminEtat** ; **S36 PISTE** (one-shot humain) ; **S37 décret d'aide publique** (01, 02, 07, 04).
+6. **S24 RAP** ; **S34 TED** ; **S12 BODACC/associations** ; **S35 LEGI/Debats/RefOrgaAdminEtat** ; **S36 PISTE** (one-shot humain) ; **S37 décret d'aide publique** (01, 02, 07, 04). S22 CGE est ingérée (P21, totaux de la pièce de synthèse, pas les 517 k lignes).
 7. **Ajouts post-critique (19/08)** : **S39 jaune opérateurs PLF 2026** (référentiel des opérateurs) ; **panel « 10 plus hautes rémunérations »** (25 datasets épars, patron S32 : jamais « national ») ; **collaborateurs parlementaires** (extraction HTML des fiches AN/Sénat, coûteuse) ; **comptes des groupes politiques** (PDF AN/Sénat à vérifier en Phase 1 → constantes S31 ou boîte noire) (10-critique I1, I3, I4, I10).
 8. **Veilles actives** (re-tester périodiquement) : open data du RIE (trimestriel) ; **export open data des avis de mobilité HATVP (pantouflage), au même rythme que la veille RIE** ; comptes de campagne municipales 2026 ; rapport Cour des comptes Élysée exercice 2025 ; jaune cabinets PLF 2027 ; jaune associations PLF 2026 ; publication éventuelle de la LFI en données ; **datasets PLF 2027** (famille destination/nature + budget vert, non parus au 19/08/2026 — même famille que S20/S21) ; **donnée consolidée « aides aux entreprises »** (0 dataset au 19/08) ; **réserve parlementaire historique** (7 datasets figés, vérifiés — chronologie IRFM → DFP / boîte noire ; successeur FDVA jamais traité) (04, 05, 01, 10-critique M8/I2/I7).
 
@@ -604,7 +614,7 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 | S19 HowTheyVote.eu | Hebdomadaire (release 15/08) (09) | **ODbL** | Élus & Institutions (UE) | non ingéré |
 | S20 PLF 2026 Budget vert | Annuelle (13/11/2025) (01) | LO 2.0 | Dépenses de l'État, Accueil | **ingéré** |
 | S21 PLF 2025 destination/nature | Annuelle (10/2024) (01) | LO 2.0 | Dépenses de l'État | **ingéré** |
-| S22 Balances CGE État | Annuelle (2025 publié) (01) | LO 2.0 | Dépenses de l'État (patrimoine) | non ingéré |
+| S22 CGE bilan patrimonial | Annuelle (pièce de synthèse 31/12/2024 ; balances ligne 2016-2025) | LO 2.0 | Dépenses de l'État (patrimoine) | **ingérée** (P21, totaux de la pièce) |
 | S23 Jaune associations | Annuelle, versements 2023 (01) | LO 2.0 | Dépenses de l'État (subventions) | **ingéré** |
 | S24 RAP 2025 (performance) | Annuelle (04/06/2026) (01) | LO 2.0 | Dépenses de l'État | non ingéré |
 | S25 CNCCFP comptes des partis | Exercice 2024 publié le 10/02/2026 (04) | LO | Financement politique, Alertes | **ingéré** |

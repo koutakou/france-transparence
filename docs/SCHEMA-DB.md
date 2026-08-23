@@ -20,8 +20,10 @@
 # CREATE recopié du pipeline P19 (sans IF NOT EXISTS) ; 3 index.
 # Puis table agregats_apu_esa (S44, Eurostat gov_10a_main, TE+TR) —
 # CREATE recopié du pipeline P20 (sans IF NOT EXISTS).
+# Puis table cge_bilan_etat (S22, CGE DGFiP, pièce de synthèse) —
+# CREATE recopié du pipeline P21 (sans IF NOT EXISTS).
 
-> **Extrait daté.** Ce document décrit **79 tables**, **6 vues** et **58 index**, et cette
+> **Extrait daté.** Ce document décrit **80 tables**, **6 vues** et **58 index**, et cette
 > couverture est sa propriété essentielle : une table de la base absente d'ici est un trou de
 > documentation, et une table décrite ici qui n'existe nulle part est une invention. Les **75**
 > tables, les 6 vues et les 55 index sont ceux que `sqlite_master` recense au 22/08/2026 (matin), et le
@@ -32,11 +34,13 @@
 > `dole_dossiers` (S43), est celle du pipeline P19, avec ses **3 index**
 > (`idx_dole_dossiers_type`, `idx_dole_dossiers_leg`, `idx_dole_dossiers_modif`)
 > qui portent le compte d'index de 55 à **58**. La 79e, `agregats_apu_esa`
-> (S44), est celle du pipeline P20. Tant que l'ingestion n'a pas
+> (S44), est celle du pipeline P20. La 80e, `cge_bilan_etat` (S22), est
+> celle du pipeline P21. Tant que l'ingestion n'a pas
 > tourné sur la base servie, le contrôle affichera
-> `doc sans base : ['agregats_apu_esa']` (et éventuellement
-> `dole_dossiers` / `deficit_apu_maastricht` / `dette_apu_maastricht` si
-> P19/P18/P17 n'ont pas non plus tourné) — attendu, pas un trou.
+> `doc sans base : ['cge_bilan_etat']` (et éventuellement
+> `agregats_apu_esa` / `dole_dossiers` / `deficit_apu_maastricht` /
+> `dette_apu_maastricht` si P20/P19/P18/P17 n'ont pas non plus tourné)
+> — attendu, pas un trou.
 >
 > Le contrôle porte, à cette date, sur plus que les colonnes. Noms, types, `NOT NULL`, valeurs par
 > défaut et clés primaires coïncident colonne à colonne ; le texte DDL intégral coïncide lui aussi,
@@ -1012,6 +1016,28 @@ CREATE TABLE agregats_apu_esa (
     valeur_pc_gdp  REAL NOT NULL CHECK (valeur_pc_gdp > 0),
     statut         TEXT,
     PRIMARY KEY (geo, sector, na_item, annee)
+);
+-- ---------------------------------------------------------------------------
+-- S22 — Bilan patrimonial de l'État, comptabilité générale (pipeline P21,
+-- pièce de synthèse xlsx du jeu balances_des_comptes_etat). Stock au 31/12,
+-- personne morale État. Distinct de S13 (budget, caisse, YTD), de S41
+-- (encours Maastricht APU), de S42 (B9) et de S44 (TE/TR). Les totaux
+-- I / II / III sont lus dans la pièce, jamais sommés depuis les balances
+-- compte × programme. Unité native : euro ; Md€ à la lecture (÷ 1e9).
+-- situation_nette peut être négative (I < II) : pas de CHECK > 0.
+-- ---------------------------------------------------------------------------
+CREATE TABLE cge_bilan_etat (
+    annee          INTEGER NOT NULL,
+    poste          TEXT NOT NULL CHECK (poste IN (
+                       'actif',
+                       'passif_hors_sn',
+                       'situation_nette',
+                       'dettes_financieres',
+                       'solde_exercice'
+                   )),
+    valeur_euros   REAL NOT NULL,
+    unite_source   TEXT NOT NULL CHECK (unite_source IN ('EUR', 'MIO_EUR')),
+    PRIMARY KEY (annee, poste)
 );
 CREATE TABLE partis (
     id               TEXT PRIMARY KEY REFERENCES entites(id),

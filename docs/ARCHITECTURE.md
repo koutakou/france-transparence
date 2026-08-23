@@ -90,7 +90,7 @@ Règles du flux :
 
 ```sql
 CREATE TABLE meta_sources (           -- fraîcheur : donnée de premier rang
-    source_id      TEXT PRIMARY KEY,  -- 'S1'…'S44' (ids de SOURCES.md)
+    source_id      TEXT PRIMARY KEY,  -- 'S1'…'S44', 'S22' (ids de SOURCES.md)
     nom            TEXT NOT NULL,
     url            TEXT NOT NULL,
     licence        TEXT NOT NULL,     -- 'Licence Ouverte 2.0', 'ODbL'…
@@ -172,6 +172,7 @@ Un module par pipeline : `pipelines/ingest_<source>.py`, exécutable par `python
 | `ingest-deficit_maastricht` | `ingest_deficit_maastricht.py` | Déficit public des APU au sens de Maastricht (S42, Eurostat `gov_10dd_edpt1`, na_item=B9). Aucune dépendance d'ordre : n'écrit que `deficit_apu_maastricht`. Distinct de S41 (stock GD) et de S13 (solde du budget général). Pas de comparaison au seuil de 3 % du PIB. |
 | `ingest-dole` | `ingest_dole.py` | P19 — Dossiers législatifs DILA (S43, fonds DOLE). Aucune dépendance d'ordre : n'écrit que `dole_dossiers`. Distinct de S3 (JORFSIMPLE, fenêtre 30 JO) et de S35 (LEGI, Debats, RefOrgaAdminEtat). Placé avant `sirene`. |
 | `ingest-agregats_apu` | `ingest_agregats_apu.py` | P20 — Recettes et dépenses des APU, agrégats ESA (S44, Eurostat `gov_10a_main`, na_item TE/TR). Aucune dépendance d'ordre : n'écrit que `agregats_apu_esa`. Distinct de S13 (État YTD), S41 (stock GD) et S42 (B9). Pas de B9 dérivé, pas de COFOG. TE/TR ne sont pas Maastricht. Placé avant `sirene`. |
+| `ingest-cge` | `ingest_cge.py` | P21 — Bilan patrimonial de l'État (S22, CGE DGFiP, pièce de synthèse xlsx). Aucune dépendance d'ordre : n'écrit que `cge_bilan_etat`. Distinct de S13 (budget, caisse), S41/S42/S44 (Maastricht / ESA des APU). Totaux lus dans la pièce, jamais sommés depuis les balances compte×programme. Placé avant `sirene`. |
 | `ingest-sirene` | `ingest_sirene.py` | Stock Sirene — attributs des unités légales citées (S18). **Pipeline dérivé** : il lit les SIREN cités par les autres tables et doit donc passer **après** elles ; sur une base neuve il échoue franchement au lieu d'écrire un référentiel vide. À ne pas confondre avec `pipelines/sirene.py`, qui est la résolution unitaire par API de S10. |
 
 Contrat d'un pipeline :

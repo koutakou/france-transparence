@@ -131,6 +131,11 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // jamais `updated`. 400/440 sonnerait dès février, avant la
   // publication de juillet. 520/600 = 17/20 mois, comme S42 EDP.
   S44: { unite: "jc", retard: 520, alerte: 600 },
+  // Annuelle CGE : millésime = 31/12 de la pièce de synthèse (xlsx),
+  // jamais modified du catalogue. Les balances ligne à ligne peuvent
+  // porter N+1 avant que la pièce ne l'ajoute ; 650/750 = 21,5/25 mois
+  // couvre un exercice de retard de la pièce sans sonner dès février.
+  S22: { unite: "jc", retard: 650, alerte: 750 },
   // Annuelles à décalage structurel documenté
   S21: { unite: "jc", retard: 400, alerte: 440 },
   S23: { unite: "jc", retard: 760, alerte: 850 },

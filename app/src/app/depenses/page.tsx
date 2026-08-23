@@ -16,6 +16,10 @@ import {
   perimetreAgregat,
 } from "@/lib/queries/agregats-apu";
 import {
+  getBilanCge,
+  perimetreCge,
+} from "@/lib/queries/cge";
+import {
   getDeficitMaastricht,
   perimetreDeficit,
 } from "@/lib/queries/deficit-maastricht";
@@ -95,9 +99,10 @@ function VueTableau({ children }: { children: ReactNode }) {
 
 /**
  * Dépenses de l'État — exécution mensuelle (S13), budget par mission
- * (S20, PLF 2026), destination 2025 (S21) et subventions aux associations
- * (S23). Server Component : toutes les lectures viennent de
- * `@/lib/queries/depenses`, aucune donnée n'est fabriquée.
+ * (S20, PLF 2026), destination 2025 (S21), subventions aux associations
+ * (S23), et blocs cloisonnés S41/S42/S44/S22. Server Component : les
+ * lectures S13/S20/S21/S23 viennent de `@/lib/queries/depenses` ; S22
+ * vient de `@/lib/queries/cge`. Aucune donnée n'est fabriquée.
  */
 export default async function PageDepenses() {
   const sources = getSourcesBudget();
@@ -123,6 +128,7 @@ export default async function PageDepenses() {
   const dette = getDetteMaastricht();
   const deficit = getDeficitMaastricht();
   const depensesApu = getAgregatApu("TE");
+  const bilanCge = getBilanCge();
   const missions = getMissionsPlf2026(10);
   const ministeres = getMinisteresDestination2025(10);
   const subventions = getSubventionsAssociations(10);
@@ -673,6 +679,169 @@ export default async function PageDepenses() {
                   S.1311). Ce n’est pas un montant par habitant. Ce n’est
                   pas le déficit (B9) ni l’encours (GD) au sens de
                   Maastricht.
+                </p>
+              }
+            />
+            </div>
+          </Card>
+        </>
+      )}
+
+      {/* Bilan CGE (S22) — stock patrimonial de l'État, cloisonné de S13 et de Maastricht */}
+      {bilanCge && (
+        <>
+          <div className="flex items-center gap-3" role="separator">
+            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+              Autre objet · bilan patrimonial de l&apos;État, pas un flux ni Maastricht
+            </span>
+            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+          </div>
+
+          <Card
+            titre="Situation nette de l'État (CGE)"
+            sousTitre="Comptabilité générale — stock au 31 décembre, distinct du budget et des agrégats Maastricht des APU"
+            droite={
+              <FreshnessBadge
+                dateDonnees={bilanCge.meta.date_donnees}
+                source="DGFiP — compte général de l'État"
+                frequence={bilanCge.meta.frequence}
+                url={bilanCge.meta.url}
+              />
+            }
+          >
+            <div className="mb-4 rounded-xl border border-card-border bg-raised p-4">
+              <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+                Pourquoi ce bloc est séparé du reste de la page
+              </h3>
+              <p className="text-xs leading-relaxed text-ink-secondary">
+                Tout ce qui précède décrit soit le{" "}
+                <strong className="font-medium text-ink">budget de l&apos;État</strong>{" "}
+                (source S13, caisse, cumul depuis le 1er janvier), soit des
+                agrégats{" "}
+                <strong className="font-medium text-ink">Maastricht / ESA des APU</strong>{" "}
+                (S41, S42, S44). Ce bloc est le{" "}
+                <strong className="font-medium text-ink">
+                  bilan patrimonial de l&apos;État
+                </strong>
+                , en comptabilité générale (droits constatés), arrêté au
+                31 décembre. Situation nette = total actif (I) − total
+                passif hors situation nette (II). Les objets ne
+                s&apos;additionnent pas.
+              </p>
+            </div>
+            <KpiTile
+              nu
+              label="Situation nette de l'État (CGE)"
+              valeur={`${formatNombre(bilanCge.situationNetteMd, 1)}${ESPACE_FINE}Md€`}
+              montantVedette
+              perimetre={perimetreCge(bilanCge.dernier)}
+              delta={
+                bilanCge.deltaPct === null
+                  ? undefined
+                  : {
+                      valeur: bilanCge.deltaPct,
+                      vs: bilanCge.precedent
+                        ? `année ${bilanCge.precedent.annee}`
+                        : "année précédente",
+                    }
+              }
+            />
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <KpiTile
+                nu
+                label="Total actif (I)"
+                valeur={`${formatNombre(bilanCge.actifMd, 1)}${ESPACE_FINE}Md€`}
+                perimetre={`31/12/${bilanCge.dernier.annee} · CGE · stock · Md€`}
+              />
+              <KpiTile
+                nu
+                label="Total passif hors situation nette (II)"
+                valeur={`${formatNombre(bilanCge.passifHorsSnMd, 1)}${ESPACE_FINE}Md€`}
+                perimetre={`31/12/${bilanCge.dernier.annee} · CGE · stock · Md€`}
+              />
+            </div>
+            <VueTableau>
+              <DataTable
+                colonnes={[
+                  { cle: "annee", entete: "Année" },
+                  {
+                    cle: "actif",
+                    entete: "Actif I (Md€)",
+                    type: "montant",
+                    decimales: 1,
+                  },
+                  {
+                    cle: "passif",
+                    entete: "Passif II (Md€)",
+                    type: "montant",
+                    decimales: 1,
+                  },
+                  {
+                    cle: "sn",
+                    entete: "Situation nette (Md€)",
+                    type: "montant",
+                    decimales: 1,
+                  },
+                  {
+                    cle: "solde",
+                    entete: "Solde de l'exercice (Md€)",
+                    type: "montant",
+                    decimales: 1,
+                  },
+                ]}
+                lignes={bilanCge.serie.slice(-12).map((o) => ({
+                  annee: o.annee,
+                  actif: o.actif / 1e9,
+                  passif: o.passifHorsSn / 1e9,
+                  sn: o.situationNette / 1e9,
+                  solde: o.soldeExercice === null ? null : o.soldeExercice / 1e9,
+                }))}
+                cleLigne={(l) => String(l.annee)}
+              />
+            </VueTableau>
+            <div className="mt-4">
+            <NoticeLecture
+              ancre="cge"
+              commentLire={
+                <p>
+                  C’est un stock au 31 décembre, pas un flux et pas un cumul
+                  depuis le 1er janvier. La situation nette est signée&nbsp;:
+                  un nombre négatif veut dire que le passif hors situation
+                  nette dépasse l’actif. L’unité affichée (Md€) est l’euro
+                  (colonnes mixte euros / millions dans la pièce, converties)
+                  divisé par un milliard — pas le million d’euros Eurostat
+                  divisé par 1&nbsp;000. «&nbsp;Publié net&nbsp;» est
+                  l’intitulé des colonnes de la pièce : le montant net
+                  publié pour cet exercice, pas un retraitement de
+                  l’exercice suivant. Un delta d’une année sur l’autre n’est
+                  ni «&nbsp;bon&nbsp;» ni «&nbsp;mauvais&nbsp;» : il est
+                  affiché neutre.
+                </p>
+              }
+              provenance={
+                <p>
+                  DGFiP, compte général de l’État, pièce de synthèse jointe
+                  au jeu « Données de comptabilité générale de l’État sur
+                  dix ans » (data.economie.gouv.fr,{" "}
+                  <code>balances_des_comptes_etat</code>). Totaux I, II et
+                  III lus dans l’onglet Bilan, solde de l’exercice dans
+                  l’onglet Compte de résultat. Licence Ouverte 2.0.
+                  Le millésime est celui de la pièce, pas la date de
+                  modification du catalogue.
+                </p>
+              }
+              limites={
+                <p>
+                  Ce n’est pas l’exécution du budget général (S13, caisse,
+                  cumul depuis le 1er janvier). Ce n’est pas l’encours
+                  Maastricht des APU (S41) ni le déficit B9 (S42) ni les
+                  agrégats ESA TE/TR (S44). Ce n’est pas « la dette de
+                  l’État ». Les dettes financières CGE ne sont pas
+                  l’encours Maastricht. Les balances compte × programme
+                  ne sont pas sommées : un total 2025 n’est pas publié tant
+                  que la pièce de synthèse ne le porte pas. Ce n’est pas
+                  un montant par habitant.
                 </p>
               }
             />
