@@ -104,6 +104,22 @@ function VueTableau({ children }: { children: ReactNode }) {
   );
 }
 
+/** Lien vers le développement déjà en ligne — la notice de page n'est pas recopiée dans chaque carte. */
+function LienComprendre({ ancre }: { ancre: string }) {
+  return (
+    <p className="mt-3 text-[11px] text-ink-muted">
+      Glossaire et méthode :{" "}
+      <Link
+        href={`/comprendre/#${ancre}`}
+        className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
+      >
+        comprendre ces données
+      </Link>
+      .
+    </p>
+  );
+}
+
 /**
  * Dépenses de l'État — exécution mensuelle (S13), budget par mission
  * (S20, PLF 2026), destination 2025 (S21), subventions aux associations
@@ -142,6 +158,8 @@ export default async function PageDepenses() {
   const ministeres = getMinisteresDestination2025(10);
   const subventions = getSubventionsAssociations(10);
 
+  const mentionProvisoire =
+    kpis.dateFinMois.slice(5, 7) !== "12" ? "mois infra-annuels provisoires" : undefined;
   const vsN1 = `même période ${kpis.annee - 1}`;
   const deltaDepenses = variationPct(kpis.depensesNettes, kpis.depensesNettesN1);
   const deltaRecettes = variationPct(kpis.recettesNettes, kpis.recettesNettesN1);
@@ -177,62 +195,17 @@ export default async function PageDepenses() {
   return (
     <div className="flex flex-col gap-6">
       <JsonLd donnees={BALISAGE} />
-      {/* En-tête de module */}
+      {/* Bande 1 — le chiffre au pli, pas le mur pédagogique. */}
       <section className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="max-w-2xl">
           <h1 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
             Dépenses de l&apos;État
           </h1>
           <p className="mt-2 text-sm text-ink-secondary">
-            Exécution budgétaire publiée chaque mois par la DGFiP&nbsp;: les
-            montants sont des cumuls depuis le 1er janvier, comparés à la même
-            période de l&apos;année précédente. Ces situations paraissent avec
-            cinq à sept semaines de latence — dernière publiée&nbsp;:{" "}
-            {formatDateFr(kpis.dateFinMois)}.
+            Cumuls depuis le 1er janvier, budget général, comparés à la même
+            période N−1 — dernière situation DGFiP&nbsp;:{" "}
+            {formatDateFr(kpis.dateFinMois)} (cinq à sept semaines de latence).
           </p>
-          <NoticeLecture
-            ancre="depenses"
-            commentLire={
-              <p>
-                Les montants du bandeau et des graphiques d’exécution sont
-                des cumuls depuis le 1er janvier, pas un rythme quotidien.
-                Les crédits par mission de cette page sont le PLF 2026, pas
-                la LFI 2026. La destination 2025 est le PLF 2025 (projet,
-                CP bruts, pas les dépenses nettes). Les subventions aux
-                associations sont les versements d’un exercice clos, publiés
-                deux ans plus tard. Les mois de l’année en cours sont
-                provisoires jusqu’à la clôture. Un delta d’une année sur
-                l’autre n’est ni une hausse «&nbsp;bonne&nbsp;» ni une baisse
-                «&nbsp;mauvaise&nbsp;» : il est affiché neutre.
-              </p>
-            }
-            provenance={
-              <p>
-                Situations mensuelles budgétaires de la DGFiP, projet de loi
-                de finances (missions, budget vert), jaune budgétaire des
-                subventions aux associations. Les paiements du système Chorus
-                ne sont pas en open data.
-              </p>
-            }
-            limites={
-              <p>
-                Le détail des paiements n’existe pas en donnée ouverte. La
-                mission «&nbsp;Pensions&nbsp;» est un compte d’affectation
-                spéciale, pas une politique comparable aux autres. Ce bloc
-                (budget général) ne couvre pas les prestations de protection
-                sociale&nbsp;: elles figurent dans le{" "}
-                <Link
-                  href="#protection-sociale"
-                  className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
-                >
-                  bloc DREES
-                </Link>
-                . Hors champ&nbsp;: la loi de financement de la sécurité
-                sociale en tant que texte voté, la dépense propre des
-                opérateurs et les entreprises publiques.
-              </p>
-            }
-          />
         </div>
         {sources.S13 && (
           <FreshnessBadge
@@ -240,6 +213,7 @@ export default async function PageDepenses() {
             source="DGFiP — situations mensuelles"
             frequence={sources.S13.frequence}
             url={sources.S13.url}
+            mention={mentionProvisoire}
           />
         )}
       </section>
@@ -277,6 +251,8 @@ export default async function PageDepenses() {
         ]}
       />
 
+      {/* Bande 2 — le 240 Md€ se décompose tout de suite (G3d), pas un poster. */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
       {/* Série mensuelle des cumuls, 3 années */}
       {serie && serie.length > 0 && (
         <Card
@@ -289,6 +265,7 @@ export default async function PageDepenses() {
                 source="DGFiP — situations mensuelles"
                 frequence={sources.S13.frequence}
                 url={sources.S13.url}
+                mention={mentionProvisoire}
               />
             )
           }
@@ -323,6 +300,7 @@ export default async function PageDepenses() {
                 source="DGFiP — situations mensuelles"
                 frequence={sources.S13.frequence}
                 url={sources.S13.url}
+                mention={mentionProvisoire}
               />
             )
           }
@@ -355,21 +333,249 @@ export default async function PageDepenses() {
           </VueTableau>
         </Card>
       )}
+      </div>
 
-      {/* Encours Maastricht (S41) — stock APU, cloisonné des flux S13 */}
-      {dette && (
-        <>
-          <div className="flex items-center gap-3" role="separator">
-            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
-            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
-              Autre objet · stock des APU, pas un flux de l&apos;État
-            </span>
-            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+      {/* Bande 3 — notice 3 blocs APRÈS le chiffre, pas un mur sur le pli. */}
+      <NoticeLecture
+        ancre="depenses"
+        commentLire={
+          <p>
+            Les montants du bandeau et des graphiques d’exécution sont des
+            cumuls depuis le 1er janvier, pas un rythme quotidien. Les mois
+            de l’année en cours sont provisoires jusqu’à la clôture. Les
+            crédits par mission sont le PLF 2026, pas la LFI. La destination
+            2025 est le PLF 2025 (projet, CP bruts, pas les dépenses nettes).
+            Un delta n’est ni «&nbsp;bon&nbsp;» ni «&nbsp;mauvais&nbsp;» : il
+            est affiché neutre.
+          </p>
+        }
+        provenance={
+          <p>
+            Situations mensuelles budgétaires de la DGFiP, projet de loi de
+            finances (missions, budget vert), jaune budgétaire des
+            subventions aux associations. Les paiements Chorus ne sont pas
+            en open data.
+          </p>
+        }
+        limites={
+          <p>
+            Le détail des paiements n’existe pas en donnée ouverte. La
+            mission «&nbsp;Pensions&nbsp;» est un compte d’affectation
+            spéciale, pas une politique comparable aux autres. Ce bloc
+            (budget général) ne couvre pas les prestations de protection
+            sociale&nbsp;: elles figurent dans le{" "}
+            <Link
+              href="#protection-sociale"
+              className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
+            >
+              bloc DREES
+            </Link>
+            . Hors champ&nbsp;: la loi de financement de la sécurité
+            sociale en tant que texte voté, la dépense propre des
+            opérateurs et les entreprises publiques.
+          </p>
+        }
+      />
+
+      {/* Crédits par mission (S20, PLF 2026) */}
+      {missions && (
+        <Card
+          titre="Crédits par mission"
+          sousTitre={`${missions.etiquette} · Crédits budgétaires seuls (hors dépenses fiscales), en crédits de paiement`}
+          droite={
+            sources.S20 && (
+              <FreshnessBadge
+                dateDonnees={sources.S20.date_donnees}
+                source="Budget vert — PLF 2026"
+                frequence={sources.S20.frequence}
+                url={sources.S20.url}
+                mention="PLF 2026 — la LFI 2026 n'est pas publiée en données"
+              />
+            )
+          }
+        >
+          <div className="mb-4">
+            <KpiTile
+              nu
+              label="Crédits de paiement du PLF 2026"
+              valeur={<MontantMd valeur={missions.totalPlf2026Cp} decimales={1} />}
+              perimetre="PLF 2026 — projet, pas la LFI ; crédits budgétaires seuls, hors dépenses fiscales"
+            />
           </div>
+          <p className="mb-4 text-sm text-ink-secondary">
+            Top 10 des missions, en crédits de paiement&nbsp;:
+          </p>
+          <BarList
+            items={missions.missions.flatMap((m) =>
+              m.plf2026Cp === null ? [] : [{ libelle: m.mission, valeur: m.plf2026Cp }],
+            )}
+            formatValeur={(v) => formatEuros(v, "Md")}
+          />
+          <h3 className="mb-2 mt-5 text-xs font-medium uppercase tracking-[0.08em] text-ink-muted">
+            Exécution 2024 · LFI 2025 · PLF 2026 (top 10)
+          </h3>
+          <DataTable
+            colonnes={[
+              { cle: "mission", entete: "Mission" },
+              { cle: "exec2024", entete: "Exécution 2024 (Md€)", type: "montant", decimales: 2 },
+              { cle: "lfi2025", entete: "LFI 2025 (Md€)", type: "montant", decimales: 2 },
+              { cle: "plf2026", entete: "PLF 2026 (Md€)", type: "montant", decimales: 2 },
+            ]}
+            lignes={missions.missions.map((m) => ({
+              mission: m.mission,
+              exec2024: m.exec2024Cp === null ? null : m.exec2024Cp / 1e9,
+              lfi2025: m.lfi2025Cp === null ? null : m.lfi2025Cp / 1e9,
+              plf2026: m.plf2026Cp === null ? null : m.plf2026Cp / 1e9,
+            }))}
+            cleLigne={(l) => l.mission}
+          />
+        </Card>
+      )}
 
+      {/* Crédits 2025 par ministère (S21, destination) */}
+      {ministeres && (
+        <Card
+          titre="Crédits 2025 par ministère (destination)"
+          sousTitre={`${ministeres.etiquette} · Crédits de paiement bruts — non comparables aux dépenses nettes du budget général (exécution DGFiP)`}
+          droite={
+            sources.S21 && (
+              <FreshnessBadge
+                dateDonnees={sources.S21.date_donnees}
+                source="PLF 2025 — destination"
+                frequence={sources.S21.frequence}
+                url={sources.S21.url}
+                mention="PLF 2025 — projet"
+              />
+            )
+          }
+        >
+          <div className="mb-4">
+            <KpiTile
+              nu
+              label="Crédits de paiement 2025 (bruts, tous budgets)"
+              valeur={<MontantMd valeur={ministeres.totalCp} decimales={1} />}
+              perimetre="PLF 2025 — projet, pas la LFI ni l’exécution ; CP bruts, non comparables aux dépenses nettes"
+            />
+          </div>
+          <DataTable
+            colonnes={[
+              { cle: "ministere", entete: "Ministère" },
+              { cle: "cpBg", entete: "CP budget général (Md€)", type: "montant", decimales: 2 },
+              {
+                cle: "cpTotal",
+                entete: "CP tous budgets (Md€)",
+                type: "montant",
+                decimales: 2,
+              },
+            ]}
+            lignes={ministeres.ministeres.map((m) => ({
+              ministere: m.ministere,
+              cpBg: m.cpBudgetGeneral / 1e9,
+              cpTotal: m.cpTotal / 1e9,
+            }))}
+            cleLigne={(l) => l.ministere}
+          />
+          <p className="mt-3 text-xs text-ink-muted">
+            «&nbsp;Tous budgets&nbsp;» inclut budgets annexes et comptes
+            spéciaux (pensions, avances…), d&apos;où des totaux supérieurs au
+            seul budget général — total général&nbsp;:{" "}
+            {enMd(ministeres.totalCp, 1)} de CP bruts.
+          </p>
+          <p className="mt-2 text-sm text-ink-secondary">
+            La même source se déplie mission par mission&nbsp;:{" "}
+            <Link
+              href="/depenses/destination/"
+              className="underline decoration-[var(--viz-grid)] underline-offset-2 transition-colors hover:decoration-current"
+            >
+              explorer le budget 2025 par destination
+            </Link>{" "}
+            — 46 missions, leurs programmes, actions et sous-actions, et la
+            ventilation par titre (nature de la dépense).
+          </p>
+        </Card>
+      )}
+
+      {/* Subventions de l'État aux associations */}
+      {subventions && (
+        <Card
+          titre={`Subventions de l'État aux associations (${subventions.annee})`}
+          sousTitre={`Versements ${subventions.annee}, publiés dans l'annexe « jaune » du PLF ${subventions.annee + 2} — décalage structurel de deux ans`}
+          droite={
+            sources.S23 && (
+              <FreshnessBadge
+                dateDonnees={sources.S23.date_donnees}
+                source="Jaune PLF 2025 — associations"
+                frequence={sources.S23.frequence}
+                url={sources.S23.url}
+                mention={`versements ${subventions.annee}`}
+              />
+            )
+          }
+        >
+          <div className="mb-4 grid gap-px overflow-hidden rounded-xl border border-card-border sm:grid-cols-2" style={{ background: "var(--border-card)" }}>
+            <div className="bg-card">
+              <KpiTile
+                nu
+                label={`Total versé en ${subventions.annee}`}
+                valeur={<MontantMd valeur={subventions.total} />}
+                  perimetre={perimetreSubventions(subventions.annee)}
+              />
+            </div>
+            <div className="bg-card">
+              <KpiTile
+                nu
+                label={`Nombre de versements en ${subventions.annee}`}
+                valeur={formatNombre(subventions.nbVersements)}
+                perimetre={perimetreSubventions(subventions.annee)}
+              />
+            </div>
+          </div>
+          <DataTable
+            colonnes={[
+              { cle: "siren", entete: "SIREN", largeur: "8rem" },
+              { cle: "denomination", entete: "Bénéficiaire" },
+              { cle: "montantM", entete: `Montant ${subventions.annee} (M€)`, type: "montant", decimales: 1 },
+              { cle: "nb", entete: "Versements", type: "nombre" },
+            ]}
+            lignes={subventions.top.map((t) => ({
+              siren: t.siren,
+              denomination: t.denomination,
+              montantM: t.montant / 1e6,
+              nb: t.nbVersements,
+            }))}
+            cleLigne={(l, i) => `${l.siren ?? "sans-siren"}-${i}`}
+          />
+          <p className="mt-3 text-xs text-ink-muted">
+            Le premier bénéficiaire, «&nbsp;ASS INTERNATIONALE DE
+            DEVELOPPEMEN&nbsp;» (libellé tronqué dans la source), est
+            l&apos;Association internationale de développement, le guichet du
+            groupe Banque mondiale qui finance les pays à faible revenu&nbsp;:
+            la ligne retrace la contribution française à cette institution,
+            versée via le programme 110 («&nbsp;Aide économique et financière
+            au développement&nbsp;», mission Aide publique au développement).
+            SIREN absent («&nbsp;—&nbsp;»)&nbsp;: bénéficiaire sans SIREN dans
+            la source (ex. organismes internationaux). Le champ
+            «&nbsp;associations&nbsp;» s&apos;entend au sens large du jaune
+            budgétaire.
+          </p>
+        </Card>
+      )}
+
+      {/* Autres objets : galerie compacte, pas cinq héros. */}
+      <div className="flex items-center gap-3" role="separator">
+        <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+          Autres objets · ils ne s&apos;additionnent pas au budget général
+        </span>
+        <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+      </div>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
+      {/* S41 — stock APU, pas un flux S13. Pas de vedette : ce n'est pas le total de la page. */}
+      {dette && (
+        <div id="dette-maastricht" className="scroll-mt-32">
           <Card
             titre="Encours de dette des APU (Maastricht)"
-            sousTitre="Stock consolidé brut à la valeur faciale, fin de trimestre — distinct des charges d'intérêts du budget général ci-dessus"
+            sousTitre="Stock consolidé brut à la valeur faciale, fin de trimestre — distinct des charges d'intérêts du budget général"
             droite={
               <FreshnessBadge
                 dateDonnees={dette.meta.date_donnees}
@@ -379,28 +585,10 @@ export default async function PageDepenses() {
               />
             }
           >
-            <div className="mb-4 rounded-xl border border-card-border bg-raised p-4">
-              <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
-                Pourquoi ce bloc est séparé du reste de la page
-              </h3>
-              <p className="text-xs leading-relaxed text-ink-secondary">
-                Tout ce qui précède décrit le{" "}
-                <strong className="font-medium text-ink">budget de l&apos;État</strong>{" "}
-                (source S13, DGFiP)&nbsp;: des flux, cumulés depuis le 1er
-                janvier. Ce bloc est un{" "}
-                <strong className="font-medium text-ink">stock</strong>
-                &nbsp;: l&apos;encours de dette brute consolidée des
-                administrations publiques (secteur ESA S13&nbsp;: État, Odac,
-                APUL, ASSO), publié par Eurostat. Ce n&apos;est pas la dette
-                de l&apos;État seul, et ce n&apos;est pas la ligne «&nbsp;charges
-                de la dette de l&apos;État&nbsp;» du graphique ci-dessus.
-              </p>
-            </div>
             <KpiTile
               nu
               label="Encours de dette des APU (Maastricht)"
               valeur={`${formatNombre(dette.encoursMd, 1)}${ESPACE_FINE}Md€`}
-              montantVedette
               perimetre={perimetreDette(dette.dernier)}
               delta={
                 dette.deltaPct === null
@@ -413,62 +601,29 @@ export default async function PageDepenses() {
                     }
               }
             />
-            <div className="mt-4">
-            <NoticeLecture
-              ancre="dette-maastricht"
-              commentLire={
-                <p>
-                  C’est un stock en fin de trimestre, pas un flux. L’unité
-                  affichée (Md€) est le million d’euros Eurostat divisé par
-                  1&nbsp;000 — pas l’euro des situations DGFiP divisé par un
-                  milliard.{" "}
-                  {dette.dernier.statut === "p" ? (
-                    <>
-                      Le trimestre {libelleTrimestre(dette.dernier.trimestre)}{" "}
-                      est flaggé provisoire (p).{" "}
-                    </>
-                  ) : null}
-                  Un delta d’un trimestre sur l’autre n’est ni «&nbsp;bon&nbsp;»
-                  ni «&nbsp;mauvais&nbsp;» : il est affiché neutre.
-                </p>
-              }
-              provenance={
-                <p>
-                  Eurostat, datacode gov_10q_ggdebt (DOI{" "}
-                  10.2908/GOV_10Q_GGDEBT), extrait geo=FR, sector=S13
-                  (ESA&nbsp;: administrations publiques), na_item=GD, unit=MIO_EUR.
-                  Réutilisation&nbsp;: décision 2011/833/UE.
-                </p>
-              }
-              limites={
-                <p>
-                  Ce n’est pas la dette de l’État seul (sous-secteur S.1311).
-                  Ce n’est pas la charge d’intérêts DGFiP déjà sur cette page
-                  (flux, cumul depuis le 1er janvier, budget général). Ce n’est
-                  pas le déficit (bloc suivant, flux annuel B9). Ce n’est pas
-                  un montant par habitant, ni un pourcentage du PIB.
-                </p>
-              }
-            />
-            </div>
+            <p className="mt-3 text-xs leading-relaxed text-ink-muted">
+              Stock des administrations publiques, pas la dette de l&apos;État
+              seul, pas la ligne «&nbsp;charges de la dette&nbsp;» du graphique
+              d&apos;exécution.
+              {dette.dernier.statut === "p" ? (
+                <>
+                  {" "}
+                  Trimestre {libelleTrimestre(dette.dernier.trimestre)} flaggé
+                  provisoire (p).
+                </>
+              ) : null}
+            </p>
+            <LienComprendre ancre="dette-maastricht" />
           </Card>
-        </>
+        </div>
       )}
 
-      {/* Déficit Maastricht (S42) — flux annuel APU, cloisonné du solde S13 et du stock S41 */}
+      {/* S42 — flux annuel APU, pas le solde S13. */}
       {deficit && (
-        <>
-          <div className="flex items-center gap-3" role="separator">
-            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
-            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
-              Autre objet · flux annuel des APU, pas le solde de l&apos;État
-            </span>
-            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
-          </div>
-
+        <div id="deficit-maastricht" className="scroll-mt-32">
           <Card
             titre="Déficit public des APU (Maastricht)"
-            sousTitre="Capacité (+) / besoin (−) de financement annuel — distinct du solde du budget général et de l'encours ci-dessus"
+            sousTitre="Capacité (+) / besoin (−) de financement annuel — distinct du solde du budget général et de l'encours"
             droite={
               <FreshnessBadge
                 dateDonnees={deficit.meta.date_donnees}
@@ -478,22 +633,6 @@ export default async function PageDepenses() {
               />
             }
           >
-            <div className="mb-4 rounded-xl border border-card-border bg-raised p-4">
-              <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
-                Pourquoi ce bloc est séparé du reste de la page
-              </h3>
-              <p className="text-xs leading-relaxed text-ink-secondary">
-                Le solde du budget général (source S13, DGFiP) est un flux
-                de l&apos;État, cumulé depuis le 1er janvier. L&apos;encours
-                ci-dessus (S41) est un stock. Ce bloc est un{" "}
-                <strong className="font-medium text-ink">
-                  flux annuel des administrations publiques
-                </strong>{" "}
-                (secteur ESA S13&nbsp;: État, Odac, APUL, ASSO), publié par
-                Eurostat sous l&apos;indicateur B9. Les trois objets ne
-                s&apos;additionnent pas.
-              </p>
-            </div>
             <KpiTile
               nu
               label={
@@ -505,7 +644,6 @@ export default async function PageDepenses() {
                 deficit.estDeficit ? deficit.deficitMd : deficit.b9Md,
                 1,
               )}${ESPACE_FINE}Md€`}
-              montantVedette
               perimetre={perimetreDeficit(deficit.dernier)}
               delta={
                 deficit.deltaPct === null
@@ -518,6 +656,11 @@ export default async function PageDepenses() {
                     }
               }
             />
+            <p className="mt-3 text-xs leading-relaxed text-ink-muted">
+              Flux d&apos;année civile des APU (B9), pas le solde du budget
+              général, pas un stock. Le pourcentage du PIB n&apos;est comparé
+              à aucun seuil.
+            </p>
             <VueTableau>
               <DataTable
                 colonnes={[
@@ -543,61 +686,14 @@ export default async function PageDepenses() {
                 cleLigne={(l) => String(l.annee)}
               />
             </VueTableau>
-            <div className="mt-4">
-            <NoticeLecture
-              ancre="deficit-maastricht"
-              commentLire={
-                <p>
-                  C’est un flux d’année civile, pas un stock et pas un cumul
-                  depuis le 1er janvier. B9 est signé&nbsp;: un nombre
-                  négatif est un besoin de financement (déficit), un nombre
-                  positif une capacité (excédent). La tuile affiche la
-                  valeur absolue quand B9 est négatif, sous le libellé
-                  «&nbsp;déficit&nbsp;». L’unité affichée (Md€) est le
-                  million d’euros Eurostat divisé par 1&nbsp;000. Le
-                  pourcentage du PIB est un fait de la même série, pas une
-                  comparaison à un seuil. Un delta d’une année sur l’autre
-                  n’est ni «&nbsp;bon&nbsp;» ni «&nbsp;mauvais&nbsp;» : il
-                  est affiché neutre.
-                </p>
-              }
-              provenance={
-                <p>
-                  Eurostat, datacode gov_10dd_edpt1 (DOI{" "}
-                  10.2908/GOV_10DD_EDPT1), extraits geo=FR, sector=S13
-                  (ESA&nbsp;: administrations publiques), na_item=B9,
-                  unit=MIO_EUR et unit=PC_GDP. C’est la notification
-                  d’avril (EDP), pas la date de diffusion. Réutilisation&nbsp;:
-                  décision 2011/833/UE.
-                </p>
-              }
-              limites={
-                <p>
-                  Ce n’est pas le solde du budget général (S13, État, cumul
-                  depuis le 1er janvier). Ce n’est pas l’encours de dette
-                  (S41, stock trimestriel). Ce n’est pas le déficit de
-                  l’État seul (sous-secteur S.1311). Ce n’est pas un
-                  montant par habitant. Le pourcentage du PIB n’est comparé
-                  à aucun seuil.
-                </p>
-              }
-            />
-            </div>
+            <LienComprendre ancre="deficit-maastricht" />
           </Card>
-        </>
+        </div>
       )}
 
-      {/* Dépenses APU ESA (S44, TE) — flux annuel APU, cloisonné de l'exécution S13 et de Maastricht B9/GD */}
+      {/* S44 TE — flux annuel APU, pas Maastricht, pas S13. */}
       {depensesApu && (
-        <>
-          <div className="flex items-center gap-3" role="separator">
-            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
-            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
-              Autre objet · flux annuel des APU, pas l&apos;exécution de l&apos;État
-            </span>
-            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
-          </div>
-
+        <div id="depenses-apu-esa" className="scroll-mt-32">
           <Card
             titre="Dépenses des APU (ESA)"
             sousTitre="Total des dépenses des administrations publiques, flux d'année civile — distinct de l'exécution du budget général"
@@ -610,29 +706,10 @@ export default async function PageDepenses() {
               />
             }
           >
-            <div className="mb-4 rounded-xl border border-card-border bg-raised p-4">
-              <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
-                Pourquoi ce bloc est séparé du reste de la page
-              </h3>
-              <p className="text-xs leading-relaxed text-ink-secondary">
-                Le budget général (source S13, DGFiP) est un flux de
-                l&apos;État, cumulé depuis le 1er janvier. L&apos;encours
-                (S41) et le déficit (S42) ci-dessus relèvent de Maastricht
-                (GD, B9). Ce bloc est un{" "}
-                <strong className="font-medium text-ink">
-                  flux annuel des administrations publiques
-                </strong>{" "}
-                (secteur ESA S13&nbsp;: État, Odac, APUL, ASSO), publié par
-                Eurostat sous l&apos;indicateur TE (total des dépenses). Ce
-                n&apos;est pas Maastricht. Les objets ne s&apos;additionnent
-                pas.
-              </p>
-            </div>
             <KpiTile
               nu
               label="Dépenses des APU (ESA)"
               valeur={`${formatNombre(depensesApu.montantMd, 1)}${ESPACE_FINE}Md€`}
-              montantVedette
               perimetre={perimetreAgregat(depensesApu.dernier, "TE")}
               delta={
                 depensesApu.deltaPct === null
@@ -645,6 +722,10 @@ export default async function PageDepenses() {
                     }
               }
             />
+            <p className="mt-3 text-xs leading-relaxed text-ink-muted">
+              Indicateur TE (ESA), pas Maastricht, pas l&apos;exécution du
+              budget général, pas une ventilation COFOG.
+            </p>
             <VueTableau>
               <DataTable
                 colonnes={[
@@ -670,57 +751,14 @@ export default async function PageDepenses() {
                 cleLigne={(l) => String(l.annee)}
               />
             </VueTableau>
-            <div className="mt-4">
-            <NoticeLecture
-              ancre="depenses-apu-esa"
-              commentLire={
-                <p>
-                  C’est un flux d’année civile, pas un stock et pas un cumul
-                  depuis le 1er janvier. TE est le total des dépenses des
-                  administrations publiques. L’unité affichée (Md€) est le
-                  million d’euros Eurostat divisé par 1&nbsp;000. Le
-                  pourcentage du PIB est un fait de la même série. Un delta
-                  d’une année sur l’autre n’est ni «&nbsp;bon&nbsp;» ni
-                  «&nbsp;mauvais&nbsp;» : il est affiché neutre.
-                </p>
-              }
-              provenance={
-                <p>
-                  Eurostat, datacode gov_10a_main (DOI{" "}
-                  10.2908/GOV_10A_MAIN), extraits geo=FR, sector=S13
-                  (ESA&nbsp;: administrations publiques), na_item=TE,
-                  unit=MIO_EUR et unit=PC_GDP. C’est la publication annuelle
-                  des GFS (juillet), pas la date de diffusion.
-                  Réutilisation&nbsp;: décision 2011/833/UE.
-                </p>
-              }
-              limites={
-                <p>
-                  Ce n’est pas l’exécution du budget général (S13, État,
-                  cumul depuis le 1er janvier). Ce n’est pas une ventilation
-                  COFOG. Ce n’est pas la dépense de l’État seul (sous-secteur
-                  S.1311). Ce n’est pas un montant par habitant. Ce n’est
-                  pas le déficit (B9) ni l’encours (GD) au sens de
-                  Maastricht.
-                </p>
-              }
-            />
-            </div>
+            <LienComprendre ancre="depenses-apu-esa" />
           </Card>
-        </>
+        </div>
       )}
 
-      {/* Bilan CGE (S22) — stock patrimonial de l'État, cloisonné de S13 et de Maastricht */}
+      {/* S22 — bilan patrimonial, pas un flux, pas Maastricht. */}
       {bilanCge && (
-        <>
-          <div className="flex items-center gap-3" role="separator">
-            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
-            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
-              Autre objet · bilan patrimonial de l&apos;État, pas un flux ni Maastricht
-            </span>
-            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
-          </div>
-
+        <div id="cge" className="scroll-mt-32">
           <Card
             titre="Situation nette de l'État (CGE)"
             sousTitre="Comptabilité générale — stock au 31 décembre, distinct du budget et des agrégats Maastricht des APU"
@@ -733,30 +771,10 @@ export default async function PageDepenses() {
               />
             }
           >
-            <div className="mb-4 rounded-xl border border-card-border bg-raised p-4">
-              <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
-                Pourquoi ce bloc est séparé du reste de la page
-              </h3>
-              <p className="text-xs leading-relaxed text-ink-secondary">
-                Tout ce qui précède décrit soit le{" "}
-                <strong className="font-medium text-ink">budget de l&apos;État</strong>{" "}
-                (source S13, caisse, cumul depuis le 1er janvier), soit des
-                agrégats des APU — Maastricht (S41, S42) ou ESA (S44),
-                qui ne sont pas le même objet. Ce bloc est le{" "}
-                <strong className="font-medium text-ink">
-                  bilan patrimonial de l&apos;État
-                </strong>
-                , en comptabilité générale (droits constatés), arrêté au
-                31 décembre. Situation nette = total actif (I) − total
-                passif hors situation nette (II). Les objets ne
-                s&apos;additionnent pas.
-              </p>
-            </div>
             <KpiTile
               nu
               label="Situation nette de l'État (CGE)"
               valeur={`${formatNombre(bilanCge.situationNetteMd, 1)}${ESPACE_FINE}Md€`}
-              montantVedette
               perimetre={perimetreCge(bilanCge.dernier)}
               delta={
                 bilanCge.deltaPct === null
@@ -822,67 +840,21 @@ export default async function PageDepenses() {
                 cleLigne={(l) => String(l.annee)}
               />
             </VueTableau>
-            <div className="mt-4">
-            <NoticeLecture
-              ancre="cge"
-              commentLire={
-                <p>
-                  C’est un stock au 31 décembre, pas un flux et pas un cumul
-                  depuis le 1er janvier. La situation nette est signée&nbsp;:
-                  un nombre négatif veut dire que le passif hors situation
-                  nette dépasse l’actif. L’unité affichée (Md€) est l’euro
-                  (colonnes mixte euros / millions dans la pièce, converties)
-                  divisé par un milliard — pas le million d’euros Eurostat
-                  divisé par 1&nbsp;000. «&nbsp;Publié net&nbsp;» est
-                  l’intitulé des colonnes de la pièce : le montant net
-                  publié pour cet exercice, pas un retraitement de
-                  l’exercice suivant. Un delta d’une année sur l’autre n’est
-                  ni «&nbsp;bon&nbsp;» ni «&nbsp;mauvais&nbsp;» : il est
-                  affiché neutre.
-                </p>
-              }
-              provenance={
-                <p>
-                  DGFiP, compte général de l’État, pièce de synthèse jointe
-                  au jeu « Données de comptabilité générale de l’État sur
-                  dix ans » (data.economie.gouv.fr,{" "}
-                  <code>balances_des_comptes_etat</code>). Totaux I, II et
-                  III lus dans l’onglet Bilan, solde de l’exercice dans
-                  l’onglet Compte de résultat. Licence Ouverte 2.0.
-                  Le millésime est celui de la pièce, pas la date de
-                  modification du catalogue.
-                </p>
-              }
-              limites={
-                <p>
-                  Ce n’est pas l’exécution du budget général (S13, caisse,
-                  cumul depuis le 1er janvier). Ce n’est pas l’encours
-                  Maastricht des APU (S41) ni le déficit B9 (S42) ni les
-                  agrégats ESA TE/TR (S44). Ce n’est pas « la dette de
-                  l’État ». Les dettes financières CGE ne sont pas
-                  l’encours Maastricht. Les balances compte × programme
-                  ne sont pas sommées : un total 2025 n’est pas publié tant
-                  que la pièce de synthèse ne le porte pas. Ce n’est pas
-                  un montant par habitant.
-                </p>
-              }
-            />
-            </div>
+            <p className="mt-3 text-xs leading-relaxed text-ink-muted">
+              Stock au 31 décembre (situation nette = actif − passif hors
+              situation nette). Ce n&apos;est pas «&nbsp;la dette de
+              l&apos;État&nbsp;», pas l&apos;encours Maastricht, pas
+              l&apos;exécution de caisse.
+            </p>
+            <LienComprendre ancre="cge" />
           </Card>
-        </>
+        </div>
       )}
+      </div>
 
-      {/* Prestations de protection sociale (S45) — flux annuel tous régimes, cloisonné du budget S13, de Maastricht/ESA et du CGE */}
+      {/* S45 — prestations tous régimes, pas le budget, pas « la Sécu ». */}
       {protectionSociale && (
-        <>
-          <div className="flex items-center gap-3" role="separator">
-            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
-            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
-              Autre objet · prestations de protection sociale, pas le budget de l&apos;État
-            </span>
-            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
-          </div>
-
+        <div id="protection-sociale" className="scroll-mt-32">
           <Card
             titre="Prestations de protection sociale"
             sousTitre="tous régimes, flux d'année civile — distinct du budget général et des agrégats ESA des APU"
@@ -895,28 +867,10 @@ export default async function PageDepenses() {
               />
             }
           >
-            <div className="mb-4 rounded-xl border border-card-border bg-raised p-4">
-              <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
-                Pourquoi ce bloc est séparé du reste de la page
-              </h3>
-              <p className="text-xs leading-relaxed text-ink-secondary">
-                Le budget général (source S13, DGFiP) est un flux de
-                l&apos;État, cumulé depuis le 1er janvier (caisse). L&apos;encours
-                (S41) et le déficit (S42) relèvent de Maastricht des APU.
-                Les agrégats ESA (S44) ne sont pas Maastricht. Le CGE (S22)
-                est un stock patrimonial de l&apos;État. Ce bloc est le{" "}
-                <strong className="font-medium text-ink">
-                  flux annuel des prestations de protection sociale
-                </strong>
-                , tous régimes, publié par la DREES. Les objets ne
-                s&apos;additionnent pas.
-              </p>
-            </div>
             <KpiTile
               nu
               label="Prestations de protection sociale"
               valeur={`${formatNombre(protectionSociale.montantMd, 1)}${ESPACE_FINE}Md€`}
-              montantVedette
               perimetre={perimetreTotal(protectionSociale.dernier)}
               delta={
                 protectionSociale.deltaPct === null
@@ -948,7 +902,6 @@ export default async function PageDepenses() {
                   }))}
                   formatValeur={(v) => `${formatNombre(v, 1)}${ESPACE_FINE}Md€`}
                   maxEtiquettesX={6}
-                  largeur={800}
                   ariaLabel={`Prestations de protection sociale par risque, année ${protectionSociale.dernier.annee}, tous régimes, ordre des codes E11-1 à E11-6`}
                 />
                 <p className="mt-2 text-xs text-ink-muted">
@@ -1017,232 +970,14 @@ export default async function PageDepenses() {
                 </div>
               )}
             </VueTableau>
-            <div className="mt-4">
-            <NoticeLecture
-              ancre="protection-sociale"
-              commentLire={
-                <p>
-                  C’est un flux annuel de prestations, tous régimes, pas un
-                  stock et pas un cumul depuis le 1er janvier. L’unité
-                  affichée (Md€) est le million d’euros DREES divisé par
-                  1&nbsp;000. Les montants sont en euros courants. Un delta
-                  d’une année sur l’autre n’est ni «&nbsp;bon&nbsp;» ni
-                  «&nbsp;mauvais&nbsp;» : il est affiché neutre. Le régime
-                  général (S13141) est un régime parmi d’autres, pas
-                  l’ensemble de la protection sociale.
-                </p>
-              }
-              provenance={
-                <p>
-                  DREES, jeu 305_les-comptes-de-la-protection-sociale, export
-                  JSON. Licence Ouverte 2.0. Le millésime est l’année des
-                  chiffres, jamais last_update du catalogue. Fiche{" "}
-                  data.gouv.fr/datasets/les-comptes-de-la-protection-sociale.
-                </p>
-              }
-              limites={
-                <p>
-                  Ce n’est pas la LFSS. Ce n’est pas l’exécution du budget
-                  général (S13, État, cumul depuis le 1er janvier). Ce n’est
-                  pas le total des dépenses des APU (S44, TE). Ce n’est pas
-                  « la dette de l’État ». Ce n’est pas un montant par
-                  habitant. Ce n’est pas les recettes. Les niveaux 2 et 3 de
-                  l’arbre ne sont pas affichés : ils recouvrent les niveaux
-                  0 et 1. S13141 n’est pas toute la sécurité sociale (S13142
-                  existe).
-                </p>
-              }
-            />
-            </div>
+            <p className="mt-3 text-xs leading-relaxed text-ink-muted">
+              Tous régimes, pas la LFSS, pas «&nbsp;la Sécu&nbsp;» : le régime
+              général (S13141) est un régime parmi d&apos;autres. Ce n&apos;est
+              pas l&apos;exécution du budget général.
+            </p>
+            <LienComprendre ancre="protection-sociale" />
           </Card>
-        </>
-      )}
-
-      {/* Crédits par mission (S20, PLF 2026) */}
-      {missions && (
-        <Card
-          titre="Crédits par mission"
-          sousTitre={`${missions.etiquette} · Crédits budgétaires seuls (hors dépenses fiscales), en crédits de paiement`}
-          droite={
-            sources.S20 && (
-              <FreshnessBadge
-                dateDonnees={sources.S20.date_donnees}
-                source="Budget vert — PLF 2026"
-                frequence={sources.S20.frequence}
-                url={sources.S20.url}
-                mention="PLF 2026 — la LFI 2026 n'est pas publiée en données"
-              />
-            )
-          }
-        >
-          <div className="mb-4">
-            <KpiTile
-              nu
-              label="Crédits de paiement du PLF 2026"
-              valeur={<MontantMd valeur={missions.totalPlf2026Cp} decimales={1} />}
-              montantVedette
-              perimetre="PLF 2026 — projet, pas la LFI ; crédits budgétaires seuls, hors dépenses fiscales"
-            />
-          </div>
-          <p className="mb-4 text-sm text-ink-secondary">
-            Top 10 des missions, en crédits de paiement&nbsp;:
-          </p>
-          <BarList
-            items={missions.missions.flatMap((m) =>
-              m.plf2026Cp === null ? [] : [{ libelle: m.mission, valeur: m.plf2026Cp }],
-            )}
-            formatValeur={(v) => formatEuros(v, "Md")}
-          />
-          <h3 className="mb-2 mt-5 text-xs font-medium uppercase tracking-[0.08em] text-ink-muted">
-            Exécution 2024 · LFI 2025 · PLF 2026 (top 10)
-          </h3>
-          <DataTable
-            colonnes={[
-              { cle: "mission", entete: "Mission" },
-              { cle: "exec2024", entete: "Exécution 2024 (Md€)", type: "montant", decimales: 2 },
-              { cle: "lfi2025", entete: "LFI 2025 (Md€)", type: "montant", decimales: 2 },
-              { cle: "plf2026", entete: "PLF 2026 (Md€)", type: "montant", decimales: 2 },
-            ]}
-            lignes={missions.missions.map((m) => ({
-              mission: m.mission,
-              exec2024: m.exec2024Cp === null ? null : m.exec2024Cp / 1e9,
-              lfi2025: m.lfi2025Cp === null ? null : m.lfi2025Cp / 1e9,
-              plf2026: m.plf2026Cp === null ? null : m.plf2026Cp / 1e9,
-            }))}
-            cleLigne={(l) => l.mission}
-          />
-        </Card>
-      )}
-
-      {/* Crédits 2025 par ministère (S21, destination) */}
-      {ministeres && (
-        <Card
-          titre="Crédits 2025 par ministère (destination)"
-          sousTitre={`${ministeres.etiquette} · Crédits de paiement bruts — non comparables aux dépenses nettes du budget général (exécution DGFiP)`}
-          droite={
-            sources.S21 && (
-              <FreshnessBadge
-                dateDonnees={sources.S21.date_donnees}
-                source="PLF 2025 — destination"
-                frequence={sources.S21.frequence}
-                url={sources.S21.url}
-                mention="PLF 2025 — projet"
-              />
-            )
-          }
-        >
-          <div className="mb-4">
-            <KpiTile
-              nu
-              label="Crédits de paiement 2025 (bruts, tous budgets)"
-              valeur={<MontantMd valeur={ministeres.totalCp} decimales={1} />}
-              montantVedette
-              perimetre="PLF 2025 — projet, pas la LFI ni l’exécution ; CP bruts, non comparables aux dépenses nettes"
-            />
-          </div>
-          <DataTable
-            colonnes={[
-              { cle: "ministere", entete: "Ministère" },
-              { cle: "cpBg", entete: "CP budget général (Md€)", type: "montant", decimales: 2 },
-              {
-                cle: "cpTotal",
-                entete: "CP tous budgets (Md€)",
-                type: "montant",
-                decimales: 2,
-              },
-            ]}
-            lignes={ministeres.ministeres.map((m) => ({
-              ministere: m.ministere,
-              cpBg: m.cpBudgetGeneral / 1e9,
-              cpTotal: m.cpTotal / 1e9,
-            }))}
-            cleLigne={(l) => l.ministere}
-          />
-          <p className="mt-3 text-xs text-ink-muted">
-            «&nbsp;Tous budgets&nbsp;» inclut budgets annexes et comptes
-            spéciaux (pensions, avances…), d&apos;où des totaux supérieurs au
-            seul budget général — total général&nbsp;:{" "}
-            {enMd(ministeres.totalCp, 1)} de CP bruts.
-          </p>
-          <p className="mt-2 text-sm text-ink-secondary">
-            La même source se déplie mission par mission&nbsp;:{" "}
-            <Link
-              href="/depenses/destination/"
-              className="underline decoration-[var(--viz-grid)] underline-offset-2 transition-colors hover:decoration-current"
-            >
-              explorer le budget 2025 par destination
-            </Link>{" "}
-            — 46 missions, leurs programmes, actions et sous-actions, et la
-            ventilation par titre (nature de la dépense).
-          </p>
-        </Card>
-      )}
-
-      {/* Subventions de l'État aux associations */}
-      {subventions && (
-        <Card
-          titre={`Subventions de l'État aux associations (${subventions.annee})`}
-          sousTitre={`Versements ${subventions.annee}, publiés dans l'annexe « jaune » du PLF ${subventions.annee + 2} — décalage structurel de deux ans`}
-          droite={
-            sources.S23 && (
-              <FreshnessBadge
-                dateDonnees={sources.S23.date_donnees}
-                source="Jaune PLF 2025 — associations"
-                frequence={sources.S23.frequence}
-                url={sources.S23.url}
-                mention={`versements ${subventions.annee}`}
-              />
-            )
-          }
-        >
-          <div className="mb-4 grid gap-px overflow-hidden rounded-xl border border-card-border sm:grid-cols-2" style={{ background: "var(--border-card)" }}>
-            <div className="bg-card">
-              <KpiTile
-                nu
-                label={`Total versé en ${subventions.annee}`}
-                valeur={<MontantMd valeur={subventions.total} />}
-                montantVedette
-                perimetre={perimetreSubventions(subventions.annee)}
-              />
-            </div>
-            <div className="bg-card">
-              <KpiTile
-                nu
-                label={`Nombre de versements en ${subventions.annee}`}
-                valeur={formatNombre(subventions.nbVersements)}
-                perimetre={perimetreSubventions(subventions.annee)}
-              />
-            </div>
-          </div>
-          <DataTable
-            colonnes={[
-              { cle: "siren", entete: "SIREN", largeur: "8rem" },
-              { cle: "denomination", entete: "Bénéficiaire" },
-              { cle: "montantM", entete: `Montant ${subventions.annee} (M€)`, type: "montant", decimales: 1 },
-              { cle: "nb", entete: "Versements", type: "nombre" },
-            ]}
-            lignes={subventions.top.map((t) => ({
-              siren: t.siren,
-              denomination: t.denomination,
-              montantM: t.montant / 1e6,
-              nb: t.nbVersements,
-            }))}
-            cleLigne={(l, i) => `${l.siren ?? "sans-siren"}-${i}`}
-          />
-          <p className="mt-3 text-xs text-ink-muted">
-            Le premier bénéficiaire, «&nbsp;ASS INTERNATIONALE DE
-            DEVELOPPEMEN&nbsp;» (libellé tronqué dans la source), est
-            l&apos;Association internationale de développement, le guichet du
-            groupe Banque mondiale qui finance les pays à faible revenu&nbsp;:
-            la ligne retrace la contribution française à cette institution,
-            versée via le programme 110 («&nbsp;Aide économique et financière
-            au développement&nbsp;», mission Aide publique au développement).
-            SIREN absent («&nbsp;—&nbsp;»)&nbsp;: bénéficiaire sans SIREN dans
-            la source (ex. organismes internationaux). Le champ
-            «&nbsp;associations&nbsp;» s&apos;entend au sens large du jaune
-            budgétaire.
-          </p>
-        </Card>
+        </div>
       )}
 
       {/* Encart pédagogique — faits constatés (docs/recherche/01-budget-etat.md) */}

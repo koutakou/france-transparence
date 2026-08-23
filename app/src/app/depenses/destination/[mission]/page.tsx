@@ -206,43 +206,12 @@ export default async function PageMission({ params }: Props) {
             Mission «&nbsp;{arbre.libelle}&nbsp;»
           </h1>
           <p className="mt-2 text-sm text-ink-secondary">
-            {typeBudget} ({arbre.typebudget}) — {arbre.etiquette}. Montants
+            {typeBudget} ({arbre.typebudget}) — {arbre.etiquette}&nbsp;: montants
             BRUTS en crédits de paiement (CP) et autorisations
             d&apos;engagement (AE), non comparables aux dépenses nettes de la
-            page Dépenses. Ministère{arbre.ministeres.length > 1 ? "s" : ""} de
+            page Dépenses&nbsp;; ministère{arbre.ministeres.length > 1 ? "s" : ""} de
             rattachement&nbsp;: {arbre.ministeres.join(" · ") || "non renseigné"}.
           </p>
-          <NoticeLecture
-            ancre="depenses"
-            commentLire={
-              <p>
-                Ces montants sont ceux du projet de loi de finances, pas de
-                l’exécution mensuelle ni de la loi de finances votée. CP et
-                AE sont bruts : ils ne se comparent pas aux dépenses nettes
-                de la page Dépenses. Une mission n’est pas un ministère.
-              </p>
-            }
-            provenance={
-              <p>
-                Projet de loi de finances 2025, répartition par destination
-                (missions, programmes, actions). Une LFI 2025 par mission
-                est publiée dans le budget vert ; ce n’est pas la
-                granularité sous-action × nature.
-              </p>
-            }
-            limites={
-              <p>
-                Ce n’est pas ce qui a été payé. Les paiements du système
-                Chorus ne sont pas en open data. La mission
-                «&nbsp;Pensions&nbsp;» est un compte d’affectation spéciale,
-                pas une politique comparable aux autres. Les prestations de
-                protection sociale tous régimes sont sur la page Dépenses
-                (bloc DREES). Hors champ&nbsp;: la loi de financement de la
-                sécurité sociale en tant que texte voté, la dépense propre
-                des opérateurs et les entreprises publiques.
-              </p>
-            }
-          />
         </div>
         {badge}
       </section>
@@ -268,7 +237,7 @@ export default async function PageMission({ params }: Props) {
         ]}
       />
 
-      {/* Ventilation par titre de la mission */}
+      {/* Ventilation par titre de la mission — le CP se décompose tout de suite. */}
       {arbre.titres.length > 0 && (
         <Card
           titre="Ventilation par titre (nature de la dépense)"
@@ -284,6 +253,35 @@ export default async function PageMission({ params }: Props) {
           />
         </Card>
       )}
+
+      <NoticeLecture
+        ancre="depenses"
+        commentLire={
+          <p>
+            Ces montants sont ceux du projet de loi de finances 2025, pas
+            de l’exécution mensuelle ni de la loi de finances votée. CP et
+            AE sont bruts : ils ne se comparent pas aux dépenses nettes
+            de la page Dépenses. Une mission n’est pas un ministère.
+          </p>
+        }
+        provenance={
+          <p>
+            Projet de loi de finances 2025, répartition par destination.
+            Une LFI 2025 par mission est publiée dans le budget vert ;
+            ce n’est pas la granularité sous-action × nature.
+          </p>
+        }
+        limites={
+          <p>
+            Ce n’est pas ce qui a été payé. Les paiements du système
+            Chorus ne sont pas en open data. Les prestations de
+            protection sociale tous régimes sont sur la page Dépenses
+            (bloc DREES). Hors champ&nbsp;: la loi de financement de la
+            sécurité sociale en tant que texte voté, la dépense propre
+            des opérateurs et les entreprises publiques.
+          </p>
+        }
+      />
 
       {/* Arbre programme → action → sous-action */}
       <Card

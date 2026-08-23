@@ -172,42 +172,10 @@ export default async function PageRecettes() {
           </h1>
           <p className="mt-2 text-sm text-ink-secondary">
             Recettes nettes du budget général — nettes des remboursements et
-            dégrèvements d&apos;impôts — publiées chaque mois par la
-            DGFiP&nbsp;: les montants sont des cumuls depuis le 1er janvier,
-            comparés à la même période de l&apos;année précédente. Les mois de
-            l&apos;année en cours sont provisoires jusqu&apos;à la clôture de
-            l&apos;exercice. Dernière situation publiée&nbsp;:{" "}
-            {formatDateFr(kpis.dateFinMois)}.
+            dégrèvements d&apos;impôts —, cumuls depuis le 1er janvier.
+            Dernière situation DGFiP&nbsp;: {formatDateFr(kpis.dateFinMois)}{" "}
+            (cinq à sept semaines de latence).
           </p>
-          <NoticeLecture
-            ancre="recettes"
-            commentLire={
-              <p>
-                Les montants sont des cumuls depuis le 1er janvier, nets des
-                remboursements et dégrèvements. Les mois de l’année en cours
-                sont provisoires jusqu’à la clôture. Un tiret «&nbsp;—&nbsp;»
-                n’est pas un zéro.
-              </p>
-            }
-            provenance={
-              <p>
-                Situations mensuelles budgétaires de la DGFiP, même source
-                que les dépenses d’exécution. Fraîcheur et licence sur la
-                page Données.
-              </p>
-            }
-            limites={
-              <p>
-                Ce n’est pas le détail des encaissements jour par jour. Les
-                recettes de la sécurité sociale et des collectivités
-                territoriales ne figurent pas ici. Les prestations de
-                protection sociale (tous régimes) sont sur la page Dépenses.
-                La LFSS, comme texte voté, n’est pas un module de recettes.
-                Un impôt «&nbsp;net&nbsp;» n’est pas le montant mis à la
-                charge du contribuable.
-              </p>
-            }
-          />
         </div>
         {badge}
       </section>
@@ -255,97 +223,136 @@ export default async function PageRecettes() {
               ]),
         ]}
       />
+      <p className="text-xs leading-relaxed text-ink-muted">
+        Les fonds de concours et attributions de produits sont une ligne
+        propre, hors du total des recettes nettes — on ne les y additionne
+        pas.
+      </p>
 
-      {/* Série mensuelle des cumuls, 3 années */}
-      {serie && serie.length > 0 && (
-        <Card
-          titre="Recettes nettes cumulées par mois"
-          sousTitre="Budget général, nettes des remboursements et dégrèvements — cumul depuis le 1er janvier, en Md€"
-          droite={badge}
-        >
-          <LineChart
-            labels={MOIS_COURTS}
-            series={seriesCumul}
-            formatValeur={(v) => `${formatNombre(v, 1)}${ESPACE_FINE}Md€`}
-            ariaLabel={`Recettes nettes cumulées du budget général par mois, ${(serie ?? [])
-              .map((s) => s.annee)
-              .join(" contre ")}`}
-          />
-          <VueTableau>
-            <DataTable
-              colonnes={colonnesMois}
-              lignes={lignesMois}
-              cleLigne={(l) => String(l.mois)}
-            />
-          </VueTableau>
-        </Card>
-      )}
-
-      {/* Décomposition des recettes fiscales nettes par grand impôt */}
-      {detail && (
-        <Card
-          titre="Recettes fiscales nettes par grand impôt"
-          sousTitre={`Cumul au ${formatDateFr(detail.dateFinMois)} depuis le 1er janvier — les cinq lignes publiées par la DGFiP`}
-          droite={badge}
-        >
-          {detail.totalFiscales !== null && (
-            <p className="mb-4 text-sm text-ink-secondary">
-              Total des recettes fiscales nettes&nbsp;:{" "}
-              <span className="font-medium text-ink">
-                <MontantMd valeur={detail.totalFiscales} />
-              </span>
-              .
-            </p>
+      {/* Cumuls mensuels et décomposition par impôt, côte à côte dès xl */}
+      {(serie && serie.length > 0) || detail ? (
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
+          {serie && serie.length > 0 && (
+            <Card
+              titre="Recettes nettes cumulées par mois"
+              sousTitre="Budget général, nettes des remboursements et dégrèvements — cumul depuis le 1er janvier, en Md€"
+              droite={badge}
+            >
+              <LineChart
+                labels={MOIS_COURTS}
+                series={seriesCumul}
+                formatValeur={(v) => `${formatNombre(v, 1)}${ESPACE_FINE}Md€`}
+                ariaLabel={`Recettes nettes cumulées du budget général par mois, ${(serie ?? [])
+                  .map((s) => s.annee)
+                  .join(" contre ")}`}
+              />
+              <VueTableau>
+                <DataTable
+                  colonnes={colonnesMois}
+                  lignes={lignesMois}
+                  cleLigne={(l) => String(l.mois)}
+                />
+              </VueTableau>
+            </Card>
           )}
-          <BarList
-            items={detail.impots.map((i) => ({
-              libelle: i.ligneId === LIGNE_ID_TVA ? `${i.ligne} (part État)` : i.ligne,
-              valeur: i.montantCumul,
-            }))}
-            formatValeur={(v) => enMd(v)}
-          />
-          <VueTableau>
-            <DataTable
-              colonnes={[
-                { cle: "impot", entete: "Impôt" },
-                {
-                  cle: "cumul",
-                  entete: `Cumul au ${formatDateFr(detail.dateFinMois)} (Md€)`,
-                  type: "montant",
-                  decimales: 2,
-                },
-                { cle: "cumulN1", entete: "Même cumul N−1 (Md€)", type: "montant", decimales: 2 },
-                {
-                  cle: "variation",
-                  entete: "Variation",
-                  rendu: (l: {
-                    impot: string;
-                    cumul: number;
-                    cumulN1: number | null;
-                    variation: number | null;
-                  }) => (l.variation === null ? "—" : <DeltaPct valeur={l.variation} />),
-                },
-              ]}
-              lignes={detail.impots.map((i) => ({
-                impot: i.ligneId === LIGNE_ID_TVA ? `${i.ligne} (part État)` : i.ligne,
-                cumul: i.montantCumul / 1e9,
-                cumulN1: i.montantCumulN1 === null ? null : i.montantCumulN1 / 1e9,
-                variation: variationPct(i.montantCumul, i.montantCumulN1),
-              }))}
-              cleLigne={(l) => l.impot}
-            />
-          </VueTableau>
-          <p className="mt-3 text-xs text-ink-muted">
-            La ligne TVA ne couvre que la part revenant au budget général de
-            l&apos;État&nbsp;: les fractions de TVA affectées à d&apos;autres
-            administrations (sécurité sociale, collectivités territoriales)
-            n&apos;y figurent pas. Les recettes non fiscales (
-            {kpis.nonFiscales === null ? "montant non publié ce mois-ci" : enMd(kpis.nonFiscales)}
-            ) ne sont pas détaillées dans cette source&nbsp;: la situation
-            mensuelle n&apos;en publie que le total.
-          </p>
-        </Card>
-      )}
+          {detail && (
+            <Card
+              titre="Recettes fiscales nettes par grand impôt"
+              sousTitre={`Cumul au ${formatDateFr(detail.dateFinMois)} depuis le 1er janvier — les cinq lignes publiées par la DGFiP`}
+              droite={badge}
+            >
+              {detail.totalFiscales !== null && (
+                <p className="mb-4 text-sm text-ink-secondary">
+                  Total des recettes fiscales nettes&nbsp;:{" "}
+                  <span className="font-medium text-ink">
+                    <MontantMd valeur={detail.totalFiscales} />
+                  </span>
+                  .
+                </p>
+              )}
+              <BarList
+                items={detail.impots.map((i) => ({
+                  libelle: i.ligneId === LIGNE_ID_TVA ? `${i.ligne} (part État)` : i.ligne,
+                  valeur: i.montantCumul,
+                }))}
+                formatValeur={(v) => enMd(v)}
+              />
+              <VueTableau>
+                <DataTable
+                  colonnes={[
+                    { cle: "impot", entete: "Impôt" },
+                    {
+                      cle: "cumul",
+                      entete: `Cumul au ${formatDateFr(detail.dateFinMois)} (Md€)`,
+                      type: "montant",
+                      decimales: 2,
+                    },
+                    { cle: "cumulN1", entete: "Même cumul N−1 (Md€)", type: "montant", decimales: 2 },
+                    {
+                      cle: "variation",
+                      entete: "Variation",
+                      rendu: (l: {
+                        impot: string;
+                        cumul: number;
+                        cumulN1: number | null;
+                        variation: number | null;
+                      }) => (l.variation === null ? "—" : <DeltaPct valeur={l.variation} />),
+                    },
+                  ]}
+                  lignes={detail.impots.map((i) => ({
+                    impot: i.ligneId === LIGNE_ID_TVA ? `${i.ligne} (part État)` : i.ligne,
+                    cumul: i.montantCumul / 1e9,
+                    cumulN1: i.montantCumulN1 === null ? null : i.montantCumulN1 / 1e9,
+                    variation: variationPct(i.montantCumul, i.montantCumulN1),
+                  }))}
+                  cleLigne={(l) => l.impot}
+                />
+              </VueTableau>
+              <p className="mt-3 text-xs text-ink-muted">
+                La ligne TVA ne couvre que la part revenant au budget général de
+                l&apos;État&nbsp;: les fractions de TVA affectées à d&apos;autres
+                administrations (sécurité sociale, collectivités territoriales)
+                n&apos;y figurent pas. Les recettes non fiscales (
+                {kpis.nonFiscales === null ? "montant non publié ce mois-ci" : enMd(kpis.nonFiscales)}
+                ) ne sont pas détaillées dans cette source&nbsp;: la situation
+                mensuelle n&apos;en publie que le total.
+              </p>
+            </Card>
+          )}
+        </div>
+      ) : null}
+
+      <div className="flex flex-col gap-3">
+        <NoticeLecture
+          ancre="recettes"
+          commentLire={
+            <p>
+              Les montants sont des cumuls depuis le 1er janvier, nets des
+              remboursements et dégrèvements. Les mois de l’année en cours
+              sont provisoires jusqu’à la clôture. Un tiret «&nbsp;—&nbsp;»
+              n’est pas un zéro.
+            </p>
+          }
+          provenance={
+            <p>
+              Situations mensuelles budgétaires de la DGFiP, même source
+              que les dépenses d’exécution. Fraîcheur et licence sur la
+              page Données.
+            </p>
+          }
+          limites={
+            <p>
+              Ce n’est pas le détail des encaissements jour par jour. Les
+              recettes de la sécurité sociale et des collectivités
+              territoriales ne figurent pas ici. Les prestations de
+              protection sociale (tous régimes) sont sur la page Dépenses.
+              La LFSS, comme texte voté, n’est pas un module de recettes.
+              Un impôt «&nbsp;net&nbsp;» n’est pas le montant mis à la
+              charge du contribuable.
+            </p>
+          }
+        />
+      </div>
 
       {/* Séries longues — années complètes depuis 2013 */}
       {longues && anneesCompletes.length > 0 && (
@@ -405,55 +412,13 @@ export default async function PageRecettes() {
         </Card>
       )}
 
-      {/* Encart pédagogique — périmètre exact de ce qui est affiché */}
-      <Card titre={"Que couvrent ces montants ?"}>
-        <div className="flex max-w-3xl flex-col gap-3 text-sm leading-relaxed text-ink-secondary">
-          <p>
-            «&nbsp;Nettes&nbsp;» signifie nettes des remboursements et
-            dégrèvements d&apos;impôts&nbsp;: la DGFiP déduit des recettes
-            brutes les sommes reversées aux contribuables (crédits
-            d&apos;impôt, restitutions, corrections). Tous les totaux de cette
-            page suivent cette convention.
-          </p>
-          <p>
-            Le périmètre est le seul budget général de l&apos;État. Les
-            recettes de la sécurité sociale et des collectivités territoriales
-            relèvent d&apos;autres comptes et d&apos;autres textes&nbsp;: elles
-            ne figurent pas ici, et les montants de cette page ne peuvent pas
-            leur être comparés ni s&apos;y additionner. Les prestations de
-            protection sociale (tous régimes) sont sur la page{" "}
-            <Link
-              href="/depenses/#protection-sociale"
-              className="underline decoration-[var(--viz-grid)] underline-offset-2 transition-colors hover:decoration-current"
-            >
-              Dépenses
-            </Link>
-            . La LFSS, comme texte voté, n&apos;est pas un module de
-            recettes. Les fonds de concours et attributions de produits —
-            versements de tiers que l&apos;État emploie à une dépense
-            déterminée — sont publiés sur une ligne propre, hors du total
-            des recettes nettes.
-          </p>
-          <p>
-            La situation mensuelle est provisoire tant que l&apos;exercice
-            n&apos;est pas clos&nbsp;: les cumuls de l&apos;année en cours
-            peuvent être révisés d&apos;une publication à l&apos;autre, et la
-            dernière situation paraît avec cinq à sept semaines de latence
-            (dernière disponible&nbsp;: {formatDateFr(kpis.dateFinMois)}).
-            Le détail des recettes non fiscales et le produit par impôt au-delà
-            des cinq lignes ci-dessus ne sont pas publiés dans cette source —
-            cette page ne les invente pas.
-          </p>
-        </div>
-      </Card>
-
       {/* Recettes APU ESA (S44, TR) — flux annuel APU, cloisonné des recettes nettes S13 */}
       {recettesApu && (
-        <>
+        <div id="recettes-apu-esa" className="flex scroll-mt-32 flex-col gap-6">
           <div className="flex items-center gap-3" role="separator">
             <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
             <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
-              Autre objet · flux annuel des APU, pas le budget général de l&apos;État
+              Autre objet · flux annuel des APU, pas le budget général
             </span>
             <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
           </div>
@@ -470,38 +435,10 @@ export default async function PageRecettes() {
               />
             }
           >
-            <div className="mb-4 rounded-xl border border-card-border bg-raised p-4">
-              <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
-                Pourquoi ce bloc est séparé du reste de la page
-              </h3>
-              <p className="text-xs leading-relaxed text-ink-secondary">
-                Tout ce qui précède décrit le{" "}
-                <strong className="font-medium text-ink">
-                  budget général de l&apos;État
-                </strong>{" "}
-                (source S13, DGFiP)&nbsp;: des flux de l&apos;État, cumulés
-                depuis le 1er janvier, nets des dégrèvements. Ce bloc est un{" "}
-                <strong className="font-medium text-ink">
-                  flux annuel des administrations publiques
-                </strong>{" "}
-                (secteur ESA S13&nbsp;: État, Odac, APUL, ASSO), publié par
-                Eurostat sous l&apos;indicateur TR (total des recettes). Ce
-                n&apos;est pas un montant «&nbsp;net DGFiP&nbsp;». Les deux
-                objets ne s&apos;additionnent pas. Voir{" "}
-                <Link
-                  href="/comprendre/#recettes-apu-esa"
-                  className="underline decoration-[var(--viz-grid)] underline-offset-2 transition-colors hover:decoration-current"
-                >
-                  Comprendre
-                </Link>
-                .
-              </p>
-            </div>
             <KpiTile
               nu
               label="Recettes des APU (ESA)"
               valeur={`${formatNombre(recettesApu.montantMd, 1)}${ESPACE_FINE}Md€`}
-              montantVedette
               perimetre={perimetreAgregat(recettesApu.dernier, "TR")}
               delta={
                 recettesApu.deltaPct === null
@@ -539,45 +476,20 @@ export default async function PageRecettes() {
                 cleLigne={(l) => String(l.annee)}
               />
             </VueTableau>
-            <div className="mt-4">
-            <NoticeLecture
-              ancre="recettes-apu-esa"
-              commentLire={
-                <p>
-                  C’est un flux d’année civile, pas un stock et pas un cumul
-                  depuis le 1er janvier. TR est le total des recettes des
-                  administrations publiques. L’unité affichée (Md€) est le
-                  million d’euros Eurostat divisé par 1&nbsp;000. Le
-                  pourcentage du PIB est un fait de la même série. Un delta
-                  d’une année sur l’autre n’est ni «&nbsp;bon&nbsp;» ni
-                  «&nbsp;mauvais&nbsp;» : il est affiché neutre.
-                </p>
-              }
-              provenance={
-                <p>
-                  Eurostat, datacode gov_10a_main (DOI{" "}
-                  10.2908/GOV_10A_MAIN), extraits geo=FR, sector=S13
-                  (ESA&nbsp;: administrations publiques), na_item=TR,
-                  unit=MIO_EUR et unit=PC_GDP. C’est la publication annuelle
-                  des GFS (juillet), pas la date de diffusion.
-                  Réutilisation&nbsp;: décision 2011/833/UE.
-                </p>
-              }
-              limites={
-                <p>
-                  Ce n’est pas le budget général de l’État (S13, cumul
-                  depuis le 1er janvier, net des dégrèvements). TR n’est
-                  pas un montant «&nbsp;net DGFiP&nbsp;» : c’est un
-                  agrégat ESA annuel des APU. Ce n’est pas la recette de
-                  l’État seul (sous-secteur S.1311). Ce n’est pas un
-                  montant par habitant. Ce n’est pas le déficit (B9) ni
-                  l’encours (GD) au sens de Maastricht.
-                </p>
-              }
-            />
-            </div>
+            <p className="mt-3 text-xs text-ink-muted">
+              TR n&apos;est pas un montant «&nbsp;net DGFiP&nbsp;»&nbsp;: c&apos;est le
+              flux annuel des recettes des administrations publiques, distinct
+              du budget général — voir{" "}
+              <Link
+                href="/comprendre/#recettes-apu-esa"
+                className="underline decoration-[var(--viz-grid)] underline-offset-2 transition-colors hover:decoration-current"
+              >
+                Comprendre
+              </Link>
+              .
+            </p>
           </Card>
-        </>
+        </div>
       )}
     </div>
   );

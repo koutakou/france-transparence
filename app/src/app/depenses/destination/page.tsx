@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { DataTable } from "@/components/ui/DataTable";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { NoticeLecture } from "@/components/ui/NoticeLecture";
+import { StatStrip } from "@/components/ui/StatStrip";
 import { ESPACE_FINE, formatEuros, formatNombre } from "@/lib/format";
 import {
   getMissionsDestination2025Liste,
@@ -88,6 +89,7 @@ export default async function PageDestination() {
   // l'écart entre ces CP bruts et les dépenses nettes de /depenses : on la
   // nomme avec son montant réellement en base plutôt qu'en dur.
   const remboursements = missions.missions.find((m) => m.mission === "RD");
+  const totalAe = missions.missions.reduce((somme, m) => somme + m.ae, 0);
 
   const colonnesMissions = [
     {
@@ -118,51 +120,46 @@ export default async function PageDestination() {
             Budget 2025 par destination
           </h1>
           <p className="mt-2 text-sm text-ink-secondary">
-            Le budget de l&apos;État se lit en missions (les politiques
-            publiques), découpées en programmes, actions et — quand la
-            nomenclature en définit — sous-actions. Montants&nbsp;:{" "}
-            {missions.etiquette}. Ce sont des crédits de paiement (CP) et
-            autorisations d&apos;engagement (AE) BRUTS&nbsp;: ils ne sont pas
-            comparables aux dépenses nettes de la page{" "}
+            Crédits de paiement (CP) et autorisations d&apos;engagement (AE)
+            BRUTS du projet de loi de finances 2025 ({missions.etiquette}),
+            non comparables aux dépenses nettes de la page{" "}
             <Link href="/depenses" className="underline decoration-[var(--viz-grid)] underline-offset-2 hover:decoration-current">
               Dépenses
             </Link>
             .
           </p>
-          <NoticeLecture
-            ancre="depenses"
-            commentLire={
-              <p>
-                Ces montants sont ceux du projet de loi de finances, pas de
-                l’exécution mensuelle ni de la loi de finances votée. CP et
-                AE sont bruts : ils ne se comparent pas aux dépenses nettes
-                de la page Dépenses. Une mission n’est pas un ministère.
-              </p>
-            }
-            provenance={
-              <p>
-                Projet de loi de finances 2025, répartition par destination
-                (missions, programmes, actions). Une LFI 2025 par mission
-                est publiée dans le budget vert ; ce n’est pas la
-                granularité sous-action × nature.
-              </p>
-            }
-            limites={
-              <p>
-                Ce n’est pas ce qui a été payé. Les paiements du système
-                Chorus ne sont pas en open data. La mission
-                «&nbsp;Pensions&nbsp;» est un compte d’affectation spéciale,
-                pas une politique comparable aux autres. Les prestations de
-                protection sociale tous régimes sont sur la page Dépenses
-                (bloc DREES). Hors champ&nbsp;: la loi de financement de la
-                sécurité sociale en tant que texte voté, la dépense propre
-                des opérateurs et les entreprises publiques.
-              </p>
-            }
-          />
         </div>
         {badge}
       </section>
+
+      <StatStrip
+        stats={[
+          {
+            label: "Crédits de paiement 2025 (bruts, tous budgets)",
+            valeur: (
+              <span title={`${formatNombre(missions.totalCp)}${ESPACE_FINE}€`}>
+                {enMd(missions.totalCp)}
+              </span>
+            ),
+            montantVedette: true,
+            perimetre: "PLF 2025 — projet, pas l’exécution ni la LFI ; CP bruts",
+          },
+          {
+            label: "Autorisations d'engagement 2025 (brutes)",
+            valeur: (
+              <span title={`${formatNombre(totalAe)}${ESPACE_FINE}€`}>
+                {enMd(totalAe)}
+              </span>
+            ),
+            perimetre: "PLF 2025 — projet ; AE et CP ne s'additionnent pas",
+          },
+          {
+            label: "Missions",
+            valeur: formatNombre(missions.missions.length),
+            perimetre: "nomenclature du PLF 2025 — une mission n'est pas un ministère",
+          },
+        ]}
+      />
 
       {/* Ventilation par nature (titre LOLF) */}
       {titres && (
@@ -178,7 +175,11 @@ export default async function PageDestination() {
             }))}
             formatValeur={(v) => formatEuros(v, "Md")}
           />
-          <div className="mt-4">
+          <details className="mt-3">
+            <summary className="w-fit cursor-pointer select-none text-xs text-ink-muted transition-colors hover:text-ink-secondary">
+              Vue tableau
+            </summary>
+            <div className="mt-2">
             <DataTable
               colonnes={[
                 { cle: "numero", entete: "Titre", largeur: "4rem" },
@@ -196,7 +197,8 @@ export default async function PageDestination() {
               }))}
               cleLigne={(l) => l.numero}
             />
-          </div>
+            </div>
+          </details>
           <p className="mt-3 text-xs text-ink-muted">
             Le titre décrit la nature de la dépense (nomenclature LOLF,
             art. 5)&nbsp;; chaque titre se subdivise en catégories dans la
@@ -239,6 +241,38 @@ export default async function PageDestination() {
           )}
         </p>
       </Card>
+
+      <NoticeLecture
+        ancre="depenses"
+        commentLire={
+          <p>
+            Ces montants sont ceux du projet de loi de finances, pas de
+            l’exécution mensuelle ni de la loi de finances votée. CP et
+            AE sont bruts : ils ne se comparent pas aux dépenses nettes
+            de la page Dépenses. Une mission n’est pas un ministère.
+          </p>
+        }
+        provenance={
+          <p>
+            Projet de loi de finances 2025, répartition par destination
+            (missions, programmes, actions). Une LFI 2025 par mission
+            est publiée dans le budget vert ; ce n’est pas la
+            granularité sous-action × nature.
+          </p>
+        }
+        limites={
+          <p>
+            Ce n’est pas ce qui a été payé. Les paiements du système
+            Chorus ne sont pas en open data. La mission
+            «&nbsp;Pensions&nbsp;» est un compte d’affectation spéciale,
+            pas une politique comparable aux autres. Les prestations de
+            protection sociale tous régimes sont sur la page Dépenses
+            (bloc DREES). Hors champ&nbsp;: la loi de financement de la
+            sécurité sociale en tant que texte voté, la dépense propre
+            des opérateurs et les entreprises publiques.
+          </p>
+        }
+      />
 
       {/* Encadré pédagogique obligatoire — CAS Pensions */}
       <Card titre="Ce que la mission « Pensions » couvre — et ne couvre pas">
