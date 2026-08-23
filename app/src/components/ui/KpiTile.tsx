@@ -66,7 +66,7 @@ export function KpiTile({
 }: KpiTileProps) {
   const chrome = nu ? "" : "rounded-xl border border-card-border bg-card ";
   return (
-    <div className={`${chrome}flex items-end justify-between gap-3 p-4 ${className ?? ""}`}>
+    <div className={`${chrome}flex items-start justify-between gap-3 p-4 ${className ?? ""}`}>
       <div className="min-w-0">
         <div className="text-xs text-ink-secondary">{label}</div>
         <div
@@ -76,7 +76,7 @@ export function KpiTile({
           {valeur}
         </div>
         {perimetre && (
-          <div className="mt-1 text-[11px] leading-snug text-ink-muted">{perimetre}</div>
+          <div className="mt-1 text-[11px] leading-normal text-ink-muted">{perimetre}</div>
         )}
         {delta && (
           <div className="mt-1">
@@ -85,7 +85,7 @@ export function KpiTile({
         )}
       </div>
       {tendance && tendance.length > 0 && (
-        <Sparkline valeurs={tendance} emphaseFin largeur={96} hauteur={32} className="shrink-0" />
+        <Sparkline valeurs={tendance} emphaseFin largeur={96} hauteur={32} className="mt-5 shrink-0" />
       )}
     </div>
   );

@@ -35,7 +35,7 @@ export function Sparkline({
   const n = valeurs.length;
   if (n === 0) return null;
 
-  const pad = 3; // marge pour le trait 2px et le point terminal
+  const pad = 6; // r=4 + anneau 2px → rayon visuel 5, hors clip
   const min = Math.min(...valeurs);
   const max = Math.max(...valeurs);
   const plage = max - min || 1; // série plate → ligne médiane
@@ -80,7 +80,7 @@ export function Sparkline({
         <circle
           cx={fin[0]}
           cy={fin[1]}
-          r={3}
+          r={4}
           fill="var(--viz-serie-1)"
           stroke="var(--surface-card)"
           strokeWidth={2}

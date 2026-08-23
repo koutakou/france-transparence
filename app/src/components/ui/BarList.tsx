@@ -62,16 +62,16 @@ export function BarList({
         return (
           <li
             key={`${item.libelle}-${i}`}
-            className="flex items-center gap-3"
+            className="flex items-start gap-3"
             title={`${item.libelle} : ${valeurs[i]}`}
           >
             <span
-              className="shrink-0 truncate text-[13px] text-ink-secondary"
+              className="shrink-0 whitespace-normal text-[13px] leading-snug text-ink-secondary"
               style={{ width: largeurLibelle }}
             >
               {item.libelle}
             </span>
-            <span className="flex min-w-0 flex-1 items-center gap-2 text-[13px]">
+            <span className="flex min-w-0 flex-1 items-center self-center gap-2 text-[13px]">
               <span
                 className="block shrink-0 transition-[filter] hover:brightness-[1.18]"
                 style={{

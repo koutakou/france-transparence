@@ -33,7 +33,7 @@ export function Card({ titre, sousTitre, droite, children, className }: CardProp
         <header className="mb-4 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
           <div className="min-w-0">
             {titre && (
-              <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-ink">
                 {titre}
               </h2>
             )}

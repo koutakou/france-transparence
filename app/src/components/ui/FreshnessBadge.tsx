@@ -37,22 +37,23 @@ export function FreshnessBadge({
   mention,
   className,
 }: FreshnessBadgeProps) {
+  // truncate + title=URL cachaient la mention ; rounded-full refuse le multiligne.
+  const libelle = `Données au ${formatDateFr(dateDonnees)} · ${source} · ${frequence}${
+    mention ? ` · ${mention}` : ""
+  }`;
   return (
     <a
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      title={`Ouvrir la source : ${url}`}
-      className={`inline-flex max-w-full items-center gap-1.5 rounded-full border border-card-border bg-card px-2.5 py-1 text-[11px] leading-none text-ink-muted transition-colors hover:border-raised-border hover:text-ink-secondary ${className ?? ""}`}
+      title={`${libelle} — ${url}`}
+      className={`inline-flex min-h-11 min-w-0 max-w-full items-center gap-1.5 rounded-lg border border-card-border bg-card px-2.5 py-1.5 text-[11px] leading-snug text-ink-muted transition-colors hover:border-raised-border hover:text-ink-secondary ${className ?? ""}`}
     >
       <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" className="shrink-0">
         <circle cx="5" cy="5" r="3.5" fill="none" stroke="currentColor" strokeWidth="1.2" />
         <path d="M5 3v2.2l1.5 1" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
       </svg>
-      <span className="truncate">
-        Données au {formatDateFr(dateDonnees)} · {source} · {frequence}
-        {mention ? ` · ${mention}` : ""}
-      </span>
+      <span className="min-w-0 whitespace-normal">{libelle}</span>
     </a>
   );
 }

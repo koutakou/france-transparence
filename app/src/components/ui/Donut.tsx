@@ -173,7 +173,7 @@ export function Donut({
               className="inline-block size-3 shrink-0 translate-y-px rounded-[3px]"
               style={{ background: s.couleur }}
             />
-            <span className="min-w-0 truncate text-ink-secondary" title={s.libelle}>
+            <span className="min-w-0 text-ink-secondary" title={s.libelle}>
               {s.libelle}
             </span>
             <span className="ml-auto shrink-0 font-medium text-ink [font-variant-numeric:tabular-nums]">

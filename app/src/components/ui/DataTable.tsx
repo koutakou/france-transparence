@@ -94,6 +94,9 @@ export function DataTable<T extends object>({
   // gabarit de cellule posés UNE FOIS sur le conteneur (variantes [&_td])
   // plutôt que répétés sur chaque cellule : sur un tableau de 100 lignes,
   // ces attributs par cellule pesaient plusieurs dizaines de Ko de HTML.
+  // Pas de sticky first-child : sur /marches et /lobbying la 1re colonne
+  // est le rang (3,5 rem), pas le nom — coller le rang au scroll cacherait
+  // l'identité. Un sticky se pose sur la colonne d'identité, pas sur l'index.
   return (
     <div
       // `relative` : le scroller devient containing block des descendants en

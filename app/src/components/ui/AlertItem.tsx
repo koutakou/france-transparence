@@ -128,7 +128,7 @@ export function AlertItem({
           {detail && <p className="mt-1 text-[13px] leading-snug text-ink-secondary">{detail}</p>}
           {(regle || baseLegale) && (
             <details className="mt-2 group">
-              <summary className="cursor-pointer list-none text-xs text-ink-muted transition-colors hover:text-ink-secondary">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center text-xs text-ink-muted transition-colors hover:text-ink-secondary">
                 <span aria-hidden="true" className="mr-1 inline-block transition-transform group-open:rotate-90">
                   ›
                 </span>

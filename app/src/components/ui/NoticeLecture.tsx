@@ -27,23 +27,23 @@ export function NoticeLecture({
   return (
     <aside
       id={ancre}
-      className="max-w-3xl scroll-mt-20 rounded-xl border border-card-border bg-raised p-4"
+      className="max-w-3xl scroll-mt-32 rounded-xl border border-card-border bg-raised p-4 sm:p-5"
       aria-label="Comment lire ces données"
     >
-      <div className="flex flex-col gap-3 text-xs leading-relaxed text-ink-secondary">
+      <div className="flex flex-col gap-4 text-[13px] leading-relaxed text-ink-secondary">
         <section>
           <h2 className="mb-1 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
             Comment lire
           </h2>
           <div>{commentLire}</div>
         </section>
-        <section>
+        <section className="border-t border-card-border pt-4">
           <h2 className="mb-1 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
             D’où viennent ces données
           </h2>
           <div>{provenance}</div>
         </section>
-        <section>
+        <section className="border-t border-card-border pt-4">
           <h2 className="mb-1 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
             Ce que ces données ne disent pas
           </h2>
