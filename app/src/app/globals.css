@@ -116,3 +116,89 @@ body {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
+
+/* Skip-link : hors écran, visible au focus clavier (premier enfant de body). */
+.skip-link {
+  position: absolute;
+  left: 0.75rem;
+  top: 0.75rem;
+  z-index: 200;
+  transform: translateY(-150%);
+  background: var(--surface-raised);
+  color: var(--ink-primary);
+  border: 1px solid var(--border-raised);
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+}
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: none;
+}
+
+/*
+ * Chrome du header — une grille, deux rangées.
+ * Breakpoint 1280px = Tailwind xl.
+ *
+ * <1280px : mot-marque | menu ; search pleine largeur dessous.
+ * ≥1280px : mot-marque | search ; nav pleine largeur sous les deux.
+ *
+ * --chrome-bottom : repli no-JS du top du panneau mobile. Mesure <1280px :
+ * pt-3 (12) + rangée 1 max(bouclier 35, bouton Menu min-h-11=44) + gap 12
+ * + search min-h-11 (44) + pb-2 (8) + border-b 1 ≈ 121px. 8rem (128px)
+ * laisse un filet. Après hydratation, MainNav pose header.offsetHeight
+ * (le header est sticky : un bottom viewport reculerait au scroll).
+ */
+header {
+  --chrome-bottom: 8rem;
+}
+
+.header-chrome {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "logo nav"
+    "search search";
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.header-logo {
+  grid-area: logo;
+}
+
+.header-search {
+  grid-area: search;
+  min-width: 0;
+}
+
+.header-nav {
+  grid-area: nav;
+  justify-self: end; /* mobile : menu à droite */
+}
+
+@media (min-width: 1280px) {
+  .header-chrome {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "logo search"
+      "nav nav";
+  }
+
+  /* Avant G1 la search était max-w-md à droite du mot-marque.
+     La piste 1fr sans plafond l'étirait sur ~800 px : trop large pour
+     un champ d'élus / institutions. */
+  .header-search {
+    max-width: 28rem;
+    width: 100%;
+    justify-self: end;
+  }
+
+  .header-nav {
+    justify-self: stretch;
+  }
+}
+
+/* summary du menu mobile, s'il vit dans header-nav (pas un reset global). */
+.header-nav summary::-webkit-details-marker {
+  display: none;
+}

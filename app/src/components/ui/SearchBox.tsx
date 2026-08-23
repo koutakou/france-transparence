@@ -22,7 +22,11 @@ import type { IndexRecherche } from "@/lib/recherche-index";
  * l'affichent (« dans les listes /elus »).
  *
  * - dropdown navigable au clavier (↑ ↓ Entrée Échap) et à la souris ;
- * - index absent / erreur réseau → état vide SILENCIEUX (comme avant) ;
+ * - index indisponible / erreur réseau → silence, panneau fermé (comme avant :
+ *   ne pas afficher « erreur » ni « index absent » — fuite d’implémentation) ;
+ * - index prêt + 0 hit → status non sélectionnable (périmètre réel de l’index :
+ *   élus / institutions, jamais un « aucun résultat » nu) ;
+ * - raccourci « / » hors champs éditables ; hint visuel bureau seulement ;
  * - libellés injectés en texte (React), jamais en HTML (DATAVIZ §5 :
  *   noms = données non fiables).
  */
@@ -43,6 +47,20 @@ const DEBOUNCE_MS = 150;
 const MIN_CARACTERES = 2;
 const MAX_ELUS = 8;
 const MAX_ENTITES = 4;
+
+/** Cycle de vie de l’index — distinct de « 0 hit » (qui n’existe qu’en `pret`). */
+type EtatIndex = "absent" | "chargement" | "pret" | "indisponible";
+
+/**
+ * « / » ne doit pas voler la frappe déjà engagée dans un champ.
+ * (input/textarea/select/contentEditable — pas les boutons ni le reste.)
+ */
+function estChampEditable(cible: EventTarget | null): boolean {
+  if (!(cible instanceof HTMLElement)) return false;
+  if (cible.isContentEditable) return true;
+  const tag = cible.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+}
 
 /** Minuscules sans diacritiques (recherche insensible accents/casse). */
 function plie(s: string): string {
@@ -143,9 +161,17 @@ export function SearchBox({
   const [resultats, setResultats] = useState<ResultatRecherche[]>([]);
   const [ouvert, setOuvert] = useState(false);
   const [actif, setActif] = useState(-1);
+  const [etatIndex, setEtatIndex] = useState<EtatIndex>("absent");
+  // Terme pour lequel `rechercher()` a réellement tourné — évite d’annoncer
+  // « aucun élu » sur une requête pas encore interrogée (debounce / 1er fetch).
+  const [termeRecherche, setTermeRecherche] = useState("");
+  const [aLeFocus, setALeFocus] = useState(false);
   const listeId = useId();
+  const statusId = useId();
+  const inputId = useId();
   const router = useRouter();
   const racine = useRef<HTMLDivElement>(null);
+  const champ = useRef<HTMLInputElement>(null);
   // Routes de résultats déjà demandées au préchargement (une seule fois chacune).
   const dejaPrechargees = useRef<Set<string>>(new Set());
 
@@ -164,6 +190,20 @@ export function SearchBox({
     router.prefetch(href);
   };
 
+  /** Premier appel : `absent` → `chargement`. Les suivants réutilisent la promesse mémoïsée. */
+  const assurerIndex = () => {
+    setEtatIndex((etat) => (etat === "absent" ? "chargement" : etat));
+    void chargerIndex().then((index) => {
+      setEtatIndex(index ? "pret" : "indisponible");
+      if (!index) {
+        // Silence : l’index n’est pas là, ce n’est pas « 0 hit ».
+        setResultats([]);
+        setOuvert(false);
+        setActif(-1);
+      }
+    });
+  };
+
   useEffect(() => {
     const terme = q.trim();
     // terme trop court : la remise à zéro est faite par le onChange (jamais
@@ -175,13 +215,19 @@ export function SearchBox({
       if (annule) return;
       if (!index) {
         // index indisponible : silence (même comportement que l'ancienne API absente)
+        setEtatIndex("indisponible");
         setResultats([]);
         setOuvert(false);
+        setActif(-1);
         return;
       }
+      setEtatIndex("pret");
       const propres = rechercher(index, terme);
       setResultats(propres);
-      setOuvert(propres.length > 0);
+      setTermeRecherche(terme);
+      // Index prêt : ouvrir même à 0 hit (status honnête). `actif` reste -1
+      // s’il n’y a pas d’option — Entrée ne doit pas naviguer sur le status.
+      setOuvert(true);
       setActif(propres.length > 0 ? 0 : -1);
     }, DEBOUNCE_MS);
     return () => {
@@ -190,9 +236,34 @@ export function SearchBox({
     };
   }, [q]);
 
+  useEffect(() => {
+    const surSlash = (e: KeyboardEvent) => {
+      if (e.key !== "/") return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (estChampEditable(e.target)) return;
+      e.preventDefault();
+      champ.current?.focus();
+    };
+    window.addEventListener("keydown", surSlash);
+    return () => window.removeEventListener("keydown", surSlash);
+  }, []);
+
   const fermer = () => {
     setOuvert(false);
     setActif(-1);
+  };
+
+  /**
+   * Safari (et d'autres) posent relatedTarget=null au blur : fermer
+   * tout de suite démonterait la liste avant que le click du résultat
+   * n'arrive. preventDefault sur mousedown du panneau + délai court.
+   */
+  const surBlurRacine = (e: React.FocusEvent<HTMLDivElement>) => {
+    const suivant = e.relatedTarget as Node | null;
+    if (suivant && racine.current?.contains(suivant)) return;
+    window.setTimeout(() => {
+      if (!racine.current?.contains(document.activeElement)) fermer();
+    }, 100);
   };
 
   const surClavier = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -221,13 +292,22 @@ export function SearchBox({
     }
   };
 
+  const terme = q.trim();
+  const afficherListe = ouvert && resultats.length > 0;
+  const afficherChargement = ouvert && etatIndex === "chargement" && terme.length >= MIN_CARACTERES;
+  const afficherVide =
+    ouvert &&
+    etatIndex === "pret" &&
+    terme.length >= MIN_CARACTERES &&
+    resultats.length === 0 &&
+    termeRecherche === terme;
+  const panneauOuvert = afficherListe || afficherChargement || afficherVide;
+
   return (
     <div
       ref={racine}
       className={`relative ${className ?? ""}`}
-      onBlur={(e) => {
-        if (!racine.current?.contains(e.relatedTarget as Node | null)) fermer();
-      }}
+      onBlur={surBlurRacine}
     >
       <svg
         width="14"
@@ -240,10 +320,17 @@ export function SearchBox({
         <path d="M9.4 9.4L13 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
       <input
+        id={inputId}
+        ref={champ}
         type="search"
         role="combobox"
-        aria-expanded={ouvert}
-        aria-controls={listeId}
+        aria-autocomplete="list"
+        aria-haspopup={afficherListe ? "listbox" : undefined}
+        aria-keyshortcuts="/"
+        aria-expanded={panneauOuvert}
+        aria-controls={
+          afficherListe ? listeId : afficherChargement || afficherVide ? statusId : undefined
+        }
         aria-activedescendant={actif >= 0 ? `${listeId}-${actif}` : undefined}
         aria-label="Recherche globale"
         autoComplete="off"
@@ -257,22 +344,42 @@ export function SearchBox({
             setResultats([]);
             setOuvert(false);
             setActif(-1);
+            return;
+          }
+          // Fetch encore en cours : ouvrir tout de suite le status « chargement »
+          // (le debounce ne sert qu’à `rechercher()`, pas à masquer l’attente).
+          if (etatIndex === "absent" || etatIndex === "chargement") {
+            assurerIndex();
+            setOuvert(true);
+            setActif(-1);
           }
         }}
         onKeyDown={surClavier}
         onFocus={() => {
+          setALeFocus(true);
           // pré-chargement de l'index au premier focus (une seule requête)
-          void chargerIndex();
+          assurerIndex();
           if (resultats.length > 0) setOuvert(true);
+          else if (terme.length >= MIN_CARACTERES && etatIndex !== "indisponible") setOuvert(true);
         }}
-        className="w-full rounded-lg border border-card-border bg-page py-1.5 pl-9 pr-3 text-[13px] text-ink placeholder:text-ink-muted focus:border-raised-border"
+        onBlur={() => setALeFocus(false)}
+        className="w-full min-h-11 rounded-lg border border-card-border bg-page py-1.5 pl-9 pr-9 text-base text-ink placeholder:text-ink-muted focus:border-raised-border xl:text-[13px]"
       />
-      {ouvert && (
+      {!q && !aLeFocus && (
+        <kbd
+          aria-hidden="true"
+          className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 items-center text-[11px] leading-none text-ink-muted xl:flex"
+        >
+          /
+        </kbd>
+      )}
+      {afficherListe && (
         <ul
           id={listeId}
           role="listbox"
           aria-label="Résultats de recherche"
           className="absolute left-0 right-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-lg border border-raised-border bg-raised py-1 shadow-[0_8px_24px_rgba(0,0,0,0.45)]"
+          onMouseDown={(e) => e.preventDefault()}
         >
           {resultats.map((r, i) => (
             <li key={`${r.href}-${i}`} id={`${listeId}-${i}`} role="option" aria-selected={i === actif}>
@@ -287,7 +394,7 @@ export function SearchBox({
                 }}
                 onFocus={() => precharger(r.href)}
                 onTouchStart={() => precharger(r.href)}
-                className={`flex items-baseline gap-2 px-3 py-2 text-[13px] ${
+                className={`flex min-h-11 items-baseline gap-2 px-3 py-2 text-[13px] ${
                   i === actif ? "bg-hover" : ""
                 }`}
               >
@@ -304,6 +411,18 @@ export function SearchBox({
             </li>
           ))}
         </ul>
+      )}
+      {(afficherChargement || afficherVide) && (
+        <div
+          id={statusId}
+          role="status"
+          className="absolute left-0 right-0 top-full z-50 mt-1 rounded-lg border border-raised-border bg-raised px-3 py-2.5 text-[13px] text-ink-secondary shadow-[0_8px_24px_rgba(0,0,0,0.45)]"
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          {afficherChargement
+            ? "Chargement de l’index…"
+            : `Aucun élu ni institution pour « ${terme} ».`}
+        </div>
       )}
     </div>
   );

@@ -71,14 +71,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="fr" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
+        <a href="#contenu" className="skip-link">
+          Aller au contenu
+        </a>
         {/* React 19 hisse les <meta> rendues dans l'arbre vers le <head>. */}
         {process.env.NODE_ENV === "production" && (
           <meta httpEquiv="Content-Security-Policy" content={CSP} />
         )}
-        <header className="border-b border-card-border bg-card">
-          {/* rangée identité + recherche */}
-          <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-x-6 gap-y-3 px-5 pb-2 pt-3">
-            <Link href="/" className="flex items-center gap-3">
+        <header className="sticky top-0 z-30 border-b border-card-border bg-card">
+          <div className="header-chrome mx-auto w-full max-w-7xl px-5 pt-3 pb-2">
+            <Link href="/" className="header-logo flex items-center gap-3">
               <LogoBouclier taille={30} />
               <span className="flex flex-col">
                 <span className="text-[15px] font-semibold leading-tight tracking-[0.18em] text-ink">
@@ -93,31 +95,36 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                       "linear-gradient(90deg, var(--tricolore-bleu) 0 33.4%, var(--tricolore-blanc) 33.4% 66.7%, var(--tricolore-rouge) 66.7% 100%)",
                   }}
                 />
-                <span className="mt-1 text-[10px] uppercase tracking-[0.22em] text-ink-muted">
+                <span className="mt-1 hidden text-[10px] uppercase tracking-[0.22em] text-ink-muted sm:block">
                   La transparence au service des citoyens
                 </span>
               </span>
             </Link>
-            <div className="ml-auto w-full max-w-md flex-1 basis-64">
+            <div className="header-search">
               <SearchBox />
             </div>
-          </div>
-          {/* rangée navigation */}
-          <div className="mx-auto w-full max-w-7xl px-5">
-            <MainNav />
+            <div className="header-nav">
+              <MainNav />
+            </div>
           </div>
         </header>
-        <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-6">{children}</main>
+        {/* tabIndex=-1 : sans ça, le skip-link fait défiler mais le
+            focus clavier reste sur le lien — le prochain Tab rebondit
+            en tête de page. */}
+        <main id="contenu" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-5 py-6">{children}</main>
         <footer className="border-t border-card-border">
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-1.5 px-5 py-4 text-xs leading-relaxed text-ink-muted">
-            {/* Licence : la PLUPART des sources sont en Licence Ouverte, pas
-                toutes. Trois relèvent d'un autre régime — publications
-                officielles hors open data, texte publié au JORF, décision
-                2011/833/UE. Le commentaire précédent affirmait « TOUTES en
-                Licence Ouverte » en le déduisant de « aucune ODbL en base » :
-                ce sont deux propriétés distinctes, et l'absence de l'une ne
-                démontre pas l'autre. meta_sources.licence fait foi ; ne pas
-                réintroduire ici un compte qui dérivera à la source suivante. */}
+            {/* Licence : « pour la plupart », pas toutes. S3 (JORF « Lois
+                et décrets ») est en Licence Ouverte (fr-lo) : ce n'est PAS
+                un régime JO distinct. Le reliquat qui rangeait « texte
+                publié au JORF » parmi les exceptions confondait S3 avec
+                S37 (décret d'aide publique, libellé « Texte officiel
+                (JORF) »). Hors Licence Ouverte : S31 (publications
+                officielles hors open data), S37, S40/S41/S42/S44 (décision
+                2011/833/UE), S11 (open data DILA, mention DILA). S2
+                (etalab-2.0) est la famille Licence Ouverte, sous un id
+                SPDX. meta_sources.licence fait foi ; ne pas réintroduire
+                un compte qui dérivera. */}
             <p>
               Données publiques, pour la plupart sous{" "}
               <a

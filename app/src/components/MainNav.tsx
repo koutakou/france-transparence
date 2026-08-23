@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 /**
- * Navigation principale — horizontale, icônes discrètes, état actif
- * souligné bleu (`--viz-serie-1`). Client : `usePathname` pour l'actif.
+ * Navigation principale.
+ * POURQUOI deux arbres : les 11 libellés complets ne tiennent pas dans le
+ * chrome sous 1280px ; un défilement horizontal cachait Données / Documents
+ * sans affordance. Mobile = `<details>` natif (s'ouvre sans JS). Bureau = barre
+ * `flex-wrap`, tous les onglets visibles, sans scroll horizontal.
  */
 interface ItemNav {
   href: string;
@@ -31,9 +34,9 @@ function Icone({ children }: { children: ReactNode }) {
 }
 
 /**
- * Libellés volontairement COURTS (« Financement », « Frais », « Données ») :
- * les 11 onglets doivent tenir dans le conteneur max-w-7xl dès 1440px sans
- * couper le dernier. Les intitulés complets restent portés par les pages.
+ * Libellés complets (« Finances locales », « Élus & Institutions ») : choix
+ * éditoriaux. Le fit se joue par le menu mobile et le wrap desktop, pas en
+ * raccourcissant.
  */
 const ITEMS: ItemNav[] = [
   {
@@ -153,12 +156,16 @@ const ITEMS: ItemNav[] = [
   },
 ];
 
+function estActif(href: string, pathname: string): boolean {
+  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+}
+
 /**
  * POURQUOI `prefetch={false}` + réarmement manuel au survol.
  *
- * Cette nav est rendue par le layout RACINE : ses 10 onglets sont donc dans
+ * Cette nav est rendue par le layout RACINE : ses 11 onglets sont donc dans
  * le viewport des 1 067 pages du site, dès le premier rendu. En préchargement
- * par défaut (viewport), CHAQUE vue de page tire les 10 payloads RSC des
+ * par défaut (viewport), CHAQUE vue de page tire les 11 payloads RSC des
  * onglets — ~152 Ko compressés (1,05 Mo bruts) que personne n'a demandés, soit
  * six fois le poids du HTML réellement lu. Sur le trafic réel mesuré, le
  * préchargement représente 26,6 % des octets servis, et le rapport
@@ -173,9 +180,52 @@ const ITEMS: ItemNav[] = [
  * `onTouchStart` (le tactile n'a pas de survol) : l'intention de clic devient
  * la condition du téléchargement, au lieu de la simple présence à l'écran.
  */
+function LienNav({
+  item,
+  actif,
+  precharger,
+  variante,
+  onNaviguer,
+}: {
+  item: ItemNav;
+  actif: boolean;
+  precharger: (href: string) => void;
+  variante: "mobile" | "bureau";
+  onNaviguer?: () => void;
+}) {
+  const classes =
+    variante === "mobile"
+      ? `flex min-h-11 w-full items-center gap-2 border-l-2 px-3 py-2 text-[13px] ${
+          actif
+            ? "border-accent bg-hover font-medium text-ink"
+            : "border-transparent text-ink-secondary hover:bg-hover hover:text-ink"
+        }`
+      : `flex items-center gap-1.5 whitespace-nowrap border-b-2 px-2.5 py-2.5 text-[12.5px] transition-colors ${
+          actif
+            ? "border-accent font-medium text-ink"
+            : "border-transparent text-ink-secondary hover:text-ink"
+        }`;
+  return (
+    <Link
+      href={item.href}
+      aria-current={actif ? "page" : undefined}
+      prefetch={false}
+      onMouseEnter={() => precharger(item.href)}
+      onFocus={() => precharger(item.href)}
+      onTouchStart={() => precharger(item.href)}
+      onClick={onNaviguer}
+      className={classes}
+    >
+      {item.icone}
+      {item.label}
+    </Link>
+  );
+}
+
 export function MainNav() {
   const pathname = usePathname();
   const router = useRouter();
+  const detailsRef = useRef<HTMLDetailsElement>(null);
   // Un survol émet l'événement plusieurs fois (entrée/sortie) : on ne demande
   // le préchargement qu'une fois par route et par session de page.
   const dejaDemandees = useRef<Set<string>>(new Set());
@@ -187,32 +237,100 @@ export function MainNav() {
     },
     [router],
   );
+
+  const itemCourant = ITEMS.find((item) => estActif(item.href, pathname));
+  // Hauteur de layout du header (offsetHeight), pas le bottom viewport :
+  // getBoundingClientRect().bottom reculait au scroll et le panneau
+  // `fixed` recouvrait la search. Repli CSS `--chrome-bottom` si pas encore
+  // mesuré (no-JS / premier paint).
+  const [chromeBas, setChromeBas] = useState<number | null>(null);
+  const fermerMenu = useCallback(() => {
+    if (detailsRef.current) detailsRef.current.open = false;
+  }, []);
+
+  useEffect(() => {
+    const el = detailsRef.current;
+    if (el) el.open = false;
+  }, [pathname]);
+
+  useEffect(() => {
+    const el = detailsRef.current;
+    if (!el) return;
+
+    const surTouche = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || !el.open) return;
+      el.open = false;
+      el.querySelector("summary")?.focus();
+    };
+    const surPointer = (e: PointerEvent) => {
+      if (!el.open) return;
+      if (el.contains(e.target as Node)) return;
+      el.open = false;
+    };
+
+    document.addEventListener("keydown", surTouche);
+    document.addEventListener("pointerdown", surPointer);
+    return () => {
+      document.removeEventListener("keydown", surTouche);
+      document.removeEventListener("pointerdown", surPointer);
+    };
+  }, []);
+
+  useEffect(() => {
+    const header = detailsRef.current?.closest("header");
+    if (!header) return;
+    const maj = () => setChromeBas(header.offsetHeight);
+    maj();
+    const ro = new ResizeObserver(maj);
+    ro.observe(header);
+    window.addEventListener("resize", maj);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", maj);
+    };
+  }, []);
+
   return (
-    <nav aria-label="Navigation principale" className="overflow-x-auto">
-      <ul className="flex whitespace-nowrap text-[12.5px]">
-        {ITEMS.map((item) => {
-          const actif = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-          return (
+    <nav aria-label="Navigation principale" className="nav-principale relative flex justify-end xl:static xl:block">
+      {/*
+        Panneau `fixed` : le nav vit dans une cellule étroite (header-nav) ;
+        `absolute left-0 right-0` ne couvrirait que ce coin. Repli CSS
+        `--chrome-bottom` (8rem) pour le no-JS ; après hydratation,
+        `chromeBas` = header.offsetHeight (le header est sticky : ce n'est
+        PAS getBoundingClientRect().bottom, qui recule au scroll).
+        max-h + overscroll-contain : 11 × 44px sur un écran court.
+      */}
+      <details ref={detailsRef} className="xl:hidden">
+        <summary className="inline-flex min-h-11 min-w-11 cursor-pointer list-none items-center gap-2 rounded-lg border border-card-border bg-page px-3 text-[13px] text-ink select-none [&::-webkit-details-marker]:hidden">
+          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" {...TRAIT} className="shrink-0">
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+          Menu
+          {itemCourant ? <span className="sr-only">{` · ${itemCourant.label}`}</span> : null}
+        </summary>
+        <ul
+          className="fixed top-[var(--chrome-bottom,8rem)] right-0 left-0 z-40 mx-auto flex max-h-[calc(100dvh-var(--chrome-bottom,8rem))] max-w-7xl flex-col overflow-y-auto overscroll-contain border-b border-card-border bg-card px-5 pt-2 pb-3"
+          style={chromeBas != null ? { top: chromeBas, maxHeight: `calc(100dvh - ${chromeBas}px)` } : undefined}
+        >
+          {ITEMS.map((item) => (
             <li key={item.href}>
-              <Link
-                href={item.href}
-                aria-current={actif ? "page" : undefined}
-                prefetch={false}
-                onMouseEnter={() => precharger(item.href)}
-                onFocus={() => precharger(item.href)}
-                onTouchStart={() => precharger(item.href)}
-                className={`flex items-center gap-1.5 border-b-2 px-3 py-2.5 transition-colors ${
-                  actif
-                    ? "border-accent font-medium text-ink"
-                    : "border-transparent text-ink-secondary hover:text-ink"
-                }`}
-              >
-                {item.icone}
-                {item.label}
-              </Link>
+              <LienNav
+                item={item}
+                actif={estActif(item.href, pathname)}
+                precharger={precharger}
+                variante="mobile"
+                onNaviguer={fermerMenu}
+              />
             </li>
-          );
-        })}
+          ))}
+        </ul>
+      </details>
+      <ul className="hidden text-[12.5px] xl:flex xl:flex-wrap">
+        {ITEMS.map((item) => (
+          <li key={item.href}>
+            <LienNav item={item} actif={estActif(item.href, pathname)} precharger={precharger} variante="bureau" />
+          </li>
+        ))}
       </ul>
     </nav>
   );
