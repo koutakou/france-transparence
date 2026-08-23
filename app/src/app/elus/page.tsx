@@ -17,6 +17,10 @@ import {
   getSenateurs,
   getSourcesElus,
   getStatsElus,
+  PERIMETRE_DEPUTES,
+  PERIMETRE_ELUS_EN_BASE,
+  PERIMETRE_MAIRES,
+  PERIMETRE_SENATEURS,
   type ScrutinLigne,
 } from "@/lib/queries/elus";
 import type { MetaSource } from "@/lib/db";
@@ -196,18 +200,31 @@ export default async function PageElus() {
         <>
           <StatStrip
             stats={[
-              { label: "Députés", valeur: formatNombre(stats.deputes.nb) },
-              { label: "Sénateurs", valeur: formatNombre(stats.senateurs.nb) },
-              { label: "Maires (RNE)", valeur: formatNombre(stats.nb_maires) },
               {
-                label: "Élus suivis nominativement",
+                label: "Députés",
+                valeur: formatNombre(stats.deputes.nb),
+                perimetre: PERIMETRE_DEPUTES,
+              },
+              {
+                label: "Sénateurs",
+                valeur: formatNombre(stats.senateurs.nb),
+                perimetre: PERIMETRE_SENATEURS,
+              },
+              {
+                label: "Maires (RNE)",
+                valeur: formatNombre(stats.nb_maires),
+                perimetre: PERIMETRE_MAIRES,
+              },
+              {
+                label: "Élus en base",
                 valeur: formatNombre(stats.nb_elus),
-                perimetre:
-                  "maires, présidences d’EPCI, de départements et de régions, parlementaires",
+                perimetre: PERIMETRE_ELUS_EN_BASE,
               },
             ]}
           />
           <div className="-mt-3 flex flex-wrap gap-2">
+            <Badge source={sources["S5-AMO10"]} />
+            <Badge source={sources["S6-ODSEN"]} />
             <Badge source={sources["S17"]} />
           </div>
         </>
@@ -364,7 +381,7 @@ export default async function PageElus() {
       {stats && (
         <Card
           titre="Intégrité — déclarations HATVP"
-          sousTitre="Croisement factuel : fiches nominatives HATVP appariées aux élus du répertoire."
+          sousTitre="Appariement par URL de fiche nominative, pas par homonymie — ce n’est pas le stock total des déclarations HATVP. Le contenu des déclarations de patrimoine n’y entre pas."
           droite={<Badge source={sources["S14"]} />}
         >
           <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-ink-secondary">

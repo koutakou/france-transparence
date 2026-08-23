@@ -12,6 +12,9 @@ import { formatDateFr, formatNombre, formatPct } from "@/lib/format";
 import {
   getFicheElu,
   getSourcesElus,
+  PERIMETRE_PARTICIPATION_FT,
+  PERIMETRE_SCORE_DATAN,
+  PERIMETRE_VOTES_12M,
   type DeclarationHatvp,
   type MandatJson,
   type VoteLigne,
@@ -521,6 +524,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
                   depute.taux_participation_12m !== null
                     ? formatPct(depute.taux_participation_12m, 2)
                     : "—",
+                perimetre: PERIMETRE_PARTICIPATION_FT,
               },
               {
                 label: "Votes exprimés / scrutins du mandat (12 mois)",
@@ -528,6 +532,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
                   depute.nb_votes_12m !== null && depute.nb_scrutins_12m !== null
                     ? `${formatNombre(depute.nb_votes_12m)} / ${formatNombre(depute.nb_scrutins_12m)}`
                     : "—",
+                perimetre: PERIMETRE_VOTES_12M,
               },
               {
                 label: "Participation (score Datan, 0–1)",
@@ -535,6 +540,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
                   depute.datan_score_participation !== null
                     ? formatNombre(depute.datan_score_participation, 2)
                     : "—",
+                perimetre: PERIMETRE_SCORE_DATAN,
               },
               {
                 label: "Loyauté au groupe (score Datan, 0–1)",
@@ -542,6 +548,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
                   depute.datan_score_loyaute !== null
                     ? formatNombre(depute.datan_score_loyaute, 2)
                     : "—",
+                perimetre: PERIMETRE_SCORE_DATAN,
               },
               {
                 label: "Proximité majorité (score Datan, 0–1)",
@@ -549,6 +556,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
                   depute.datan_score_majorite !== null
                     ? formatNombre(depute.datan_score_majorite, 2)
                     : "—",
+                perimetre: PERIMETRE_SCORE_DATAN,
               },
             ]}
           />
@@ -683,7 +691,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
 
       <Card
         titre="Déclarations HATVP"
-        sousTitre="Déclarations publiées par la HATVP, appariées à cette fiche par URL de fiche nominative — statut affiché tel que publié."
+        sousTitre="Déclarations publiées par la HATVP, appariées par URL de fiche nominative — statut affiché tel que publié. Le contenu des déclarations de patrimoine n’est pas affiché ; il se consulte en préfecture."
         droite={<Badge source={sources["S14"]} />}
       >
         {declarations.length > 0 ? (

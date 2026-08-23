@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AlertesListe } from "@/components/client/AlertesListe";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
+import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { JsonLd } from "@/components/JsonLd";
 import { StatStrip } from "@/components/ui/StatStrip";
@@ -11,6 +12,12 @@ import {
   getAlertesPage,
   getAlertesStats,
   getAlertesTypes,
+  getSourcesAlertes,
+  PERIMETRE_ALERTES_TOTAL,
+  PERIMETRE_GRAVITE_HAUTE,
+  PERIMETRE_GRAVITE_INFO,
+  PERIMETRE_GRAVITE_MOYENNE,
+  SOURCES_ALERTES,
 } from "@/lib/queries/alertes";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
@@ -65,6 +72,7 @@ export default async function PageAlertes() {
 
   const types = getAlertesTypes() ?? [];
   const domaines = getAlertesDomaines() ?? [];
+  const sources = getSourcesAlertes() ?? {};
   // Première page (ordre canonique), rendue dans le HTML statique — la
   // suite et les filtres passent par le fragment côté client.
   const premierePage = getAlertesPage({ page: 1 })?.alertes ?? [];
@@ -90,8 +98,9 @@ export default async function PageAlertes() {
         </p>
         <p className="max-w-3xl text-xs text-ink-muted">
           Les retards HATVP «&nbsp;présumés&nbsp;» sont des agrégats non
-          nominatifs (réserve&nbsp;: répertoire des élus trimestriel) — seuls
-          les constats officiels de la HATVP sont nominatifs.
+          nominatifs (réserve&nbsp;: répertoire des élus trimestriel). Les
+          constats officiels de la HATVP, les décisions de la CNCCFP et les
+          défauts du répertoire AGORA portent un nom.
         </p>
         <NoticeLecture
           ancre="alertes"
@@ -100,7 +109,8 @@ export default async function PageAlertes() {
               Une alerte reprend un constat déjà formulé par une autorité, ou
               un signal d’attention tiré des sources, avec sa règle et sa
               base légale. Ce n’est pas un jugement du site. Les constats
-              officiels de la HATVP sont nominatifs ; les retards
+              officiels de la HATVP, les décisions de la CNCCFP et les
+              défauts AGORA portent un nom ; les retards HATVP
               «&nbsp;présumés&nbsp;» sont des agrégats, jamais un nom.
             </p>
           }
@@ -120,15 +130,46 @@ export default async function PageAlertes() {
             </p>
           }
         />
+        <div className="flex flex-wrap gap-2">
+          {SOURCES_ALERTES.map((id) => {
+            const source = sources[id];
+            if (!source) return null;
+            return (
+              <FreshnessBadge
+                key={id}
+                dateDonnees={source.date_donnees}
+                source={source.nom}
+                frequence={source.frequence}
+                url={source.url}
+              />
+            );
+          })}
+        </div>
       </header>
 
       {/* KPI par gravité */}
       <StatStrip
         stats={[
-          { label: "Alertes au total", valeur: formatNombre(stats.total) },
-          { label: "Gravité haute", valeur: formatNombre(nbParGravite.get("haute") ?? 0) },
-          { label: "Gravité moyenne", valeur: formatNombre(nbParGravite.get("moyenne") ?? 0) },
-          { label: "Information", valeur: formatNombre(nbParGravite.get("info") ?? 0) },
+          {
+            label: "Alertes au total",
+            valeur: formatNombre(stats.total),
+            perimetre: PERIMETRE_ALERTES_TOTAL,
+          },
+          {
+            label: "Gravité haute",
+            valeur: formatNombre(nbParGravite.get("haute") ?? 0),
+            perimetre: PERIMETRE_GRAVITE_HAUTE,
+          },
+          {
+            label: "Gravité moyenne",
+            valeur: formatNombre(nbParGravite.get("moyenne") ?? 0),
+            perimetre: PERIMETRE_GRAVITE_MOYENNE,
+          },
+          {
+            label: "Information",
+            valeur: formatNombre(nbParGravite.get("info") ?? 0),
+            perimetre: PERIMETRE_GRAVITE_INFO,
+          },
         ]}
       />
 

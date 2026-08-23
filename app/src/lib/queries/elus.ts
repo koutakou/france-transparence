@@ -111,6 +111,41 @@ export type StatsElus = {
   nb_declarations_hatvp: number;
 };
 
+/** Assemblée nationale en exercice — pas l’ensemble des élus. */
+export const PERIMETRE_DEPUTES =
+  "Assemblée nationale en exercice — ce n’est pas l’ensemble des élus";
+
+/** Sénat en exercice — pas l’ensemble des élus. */
+export const PERIMETRE_SENATEURS =
+  "Sénat en exercice — ce n’est pas l’ensemble des élus";
+
+/**
+ * Mandats « maire » du RNE ingéré. Ce n’est pas tout le répertoire
+ * (les conseillers municipaux n’y sont pas) et ce n’est pas « les élus
+ * de France ».
+ */
+export const PERIMETRE_MAIRES =
+  "mandats maire du RNE ingéré — hors conseillers municipaux, ce n’est pas tout le RNE";
+
+/**
+ * Personnes présentes dans le répertoire local. Une ligne n’est pas une
+ * fiche : maires et présidences d’EPCI n’ont pas de page dédiée.
+ */
+export const PERIMETRE_ELUS_EN_BASE =
+  "maires, présidences d’EPCI, de départements et de régions, parlementaires — pas les conseillers municipaux ; une fiche n’existe que pour les parlementaires et les exécutifs départementaux et régionaux";
+
+/** Taux calculé ici : scrutins publics AN, fenêtre glissante. */
+export const PERIMETRE_PARTICIPATION_FT =
+  "scrutins publics de l’AN, 12 derniers mois depuis l’entrée en mandat — votes exprimés";
+
+/** Même fenêtre que le taux — un tiret n’est pas un zéro. */
+export const PERIMETRE_VOTES_12M =
+  "même fenêtre que le taux — un tiret n’est pas un zéro";
+
+/** Score Datan, autre méthode. */
+export const PERIMETRE_SCORE_DATAN =
+  "score publié par Datan, échelle 0 à 1 — ce n’est pas le taux calculé ici";
+
 /** Agrégats réels : effectifs, parité, âge moyen, maires, appariement HATVP. */
 export function getStatsElus(): StatsElus | null {
   const db = getDb();

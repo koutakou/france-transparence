@@ -13,6 +13,14 @@ import { StatStrip } from "@/components/ui/StatStrip";
 import { formatNombre, formatPct } from "@/lib/format";
 import {
   getDonneesFinancement,
+  PERIMETRE_AIDE_INSCRITE,
+  PERIMETRE_CANDIDATS_CAMPAGNE,
+  PERIMETRE_DEPENSES_RETENUES,
+  PERIMETRE_DEPOTS_PARTIS,
+  PERIMETRE_PRODUITS_PARTIS,
+  PERIMETRE_REMBOURSEMENT,
+  PERIMETRE_TAUX_REJET,
+  perimetreEnveloppeDecret,
   type AidePubliqueAnnee,
   type CampagneTopDepense,
   type DecisionDetail,
@@ -258,7 +266,8 @@ export default async function FinancementPage() {
               <p>
                 Les comptes non encore publiés par la Commission n’y figurent
                 pas. Cette page ne produit aucun classement d’opinion, aucune
-                intention de vote, aucune mesure de notoriété.
+                intention de vote, aucune mesure de notoriété. Elle ne publie
+                aucune nuance politique.
               </p>
             }
           />
@@ -276,19 +285,22 @@ export default async function FinancementPage() {
             label: "Produits totaux des partis (2024)",
             valeur: enMillions(kpi.produits2024),
             montantVedette: true,
-            perimetre: "comptes déposés, en euros",
+            perimetre: PERIMETRE_PRODUITS_PARTIS,
           },
           ...decretsAide.map((d) => ({
             label: `Enveloppe légale ${d.annee} (décret)`,
             valeur: enMillions(d.montant_total_eur, 2),
+            perimetre: perimetreEnveloppeDecret(d),
           })),
           {
             label: "Aide inscrite aux comptes 2024 par les partis",
             valeur: aide2024 ? enMillions(aide2024.aide_f1_f2, 2) : "non publié",
+            perimetre: PERIMETRE_AIDE_INSCRITE,
           },
           {
             label: "Partis ayant déposé leurs comptes (2024)",
             valeur: formatNombre(kpi.depots2024),
+            perimetre: PERIMETRE_DEPOTS_PARTIS,
           },
         ]}
       />
@@ -539,18 +551,25 @@ export default async function FinancementPage() {
 
       <StatStrip
         stats={[
-          { label: "Candidats (législatives 2024)", valeur: formatNombre(campagnes.nb_candidats) },
+          {
+            label: "Candidats (législatives 2024)",
+            valeur: formatNombre(campagnes.nb_candidats),
+            perimetre: PERIMETRE_CANDIDATS_CAMPAGNE,
+          },
           {
             label: "Taux de rejet (comptes déposés)",
             valeur: formatPct(campagnes.taux_rejet_comptes_deposes * 100, 2),
+            perimetre: PERIMETRE_TAUX_REJET,
           },
           {
             label: "Dépenses retenues (total)",
             valeur: enMillions(campagnes.depenses_retenues),
+            perimetre: PERIMETRE_DEPENSES_RETENUES,
           },
           {
             label: "Remboursement de l'État (total)",
             valeur: enMillions(campagnes.remboursement_etat),
+            perimetre: PERIMETRE_REMBOURSEMENT,
           },
         ]}
       />
@@ -596,14 +615,13 @@ export default async function FinancementPage() {
 
       <Card
         titre="Dépenses de campagne les plus élevées"
-        sousTitre="Top 10 des candidats par dépenses retenues par la CNCCFP."
+        sousTitre="Top 10 des comptes de campagne par dépenses retenues par la CNCCFP — législatives 2024, sans nuance politique."
         droite={badgeCampagnes}
       >
         <DataTable<CampagneTopDepense>
           colonnes={[
             { cle: "nom", entete: "Candidat" },
             { cle: "circonscription", entete: "Circonscription" },
-            { cle: "nuance", entete: "Nuance (telle que publiée)" },
             { cle: "depenses_declarees", entete: "Déclarées (€)", type: "montant" },
             { cle: "depenses_retenues", entete: "Retenues (€)", type: "montant" },
             { cle: "remboursement_etat", entete: "Remb. État (€)", type: "montant" },

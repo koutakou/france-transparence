@@ -13,7 +13,40 @@
  * Toutes les requêtes renvoient `null` si la base n'existe pas encore
  * (getDb() null → la page affiche un état honnête « lancer make ingest »).
  */
-import { getDb } from "@/lib/db";
+import { getDb, type MetaSource } from "@/lib/db";
+
+/** Sources qui alimentent la table `alertes` (FreshnessBadge). */
+export const SOURCES_ALERTES = ["S14", "S17", "S4", "S25", "S29"] as const;
+export type SourceAlerteId = (typeof SOURCES_ALERTES)[number];
+
+/** Fraîcheur des sources du module, indexée par source_id. */
+export function getSourcesAlertes(): Partial<Record<SourceAlerteId, MetaSource>> | null {
+  const db = getDb();
+  if (!db) return null;
+  const marques = SOURCES_ALERTES.map(() => "?").join(", ");
+  const lignes = db
+    .prepare(`SELECT * FROM meta_sources WHERE source_id IN (${marques})`)
+    .all(...SOURCES_ALERTES) as MetaSource[];
+  const parId: Partial<Record<SourceAlerteId, MetaSource>> = {};
+  for (const ligne of lignes) parId[ligne.source_id as SourceAlerteId] = ligne;
+  return parId;
+}
+
+/** Stock calculé à l’ingestion — pas un flux du jour. */
+export const PERIMETRE_ALERTES_TOTAL =
+  "stock calculé à l’ingestion (HATVP, lobbying, financement) — pas un flux du jour";
+
+/** Classification de ce site, constats officiels repris. */
+export const PERIMETRE_GRAVITE_HAUTE =
+  "classification de ce site, constats officiels repris — pas une infraction constatée ici";
+
+/** Un agrégat présumé n’est pas un nom — le gros du stock est nominatif. */
+export const PERIMETRE_GRAVITE_MOYENNE =
+  "classification de ce site — un retard HATVP présumé n’est pas un nom";
+
+/** Mixte : ratios calculés ici + un avis CNCCFP (PDF). */
+export const PERIMETRE_GRAVITE_INFO =
+  "classification de ce site — ratios calculés ici, et un avis CNCCFP publié seulement en PDF";
 
 /** Gravités réellement présentes en base (du plus grave au moins grave). */
 export const GRAVITES_ALERTE = ["haute", "moyenne", "info"] as const;
