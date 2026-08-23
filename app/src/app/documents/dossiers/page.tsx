@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/Card";
 import { JsonLd } from "@/components/JsonLd";
 import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
+import { LienOfficiel } from "@/components/ui/LienOfficiel";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { KpiTile } from "@/components/ui/KpiTile";
 import { libelleTypeDole } from "@/lib/dole-libelles";
@@ -46,7 +47,15 @@ const BALISAGE = jsonLdPage({
 });
 
 const COLONNES_NAVETTE: Colonne<DoleNavetteLigne>[] = [
-  { cle: "titre", entete: "Titre" },
+  {
+    cle: "titre",
+    entete: "Titre",
+    rendu: (l) => (
+      <LienOfficiel href={l.lien_legifrance} source="Légifrance">
+        {l.titre}
+      </LienOfficiel>
+    ),
+  },
   {
     cle: "type",
     entete: "Type",
@@ -58,22 +67,6 @@ const COLONNES_NAVETTE: Colonne<DoleNavetteLigne>[] = [
     cle: "derniere_etape",
     entete: "Dernière étape",
     rendu: (l) => l.derniere_etape || "—",
-  },
-  {
-    cle: "lien_legifrance",
-    entete: "Lien",
-    largeur: "7rem",
-    rendu: (l) => (
-      <a
-        href={l.lien_legifrance}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="whitespace-nowrap text-ink-secondary underline decoration-dotted underline-offset-2 transition-colors hover:text-ink"
-      >
-        Légifrance<span aria-hidden="true"> ↗</span>
-        <span className="sr-only"> (nouvelle fenêtre)</span>
-      </a>
-    ),
   },
 ];
 

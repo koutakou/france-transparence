@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
+import { LienOfficiel } from "@/components/ui/LienOfficiel";
 import { formatNombre, formatPct } from "@/lib/format";
 import { libelleNature } from "@/lib/jorf-libelles";
 import { urlSite } from "@/lib/basePath";
@@ -82,7 +83,9 @@ const COLONNES_FLUX: Colonne<TexteVue>[] = [
         title={l.titre}
         className="block max-xl:max-w-[44ch] max-xl:truncate xl:whitespace-normal xl:break-words"
       >
-        {l.titre}
+        <LienOfficiel href={l.lien_legifrance} source="Légifrance">
+          {l.titre}
+        </LienOfficiel>
       </span>
     ),
   },
@@ -101,21 +104,6 @@ const COLONNES_FLUX: Colonne<TexteVue>[] = [
       ) : (
         "—"
       ),
-  },
-  {
-    cle: "lien_legifrance",
-    entete: "Lien",
-    rendu: (l) => (
-      <a
-        href={l.lien_legifrance}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="whitespace-nowrap text-ink-secondary underline decoration-dotted underline-offset-2 transition-colors hover:text-ink"
-      >
-        Légifrance<span aria-hidden="true"> ↗</span>
-        <span className="sr-only"> (nouvelle fenêtre)</span>
-      </a>
-    ),
   },
 ];
 

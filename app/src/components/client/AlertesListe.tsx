@@ -5,6 +5,7 @@ import { AlertItem, type Gravite } from "@/components/ui/AlertItem";
 import { formatNombre } from "@/lib/format";
 import { urlSite } from "@/lib/basePath";
 import { majParamsUrl } from "@/lib/urlEtat";
+import { estFicheOfficielleEntite } from "@/lib/urlOfficielle";
 import { useUrlInitiale } from "@/lib/useUrlInitiale";
 import type { Alerte, GraviteAlerte } from "@/lib/queries/alertes";
 import type { AlertesFragment } from "@/app/data/alertes.json/route";
@@ -304,6 +305,7 @@ export function AlertesListe({ types, parGravite, total, initiales }: AlertesLis
                 gravite={ui.statut}
                 graviteLibelle={ui.libelle}
                 titre={a.titre}
+                titreHref={estFicheOfficielleEntite(a.source_url) ? a.source_url ?? undefined : undefined}
                 detail={a.detail ?? undefined}
                 regle={a.regle ?? undefined}
                 baseLegale={a.base_legale ?? undefined}

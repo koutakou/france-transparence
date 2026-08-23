@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { LineChart } from "@/components/ui/LineChart";
+import { PuceOfficielle } from "@/components/ui/LienOfficiel";
 import { formatEuros, formatNombre } from "@/lib/format";
+import { urlAnnuaireEntreprise } from "@/lib/urlOfficielle";
 import { urlSite } from "@/lib/basePath";
 import { majParamsUrl } from "@/lib/urlEtat";
 import { useUrlInitiale } from "@/lib/useUrlInitiale";
@@ -27,6 +29,7 @@ import type { SerieAnnuelle, ToutesSeries } from "@/lib/queries/collectivites";
 export type LigneCollectivite = {
   code: string;
   nom: string;
+  siren?: string | null;
   est_ctu?: number;
   population: number | null;
   fonctionnement_meur: number | null;
@@ -192,21 +195,25 @@ export function SeriesCollectivites({ niveau, lignes, hauteurMax }: SeriesCollec
     {
       cle: "nom",
       entete: cfg.enteteNom,
-      rendu: (l) => (
-        <>
-          <button
-            type="button"
-            onClick={() => choisir(l.code)}
-            aria-current={code === l.code ? "true" : undefined}
-            className={`text-left underline decoration-dotted underline-offset-2 transition-colors hover:text-accent ${
-              code === l.code ? "font-medium text-accent" : ""
-            }`}
-          >
-            {l.nom}
-          </button>
-          {l.est_ctu === 1 && <span className="text-ink-muted"> · CTU</span>}
-        </>
-      ),
+      rendu: (l) => {
+        const url = urlAnnuaireEntreprise(l.siren);
+        return (
+          <>
+            <button
+              type="button"
+              onClick={() => choisir(l.code)}
+              aria-current={code === l.code ? "true" : undefined}
+              className={`text-left underline decoration-dotted underline-offset-2 transition-colors hover:text-accent ${
+                code === l.code ? "font-medium text-accent" : ""
+              }`}
+            >
+              {l.nom}
+            </button>
+            {url ? <PuceOfficielle href={url} libelle="Sirene" nom={l.nom} /> : null}
+            {l.est_ctu === 1 && <span className="text-ink-muted"> · CTU</span>}
+          </>
+        );
+      },
     },
     { cle: "population", entete: "Population", type: "nombre" },
     { cle: "fonctionnement_meur", entete: "Fonctionnement (M€)", type: "montant", decimales: 1 },

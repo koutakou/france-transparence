@@ -93,6 +93,8 @@ export type TopAcheteur = {
   nb_etablissements: number;
   nb_marches: number;
   montant_total: number | null; // écrêté
+  /** 1 si le SIREN figure dans `sirene_unites_legales` (S18) — sinon pas d'annuaire. */
+  dans_sirene: number;
 };
 
 export type TopTitulaire = TopAcheteur & {
@@ -407,6 +409,8 @@ export type MarcheAVenir = {
   montant_estime_tranche: string | null; // tranche texte non sommable
   date_prev_publication: string;
   lien_consultation: string | null;
+  /** 1 si l'acheteur figure dans `sirene_unites_legales` (S18). */
+  dans_sirene: number;
 };
 
 export type AlerteMarches = {
@@ -683,7 +687,8 @@ const SQL_TOP_TITULAIRES = `
          COALESCE(NULLIF(TRIM(s.categorie_entreprise), ''), t.categorie) AS categorie,
          t.nb_etablissements,
          t.nb_marches,
-         t.montant_total
+         t.montant_total,
+         CASE WHEN s.siren IS NOT NULL THEN 1 ELSE 0 END AS dans_sirene
     FROM decp_top_titulaires t
     LEFT JOIN sirene_unites_legales s ON s.siren = t.siren
    ORDER BY t.rang LIMIT 10`;
@@ -694,7 +699,8 @@ const SQL_TOP_ACHETEURS = `
          COALESCE(NULLIF(TRIM(s.denomination), ''), a.nom) AS nom,
          a.nb_etablissements,
          a.nb_marches,
-         a.montant_total
+         a.montant_total,
+         CASE WHEN s.siren IS NOT NULL THEN 1 ELSE 0 END AS dans_sirene
     FROM decp_top_acheteurs a
     LEFT JOIN sirene_unites_legales s ON s.siren = a.siren
    ORDER BY a.rang LIMIT 10`;
@@ -708,11 +714,12 @@ const SQL_TOP_ACHETEURS = `
  */
 const SQL_TOP_TITULAIRES_SANS_SIRENE = `
   SELECT rang, siren, nom, categorie, nb_etablissements, nb_marches,
-         montant_total
+         montant_total, 0 AS dans_sirene
     FROM decp_top_titulaires ORDER BY rang LIMIT 10`;
 
 const SQL_TOP_ACHETEURS_SANS_SIRENE = `
-  SELECT rang, siren, nom, nb_etablissements, nb_marches, montant_total
+  SELECT rang, siren, nom, nb_etablissements, nb_marches, montant_total,
+         0 AS dans_sirene
     FROM decp_top_acheteurs ORDER BY rang LIMIT 10`;
 
 /**
@@ -750,7 +757,8 @@ const SQL_MARCHES_A_VENIR = `
            NULLIF(TRIM(s.denomination), '')
          ) AS acheteur_nom,
          m.categorie_achat, m.montant_estime_tranche,
-         m.date_prev_publication, m.lien_consultation
+         m.date_prev_publication, m.lien_consultation,
+         CASE WHEN s.siren IS NOT NULL THEN 1 ELSE 0 END AS dans_sirene
     FROM marches_a_venir m
     LEFT JOIN sirene_unites_legales s ON s.siren = m.acheteur_siren
    ORDER BY m.date_prev_publication ASC, m.code LIMIT 20`;
@@ -767,7 +775,8 @@ const SQL_MARCHES_A_VENIR_SANS_SIRENE = `
                        WHERE e.siren = m.acheteur_siren
                        ORDER BY e.nom LIMIT 1)), '') AS acheteur_nom,
          m.categorie_achat, m.montant_estime_tranche,
-         m.date_prev_publication, m.lien_consultation
+         m.date_prev_publication, m.lien_consultation,
+         0 AS dans_sirene
     FROM marches_a_venir m
    ORDER BY m.date_prev_publication ASC, m.code LIMIT 20`;
 

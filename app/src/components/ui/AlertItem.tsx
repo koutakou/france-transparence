@@ -22,6 +22,12 @@ export type Gravite = "bon" | "attention" | "serieux" | "critique";
 export interface AlertItemProps {
   gravite: Gravite;
   titre: string;
+  /**
+   * Fiche officielle de l'entité nommée dans le titre (HATVP nominative,
+   * fiche AGORA…). Absent si `source.url` est un jeu de données : on ne
+   * pose pas un nom de personne sur un CSV.
+   */
+  titreHref?: string;
   /** Détail factuel (une à deux phrases). */
   detail?: string;
   /** Règle de calcul de l'alerte (dépliable). */
@@ -84,6 +90,7 @@ const GRAVITES: Record<Gravite, { jeton: string; libelle: string; icone: ReactNo
 export function AlertItem({
   gravite,
   titre,
+  titreHref,
   detail,
   regle,
   baseLegale,
@@ -124,7 +131,22 @@ export function AlertItem({
               </span>
             )}
           </div>
-          <h3 className="mt-0.5 text-sm font-semibold text-ink">{titre}</h3>
+          <h3 className="mt-0.5 text-sm font-semibold text-ink">
+            {titreHref ? (
+              <a
+                href={titreHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline decoration-dotted underline-offset-2 transition-colors hover:text-accent"
+              >
+                {titre}
+                <span className="sr-only"> (nouvelle fenêtre)</span>
+                <span aria-hidden="true"> ↗</span>
+              </a>
+            ) : (
+              titre
+            )}
+          </h3>
           {detail && <p className="mt-1 text-[13px] leading-snug text-ink-secondary">{detail}</p>}
           {(regle || baseLegale) && (
             <details className="mt-2 group">

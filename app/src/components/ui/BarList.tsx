@@ -25,6 +25,10 @@ export interface BarListItem {
   valeur: number;
   /** Override ponctuel (dé-emphase « Autre ») — défaut `var(--viz-serie-1)`. */
   couleur?: string;
+  /** Fiche officielle du producteur (SIREN → Sirene, etc.). Absent = pas de lien. */
+  href?: string;
+  /** Producteur pour l'accessible name, si `href` est posé (ex. « Sirene »). */
+  hrefSource?: string;
 }
 
 export interface BarListProps {
@@ -69,7 +73,20 @@ export function BarList({
               className="shrink-0 whitespace-normal text-[13px] leading-snug text-ink-secondary"
               style={{ width: largeurLibelle }}
             >
-              {item.libelle}
+              {item.href ? (
+                <a
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline decoration-dotted underline-offset-2 transition-colors hover:text-accent"
+                >
+                  {item.libelle}
+                  <span className="sr-only">{` — ${item.hrefSource ?? "fiche officielle"} (nouvelle fenêtre)`}</span>
+                  <span aria-hidden="true"> ↗</span>
+                </a>
+              ) : (
+                item.libelle
+              )}
             </span>
             <span className="flex min-w-0 flex-1 items-center self-center gap-2 text-[13px]">
               <span

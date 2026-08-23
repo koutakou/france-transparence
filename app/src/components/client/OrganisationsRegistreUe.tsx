@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { DataTable } from "@/components/ui/DataTable";
+import { LienOfficiel } from "@/components/ui/LienOfficiel";
 import { formatNombre } from "@/lib/format";
 import { urlSite } from "@/lib/basePath";
 import type { OrganisationUe } from "@/lib/queries/registre-ue";
@@ -42,20 +43,6 @@ export function urlFicheRegistreUe(id: string): string {
  * en opacité réduite sans squelette ; si le fragment est indisponible, le
  * message le dit et l'aperçu reste affiché.
  */
-
-/** Lien sortant vers la fiche officielle du registre de l'Union. */
-function LienFicheUe({ id }: { id: string }) {
-  return (
-    <a
-      href={urlFicheRegistreUe(id)}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
-    >
-      Fiche UE
-    </a>
-  );
-}
 
 let organisationsPromesse: Promise<OrganisationsUeFragment | null> | null = null;
 
@@ -102,19 +89,21 @@ export function OrganisationsRegistreUe({
       >
         <DataTable<OrganisationUe>
           colonnes={[
-            { cle: "nom", entete: "Organisation (raison sociale déclarée)" },
+            {
+              cle: "nom",
+              entete: "Organisation (raison sociale déclarée)",
+              rendu: (l) => (
+                <LienOfficiel href={urlFicheRegistreUe(l.id)} source="registre de l'Union">
+                  {l.nom}
+                </LienOfficiel>
+              ),
+            },
             { cle: "acronyme", entete: "Sigle", largeur: "7rem" },
             { cle: "categorie", entete: "Catégorie d'inscription (libellé natif)" },
             {
               cle: "cout_libelle",
               entete: "Coûts annuels déclarés (fourchette)",
               largeur: "12rem",
-            },
-            {
-              cle: "id",
-              entete: "Registre",
-              rendu: (l) => <LienFicheUe id={l.id} />,
-              largeur: "6rem",
             },
           ]}
           lignes={affichees}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
+import { LienOfficiel } from "@/components/ui/LienOfficiel";
 import { Money } from "@/components/ui/Money";
 import { formatNombre, formatPct } from "@/lib/format";
 import { urlSite } from "@/lib/basePath";
@@ -55,7 +56,16 @@ const COLONNES_AO: Colonne<AoEnCours>[] = [
   {
     cle: "objet",
     entete: "Objet",
-    rendu: (a) => <span title={a.objet ?? undefined}>{tronque(a.objet, 80)}</span>,
+    rendu: (a) => {
+      const texte = <span title={a.objet ?? undefined}>{tronque(a.objet, 80)}</span>;
+      return a.url_avis ? (
+        <LienOfficiel href={a.url_avis} source="BOAMP">
+          {texte}
+        </LienOfficiel>
+      ) : (
+        texte
+      );
+    },
   },
   {
     cle: "acheteur",
@@ -88,23 +98,6 @@ const COLONNES_AO: Colonne<AoEnCours>[] = [
     entete: "Date limite (Paris)",
     largeur: "10rem",
     rendu: (a) => formatDateHeureParis(a.date_limite_reponse),
-  },
-  {
-    cle: "url_avis",
-    entete: "Annonce",
-    rendu: (a) =>
-      a.url_avis ? (
-        <a
-          href={a.url_avis}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-ink-secondary underline decoration-dotted underline-offset-2 hover:text-ink"
-        >
-          Annonce
-        </a>
-      ) : (
-        "—"
-      ),
   },
 ];
 

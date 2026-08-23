@@ -45,6 +45,10 @@ export type TopEntite = {
   categorie: string | null;
   nb_activites_12m: number;
   url_fiche: string | null;
+  identifiant_national: string | null;
+  type_identifiant: string | null;
+  /** 1 si `type_identifiant = SIREN` et le SIREN figure dans S18. */
+  dans_sirene: number;
 };
 
 /** Fourchette de budget native HATVP (`borne_max` NULL = non bornée). */
@@ -129,6 +133,10 @@ export type EntiteEnDefaut = {
   categorie: string | null;
   ville: string | null;
   url_fiche: string | null;
+  identifiant_national: string | null;
+  type_identifiant: string | null;
+  /** 1 si `type_identifiant = SIREN` et le SIREN figure dans S18. */
+  dans_sirene: number;
 };
 
 export type DonneesLobbying = {
@@ -157,6 +165,53 @@ export type DonneesLobbying = {
   entitesEnDefaut: EntiteEnDefaut[];
 };
 
+type Db = NonNullable<ReturnType<typeof getDb>>;
+
+function tablePresente(db: Db, nom: string): boolean {
+  return (
+    (
+      db
+        .prepare(
+          `SELECT COUNT(*) AS n FROM sqlite_master
+            WHERE type = 'table' AND name = ?`,
+        )
+        .get(nom) as { n: number }
+    ).n === 1
+  );
+}
+
+const SQL_DEFAUTS = `SELECT e.id, e.denomination, e.categorie, e.ville, e.url_fiche,
+       e.identifiant_national, e.type_identifiant,
+       CASE WHEN s.siren IS NOT NULL THEN 1 ELSE 0 END AS dans_sirene
+FROM lobby_entites e
+LEFT JOIN sirene_unites_legales s
+  ON e.type_identifiant = 'SIREN' AND s.siren = e.identifiant_national
+WHERE e.defaut_declaration = 1
+ORDER BY e.denomination`;
+
+const SQL_DEFAUTS_SANS_SIRENE = `SELECT id, denomination, categorie, ville, url_fiche,
+       identifiant_national, type_identifiant, 0 AS dans_sirene
+FROM lobby_entites
+WHERE defaut_declaration = 1
+ORDER BY denomination`;
+
+const SQL_TOP_ENTITES = `SELECT t.rang, t.denomination, t.categorie, t.nb_activites_12m, e.url_fiche,
+       e.identifiant_national, e.type_identifiant,
+       CASE WHEN s.siren IS NOT NULL THEN 1 ELSE 0 END AS dans_sirene
+FROM lobby_agg_top_entites t
+LEFT JOIN lobby_entites e ON e.id = t.entite_id
+LEFT JOIN sirene_unites_legales s
+  ON e.type_identifiant = 'SIREN' AND s.siren = e.identifiant_national
+WHERE t.rang <= 20
+ORDER BY t.rang`;
+
+const SQL_TOP_ENTITES_SANS_SIRENE = `SELECT t.rang, t.denomination, t.categorie, t.nb_activites_12m, e.url_fiche,
+       e.identifiant_national, e.type_identifiant, 0 AS dans_sirene
+FROM lobby_agg_top_entites t
+LEFT JOIN lobby_entites e ON e.id = t.entite_id
+WHERE t.rang <= 20
+ORDER BY t.rang`;
+
 /**
  * Liste COMPLÈTE des entités en défaut de déclaration (316 au 19/08/2026),
  * tri alphabétique — consommée par le fragment statique
@@ -166,14 +221,31 @@ export type DonneesLobbying = {
 export function getEntitesEnDefaut(): EntiteEnDefaut[] | null {
   const db = getDb();
   if (!db) return null;
-  return db
-    .prepare(
-      `SELECT id, denomination, categorie, ville, url_fiche
-       FROM lobby_entites
-       WHERE defaut_declaration = 1
-       ORDER BY denomination`,
-    )
-    .all() as EntiteEnDefaut[];
+  const sql = tablePresente(db, "sirene_unites_legales")
+    ? SQL_DEFAUTS
+    : SQL_DEFAUTS_SANS_SIRENE;
+  return db.prepare(sql).all() as EntiteEnDefaut[];
+}
+
+const SIREN_9 = /^[0-9]{9}$/;
+
+/**
+ * SIREN déjà retenus (9 chiffres) présents dans `sirene_unites_legales`.
+ * Sert au croisement titulaires × répertoire, dont la requête (hors
+ * périmètre) ne joint pas S18.
+ */
+export function sirensPresentsDansSirene(sirens: Iterable<string>): Set<string> {
+  const db = getDb();
+  const out = new Set<string>();
+  if (!db || !tablePresente(db, "sirene_unites_legales")) return out;
+  const propres = [...new Set([...sirens].filter((s) => SIREN_9.test(s)))];
+  if (propres.length === 0) return out;
+  const marques = propres.map(() => "?").join(",");
+  const rows = db
+    .prepare(`SELECT siren FROM sirene_unites_legales WHERE siren IN (${marques})`)
+    .all(...propres) as { siren: string }[];
+  for (const r of rows) out.add(r.siren);
+  return out;
 }
 
 /**
@@ -224,11 +296,9 @@ export function getDonneesLobbying(): DonneesLobbying | null {
 
   const topEntites = db
     .prepare(
-      `SELECT t.rang, t.denomination, t.categorie, t.nb_activites_12m, e.url_fiche
-       FROM lobby_agg_top_entites t
-       LEFT JOIN lobby_entites e ON e.id = t.entite_id
-       WHERE t.rang <= 20
-       ORDER BY t.rang`,
+      tablePresente(db, "sirene_unites_legales")
+        ? SQL_TOP_ENTITES
+        : SQL_TOP_ENTITES_SANS_SIRENE,
     )
     .all() as TopEntite[];
 

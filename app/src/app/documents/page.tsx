@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { JsonLd } from "@/components/JsonLd";
 import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
+import { LienOfficiel } from "@/components/ui/LienOfficiel";
 import { Donut } from "@/components/ui/Donut";
 import { FluxTextes } from "@/components/client/FluxTextes";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
@@ -164,7 +165,9 @@ export default async function DocumentsPage() {
       entete: "Titre",
       rendu: (l) => (
         <span title={l.titre} className="block max-w-[48ch] truncate">
-          {l.titre}
+          <LienOfficiel href={l.lien_legifrance} source="Légifrance">
+            {l.titre}
+          </LienOfficiel>
         </span>
       ),
     },
@@ -186,22 +189,6 @@ export default async function DocumentsPage() {
         ) : (
           "—"
         ),
-    },
-    {
-      cle: "lien_legifrance",
-      entete: "Lien",
-      largeur: "7rem",
-      rendu: (l) => (
-        <a
-          href={l.lien_legifrance}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="whitespace-nowrap text-ink-secondary underline decoration-dotted underline-offset-2 transition-colors hover:text-ink"
-        >
-          Légifrance<span aria-hidden="true"> ↗</span>
-          <span className="sr-only"> (nouvelle fenêtre)</span>
-        </a>
-      ),
     },
   ];
 

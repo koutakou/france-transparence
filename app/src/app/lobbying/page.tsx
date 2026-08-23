@@ -6,6 +6,7 @@ import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
 import { DataTable } from "@/components/ui/DataTable";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
+import { LienOfficiel, PuceOfficielle } from "@/components/ui/LienOfficiel";
 import { LineChart } from "@/components/ui/LineChart";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { DefautsLobbying } from "@/components/client/DefautsLobbying";
@@ -25,12 +26,14 @@ import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 import {
   getDonneesLobbying,
+  sirensPresentsDansSirene,
   type FourchetteBudget,
   type InstitutionDetail,
   type MinistereVise,
   type TopEntite,
   type TrimestreActivites,
 } from "@/lib/queries/lobbying";
+import { urlAnnuaireEntreprise } from "@/lib/urlOfficielle";
 import { OrganisationsRegistreUe } from "@/components/client/OrganisationsRegistreUe";
 import {
   getDonneesRegistreUe,
@@ -102,18 +105,30 @@ function graviteUi(g: string): { gravite: Gravite; libelle: string } {
   return { gravite: "attention", libelle: "Info" };
 }
 
-/** Lien sortant vers une fiche HATVP (jamais de fetch serveur). */
-function LienFiche({ url }: { url: string | null }) {
-  if (!url) return <>—</>;
+/** Nom = fiche HATVP ; puce Sirene seulement si SIREN 9 chiffres déjà en S18. */
+function NomHatvp({
+  denomination,
+  urlFiche,
+  sirenPourAnnuaire,
+}: {
+  denomination: string;
+  urlFiche: string | null;
+  sirenPourAnnuaire: string | null;
+}) {
+  const hrefSirene = urlAnnuaireEntreprise(sirenPourAnnuaire);
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
-    >
-      Fiche HATVP
-    </a>
+    <span>
+      {urlFiche ? (
+        <LienOfficiel href={urlFiche} source="HATVP">
+          {denomination}
+        </LienOfficiel>
+      ) : (
+        denomination
+      )}
+      {hrefSirene ? (
+        <PuceOfficielle href={hrefSirene} libelle="Sirene" nom={denomination} />
+      ) : null}
+    </span>
   );
 }
 
@@ -153,6 +168,7 @@ function part(partie: number | null, total: number | null): number | null {
 function ligneTitulaire(
   t: TitulaireLobbyiste,
   perimetre: "horsAccordsCadres" | "tousMarches",
+  dansSirene: Set<string>,
 ): LigneTitulaireLobbyiste {
   const horsAc = perimetre === "horsAccordsCadres";
   const montant = horsAc ? t.montant_hors_ac : t.montant_tous;
@@ -165,6 +181,7 @@ function ligneTitulaire(
     activites_12m: t.activites_12m,
     nb_marches: horsAc ? t.nb_marches_hors_ac : t.nb_marches_tous,
     montant_meur: montant === null ? null : montant / 1e6,
+    dans_sirene: dansSirene.has(t.siren) ? 1 : 0,
   };
 }
 
@@ -174,6 +191,7 @@ type LigneDefautTitulaire = {
   denomination: string;
   categorie: string | null;
   url_fiche: string | null;
+  dans_sirene: number;
   nb_marches_tous: number;
   montant_tous_meur: number | null;
   nb_marches_hors_ac: number;
@@ -203,6 +221,7 @@ function SectionCroisement({
 }) {
   const { metaS1, metaS4, couverture, agregats: ag, ensemble, titulaires } = croisement;
 
+  const dansSirene = sirensPresentsDansSirene(titulaires.map((t) => t.siren));
   const sansSiren = couverture.entites - couverture.entitesSiren;
   const partMontant = part(ag.montantHorsAc, ensemble.montantHorsAc);
   const partMarches = part(ag.marchesHorsAc, ensemble.marchesHorsAc);
@@ -214,11 +233,11 @@ function SectionCroisement({
   // fait que choisir lequel afficher (aucun fetch, aucun recalcul).
   const topHorsAc = titulaires
     .slice(0, 20)
-    .map((t) => ligneTitulaire(t, "horsAccordsCadres"));
+    .map((t) => ligneTitulaire(t, "horsAccordsCadres", dansSirene));
   const topTous = [...titulaires]
     .sort((a, b) => (b.montant_tous ?? 0) - (a.montant_tous ?? 0))
     .slice(0, 20)
-    .map((t) => ligneTitulaire(t, "tousMarches"));
+    .map((t) => ligneTitulaire(t, "tousMarches", dansSirene));
 
   const enDefaut: LigneDefautTitulaire[] = titulaires
     .filter((t) => t.defaut_declaration === 1)
@@ -228,6 +247,7 @@ function SectionCroisement({
       denomination: t.denomination,
       categorie: t.categorie,
       url_fiche: t.url_fiche,
+      dans_sirene: dansSirene.has(t.siren) ? 1 : 0,
       nb_marches_tous: t.nb_marches_tous,
       montant_tous_meur: t.montant_tous === null ? null : t.montant_tous / 1e6,
       nb_marches_hors_ac: t.nb_marches_hors_ac,
@@ -525,7 +545,17 @@ function SectionCroisement({
 
           <DataTable<LigneDefautTitulaire>
             colonnes={[
-              { cle: "denomination", entete: "Entité en défaut de déclaration" },
+              {
+                cle: "denomination",
+                entete: "Entité en défaut de déclaration",
+                rendu: (l) => (
+                  <NomHatvp
+                    denomination={l.denomination}
+                    urlFiche={l.url_fiche}
+                    sirenPourAnnuaire={l.dans_sirene === 1 ? l.siren : null}
+                  />
+                ),
+              },
               { cle: "categorie", entete: "Catégorie (libellé natif HATVP)" },
               {
                 cle: "nb_marches_tous",
@@ -551,12 +581,6 @@ function SectionCroisement({
                 entete: "Montant (M€, hors AC)",
                 type: "montant",
                 decimales: 1,
-                largeur: "7rem",
-              },
-              {
-                cle: "url_fiche",
-                entete: "Registre",
-                rendu: (l) => <LienFiche url={l.url_fiche} />,
                 largeur: "7rem",
               },
             ]}
@@ -1049,14 +1073,23 @@ export default async function LobbyingPage() {
         <DataTable<TopEntite>
           colonnes={[
             { cle: "rang", entete: "Rang", type: "nombre", largeur: "3.5rem" },
-            { cle: "denomination", entete: "Entité" },
+            {
+              cle: "denomination",
+              entete: "Entité",
+              rendu: (l) => (
+                <NomHatvp
+                  denomination={l.denomination}
+                  urlFiche={l.url_fiche}
+                  sirenPourAnnuaire={
+                    l.type_identifiant === "SIREN" && l.dans_sirene === 1
+                      ? l.identifiant_national
+                      : null
+                  }
+                />
+              ),
+            },
             { cle: "categorie", entete: "Catégorie" },
             { cle: "nb_activites_12m", entete: "Activités (12 mois)", type: "nombre" },
-            {
-              cle: "url_fiche",
-              entete: "Registre",
-              rendu: (l) => <LienFiche url={l.url_fiche} />,
-            },
           ]}
           lignes={topEntites}
           cleLigne={(l) => String(l.rang)}

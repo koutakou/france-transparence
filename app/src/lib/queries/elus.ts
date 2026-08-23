@@ -210,6 +210,10 @@ export type DeputeLigne = {
   taux_participation_12m: number | null;
   /** Score Datan tel que publié, 0–1. */
   datan_score_participation: number | null;
+  /** Fiche producteur AN — NULL si absente en base, jamais inventée. */
+  url_fiche_an: string | null;
+  /** Fiche HATVP (AN en priorité, sinon `elus.hatvp_url`). */
+  hatvp_url: string | null;
 };
 
 export type FiltresListe = { groupe?: string; departement?: string };
@@ -233,7 +237,8 @@ export function getDeputes(filtres: FiltresListe = {}): DeputeLigne[] | null {
     .prepare(
       `SELECT d.uid_an, e.id AS elu_id, d.nom, d.prenom, d.groupe_sigle,
               d.groupe_nom, d.departement,
-              d.taux_participation_12m, d.datan_score_participation
+              d.taux_participation_12m, d.datan_score_participation,
+              d.url_fiche_an, COALESCE(NULLIF(TRIM(d.url_hatvp), ''), e.hatvp_url) AS hatvp_url
        FROM deputes d JOIN elus e ON e.uid_an = d.uid_an
        ${where}
        ORDER BY d.nom, d.prenom`,
@@ -264,6 +269,10 @@ export type SenateurLigne = {
   groupe_appartenance: string | null;
   circonscription: string | null;
   commission: string | null;
+  /** Fiche producteur Sénat — NULL si absente en base, jamais inventée. */
+  url_fiche_senat: string | null;
+  /** Fiche HATVP (`elus.hatvp_url`). */
+  hatvp_url: string | null;
 };
 
 /** Sénateurs (348), filtrables par groupe et circonscription (département). */
@@ -284,7 +293,8 @@ export function getSenateurs(filtres: FiltresListe = {}): SenateurLigne[] | null
   return db
     .prepare(
       `SELECT s.matricule, e.id AS elu_id, s.nom, s.prenom, s.groupe,
-              s.groupe_appartenance, s.circonscription, s.commission
+              s.groupe_appartenance, s.circonscription, s.commission,
+              s.url_fiche_senat, e.hatvp_url
        FROM senateurs s JOIN elus e ON e.matricule_senat = s.matricule
        ${where}
        ORDER BY s.nom, s.prenom`,

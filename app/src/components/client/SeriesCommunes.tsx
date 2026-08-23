@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { LineChart } from "@/components/ui/LineChart";
+import { PuceOfficielle } from "@/components/ui/LienOfficiel";
 import { formatEuros, formatNombre } from "@/lib/format";
+import { urlAnnuaireEntreprise } from "@/lib/urlOfficielle";
 import { urlSite } from "@/lib/basePath";
 import { majParamsUrl } from "@/lib/urlEtat";
 import { useUrlInitiale } from "@/lib/useUrlInitiale";
@@ -46,6 +48,7 @@ const STRATES: Record<string, string> = {
 export type LigneGrandeCommune = {
   code: string;
   nom: string;
+  siren?: string | null;
   departement: string;
   population: number | null;
   fonctionnement_meur: number | null;
@@ -260,18 +263,24 @@ export function SeriesCommunes({ lignes, hauteurMax }: SeriesCommunesProps) {
     {
       cle: "nom",
       entete: "Commune",
-      rendu: (l) => (
-        <button
-          type="button"
-          onClick={() => choisir(l.code)}
-          aria-current={code === l.code ? "true" : undefined}
-          className={`text-left underline decoration-dotted underline-offset-2 transition-colors hover:text-accent ${
-            code === l.code ? "font-medium text-accent" : ""
-          }`}
-        >
-          {l.nom}
-        </button>
-      ),
+      rendu: (l) => {
+        const url = urlAnnuaireEntreprise(l.siren);
+        return (
+          <>
+            <button
+              type="button"
+              onClick={() => choisir(l.code)}
+              aria-current={code === l.code ? "true" : undefined}
+              className={`text-left underline decoration-dotted underline-offset-2 transition-colors hover:text-accent ${
+                code === l.code ? "font-medium text-accent" : ""
+              }`}
+            >
+              {l.nom}
+            </button>
+            {url ? <PuceOfficielle href={url} libelle="Sirene" nom={l.nom} /> : null}
+          </>
+        );
+      },
     },
     { cle: "departement", entete: "Dép." },
     { cle: "population", entete: "Population", type: "nombre" },

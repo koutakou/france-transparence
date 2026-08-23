@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { DataTable } from "@/components/ui/DataTable";
+import { LienOfficiel, PuceOfficielle } from "@/components/ui/LienOfficiel";
 import { formatNombre } from "@/lib/format";
+import { urlAnnuaireEntreprise } from "@/lib/urlOfficielle";
 
 /**
  * Table des représentants d'intérêts titulaires de marchés publics, avec
@@ -39,6 +41,8 @@ export type LigneTitulaireLobbyiste = {
   nb_marches: number;
   /** Montant écrêté puis ventilé entre co-titulaires, EN MILLIONS d'euros. */
   montant_meur: number | null;
+  /** 1 si le SIREN (clé de jointure, 9 chiffres) figure dans S18. */
+  dans_sirene: number;
 };
 
 export interface TitulairesLobbyistesProps {
@@ -68,21 +72,6 @@ function EtiquetteDefaut() {
       </svg>
       en défaut de déclaration
     </span>
-  );
-}
-
-/** Lien sortant vers la fiche du répertoire (jamais de fetch serveur). */
-function LienFiche({ url }: { url: string | null }) {
-  if (!url) return <>—</>;
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
-    >
-      Fiche HATVP
-    </a>
   );
 }
 
@@ -124,12 +113,29 @@ export function TitulairesLobbyistes({
           {
             cle: "denomination",
             entete: "Représentant d'intérêts titulaire",
-            rendu: (l) => (
-              <span>
-                {l.denomination}
-                {l.defaut_declaration === 1 && <EtiquetteDefaut />}
-              </span>
-            ),
+            rendu: (l) => {
+              const hrefSirene =
+                l.dans_sirene === 1 ? urlAnnuaireEntreprise(l.siren) : null;
+              return (
+                <span>
+                  {l.url_fiche ? (
+                    <LienOfficiel href={l.url_fiche} source="HATVP">
+                      {l.denomination}
+                    </LienOfficiel>
+                  ) : (
+                    l.denomination
+                  )}
+                  {hrefSirene ? (
+                    <PuceOfficielle
+                      href={hrefSirene}
+                      libelle="Sirene"
+                      nom={l.denomination}
+                    />
+                  ) : null}
+                  {l.defaut_declaration === 1 && <EtiquetteDefaut />}
+                </span>
+              );
+            },
           },
           { cle: "categorie", entete: "Catégorie (libellé natif HATVP)" },
           { cle: "nb_marches", entete: "Marchés", type: "nombre", largeur: "6rem" },
@@ -145,12 +151,6 @@ export function TitulairesLobbyistes({
             entete: "Activités déclarées (12 mois)",
             type: "nombre",
             largeur: "9rem",
-          },
-          {
-            cle: "url_fiche",
-            entete: "Registre",
-            rendu: (l) => <LienFiche url={l.url_fiche} />,
-            largeur: "7rem",
           },
         ]}
         lignes={lignes}

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
+import { PuceOfficielle } from "@/components/ui/LienOfficiel";
+import { estFicheOfficielleEntite } from "@/lib/urlOfficielle";
 import { formatNombre } from "@/lib/format";
 import { urlSite } from "@/lib/basePath";
 import { majParamsUrl } from "@/lib/urlEtat";
@@ -109,7 +111,18 @@ const COLONNES_DEPUTES: Colonne<DeputeLigne>[] = [
   {
     cle: "nom",
     entete: "Député·e",
-    rendu: (l) => <LienFiche id={l.elu_id} texte={`${l.prenom ?? ""} ${l.nom}`.trim()} />,
+    rendu: (l) => {
+      const nom = `${l.prenom ?? ""} ${l.nom}`.trim();
+      return (
+        <>
+          <LienFiche id={l.elu_id} texte={nom} />
+          {l.url_fiche_an ? <PuceOfficielle href={l.url_fiche_an} libelle="AN" nom={nom} /> : null}
+          {estFicheOfficielleEntite(l.hatvp_url) && l.hatvp_url ? (
+            <PuceOfficielle href={l.hatvp_url} libelle="HATVP" nom={nom} />
+          ) : null}
+        </>
+      );
+    },
   },
   {
     cle: "groupe_sigle",
@@ -136,7 +149,20 @@ const COLONNES_SENATEURS: Colonne<SenateurLigne>[] = [
   {
     cle: "nom",
     entete: "Sénateur·rice",
-    rendu: (l) => <LienFiche id={l.elu_id} texte={`${l.prenom ?? ""} ${l.nom}`.trim()} />,
+    rendu: (l) => {
+      const nom = `${l.prenom ?? ""} ${l.nom}`.trim();
+      return (
+        <>
+          <LienFiche id={l.elu_id} texte={nom} />
+          {l.url_fiche_senat ? (
+            <PuceOfficielle href={l.url_fiche_senat} libelle="Sénat" nom={nom} />
+          ) : null}
+          {estFicheOfficielleEntite(l.hatvp_url) && l.hatvp_url ? (
+            <PuceOfficielle href={l.hatvp_url} libelle="HATVP" nom={nom} />
+          ) : null}
+        </>
+      );
+    },
   },
   {
     cle: "groupe",

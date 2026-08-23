@@ -11,6 +11,7 @@ import { CarteDepartements } from "@/components/client/CarteDepartements";
 import { DataTable } from "@/components/ui/DataTable";
 import { Donut, type DonutPart } from "@/components/ui/Donut";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
+import { LienOfficiel } from "@/components/ui/LienOfficiel";
 import { Money } from "@/components/ui/Money";
 import { SerieMensuelleMarches } from "@/components/client/SerieMensuelleMarches";
 import { Sparkline } from "@/components/ui/Sparkline";
@@ -25,6 +26,7 @@ import {
 } from "@/lib/format";
 import { chargerDonneesMarches, type AlerteMarches } from "@/lib/queries/marches";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
+import { urlAnnuaireEntreprise } from "@/lib/urlOfficielle";
 
 /**
  * Page STATIQUE (site pré-rendu quotidiennement) : tout est calculé au
@@ -63,6 +65,45 @@ const BALISAGE = jsonLdPage({
 function tronque(s: string | null, max: number): string {
   if (!s || s.trim() === "") return "—";
   return s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s;
+}
+
+/** Annuaire Sirene seulement si le SIREN est dans S18 (9 chiffres, LEFT JOIN). */
+function hrefAnnuaire(a: { siren: string | null; dans_sirene: number }): string | null {
+  return a.dans_sirene === 1 ? urlAnnuaireEntreprise(a.siren) : null;
+}
+
+function NomEntreprise({
+  nom,
+  siren,
+  dans_sirene,
+  max,
+}: {
+  nom: string | null;
+  siren: string | null;
+  dans_sirene: number;
+  max: number;
+}) {
+  const href = hrefAnnuaire({ siren, dans_sirene });
+  const texte = <span title={nom ?? undefined}>{tronque(nom, max)}</span>;
+  return href ? (
+    <LienOfficiel href={href} source="Sirene">
+      {texte}
+    </LienOfficiel>
+  ) : (
+    texte
+  );
+}
+
+function CelluleSiren({ siren, dans_sirene }: { siren: string | null; dans_sirene: number }) {
+  if (!siren) return "—";
+  const href = hrefAnnuaire({ siren, dans_sirene });
+  return href ? (
+    <LienOfficiel href={href} source="Sirene">
+      {siren}
+    </LienOfficiel>
+  ) : (
+    siren
+  );
 }
 
 /**
@@ -136,19 +177,10 @@ function EtiquetteSuspect() {
   );
 }
 
-/** Lien sortant discret (annonce BOAMP, consultation APProch). */
-function LienSortant({ href, libelle }: { href: string | null; libelle: string }) {
-  if (!href) return <>—</>;
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-ink-secondary underline decoration-dotted underline-offset-2 hover:text-ink"
-    >
-      {libelle}
-    </a>
-  );
+/** Fiche d'une consultation PLACE, pas le portail générique. */
+function hrefConsultation(url: string | null): string | null {
+  if (!url || !url.includes("/consultation/")) return null;
+  return url;
 }
 
 /* ------------------------------------------------------------------ */
@@ -881,10 +913,15 @@ export default async function PageMarches() {
               Top acheteurs
             </h3>
             <BarList
-              items={donnees.topAcheteurs.map((a) => ({
-                libelle: a.nom ?? a.siren ?? "—",
-                valeur: a.montant_total ?? 0,
-              }))}
+              items={donnees.topAcheteurs.map((a) => {
+                const href = hrefAnnuaire(a) ?? undefined;
+                return {
+                  libelle: a.nom ?? a.siren ?? "—",
+                  valeur: a.montant_total ?? 0,
+                  href,
+                  hrefSource: href ? "Sirene" : undefined,
+                };
+              })}
               formatValeur={(v) => formatEuros(v)}
               largeurLibelle="45%"
             />
@@ -922,9 +959,15 @@ export default async function PageMarches() {
                   {
                     cle: "nom",
                     entete: "Acheteur",
-                    rendu: (a) => <span title={a.nom ?? undefined}>{tronque(a.nom, 60)}</span>,
+                    rendu: (a) => (
+                      <NomEntreprise nom={a.nom} siren={a.siren} dans_sirene={a.dans_sirene} max={60} />
+                    ),
                   },
-                  { cle: "siren", entete: "SIREN", rendu: (a) => a.siren ?? "—" },
+                  {
+                    cle: "siren",
+                    entete: "SIREN",
+                    rendu: (a) => <CelluleSiren siren={a.siren} dans_sirene={a.dans_sirene} />,
+                  },
                   {
                     cle: "nb_etablissements",
                     entete: "Établissements",
@@ -949,10 +992,15 @@ export default async function PageMarches() {
               Top titulaires
             </h3>
             <BarList
-              items={donnees.topTitulaires.map((t) => ({
-                libelle: t.nom ?? t.siren ?? "—",
-                valeur: t.montant_total ?? 0,
-              }))}
+              items={donnees.topTitulaires.map((t) => {
+                const href = hrefAnnuaire(t) ?? undefined;
+                return {
+                  libelle: t.nom ?? t.siren ?? "—",
+                  valeur: t.montant_total ?? 0,
+                  href,
+                  hrefSource: href ? "Sirene" : undefined,
+                };
+              })}
               formatValeur={(v) => formatEuros(v)}
               largeurLibelle="45%"
             />
@@ -967,9 +1015,15 @@ export default async function PageMarches() {
                   {
                     cle: "nom",
                     entete: "Titulaire",
-                    rendu: (t) => <span title={t.nom ?? undefined}>{tronque(t.nom, 60)}</span>,
+                    rendu: (t) => (
+                      <NomEntreprise nom={t.nom} siren={t.siren} dans_sirene={t.dans_sirene} max={60} />
+                    ),
                   },
-                  { cle: "siren", entete: "SIREN", rendu: (t) => t.siren ?? "—" },
+                  {
+                    cle: "siren",
+                    entete: "SIREN",
+                    rendu: (t) => <CelluleSiren siren={t.siren} dans_sirene={t.dans_sirene} />,
+                  },
                   { cle: "categorie", entete: "Catégorie", rendu: (t) => t.categorie ?? "—" },
                   {
                     cle: "nb_etablissements",
@@ -1269,21 +1323,31 @@ export default async function PageMarches() {
             {
               cle: "intitule",
               entete: "Intitulé",
-              rendu: (m) => <span title={m.intitule ?? undefined}>{tronque(m.intitule, 70)}</span>,
+              rendu: (m) => {
+                const texte = (
+                  <span title={m.intitule ?? undefined}>{tronque(m.intitule, 70)}</span>
+                );
+                const href = hrefConsultation(m.lien_consultation);
+                return href ? (
+                  <LienOfficiel href={href} source="PLACE">
+                    {texte}
+                  </LienOfficiel>
+                ) : (
+                  texte
+                );
+              },
             },
             {
               cle: "acheteur_nom",
               entete: "Acheteur",
               rendu: (m) =>
-                m.acheteur_nom ? (
-                  <span title={`SIREN ${m.acheteur_siren ?? "inconnu"}`}>{m.acheteur_nom}</span>
-                ) : m.acheteur_siren ? (
-                  <span
-                    className="text-ink-secondary"
-                    title="SIREN nommé par aucun référentiel"
-                  >
-                    SIREN {m.acheteur_siren}
-                  </span>
+                m.acheteur_nom || m.acheteur_siren ? (
+                  <NomEntreprise
+                    nom={m.acheteur_nom ?? `SIREN ${m.acheteur_siren}`}
+                    siren={m.acheteur_siren}
+                    dans_sirene={m.dans_sirene}
+                    max={48}
+                  />
                 ) : (
                   "—"
                 ),
@@ -1300,11 +1364,6 @@ export default async function PageMarches() {
                 m.montant_estime_tranche ?? (
                   <span className="text-ink-muted">non publié</span>
                 ),
-            },
-            {
-              cle: "lien_consultation",
-              entete: "Consultation",
-              rendu: (m) => <LienSortant href={m.lien_consultation} libelle="Fiche" />,
             },
           ]}
           lignes={donnees.marchesAVenir}

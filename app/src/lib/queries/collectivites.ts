@@ -126,6 +126,8 @@ export function getDgfNationale(): DgfAnnee[] | null {
 export type CollectiviteAgregats = {
   code: string;
   nom: string;
+  /** SIREN OFGL (9 chiffres). Absent de `collectivites_departements`. */
+  siren: string | null;
   exercice: number;
   population: number | null;
   fonctionnement: number | null;
@@ -165,12 +167,37 @@ export function getNbRegionsReferentiel(): number | null {
  * n'est pas dans le jeu « régions », cf. `getNbRegionsReferentiel`), dont
  * 3 CTU, pivotées sur 3 agrégats.
  */
+function tableSirenePresente(db: NonNullable<ReturnType<typeof getDb>>): boolean {
+  return (
+    (
+      db
+        .prepare(
+          `SELECT COUNT(*) AS n FROM sqlite_master
+            WHERE type = 'table' AND name = 'sirene_unites_legales'`,
+        )
+        .get() as { n: number }
+    ).n > 0
+  );
+}
+
+/** SIREN unique ET déjà retenu dans S18 — sinon NULL (pas d'annuaire). */
+function sqlSirenUnique(avecSirene: boolean): string {
+  return avecSirene
+    ? `CASE WHEN COUNT(DISTINCT siren) = 1
+              AND MAX(siren) IN (SELECT siren FROM sirene_unites_legales)
+            THEN MAX(siren) END`
+    : "NULL";
+}
+
 export function getRegions(): RegionAgregats[] | null {
   const db = getDb();
   if (!db) return null;
+  const sirenExpr = sqlSirenUnique(tableSirenePresente(db));
   return db
     .prepare(
-      `SELECT code_region AS code, nom, MAX(est_ctu) AS est_ctu, exercice,
+      `SELECT code_region AS code, nom,
+              ${sirenExpr} AS siren,
+              MAX(est_ctu) AS est_ctu, exercice,
               MAX(population) AS population,
               MAX(CASE WHEN agregat = 'Dépenses de fonctionnement' THEN montant END) AS fonctionnement,
               MAX(CASE WHEN agregat = 'Dépenses d''investissement' THEN montant END) AS investissement,
@@ -192,9 +219,12 @@ export function getRegions(): RegionAgregats[] | null {
 export function getConseilsDepartementaux(): CollectiviteAgregats[] | null {
   const db = getDb();
   if (!db) return null;
+  const sirenExpr = sqlSirenUnique(tableSirenePresente(db));
   return db
     .prepare(
-      `SELECT code_dep AS code, nom, exercice,
+      `SELECT code_dep AS code, nom,
+              ${sirenExpr} AS siren,
+              exercice,
               MAX(population) AS population,
               MAX(CASE WHEN agregat = 'Dépenses de fonctionnement' THEN montant END) AS fonctionnement,
               MAX(CASE WHEN agregat = 'Dépenses d''investissement' THEN montant END) AS investissement,
@@ -258,6 +288,8 @@ export type GrandeCommune = {
   code_insee: string;
   nom: string;
   dep_code: string | null;
+  /** Rempli seulement si le SIREN matche `sirene_unites_legales` (S18). */
+  siren: string | null;
   population: number | null;
   fonctionnement: number | null;
   fonct_euros_par_hab: number | null;
@@ -274,16 +306,31 @@ export type GrandeCommune = {
 export function getGrandesCommunes(): GrandeCommune[] | null {
   const db = getDb();
   if (!db) return null;
-  return db
-    .prepare(
-      `SELECT code_insee, nom, dep_code, population,
+  // S18 est un autre pipeline : table absente → pas d'erreur de page, siren null.
+  const sirenePresente =
+    (
+      db
+        .prepare(
+          `SELECT COUNT(*) AS n FROM sqlite_master
+            WHERE type = 'table' AND name = 'sirene_unites_legales'`,
+        )
+        .get() as { n: number }
+    ).n > 0;
+  const sql = sirenePresente
+    ? `SELECT t.code_insee, t.nom, t.dep_code, s.siren AS siren, t.population,
+              t.dep_fonctionnement AS fonctionnement, t.fonct_euros_par_hab,
+              t.dep_investissement AS investissement, t.inv_euros_par_hab, t.exercice
+       FROM collectivites_communes_top200 t
+       LEFT JOIN sirene_unites_legales s ON s.siren = t.siren
+       WHERE t.exercice = (SELECT MAX(exercice) FROM collectivites_communes_top200)
+       ORDER BY t.population DESC`
+    : `SELECT code_insee, nom, dep_code, NULL AS siren, population,
               dep_fonctionnement AS fonctionnement, fonct_euros_par_hab,
               dep_investissement AS investissement, inv_euros_par_hab, exercice
        FROM collectivites_communes_top200
        WHERE exercice = (SELECT MAX(exercice) FROM collectivites_communes_top200)
-       ORDER BY population DESC`,
-    )
-    .all() as GrandeCommune[];
+       ORDER BY population DESC`;
+  return db.prepare(sql).all() as GrandeCommune[];
 }
 
 /* ------------------------------------------------------------------ */

@@ -7,6 +7,7 @@ import { JsonLd } from "@/components/JsonLd";
 import { InteretsDeclares } from "@/components/client/InteretsDeclares";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
+import { LienOfficiel } from "@/components/ui/LienOfficiel";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { formatDateFr, formatNombre, formatPct } from "@/lib/format";
 import {
@@ -237,7 +238,7 @@ function Badge({ source, mention }: { source: MetaSource | undefined; mention?: 
   );
 }
 
-function LienExterne({ href, texte }: { href: string; texte: string }) {
+function LienExterne({ href, texte, nom }: { href: string; texte: string; nom: string }) {
   return (
     <a
       href={href}
@@ -246,6 +247,7 @@ function LienExterne({ href, texte }: { href: string; texte: string }) {
       className="inline-flex items-center gap-1 rounded-full border border-card-border bg-card px-2.5 py-1 text-[11px] leading-none text-ink-secondary transition-colors hover:border-raised-border hover:text-ink"
     >
       {texte}
+      <span className="sr-only">{` de ${nom} (nouvelle fenêtre)`}</span>
       <span aria-hidden="true">↗</span>
     </a>
   );
@@ -395,7 +397,13 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
       rendu: (l) => {
         if (!l.type_document) return "—";
         const libelle = TYPES_DOCUMENT[l.type_document];
-        return libelle ? `${libelle} (${l.type_document})` : l.type_document.toUpperCase();
+        const texte = libelle ? `${libelle} (${l.type_document})` : l.type_document.toUpperCase();
+        if (!l.url_fiche) return texte;
+        return (
+          <LienOfficiel href={l.url_fiche} source="HATVP">
+            {texte}
+          </LienOfficiel>
+        );
       },
     },
     { cle: "type_mandat", entete: "Mandat" },
@@ -493,7 +501,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
         {liens.length > 0 && (
           <div className="mt-1 flex flex-wrap gap-2">
             {liens.map((l) => (
-              <LienExterne key={l.href} href={l.href} texte={l.texte} />
+              <LienExterne key={l.href} href={l.href} texte={l.texte} nom={nomComplet} />
             ))}
           </div>
         )}

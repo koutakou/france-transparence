@@ -222,6 +222,7 @@ export default async function PageCollectivites() {
   const lignesRegions = regions.map((r) => ({
     code: r.code,
     nom: r.nom,
+    siren: r.siren,
     est_ctu: r.est_ctu,
     population: r.population,
     fonctionnement_meur: r.fonctionnement === null ? null : r.fonctionnement / 1e6,
@@ -237,6 +238,7 @@ export default async function PageCollectivites() {
   const lignesConseilsDep = conseilsDep.map((d) => ({
     code: d.code,
     nom: `${d.nom} (${d.code})`,
+    siren: d.siren,
     population: d.population,
     fonctionnement_meur: d.fonctionnement === null ? null : d.fonctionnement / 1e6,
     investissement_meur: d.investissement === null ? null : d.investissement / 1e6,
@@ -252,6 +254,7 @@ export default async function PageCollectivites() {
   const lignesGrandesCommunes = grandesCommunes.map((c) => ({
     code: c.code_insee,
     nom: c.nom,
+    siren: c.siren,
     departement: c.dep_code ?? "—",
     population: c.population,
     fonctionnement_meur: c.fonctionnement === null ? null : c.fonctionnement / 1e6,

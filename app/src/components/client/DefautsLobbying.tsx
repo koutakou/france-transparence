@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { DataTable } from "@/components/ui/DataTable";
+import { LienOfficiel, PuceOfficielle } from "@/components/ui/LienOfficiel";
 import { formatNombre } from "@/lib/format";
 import { urlSite } from "@/lib/basePath";
+import { urlAnnuaireEntreprise } from "@/lib/urlOfficielle";
 import type { EntiteEnDefaut } from "@/lib/queries/lobbying";
 import type { DefautsFragment } from "@/app/data/lobbying/defauts.json/route";
 
@@ -24,21 +26,6 @@ import type { DefautsFragment } from "@/app/data/lobbying/defauts.json/route";
  * liste officielle complète reste accessible chez la HATVP (lien source du
  * bloc).
  */
-
-/** Lien sortant vers une fiche HATVP (même rendu que le reste de la page). */
-function LienFiche({ url }: { url: string | null }) {
-  if (!url) return <>—</>;
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
-    >
-      Fiche HATVP
-    </a>
-  );
-}
 
 let defautsPromesse: Promise<DefautsFragment | null> | null = null;
 
@@ -78,14 +65,36 @@ export function DefautsLobbying({ premieres, total }: DefautsLobbyingProps) {
       <div className={chargement ? "opacity-50 transition-opacity" : "transition-opacity"}>
         <DataTable<EntiteEnDefaut>
           colonnes={[
-            { cle: "denomination", entete: "Entité en défaut de déclaration" },
+            {
+              cle: "denomination",
+              entete: "Entité en défaut de déclaration",
+              rendu: (l) => {
+                const hrefSirene =
+                  l.type_identifiant === "SIREN" && l.dans_sirene === 1
+                    ? urlAnnuaireEntreprise(l.identifiant_national)
+                    : null;
+                return (
+                  <span>
+                    {l.url_fiche ? (
+                      <LienOfficiel href={l.url_fiche} source="HATVP">
+                        {l.denomination}
+                      </LienOfficiel>
+                    ) : (
+                      l.denomination
+                    )}
+                    {hrefSirene ? (
+                      <PuceOfficielle
+                        href={hrefSirene}
+                        libelle="Sirene"
+                        nom={l.denomination}
+                      />
+                    ) : null}
+                  </span>
+                );
+              },
+            },
             { cle: "categorie", entete: "Catégorie" },
             { cle: "ville", entete: "Ville" },
-            {
-              cle: "url_fiche",
-              entete: "Registre",
-              rendu: (l) => <LienFiche url={l.url_fiche} />,
-            },
           ]}
           lignes={affichees}
           cleLigne={(l) => l.id}
