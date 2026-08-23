@@ -199,9 +199,9 @@ const GLOSSAIRE: EntreeGlossaire[] = [
     def: (
       <>
         Répertoire national des élus, tenu par le ministère de l’Intérieur.
-        Il recense les mandats, y compris plus de cinq cent mille conseillers
-        municipaux. Ce site n’ingère pas ces conseillers nom par nom : ils
-        n’entrent dans aucun chiffre d’élus affiché, et n’ont pas de fiche.
+        Il recense les mandats, y compris les conseillers municipaux. Ce
+        site n’ingère pas ces conseillers nom par nom : ils n’entrent dans
+        aucun chiffre d’élus affiché, et n’ont pas de fiche.
       </>
     ),
   },
@@ -407,15 +407,98 @@ const GLOSSAIRE: EntreeGlossaire[] = [
     ),
   },
   {
+    terme: "Encours Maastricht",
+    id: "encours-maastricht",
+    def: (
+      <>
+        Stock de dette brute consolidée des administrations publiques
+        (indicateur GD, secteur ESA S13), arrêté en fin de trimestre. Ce
+        n’est pas un flux, pas le déficit B9, pas la dette de l’État seul.
+        Voir{" "}
+        <a href="#dette-maastricht" className={LIEN}>
+          Dette des APU
+        </a>
+        .
+      </>
+    ),
+  },
+  {
+    terme: "TE / TR (ESA)",
+    id: "te-tr",
+    def: (
+      <>
+        Total des dépenses (TE) et total des recettes (TR) des
+        administrations publiques, flux d’année civile. Ce n’est pas
+        Maastricht (B9, GD), pas l’exécution du budget de l’État. Voir{" "}
+        <a href="#depenses-apu-esa" className={LIEN}>
+          Dépenses des APU
+        </a>{" "}
+        et{" "}
+        <a href="#recettes-apu-esa" className={LIEN}>
+          Recettes des APU
+        </a>
+        .
+      </>
+    ),
+  },
+  {
+    terme: "CGE",
+    id: "compte-general",
+    def: (
+      <>
+        Compte général de l’État : bilan patrimonial de l’État, en
+        comptabilité générale, arrêté au 31 décembre. La situation nette
+        est un stock, pas un flux, pas «&nbsp;la dette de l’État&nbsp;».
+        Voir{" "}
+        <a href="#cge" className={LIEN}>
+          Situation nette de l’État
+        </a>
+        .
+      </>
+    ),
+  },
+  {
+    terme: "DREES",
+    id: "drees",
+    def: (
+      <>
+        Direction de la recherche, des études, de l’évaluation et des
+        statistiques. Elle publie les comptes de la protection sociale :
+        prestations versées, tous régimes, flux annuel. Ce n’est pas la
+        LFSS. Le total est tous régimes, pas le seul régime général. Voir{" "}
+        <a href="#protection-sociale" className={LIEN}>
+          Prestations de protection sociale
+        </a>
+        .
+      </>
+    ),
+  },
+  {
+    terme: "DOLE",
+    id: "dole",
+    def: (
+      <>
+        Fonds des dossiers législatifs de la DILA. Un dossier est un texte
+        de l’article 39 de la Constitution (ou de l’article 53, hors forme
+        simplifiée). Ce n’est pas le Journal officiel du jour. Voir{" "}
+        <a href="#dossiers-legislatifs" className={LIEN}>
+          Dossiers législatifs
+        </a>
+        .
+      </>
+    ),
+  },
+  {
     terme: "Licence Ouverte",
     id: "licence-ouverte",
     def: (
       <>
         Licence de réutilisation des informations publiques (Etalab). La
-        plupart des sources de ce site la portent, pas toutes : trois
-        relèvent d’un autre régime (publications officielles hors open data,
-        texte du JORF, décision 2011/833/UE). La licence exacte, source par
-        source, est sur la page{" "}
+        plupart des sources de ce site la portent, pas toutes : d’autres
+        relèvent d’un régime distinct — décision 2011/833/UE, publications
+        officielles hors open data. Le Journal officiel «&nbsp;Lois et
+        décrets&nbsp;» (métadonnées) est sous Licence Ouverte. La licence
+        exacte, source par source, est sur la page{" "}
         <LienPage href="/donnees/">Données</LienPage>.
       </>
     ),
@@ -442,6 +525,7 @@ const SOMMAIRE: { href: string; libelle: string }[] = [
   { href: "#collectivites", libelle: "Finances locales" },
   { href: "#frais", libelle: "Frais et train de vie" },
   { href: "#documents", libelle: "Documents officiels" },
+  { href: "#dossiers-legislatifs", libelle: "Dossiers législatifs" },
   { href: "#alertes", libelle: "Alertes" },
 ];
 
@@ -661,6 +745,40 @@ export default function PageComprendre() {
               Maastricht (B9) est un flux annuel des APU. Ce ne sont pas
               le même objet&nbsp;: ils ne s’additionnent pas.
             </li>
+            <li>
+              <strong className="font-medium text-ink">
+                23 août 2026 — Hors-champ de l’argent public.
+              </strong>{" "}
+              Les prestations de protection sociale publiées par la DREES
+              (tous régimes, flux annuel) sont dans le champ. Restent hors
+              champ&nbsp;: la loi de financement de la sécurité sociale en
+              tant que texte voté, la dépense propre des opérateurs de
+              l’État, les entreprises publiques.
+            </li>
+            <li>
+              <strong className="font-medium text-ink">
+                23 août 2026 — Noms dans les alertes.
+              </strong>{" "}
+              Les constats de la HATVP, les décisions de la CNCCFP et les
+              défauts AGORA portent un nom. Les retards HATVP
+              «&nbsp;présumés&nbsp;» restent des agrégats, jamais un nom.
+            </li>
+            <li>
+              <strong className="font-medium text-ink">
+                23 août 2026 — Participation électorale.
+              </strong>{" "}
+              L’agrégat des tuiles est la somme des départements et
+              collectivités de ce scrutin, pas un total France du
+              ministère.
+            </li>
+            <li>
+              <strong className="font-medium text-ink">
+                23 août 2026 — Croisement lobbying / marchés.
+              </strong>{" "}
+              Le croisement porte sur 24 mois de détail DECP, pas sur la
+              fenêtre 12 mois du classement de la page Marchés, et
+              n’applique pas le même filtre d’identifiant.
+            </li>
           </ul>
         </div>
       </Card>
@@ -707,7 +825,9 @@ export default function PageComprendre() {
             <strong className="font-medium text-ink">initiale</strong>
             : un avenant change le montant ou les titulaires affichés, pas le
             mois du marché. Lire la date de l’avenant comme date du marché
-            rangerait les avenants dans le mois courant. Voir{" "}
+            rangerait les avenants dans le mois courant. Les totaux
+            «&nbsp;12 mois&nbsp;» et «&nbsp;30 jours&nbsp;» de la page
+            portent sur cette date. Voir{" "}
             <LienPage href="/marches/">Marchés publics</LienPage>.
           </p>
           <p>
@@ -753,10 +873,12 @@ export default function PageComprendre() {
           <p>
             Une fiche nominative n’existe que pour les mandats nationaux et
             les exécutifs départementaux et régionaux. Les maires sont
-            recensés ; ils n’ont pas de page dédiée. Les conseillers
-            municipaux du RNE sont tenus en agrégat départemental : ils
-            n’entrent dans aucun chiffre d’élus affiché, et n’ont pas de
-            fiche.
+            recensés ; ils n’ont pas de page dédiée. La tuile des maires
+            porte les mandats maire du répertoire, pas tout le répertoire.
+            Le stock «&nbsp;élus en base&nbsp;» n’est pas une fiche par
+            personne. Les conseillers municipaux du RNE sont tenus en
+            agrégat départemental : ils n’entrent dans aucun chiffre d’élus
+            affiché, et n’ont pas de fiche.
           </p>
           <p>
             <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
@@ -818,9 +940,10 @@ export default function PageComprendre() {
             formes d’influence : les seuils d’entrée, les personnes physiques
             et une partie de l’activité européenne y échappent. Le croisement
             avec les marchés publics ne dit pas qu’un marché a été obtenu par
-            cette activité. Il n’applique pas le même filtre de conformité
-            d’identifiant que le classement des marchés : les deux comptes ne
-            portent pas sur la même population.
+            cette activité. Il porte sur les 24 mois de détail DECP, pas sur
+            la fenêtre 12 mois du classement de la page Marchés, et
+            n’applique pas le même filtre d’identifiant : les deux comptes
+            ne portent pas sur la même population.
           </p>
         </div>
       </Card>
@@ -857,7 +980,8 @@ export default function PageComprendre() {
             abaisser un montant déclaré : le site affiche le retenu. Les
             comptes que la Commission n’a pas publiés n’y figurent pas.
             Ce site ne produit aucun classement d’opinion, aucune intention
-            de vote, aucune mesure de notoriété.
+            de vote, aucune mesure de notoriété. Il ne publie aucune nuance
+            politique.
           </p>
         </div>
       </Card>
@@ -904,8 +1028,9 @@ export default function PageComprendre() {
             destination : c’est un compte d’affectation spéciale, pas une
             politique publique comparable aux autres missions. Le budget
             général ne couvre pas les prestations de protection sociale
-            (bloc DREES). La dépense propre des opérateurs et les
-            entreprises publiques restent hors champ.
+            (bloc DREES). Hors champ&nbsp;: la loi de financement de la
+            sécurité sociale en tant que texte voté, la dépense propre des
+            opérateurs et les entreprises publiques.
           </p>
         </div>
       </Card>
@@ -1134,13 +1259,14 @@ export default function PageComprendre() {
         <div id="recettes" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
-            Les recettes du budget général sont publiées dans la même
-            situation mensuelle que les dépenses. Elles sont nettes des
-            remboursements et dégrèvements d’impôts : un impôt «&nbsp;net&nbsp;»
-            n’est pas le montant mis à la charge du contribuable. Comme les
-            dépenses, ce sont des cumuls depuis le 1<sup>er</sup> janvier, et
-            les mois de l’année en cours sont provisoires jusqu’à la
-            clôture. Voir <LienPage href="/recettes/">Recettes</LienPage>.
+            Les recettes du budget général (source S13) sont publiées dans
+            la même situation mensuelle que les dépenses. Elles sont nettes
+            des remboursements et dégrèvements d’impôts : un impôt
+            «&nbsp;net&nbsp;» n’est pas le montant mis à la charge du
+            contribuable. Comme les dépenses, ce sont des cumuls depuis le
+            1<sup>er</sup> janvier, et les mois de l’année en cours sont
+            provisoires jusqu’à la clôture. Voir{" "}
+            <LienPage href="/recettes/">Recettes</LienPage>.
           </p>
           <p>
             <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
@@ -1152,12 +1278,14 @@ export default function PageComprendre() {
           <p>
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
             Ce n’est pas le détail des encaissements jour par jour, ni la
-            fiscalité locale, ni les recettes de la sécurité sociale. La
-            ligne TVA ne couvre que la part revenant au budget général : les
-            fractions affectées à d’autres administrations n’y figurent pas.
-            Les recettes non fiscales paraissent en un seul total : la
-            situation mensuelle n’en publie aucun détail, et ce site n’en
-            fabrique pas.
+            fiscalité locale, ni les recettes de la sécurité sociale. Les
+            prestations de protection sociale (tous régimes) sont sur la
+            page Dépenses. La LFSS, comme texte voté, n’est pas un module
+            de recettes. La ligne TVA ne couvre que la part revenant au
+            budget général : les fractions affectées à d’autres
+            administrations n’y figurent pas. Les recettes non fiscales
+            paraissent en un seul total : la situation mensuelle n’en
+            publie aucun détail, et ce site n’en fabrique pas.
           </p>
         </div>
       </Card>
@@ -1169,21 +1297,23 @@ export default function PageComprendre() {
             Les communes, départements et régions votent un budget principal
             et rendent des comptes. L’OFGL les consolide à partir des données
             DGFiP. Ce site affiche les comptes de l’ensemble des départements
-            et régions, et ceux des 200 communes les plus peuplées. Tous les
-            montants portent sur le budget principal seul : les budgets
-            annexes (eau, transports, régies) et les dépenses portées par
+            et des régions, et les agrégats communaux des communes ayant
+            rendu leurs comptes — ce n’est pas le tableau nominatif des
+            200 communes les plus peuplées. Tous les montants
+            portent sur le budget principal seul : les budgets annexes
+            (eau, transports, régies) et les dépenses portées par
             l’intercommunalité n’y sont pas. Voir{" "}
             <LienPage href="/collectivites/">Finances locales</LienPage>.
           </p>
           <p>
-            La participation électorale porte, elle, sur l’union de deux
-            listes : les préfectures et communes de plus de
-            50&nbsp;000 habitants (points de la carte), et ces 200 communes.
-            Ce n’est pas «&nbsp;les communes de France&nbsp;». Un écart à la
-            médiane de strate n’est ni une faute ni un mérite : une commune
-            touristique ou une commune dont les compétences sont transférées
-            à l’EPCI n’est pas comparable à sa voisine hors de cette
-            médiane.
+            Un tableau nominatif porte, lui, sur les 200 communes les plus
+            peuplées. La participation électorale des communes suivies
+            porte sur l’union des préfectures, des communes de plus de
+            50&nbsp;000 habitants, et de ces 200 communes. Ce n’est pas
+            «&nbsp;les communes de France&nbsp;». Un écart à la médiane de
+            strate n’est ni une faute ni un mérite : une commune touristique
+            ou une commune dont les compétences sont transférées à l’EPCI
+            n’est pas comparable à sa voisine hors de cette médiane.
           </p>
           <p>
             <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
@@ -1197,10 +1327,10 @@ export default function PageComprendre() {
             Une commune absente d’un exercice provisoire n’a pas dépensé
             zéro : sa donnée n’est pas publiée. Un montant de DGF à
             zéro n’est pas une donnée manquante : c’est parfois un
-            écrêtement réel du calcul officiel. La participation affichée
-            est celle des inscrits des communes et départements suivis, pas
-            «&nbsp;la France&nbsp;» : les Français établis hors de France n’y
-            sont pas. Aucune nuance politique, aucun nom de candidat.
+            écrêtement réel du calcul officiel. L’agrégat de participation
+            des tuiles est la somme des départements et collectivités de
+            ce scrutin, pas un total France du ministère. Aucune nuance
+            politique, aucun nom de candidat.
           </p>
         </div>
       </Card>
@@ -1229,9 +1359,12 @@ export default function PageComprendre() {
           <p>
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
             Cette page ne montre aucune note de frais individuelle. Un
-            barème n’est pas un montant dépensé. Un rapport de déontologue
-            agrégé ne désigne personne. L’absence d’une catégorie n’est pas
-            un oubli du site : c’est, dans les cas documentés, un refus
+            barème n’est pas un montant dépensé. La dotation de
+            fonctionnement affichée est celle d’un député de métropole, pas
+            «&nbsp;la&nbsp;» DFP. Un rapport de déontologue agrégé ne
+            désigne personne. Les dotations des assemblées citées sont
+            celles de la LFI, pas du PLF. L’absence d’une catégorie n’est
+            pas un oubli du site : c’est, dans les cas documentés, un refus
             d’accès à la source.
           </p>
         </div>
@@ -1257,7 +1390,9 @@ export default function PageComprendre() {
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
             Une nomination au JO n’est pas une biographie. Un décret n’est
             pas résumé ici. La fenêtre affichée est celle des derniers JO
-            parus, pas l’intégralité de l’historique.
+            parus, pas l’intégralité de l’historique. Les autres séries du
+            Journal officiel (annonces, associations, marchés) n’entrent
+            pas dans cette page. Ce n’est pas le fonds DOLE.
           </p>
         </div>
         <div id="dossiers-legislatifs" className="scroll-mt-20 mt-8 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
@@ -1298,17 +1433,16 @@ export default function PageComprendre() {
             Une alerte de ce site reprend un constat déjà formulé par une
             autorité, ou un signal d’attention tiré des sources, avec sa
             règle de calcul et sa base légale. Ce n’est pas un jugement du
-            site. Les constats officiels de la HATVP (déclaration non
-            déposée) sont nominatifs. Les retards «&nbsp;présumés&nbsp;»
-            sont des agrégats non nominatifs, parce que le répertoire des
-            élus est trimestriel. Voir{" "}
+            site. Les constats officiels de la HATVP, les décisions de la
+            CNCCFP et les défauts AGORA portent un nom ; les retards HATVP
+            «&nbsp;présumés&nbsp;» sont des agrégats, jamais un nom. Voir{" "}
             <LienPage href="/alertes/">Alertes</LienPage>.
           </p>
           <p>
             <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
             Chaque alerte cite sa source, sa règle de calcul et sa base
-            légale. Les constats nominatifs de déclaration non déposée
-            viennent de la HATVP. Les autres signaux sont calculés ici à
+            légale. Les constats nominatifs viennent de la HATVP, de la
+            CNCCFP et d’AGORA. Les autres signaux sont calculés ici à
             partir des mêmes publications que le reste du site, jamais d’une
             source inédite.
           </p>
