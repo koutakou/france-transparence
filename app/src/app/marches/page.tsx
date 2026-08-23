@@ -403,20 +403,28 @@ export default async function PageMarches() {
               label: "Marchés notifiés (12 mois)",
               valeur: formatNombre(kpis.nbMarches12m),
               tendance: tendanceNb,
+              perimetre:
+                "notification initiale, 12 derniers mois — ce n’est pas le stock total",
             },
             {
               label: "Montant notifié (12 mois, écrêté)",
               valeur: kpis.montant12m !== null ? <Money valeur={kpis.montant12m} /> : "—",
               montantVedette: true,
               tendance: tendanceMontant,
+              perimetre:
+                "notification initiale, 12 derniers mois, plafond 100 M€ par marché",
             },
             {
               label: "Marchés notifiés (30 derniers jours)",
               valeur: formatNombre(kpis.nbMarches30j),
+              perimetre:
+                "notification initiale, 30 derniers jours — ce n’est pas le stock total",
             },
             {
               label: "Appels d’offres en cours (BOAMP)",
               valeur: formatNombre(kpis.aoEnCours),
+              perimetre:
+                "annonces BOAMP non annulées, date limite encore ouverte — stock du jour, pas un flux 30 j",
             },
             {
               label: "Achats annoncés (APProch)",
@@ -556,7 +564,7 @@ export default async function PageMarches() {
       {/* ---------------------------------------------------------- */}
       <Card
         titre="Montants par département"
-        sousTitre="Marchés notifiés sur 12 mois — montants écrêtés, acheteurs à département connu"
+        sousTitre="Marchés notifiés sur 12 mois (notification initiale) — montants écrêtés, acheteurs à département connu"
         droite={badgeS1}
       >
         {/* grid-cols-1 explicite : piste minmax(0,1fr) — sans elle, la piste
@@ -870,7 +878,7 @@ export default async function PageMarches() {
       {/* ---------------------------------------------------------- */}
       <Card
         titre="Principaux acheteurs et titulaires"
-        sousTitre="12 derniers mois, par entreprise (SIREN) — classement par montant notifié écrêté"
+        sousTitre="12 derniers mois (notification initiale), par entreprise (SIREN) — classement par montant notifié écrêté"
         droite={badgeS1}
       >
         {/* grid-cols-1 explicite : piste minmax(0,1fr) — sans elle, la piste
@@ -1058,7 +1066,7 @@ export default async function PageMarches() {
       {/* ---------------------------------------------------------- */}
       <Card
         titre="Répartition par procédure"
-        sousTitre="Marchés notifiés sur 12 mois, par procédure de passation"
+        sousTitre="Marchés notifiés sur 12 mois (notification initiale), par procédure de passation"
         droite={badgeS1}
       >
         <Donut
@@ -1246,7 +1254,7 @@ export default async function PageMarches() {
       {/* ---------------------------------------------------------- */}
       <Card
         titre="Achats publics annoncés"
-        sousTitre="APProch (DAE/AIFE) — projets d’achats de l’État à publication prévue"
+        sousTitre="APProch (DAE/AIFE) — stock du jour, projets d’achats de l’État à publication prévue"
         droite={
           meta.s9 && (
             <FreshnessBadge

@@ -297,13 +297,13 @@ function SectionCroisement({
                 label: "Représentants d'intérêts titulaires (hors accords-cadres)",
                 valeur: formatNombre(ag.sirensHorsAc),
                 perimetre:
-                  "titulaires sur les 24 derniers mois — notification initiale",
+                  "titulaires sur les 24 derniers mois — notification initiale, pas le classement 12 mois de la page Marchés",
               },
               {
                 label: "Marchés notifiés (hors accords-cadres)",
                 valeur: formatNombre(ag.marchesHorsAc),
                 perimetre:
-                  "notifiés sur les 24 derniers mois — notification initiale",
+                  "notifiés sur les 24 derniers mois — notification initiale, pas le classement 12 mois de la page Marchés",
               },
               {
                 label: "Montant notifié (écrêté, hors accords-cadres)",
@@ -311,13 +311,13 @@ function SectionCroisement({
                   ag.montantHorsAc !== null ? formatEuros(ag.montantHorsAc) : "—",
                 montantVedette: true,
                 perimetre:
-                  "24 derniers mois, plafond 100 M€ par marché — notification initiale",
+                  "24 derniers mois, plafond 100 M€ par marché — notification initiale, pas les 12 mois de la page Marchés",
               },
               {
                 label: "Part du montant notifié hors accords-cadres",
                 valeur: partMontant !== null ? formatPct(partMontant) : "—",
                 perimetre:
-                  "part du montant DECP hors accords-cadres, 24 mois — pas de ce total lobbyiste",
+                  "part du montant DECP hors accords-cadres, 24 mois — le dénominateur n’est pas un total lobbyiste",
               },
             ]}
           />
@@ -444,7 +444,9 @@ function SectionCroisement({
           <p className="text-xs leading-relaxed text-ink-muted">
             Classement des 20 premiers sur {formatNombre(titulaires.length)}{" "}
             représentants d&apos;intérêts titulaires d&apos;au moins un marché.
-            La liste complète, les agrégats et la méthode sont exportés dans{" "}
+            Les marchés portent sur les 24 mois DECP (notification initiale),
+            pas sur le classement 12 mois de la page Marchés. La liste
+            complète, les agrégats et la méthode sont exportés dans{" "}
             <code className="rounded bg-raised px-1 py-0.5">
               /api/lobbying-marches.json
             </code>
@@ -671,20 +673,26 @@ function SectionRegistreUe({ donnees }: { donnees: DonneesRegistreUe }) {
               {
                 label: "Organisations inscrites (tous pays)",
                 valeur: formatNombre(totalInscrits),
-                perimetre: "y compris les travailleurs indépendants, personnes physiques",
+                perimetre:
+                  "stock de l’export du jour, y compris les travailleurs indépendants, personnes physiques",
               },
               {
                 label: "Dont siège en France",
                 valeur: formatNombre(france.total),
-                perimetre: "y compris les travailleurs indépendants, non nommés dans la liste",
+                perimetre:
+                  "stock de l’export du jour, y compris les travailleurs indépendants, non nommés dans la liste",
               },
               {
                 label: "Rang de la France par nombre d'inscrits",
                 valeur: rangFrance ? `${rangFrance}ᵉ` : "—",
+                perimetre:
+                  "stock de l’export du jour, rang par siège déclaré — y compris les travailleurs indépendants",
               },
               {
                 label: "Inscrits français déclarant une fourchette de coûts",
                 valeur: formatNombre(france.avecCout),
+                perimetre:
+                  "stock de l’export du jour — une fourchette n’est pas un montant exact",
               },
             ]}
           />
@@ -826,7 +834,7 @@ function SectionRegistreUe({ donnees }: { donnees: DonneesRegistreUe }) {
               largeurLibelle="45%"
             />
             <p className="mt-2 text-xs text-ink-muted">
-              Domaines déclarés par l&apos;organisation elle-même, huit
+              Domaines déclarés par l&apos;organisation elle-même, cinq
               premiers. Une organisation en déclare plusieurs : les lignes ne
               se cumulent pas.
             </p>
@@ -968,9 +976,10 @@ export default async function LobbyingPage() {
               <p>
                 Le répertoire ne couvre pas toutes les formes d’influence. Le
                 croisement avec les marchés ne dit pas qu’un marché a été
-                obtenu par cette activité, et n’applique pas le même filtre
-                d’identifiant que le classement de la page Marchés : les deux
-                comptes ne portent pas sur la même population.
+                obtenu par cette activité. Il porte sur les 24 mois de détail
+                DECP, pas sur la fenêtre 12 mois du classement de la page
+                Marchés, et n’applique pas le même filtre d’identifiant : les
+                deux comptes ne portent pas sur la même population.
               </p>
             }
           />
@@ -981,7 +990,11 @@ export default async function LobbyingPage() {
       {/* ── KPI ─────────────────────────────────────────────────────── */}
       <StatStrip
         stats={[
-          { label: "Entités inscrites au répertoire", valeur: formatNombre(kpi.entites) },
+          {
+            label: "Entités inscrites au répertoire",
+            valeur: formatNombre(kpi.entites),
+            perimetre: "stock du répertoire — inscriptions en cours et cessées",
+          },
           {
             label: "Entités actives",
             valeur: formatNombre(kpi.actives),
@@ -990,10 +1003,12 @@ export default async function LobbyingPage() {
           {
             label: "Activités déclarées (historique)",
             valeur: formatNombre(kpi.activitesTotal),
+            perimetre: "toutes les déclarations publiées — pas une fenêtre 12 ou 24 mois",
           },
           {
             label: "Activités détaillées (24 derniers mois)",
             valeur: formatNombre(kpi.activites24m),
+            perimetre: "détail conservé sur 24 mois — ce n’est pas le total historique",
           },
         ]}
       />
