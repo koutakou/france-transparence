@@ -391,32 +391,34 @@ export default async function Accueil() {
         <BadgeSource source={sources["S35-reforga-admin-etat"]} />
       </div>
 
-      {/* ---------- Secondaire : carte et flux (même ordre empilé au téléphone) ---------- */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <div className="flex min-w-0 flex-col gap-4">
-          <Card
-            titre="Marchés publics par département"
-            sousTitre="Marchés notifiés, 12 derniers mois — montants écrêtés (plafond 100 M€ par marché), acheteurs à département connu · points : préfectures · outre-mer hors carte"
-            droite={<BadgeSource source={sources.S1} mention="J-1" />}
-          >
-            <CarteDepartements
-              valeurs={valeursCarte}
-              points={pointsPrefectures}
-              format="euros"
-              legendeTitre="Montant notifié (12 mois)"
-              ariaLabel="Carte de France des montants de marchés publics notifiés par département sur 12 mois"
-              messageAbsent="Fond de carte non disponible (data/geo/departements.geojson manquant)."
-            />
-            <p className="mt-2 text-[11px] leading-relaxed text-ink-muted">
-              Consolidation DECP&nbsp;: decp-processing (C.&nbsp;Maudry) —
-              latence légale de publication ≤&nbsp;2&nbsp;mois. Marchés datés
-              de leur notification initiale, un avenant ne les redate pas.
-            </p>
-            <LienModule href="/marches" libelle="Voir les marchés publics" />
-          </Card>
-        </div>
+      {/* Carte pleine largeur : collée à deux listes empilées, elle
+          s'arrêtait à mi-colonne et laissait un vide sous le fond
+          (viewport 1280, sous le pli). */}
+      <Card
+        titre="Marchés publics par département"
+        sousTitre="Marchés notifiés, 12 derniers mois — montants écrêtés (plafond 100 M€ par marché), acheteurs à département connu · points : préfectures · outre-mer hors carte"
+        droite={<BadgeSource source={sources.S1} mention="J-1" />}
+      >
+        <CarteDepartements
+          valeurs={valeursCarte}
+          points={pointsPrefectures}
+          format="euros"
+          legendeTitre="Montant notifié (12 mois)"
+          ariaLabel="Carte de France des montants de marchés publics notifiés par département sur 12 mois"
+          messageAbsent="Fond de carte non disponible (data/geo/departements.geojson manquant)."
+        />
+        <p className="mt-2 text-[11px] leading-relaxed text-ink-muted">
+          Consolidation DECP&nbsp;: decp-processing (C.&nbsp;Maudry) —
+          latence légale de publication ≤&nbsp;2&nbsp;mois. Marchés datés
+          de leur notification initiale, un avenant ne les redate pas.
+        </p>
+        <LienModule href="/marches" libelle="Voir les marchés publics" />
+      </Card>
 
-        <div className="flex min-w-0 flex-col gap-4">
+      {/* Deux listes de même nature, côte à côte — items-start : une
+          carte ne s'étire pas en océan vide pour égaler l'autre. */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
+        <div className="min-w-0">
           <Card
             titre="Derniers marchés notifiés"
             droite={<BadgeSource source={sources.S1} mention="J-1" />}
@@ -459,7 +461,9 @@ export default async function Accueil() {
             </p>
             <LienModule href="/marches" libelle="Voir les marchés publics" />
           </Card>
+        </div>
 
+        <div className="min-w-0">
           <Card
             titre="Derniers textes au JO"
             sousTitre="Le JO ne paraît pas tous les jours — liens vers Légifrance"
@@ -502,8 +506,9 @@ export default async function Accueil() {
         </div>
       </div>
 
-      {/* ---------- Tertiaire : composition budgétaire, puis AO et alertes ---------- */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+      {/* Composition : deux viz côte à côte, tableau ministères en
+          pleine largeur (en 1/3 il rognait « CP (Md€) »). */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
         <Card
           titre="Décomposition par titre"
           sousTitre={
@@ -552,28 +557,28 @@ export default async function Accueil() {
           )}
           <LienModule href="/depenses" libelle="Voir les dépenses" />
         </Card>
-
-        <Card
-          titre="Budget par ministère (destination 2025)"
-          sousTitre="Crédits de paiement BRUTS du PLF 2025 — non comparables aux dépenses nettes du budget général"
-          droite={<BadgeSource source={sources.S21} mention="PLF" />}
-        >
-          <DataTable
-            colonnes={colonnesMinisteres}
-            lignes={lignesMinisteres}
-            cleLigne={(l) => l.ministere}
-            vide="Aucune donnée"
-          />
-          <p className="mt-2 text-[11px] text-ink-muted">
-            Top 8 sur {totalCp2025 !== null ? mdE(totalCp2025, 1) : "—"} de CP
-            au total. Pas de colonne d&apos;évolution&nbsp;: la donnée est un
-            instantané PLF, sans exercice N−1 comparable.
-          </p>
-          <LienModule href="/depenses" libelle="Voir les dépenses" />
-        </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <Card
+        titre="Budget par ministère (destination 2025)"
+        sousTitre="Crédits de paiement BRUTS du PLF 2025 — non comparables aux dépenses nettes du budget général"
+        droite={<BadgeSource source={sources.S21} mention="PLF" />}
+      >
+        <DataTable
+          colonnes={colonnesMinisteres}
+          lignes={lignesMinisteres}
+          cleLigne={(l) => l.ministere}
+          vide="Aucune donnée"
+        />
+        <p className="mt-2 text-[11px] text-ink-muted">
+          Top 8 sur {totalCp2025 !== null ? mdE(totalCp2025, 1) : "—"} de CP
+          au total. Pas de colonne d&apos;évolution&nbsp;: la donnée est un
+          instantané PLF, sans exercice N−1 comparable.
+        </p>
+        <LienModule href="/depenses" libelle="Voir les dépenses" />
+      </Card>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
         <Card
           titre="Appels d'offres proches de la clôture"
           sousTitre="Date limite de réponse (heure de Paris) — annonces BOAMP non annulées"
