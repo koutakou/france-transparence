@@ -29,7 +29,7 @@ import { jsonLdIdentiteSite, metadonneesPage } from "@/lib/seo";
 export const metadata: Metadata = metadonneesPage({
   chemin: "/",
   description:
-    "Le tableau de bord de l'argent public : budget de l'État, marchés publics, élus, lobbying, financement de la vie politique et alertes d'intégrité — données publiques officielles, datées et sourcées.",
+    "Le tableau de bord de l'argent public : budget général de l'État, marchés publics, élus, lobbying, financement de la vie politique, finances locales, prestations de protection sociale et alertes d'intégrité — données publiques officielles, datées et sourcées.",
 });
 
 /* ------------------------------------------------------------------ */
@@ -257,12 +257,15 @@ export default async function Accueil() {
           Vue d&apos;ensemble
         </h1>
         <p className="rounded-lg border border-card-border bg-card px-4 py-2.5 text-xs leading-relaxed text-ink-secondary">
-          Ce tableau de bord couvre l&apos;État (budget, marchés publics, Journal
-          officiel), le Parlement et les élus, le lobbying, le financement de la
-          vie politique, les finances locales et les prestations de protection
-          sociale (tous régimes, millésime dans la tuile), uniquement à partir
-          de données publiques officielles — chaque bloc affiche la date et la
-          fréquence réelle de sa source ; comment les lire sur{" "}
+          Ce tableau de bord couvre le budget général de l&apos;État, la
+          commande publique, le Journal officiel, le Parlement et les élus, le
+          lobbying, le financement de la vie politique, les finances locales et
+          les prestations de protection sociale (tous régimes), uniquement à
+          partir de données publiques officielles — chaque bloc affiche la date
+          et la fréquence réelle de sa source. Hors champ&nbsp;: la loi de
+          financement de la sécurité sociale en tant que texte voté, la
+          dépense propre des opérateurs de l&apos;État et les entreprises
+          publiques. Comment les lire sur{" "}
           <Link
             href="/comprendre"
             className="underline decoration-dotted underline-offset-2 hover:text-ink"
@@ -401,9 +404,21 @@ export default async function Accueil() {
           </Card>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <KpiTile label="Marchés notifiés (30 j)" valeur={formatNombre(kpis.marches30j)} />
-            <KpiTile label="Appels d'offres en cours (BOAMP)" valeur={formatNombre(kpis.aoEnCours)} />
-            <KpiTile label="Textes au JO (30 j)" valeur={formatNombre(kpis.textesJo30j)} />
+            <KpiTile
+              label="Marchés notifiés (30 j)"
+              valeur={formatNombre(kpis.marches30j)}
+              perimetre="notification initiale, 30 derniers jours — ce n’est pas le stock total"
+            />
+            <KpiTile
+              label="Appels d'offres en cours (BOAMP)"
+              valeur={formatNombre(kpis.aoEnCours)}
+              perimetre="annonces BOAMP non annulées, date limite encore ouverte — stock du jour, pas un flux 30 j"
+            />
+            <KpiTile
+              label="Textes au JO (30 j)"
+              valeur={formatNombre(kpis.textesJo30j)}
+              perimetre="JORF Lois et décrets, 30 derniers jours"
+            />
             <KpiTile
               label={
                 execution

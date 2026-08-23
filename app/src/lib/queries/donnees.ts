@@ -80,7 +80,7 @@ type SeuilSource = { unite: UniteAge; retard: number; alerte: number };
  * seuils dans `meta_sources` (colonnes dédiées) via les pipelines.
  *
  * Ordre et valeurs repris ligne à ligne de `fraicheur.conf`.
- * Dernière synchronisation : 22/08/2026, 33 sources (ajout de S43).
+ * Dernière synchronisation : 23/08/2026, 36 sources (ajout de S44, S22 et S45).
  */
 const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // Quotidiennes strictes, calendrier ouvré

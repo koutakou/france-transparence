@@ -231,8 +231,8 @@ export default function PageMentionsLegales() {
             </a>{" "}
             (Etalab), d&apos;autres relèvent d&apos;un régime distinct —
             décision 2011/833/UE pour les documents de la Commission
-            européenne, textes publiés au Journal officiel, publications
-            officielles hors open data. La licence exacte est indiquée source
+            européenne, publications officielles hors open data. La licence
+            exacte est indiquée source
             par source sur la page{" "}
             <Link href="/donnees" className={LIEN}>
               Données

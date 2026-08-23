@@ -624,7 +624,8 @@ export default async function PageDonnees() {
             >
               decp-processing
             </a>{" "}
-            (Colin Maudry) ; scores de participation et de loyauté des
+            (Colin Maudry) ; projets d’achats publics&nbsp;: APProch (DAE/AIFE) ;
+            scores de participation et de loyauté des
             députés&nbsp;:{" "}
             <a
               href="https://datan.fr"
@@ -642,9 +643,14 @@ export default async function PageDonnees() {
             campagne&nbsp;: CNCCFP ; répertoire national des élus&nbsp;:
             ministère de l’Intérieur ; données parlementaires&nbsp;: Assemblée
             nationale et Sénat ; finances locales&nbsp;: OFGL ; budget de
-            l’État&nbsp;: DGFiP (data.economie.gouv.fr) ; populations de
-            référence 2023&nbsp;: INSEE ; fond de carte&nbsp;: france-geojson
-            (contours IGN/Etalab).
+            l’État et compte général de l’État&nbsp;: DGFiP
+            (data.economie.gouv.fr) ; populations de référence 2023 et stock
+            Sirene&nbsp;: INSEE ; prestations de protection sociale&nbsp;:
+            DREES ; encours et déficit des APU au sens de Maastricht, et
+            agrégats ESA (recettes et dépenses)&nbsp;: Eurostat (décision
+            2011/833/UE) ; avis et conseils&nbsp;: CADA ; registre de
+            transparence de l’Union européenne (décision 2011/833/UE) ; fond de
+            carte&nbsp;: france-geojson (contours IGN/Etalab).
           </p>
           <p className="text-xs text-ink-muted">
             Les agrégats calculés par France Transparence (dont les exports
@@ -705,7 +711,10 @@ export default async function PageDonnees() {
           <p>
             Les pipelines Python (référentiels, budget, marchés, BOAMP,
             APProch, JO, Parlement, intégrité, déclarations HATVP, lobbying,
-            financement, collectivités, élections, train de vie) téléchargent
+            financement, collectivités, élections, train de vie, CADA,
+            registre UE, dette des APU (Maastricht), déficit des APU
+            (Maastricht), DOLE, agrégats ESA des APU, CGE, protection sociale,
+            Sirene) téléchargent
             les sources ouvertes et
             construisent l’unique base{" "}
             <code className="rounded bg-raised px-1 py-0.5 text-xs">data/france.db</code>{" "}
@@ -723,7 +732,7 @@ make dev             # lance l'application (port 3620)`}
             <code className="rounded bg-raised px-1 py-0.5 text-[11px]">Makefile</code>{" "}
             (cibles d’ingestion),{" "}
             <code className="rounded bg-raised px-1 py-0.5 text-[11px]">docs/SOURCES.md</code>{" "}
-            (référentiel des 39 sources évaluées, sources écartées comprises) et{" "}
+            (référentiel des sources, écartées comprises) et{" "}
             <code className="rounded bg-raised px-1 py-0.5 text-[11px]">docs/SCHEMA-DB.md</code>{" "}
             (schéma exact de la base et volumétrie).
           </p>
