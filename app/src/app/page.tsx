@@ -138,11 +138,12 @@ function sourceAlerte(a: AlerteAccueil): { libelle: string; url?: string } {
 /* ------------------------------------------------------------------ */
 
 /**
- * Accueil — « salle de marché civique » en 3 colonnes : compteur budgétaire
- * (gauche), carte + activité (centre), flux du jour (droite). Server
- * Component : toutes les données viennent de data/france.db en lecture
- * seule, chaque bloc porte la fraîcheur réelle de sa source. Pas de temps
- * réel nulle part : les fréquences affichées sont celles des sources.
+ * Accueil — entrée citoyenne. Un chiffre héros (exécution S13 YTD),
+ * trois tuiles d'activité bornées, puis le reste du tableau de bord.
+ * Même ordre de scan au bureau (max-w-7xl) et au téléphone : le DOM
+ * s'empile, il n'y a pas d'arbre mobile distinct. Server Component :
+ * données depuis data/france.db en lecture seule. Pas de temps réel :
+ * les fréquences affichées sont celles des sources.
  */
 export default async function Accueil() {
   const donnees = getDonneesAccueil();
@@ -251,7 +252,8 @@ export default async function Accueil() {
       {/* Identité du site (WebSite + Project) — portée par la seule page
           d'accueil : la répéter sur chaque page n'apporte rien. */}
       <JsonLd donnees={jsonLdIdentiteSite()} />
-      {/* ---------- En-tête de page + encart périmètre ---------- */}
+      {/* Identité + hors-champ F1 au-dessus du chiffre : une restriction
+          dite plus bas ne compte pas. Le héros suit, pleine largeur. */}
       <header className="flex flex-col gap-3">
         <h1 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
           Vue d&apos;ensemble
@@ -283,104 +285,112 @@ export default async function Accueil() {
         </p>
       </header>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* ============ Colonne gauche : budget de l'État ============ */}
-        <div className="flex min-w-0 flex-col gap-4">
-          <Card
-            titre="Dépenses de l'État"
-            sousTitre={
-              execution
-                ? `Exécution au ${formatDateFr(execution.dateFinMois)} — cumul depuis le 1er janvier, dépenses nettes du budget général`
-                : "Exécution mensuelle — dépenses nettes du budget général"
-            }
-            droite={<BadgeSource source={sources.S13} />}
-          >
-            {execution ? (
-              <>
-                <p
-                  className="text-5xl font-semibold leading-none tracking-tight"
-                  style={{ color: "var(--montant)" }}
-                  title={`${formatNombre(execution.cumul)}${ESPACE_FINE}€`}
-                >
-                  {mdE(execution.cumul, 2)}
-                </p>
-                <div className="mt-2">
-                  {execution.deltaPct !== null && dateN1 ? (
-                    <DeltaPct
-                      valeur={execution.deltaPct}
-                      vs={formatDateFr(dateN1)}
-                      decimales={2}
-                    />
-                  ) : (
-                    <span className="text-xs text-ink-muted">
-                      comparaison N−1 non publiée
-                    </span>
-                  )}
-                </div>
-                <p className="mt-3 text-xs leading-relaxed text-ink-muted">
-                  Situation mensuelle DGFiP — pas de temps réel : dernier mois
-                  publié au {formatDateFr(execution.dateFinMois)}.
-                </p>
-              </>
-            ) : (
-              <p className="text-sm text-ink-muted">
-                Situation mensuelle non publiée dans la base.
+      {/* ---------- Héros : UN chiffre (DATAVIZ §6), S13 YTD (contrat F1) ---------- */}
+      <Card
+        titre="Dépenses de l'État"
+        sousTitre={
+          execution
+            ? `Exécution au ${formatDateFr(execution.dateFinMois)} — cumul depuis le 1er janvier, dépenses nettes du budget général`
+            : "Exécution mensuelle — dépenses nettes du budget général"
+        }
+        droite={<BadgeSource source={sources.S13} />}
+      >
+        {execution ? (
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between xl:gap-8">
+            <div className="min-w-0">
+              <p
+                className="text-5xl font-semibold leading-none tracking-tight"
+                style={{ color: "var(--montant)" }}
+                title={`${formatNombre(execution.cumul)}${ESPACE_FINE}€`}
+              >
+                {mdE(execution.cumul, 2)}
               </p>
-            )}
-            <LienModule href="/depenses" libelle="Voir les dépenses" />
-          </Card>
-
-          <Card
-            titre="Décomposition par titre"
-            sousTitre={
-              execution
-                ? `Dépenses nettes du budget général, cumul au ${formatDateFr(execution.dateFinMois)}`
-                : "Dépenses nettes du budget général"
-            }
-            droite={<BadgeSource source={sources.S13} />}
-          >
-            {partsTitres.length > 0 ? (
-              <Donut
-                parts={partsTitres.map((p) => ({
-                  libelle: LIBELLES_TITRES[p.ligne] ?? p.ligne,
-                  valeur: p.montant,
-                }))}
-                formatValeur={(v) => mdE(v, 1)}
-                libelleTotal={
-                  execution
-                    ? `Cumul au ${formatDateFr(execution.dateFinMois)}`
-                    : "Cumul"
-                }
-                taille={180}
-                ariaLabel="Décomposition des dépenses nettes de l'État par titre"
-              />
-            ) : (
-              <p className="text-sm text-ink-muted">Décomposition non publiée.</p>
-            )}
-            <LienModule href="/depenses" libelle="Voir les dépenses" />
-          </Card>
-
-          <Card
-            titre="Top 5 missions (PLF 2026)"
-            sousTitre={etiquettePlf2026 ?? "Crédits de paiement du PLF 2026"}
-            droite={<BadgeSource source={sources.S20} mention="PLF" />}
-          >
-            <BarList
-              items={missionsPlf2026.map((m) => ({ libelle: m.mission, valeur: m.cp }))}
-              formatValeur={(v) => mdE(v, 1)}
-              largeurLibelle="45%"
-            />
-            {totalCpPlf2026 !== null && (
-              <p className="mt-3 text-xs text-ink-muted">
-                Crédits de paiement (crédits budgétaires) — total toutes
-                missions&nbsp;: {mdE(totalCpPlf2026, 1)}.
+              <div className="mt-3">
+                {execution.deltaPct !== null && dateN1 ? (
+                  <DeltaPct
+                    valeur={execution.deltaPct}
+                    vs={formatDateFr(dateN1)}
+                    decimales={2}
+                  />
+                ) : (
+                  <span className="text-xs text-ink-muted">
+                    comparaison N−1 non publiée
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="min-w-0 xl:max-w-sm">
+              <p className="text-xs leading-relaxed text-ink-muted">
+                Situation mensuelle DGFiP — pas de temps réel : dernier mois
+                publié au {formatDateFr(execution.dateFinMois)}.
               </p>
-            )}
+              <LienModule href="/depenses" libelle="Voir les dépenses" />
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm text-ink-muted">
+              Situation mensuelle non publiée dans la base.
+            </p>
             <LienModule href="/depenses" libelle="Voir les dépenses" />
-          </Card>
-        </div>
+          </>
+        )}
+      </Card>
 
-        {/* ============ Colonne centrale : carte + activité ============ */}
+      {/* ---------- Trois tuiles d'activité bornées (contrat F1) ---------- */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <KpiTile
+          label="Marchés notifiés (30 j)"
+          valeur={formatNombre(kpis.marches30j)}
+          perimetre="notification initiale, 30 derniers jours — ce n’est pas le stock total"
+        />
+        <KpiTile
+          label="Appels d'offres en cours (BOAMP)"
+          valeur={formatNombre(kpis.aoEnCours)}
+          perimetre="annonces BOAMP non annulées, date limite encore ouverte — stock du jour, pas un flux 30 j"
+        />
+        <KpiTile
+          label="Textes au JO (30 j)"
+          valeur={formatNombre(kpis.textesJo30j)}
+          perimetre="JORF Lois et décrets, 30 derniers jours"
+        />
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        <BadgeSource source={sources.S1} mention="J-1" />
+        <BadgeSource source={sources.S2} />
+        <BadgeSource source={sources.S3} />
+      </div>
+
+      <StatStrip
+        stats={[
+          {
+            label: "Marchés publics suivis",
+            valeur: formatNombre(suivi.marchesSuivis),
+            perimetre: "notifiés sur les 24 derniers mois — ce n’est pas le stock total",
+          },
+          {
+            label: "Entités publiques référencées",
+            valeur: formatNombre(suivi.entitesPubliques),
+            perimetre:
+              "ministères, institutions, régions, départements et les 200 plus grandes communes",
+          },
+          {
+            label: "Élus suivis nominativement",
+            valeur: formatNombre(suivi.elusSuivis),
+            perimetre:
+              "maires, présidences d’exécutifs et parlementaires — hors conseillers municipaux",
+          },
+        ]}
+      />
+      <div className="flex flex-wrap gap-1.5">
+        <BadgeSource source={sources.S1} mention="J-1" />
+        <BadgeSource source={sources.S16} />
+        <BadgeSource source={sources.S17} />
+        <BadgeSource source={sources["S35-reforga-admin-etat"]} />
+      </div>
+
+      {/* ---------- Secondaire : carte et flux (même ordre empilé au téléphone) ---------- */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <div className="flex min-w-0 flex-col gap-4">
           <Card
             titre="Marchés publics par département"
@@ -402,89 +412,8 @@ export default async function Accueil() {
             </p>
             <LienModule href="/marches" libelle="Voir les marchés publics" />
           </Card>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <KpiTile
-              label="Marchés notifiés (30 j)"
-              valeur={formatNombre(kpis.marches30j)}
-              perimetre="notification initiale, 30 derniers jours — ce n’est pas le stock total"
-            />
-            <KpiTile
-              label="Appels d'offres en cours (BOAMP)"
-              valeur={formatNombre(kpis.aoEnCours)}
-              perimetre="annonces BOAMP non annulées, date limite encore ouverte — stock du jour, pas un flux 30 j"
-            />
-            <KpiTile
-              label="Textes au JO (30 j)"
-              valeur={formatNombre(kpis.textesJo30j)}
-              perimetre="JORF Lois et décrets, 30 derniers jours"
-            />
-            <KpiTile
-              label={
-                execution
-                  ? `Exécution de l'État au ${formatDateFr(execution.dateFinMois)}`
-                  : "Exécution de l'État"
-              }
-              valeur={execution ? mdE(execution.cumul, 2) : "non publié"}
-              perimetre="dépenses nettes du budget général, cumul depuis le 1er janvier"
-            />
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            <BadgeSource source={sources.S1} mention="J-1" />
-            <BadgeSource source={sources.S2} />
-            <BadgeSource source={sources.S3} />
-            <BadgeSource source={sources.S13} />
-          </div>
-
-          <StatStrip
-            stats={[
-              {
-                label: "Marchés publics suivis",
-                valeur: formatNombre(suivi.marchesSuivis),
-                perimetre: "notifiés sur les 24 derniers mois — ce n’est pas le stock total",
-              },
-              {
-                label: "Entités publiques référencées",
-                valeur: formatNombre(suivi.entitesPubliques),
-                perimetre:
-                  "ministères, institutions, régions, départements et les 200 plus grandes communes",
-              },
-              {
-                label: "Élus suivis nominativement",
-                valeur: formatNombre(suivi.elusSuivis),
-                perimetre:
-                  "maires, présidences d’exécutifs et parlementaires — hors conseillers municipaux",
-              },
-            ]}
-          />
-          <div className="flex flex-wrap gap-1.5">
-            <BadgeSource source={sources.S1} mention="J-1" />
-            <BadgeSource source={sources.S16} />
-            <BadgeSource source={sources.S17} />
-            <BadgeSource source={sources["S35-reforga-admin-etat"]} />
-          </div>
-
-          <Card
-            titre="Budget par ministère (destination 2025)"
-            sousTitre="Crédits de paiement BRUTS du PLF 2025 — non comparables aux dépenses nettes ci-contre"
-            droite={<BadgeSource source={sources.S21} mention="PLF" />}
-          >
-            <DataTable
-              colonnes={colonnesMinisteres}
-              lignes={lignesMinisteres}
-              cleLigne={(l) => l.ministere}
-              vide="Aucune donnée"
-            />
-            <p className="mt-2 text-[11px] text-ink-muted">
-              Top 8 sur {totalCp2025 !== null ? mdE(totalCp2025, 1) : "—"} de CP
-              au total. Pas de colonne d&apos;évolution&nbsp;: la donnée est un
-              instantané PLF, sans exercice N−1 comparable.
-            </p>
-            <LienModule href="/depenses" libelle="Voir les dépenses" />
-          </Card>
         </div>
 
-        {/* ============ Colonne droite : flux du jour ============ */}
         <div className="flex min-w-0 flex-col gap-4">
           <Card
             titre="Derniers marchés notifiés"
@@ -502,11 +431,14 @@ export default async function Accueil() {
                       <span className="shrink-0 text-ink-muted [font-variant-numeric:tabular-nums]">
                         {formatDateFr(m.date)}
                       </span>
-                      <span className="truncate text-ink-secondary">
+                      <span className="min-w-0 break-words text-ink-secondary">
                         {m.acheteur?.trim() ? m.acheteur : "acheteur non renseigné"}
                       </span>
                     </div>
-                    <p className="truncate text-[13px] text-ink" title={m.objet ?? undefined}>
+                    <p
+                      className="line-clamp-2 break-words text-[13px] text-ink"
+                      title={m.objet ?? undefined}
+                    >
                       {m.objet?.trim() ? m.objet : "objet non publié"}
                     </p>
                   </div>
@@ -553,7 +485,7 @@ export default async function Accueil() {
                     target="_blank"
                     rel="noopener noreferrer"
                     title={t.titre}
-                    className="mt-0.5 block truncate text-[13px] text-ink underline-offset-2 hover:underline"
+                    className="mt-0.5 block line-clamp-2 break-words text-[13px] text-ink underline-offset-2 hover:underline"
                   >
                     {t.titre}
                     <span aria-hidden="true" className="ml-1 text-ink-muted">
@@ -565,88 +497,164 @@ export default async function Accueil() {
             </ul>
             <LienModule href="/documents" libelle="Voir les documents" />
           </Card>
-
-          <Card
-            titre="Appels d'offres proches de la clôture"
-            sousTitre="Date limite de réponse (heure de Paris) — annonces BOAMP non annulées"
-            droite={<BadgeSource source={sources.S2} />}
-          >
-            <ul className="flex flex-col">
-              {aoCloture.map((ao) => (
-                <li
-                  key={ao.id}
-                  className="py-2"
-                  style={{ borderBottom: "1px solid var(--viz-grid)" }}
-                >
-                  <div className="flex items-baseline justify-between gap-3 text-[11px]">
-                    <span className="shrink-0 font-medium text-ink-secondary [font-variant-numeric:tabular-nums]">
-                      Clôture le {formatDateHeureFr(ao.dateLimite)}
-                    </span>
-                    <span className="truncate text-ink-muted">
-                      {ao.acheteur?.trim() ? ao.acheteur : "acheteur non renseigné"}
-                    </span>
-                  </div>
-                  <p className="truncate text-[13px] text-ink" title={ao.objet ?? undefined}>
-                    {ao.url ? (
-                      <a
-                        href={ao.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline-offset-2 hover:underline"
-                      >
-                        {ao.objet?.trim() ? ao.objet : "objet non publié"}
-                      </a>
-                    ) : ao.objet?.trim() ? (
-                      ao.objet
-                    ) : (
-                      "objet non publié"
-                    )}
-                  </p>
-                  <p className="text-[11px] text-ink-muted">
-                    Montant estimé&nbsp;:{" "}
-                    {ao.montantEstime !== null ? (
-                      <Money valeur={ao.montantEstime} className="text-ink-secondary" />
-                    ) : (
-                      "non publié"
-                    )}
-                  </p>
-                </li>
-              ))}
-            </ul>
-            <LienModule href="/marches" libelle="Voir les marchés publics" />
-          </Card>
-
-          <Card
-            titre="Alertes transparence"
-            sousTitre={
-              dernierCalculAlertes
-                ? `Les plus récentes de chaque gravité — dernier calcul le ${formatDateFr(dernierCalculAlertes)}`
-                : "Les plus récentes de chaque gravité"
-            }
-          >
-            <div className="flex flex-col gap-2">
-              {alertes.map((a) => {
-                const ui = GRAVITES_UI[a.gravite] ?? {
-                  gravite: "attention" as Gravite,
-                  libelle: a.gravite,
-                };
-                return (
-                  <AlertItem
-                    key={a.id}
-                    gravite={ui.gravite}
-                    graviteLibelle={ui.libelle}
-                    titre={a.titre}
-                    detail={a.detail ?? undefined}
-                    regle={a.regle ?? undefined}
-                    baseLegale={a.baseLegale ?? undefined}
-                    source={sourceAlerte(a)}
-                  />
-                );
-              })}
-            </div>
-            <LienModule href="/alertes" libelle="Toutes les alertes" />
-          </Card>
         </div>
+      </div>
+
+      {/* ---------- Tertiaire : composition budgétaire, puis AO et alertes ---------- */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <Card
+          titre="Décomposition par titre"
+          sousTitre={
+            execution
+              ? `Dépenses nettes du budget général, cumul au ${formatDateFr(execution.dateFinMois)}`
+              : "Dépenses nettes du budget général"
+          }
+          droite={<BadgeSource source={sources.S13} />}
+        >
+          {partsTitres.length > 0 ? (
+            <Donut
+              parts={partsTitres.map((p) => ({
+                libelle: LIBELLES_TITRES[p.ligne] ?? p.ligne,
+                valeur: p.montant,
+              }))}
+              formatValeur={(v) => mdE(v, 1)}
+              libelleTotal={
+                execution
+                  ? `Cumul au ${formatDateFr(execution.dateFinMois)}`
+                  : "Cumul"
+              }
+              taille={180}
+              ariaLabel="Décomposition des dépenses nettes de l'État par titre"
+            />
+          ) : (
+            <p className="text-sm text-ink-muted">Décomposition non publiée.</p>
+          )}
+          <LienModule href="/depenses" libelle="Voir les dépenses" />
+        </Card>
+
+        <Card
+          titre="Top 5 missions (PLF 2026)"
+          sousTitre={etiquettePlf2026 ?? "Crédits de paiement du PLF 2026"}
+          droite={<BadgeSource source={sources.S20} mention="PLF" />}
+        >
+          <BarList
+            items={missionsPlf2026.map((m) => ({ libelle: m.mission, valeur: m.cp }))}
+            formatValeur={(v) => mdE(v, 1)}
+            largeurLibelle="45%"
+          />
+          {totalCpPlf2026 !== null && (
+            <p className="mt-3 text-xs text-ink-muted">
+              Crédits de paiement (crédits budgétaires) — total toutes
+              missions&nbsp;: {mdE(totalCpPlf2026, 1)}.
+            </p>
+          )}
+          <LienModule href="/depenses" libelle="Voir les dépenses" />
+        </Card>
+
+        <Card
+          titre="Budget par ministère (destination 2025)"
+          sousTitre="Crédits de paiement BRUTS du PLF 2025 — non comparables aux dépenses nettes du budget général"
+          droite={<BadgeSource source={sources.S21} mention="PLF" />}
+        >
+          <DataTable
+            colonnes={colonnesMinisteres}
+            lignes={lignesMinisteres}
+            cleLigne={(l) => l.ministere}
+            vide="Aucune donnée"
+          />
+          <p className="mt-2 text-[11px] text-ink-muted">
+            Top 8 sur {totalCp2025 !== null ? mdE(totalCp2025, 1) : "—"} de CP
+            au total. Pas de colonne d&apos;évolution&nbsp;: la donnée est un
+            instantané PLF, sans exercice N−1 comparable.
+          </p>
+          <LienModule href="/depenses" libelle="Voir les dépenses" />
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <Card
+          titre="Appels d'offres proches de la clôture"
+          sousTitre="Date limite de réponse (heure de Paris) — annonces BOAMP non annulées"
+          droite={<BadgeSource source={sources.S2} />}
+        >
+          <ul className="flex flex-col">
+            {aoCloture.map((ao) => (
+              <li
+                key={ao.id}
+                className="py-2"
+                style={{ borderBottom: "1px solid var(--viz-grid)" }}
+              >
+                <div className="flex items-baseline justify-between gap-3 text-[11px]">
+                  <span className="shrink-0 font-medium text-ink-secondary [font-variant-numeric:tabular-nums]">
+                    Clôture le {formatDateHeureFr(ao.dateLimite)}
+                  </span>
+                  <span className="min-w-0 break-words text-right text-ink-muted">
+                    {ao.acheteur?.trim() ? ao.acheteur : "acheteur non renseigné"}
+                  </span>
+                </div>
+                <p
+                  className="line-clamp-2 break-words text-[13px] text-ink"
+                  title={ao.objet ?? undefined}
+                >
+                  {ao.url ? (
+                    <a
+                      href={ao.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline-offset-2 hover:underline"
+                    >
+                      {ao.objet?.trim() ? ao.objet : "objet non publié"}
+                    </a>
+                  ) : ao.objet?.trim() ? (
+                    ao.objet
+                  ) : (
+                    "objet non publié"
+                  )}
+                </p>
+                <p className="text-[11px] text-ink-muted">
+                  Montant estimé&nbsp;:{" "}
+                  {ao.montantEstime !== null ? (
+                    <Money valeur={ao.montantEstime} className="text-ink-secondary" />
+                  ) : (
+                    "non publié"
+                  )}
+                </p>
+              </li>
+            ))}
+          </ul>
+          <LienModule href="/marches" libelle="Voir les marchés publics" />
+        </Card>
+
+        <Card
+          titre="Alertes transparence"
+          sousTitre={
+            dernierCalculAlertes
+              ? `Les plus récentes de chaque gravité — dernier calcul le ${formatDateFr(dernierCalculAlertes)}`
+              : "Les plus récentes de chaque gravité"
+          }
+        >
+          <div className="flex flex-col gap-2">
+            {alertes.map((a) => {
+              const ui = GRAVITES_UI[a.gravite] ?? {
+                gravite: "attention" as Gravite,
+                libelle: a.gravite,
+              };
+              return (
+                <AlertItem
+                  key={a.id}
+                  gravite={ui.gravite}
+                  graviteLibelle={ui.libelle}
+                  titre={a.titre}
+                  detail={a.detail ?? undefined}
+                  regle={a.regle ?? undefined}
+                  baseLegale={a.baseLegale ?? undefined}
+                  source={sourceAlerte(a)}
+                />
+              );
+            })}
+          </div>
+          <LienModule href="/alertes" libelle="Toutes les alertes" />
+        </Card>
       </div>
     </div>
   );
