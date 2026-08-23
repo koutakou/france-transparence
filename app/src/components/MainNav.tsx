@@ -300,8 +300,8 @@ export function MainNav() {
         PAS getBoundingClientRect().bottom, qui recule au scroll).
         max-h + overscroll-contain : 11 × 44px sur un écran court.
       */}
-      <details ref={detailsRef} className="xl:hidden">
-        <summary className="inline-flex min-h-11 min-w-11 cursor-pointer list-none items-center gap-2 rounded-lg border border-card-border bg-page px-3 text-[13px] text-ink select-none [&::-webkit-details-marker]:hidden">
+      <details ref={detailsRef} className="shrink-0 xl:hidden">
+        <summary className="inline-flex min-h-11 min-w-11 shrink-0 cursor-pointer list-none items-center gap-2 whitespace-nowrap rounded-lg border border-card-border bg-page px-3 text-[13px] text-ink select-none [&::-webkit-details-marker]:hidden">
           <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" {...TRAIT} className="shrink-0">
             <path d="M4 7h16M4 12h16M4 17h16" />
           </svg>

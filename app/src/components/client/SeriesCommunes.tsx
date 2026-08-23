@@ -324,7 +324,7 @@ export function SeriesCommunes({ lignes, hauteurMax }: SeriesCommunesProps) {
           <button
             type="button"
             onClick={() => setTout(true)}
-            className="rounded-lg border border-card-border bg-raised px-2.5 py-1 text-ink transition-colors hover:bg-hover"
+            className="inline-flex min-h-11 items-center rounded-lg border border-card-border bg-raised px-3 text-ink transition-colors hover:bg-hover"
           >
             Tout afficher ({formatNombre(lignes.length)})
           </button>

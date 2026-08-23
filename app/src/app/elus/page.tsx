@@ -197,7 +197,7 @@ export default async function PageElus() {
         </>
       )}
 
-      <div id="deputes" className="scroll-mt-20">
+      <div id="deputes" className="scroll-mt-32">
         <Card
           titre="Députés — participation aux scrutins"
           sousTitre="Taux calculé par France Transparence et score Datan, côte à côte : deux méthodes distinctes, étiquetées."
@@ -314,7 +314,7 @@ export default async function PageElus() {
         </p>
       </Card>
 
-      <div id="senateurs" className="scroll-mt-20">
+      <div id="senateurs" className="scroll-mt-32">
         <Card
           titre="Sénat"
           sousTitre="348 sièges · renouvellement du Sénat le 27/09/2026"

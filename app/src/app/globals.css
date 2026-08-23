@@ -164,6 +164,7 @@ header {
 
 .header-logo {
   grid-area: logo;
+  min-width: 0; /* cède avant le bouton Menu (shrink-0) */
 }
 
 .header-search {

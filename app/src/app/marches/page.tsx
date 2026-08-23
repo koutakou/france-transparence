@@ -1178,7 +1178,7 @@ export default async function PageMarches() {
       {/* ---------------------------------------------------------- */}
       {/* Appels d’offres en cours (BOAMP, S2)                        */}
       {/* ---------------------------------------------------------- */}
-      <div id="appels-offres" className="scroll-mt-4">
+      <div id="appels-offres" className="scroll-mt-32">
         <Card
           titre="Appels d’offres en cours"
           sousTitre="BOAMP — instantané quotidien, re-filtré à chaque construction du site (annonces annulées et échéances passées écartées)"

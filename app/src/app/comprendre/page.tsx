@@ -566,7 +566,7 @@ export default function PageComprendre() {
       </nav>
 
       <Card titre="Ce que ce site fait">
-        <div id="methode" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+        <div id="methode" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             France Transparence republie des données issues de publications
             officielles et en explique le fonctionnement. Il agrège, met en
@@ -600,7 +600,7 @@ export default function PageComprendre() {
       </Card>
 
       <Card titre="Comment lire un chiffre de ce site">
-        <div id="lire-un-chiffre" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+        <div id="lire-un-chiffre" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             Un chiffre borné porte sa borne à côté de lui : «&nbsp;12
             mois&nbsp;», «&nbsp;budget principal&nbsp;», «&nbsp;hors
@@ -645,7 +645,7 @@ export default function PageComprendre() {
       </Card>
 
       <Card titre="Journal des lectures">
-        <div id="lectures" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+        <div id="lectures" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             Ce site date ses lectures. Une lecture remplacée n’est pas
             effacée : elle reste ici, avec ce qui la remplace. Un chiffre
@@ -784,10 +784,10 @@ export default function PageComprendre() {
       </Card>
 
       <Card titre="Glossaire">
-        <div id="glossaire" className="scroll-mt-20">
+        <div id="glossaire" className="scroll-mt-32">
           <dl className="max-w-3xl divide-y divide-card-border">
             {GLOSSAIRE.map((e) => (
-              <div key={e.id} id={e.id} className="scroll-mt-20 py-3 first:pt-0 last:pb-0">
+              <div key={e.id} id={e.id} className="scroll-mt-32 py-3 first:pt-0 last:pb-0">
                 <dt className="text-sm font-medium text-ink">{e.terme}</dt>
                 <dd className="mt-1 text-sm leading-relaxed text-ink-secondary">{e.def}</dd>
               </div>
@@ -797,7 +797,7 @@ export default function PageComprendre() {
       </Card>
 
       <Card titre="Commande publique">
-        <div id="marches" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+        <div id="marches" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
             Un marché public est un contrat conclu à titre onéreux par un
@@ -858,7 +858,7 @@ export default function PageComprendre() {
       </Card>
 
       <Card titre="Élus et institutions">
-        <div id="elus" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+        <div id="elus" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
             Les assemblées parlementaires publient leur composition, leurs
@@ -903,7 +903,7 @@ export default function PageComprendre() {
       </Card>
 
       <Card titre="Lobbying">
-        <div id="lobbying" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+        <div id="lobbying" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
             Depuis la loi du 9 décembre 2016, certaines entités qui
@@ -949,7 +949,7 @@ export default function PageComprendre() {
       </Card>
 
       <Card titre="Financement de la vie politique">
-        <div id="financement" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+        <div id="financement" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
             Les partis et groupements politiques déposent chaque année leurs
@@ -987,7 +987,7 @@ export default function PageComprendre() {
       </Card>
 
       <Card titre="Budget de l’État">
-        <div id="depenses" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+        <div id="depenses" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
             Le budget de l’État se lit en trois documents distincts. Le
@@ -1036,7 +1036,7 @@ export default function PageComprendre() {
       </Card>
 
       <Card titre="Dette des APU (Maastricht)">
-        <div id="dette-maastricht" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+        <div id="dette-maastricht" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
             L’encours Maastricht est un stock de dette brute consolidée, à la
@@ -1069,7 +1069,7 @@ export default function PageComprendre() {
       </Card>
 
       <Card titre="Déficit des APU (Maastricht)">
-        <div id="deficit-maastricht" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+        <div id="deficit-maastricht" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
             Le déficit Maastricht est le besoin de financement annuel des
@@ -1106,7 +1106,7 @@ export default function PageComprendre() {
       </Card>
 
       <Card titre="Dépenses des APU (ESA)">
-        <div id="depenses-apu-esa" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+        <div id="depenses-apu-esa" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
             Les dépenses des APU (ESA) sont le total des dépenses des
@@ -1143,7 +1143,7 @@ export default function PageComprendre() {
       </Card>
 
       <Card titre="Recettes des APU (ESA)">
-        <div id="recettes-apu-esa" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+        <div id="recettes-apu-esa" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
             Les recettes des APU (ESA) sont le total des recettes des
@@ -1181,7 +1181,7 @@ export default function PageComprendre() {
       </Card>
 
       <Card titre="Situation nette de l’État (CGE)">
-        <div id="cge" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+        <div id="cge" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
             Le compte général de l’État est le bilan patrimonial de
@@ -1220,7 +1220,7 @@ export default function PageComprendre() {
       </Card>
 
       <Card titre="Prestations de protection sociale">
-        <div id="protection-sociale" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+        <div id="protection-sociale" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
             Les prestations de protection sociale sont le flux annuel des
@@ -1256,7 +1256,7 @@ export default function PageComprendre() {
       </Card>
 
       <Card titre="Recettes de l’État">
-        <div id="recettes" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+        <div id="recettes" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
             Les recettes du budget général (source S13) sont publiées dans
@@ -1291,7 +1291,7 @@ export default function PageComprendre() {
       </Card>
 
       <Card titre="Finances locales">
-        <div id="collectivites" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+        <div id="collectivites" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
             Les communes, départements et régions votent un budget principal
@@ -1336,7 +1336,7 @@ export default function PageComprendre() {
       </Card>
 
       <Card titre="Frais et train de vie">
-        <div id="frais" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+        <div id="frais" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
             Les indemnités, dotations et avances des responsables publics
@@ -1371,7 +1371,7 @@ export default function PageComprendre() {
       </Card>
 
       <Card titre="Documents officiels">
-        <div id="documents" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+        <div id="documents" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
             Le Journal officiel «&nbsp;Lois et décrets&nbsp;» paraît chaque
@@ -1395,7 +1395,7 @@ export default function PageComprendre() {
             pas dans cette page. Ce n’est pas le fonds DOLE.
           </p>
         </div>
-        <div id="dossiers-legislatifs" className="scroll-mt-20 mt-8 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+        <div id="dossiers-legislatifs" className="scroll-mt-32 mt-8 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <h3 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
             Dossiers législatifs
           </h3>
@@ -1427,7 +1427,7 @@ export default function PageComprendre() {
       </Card>
 
       <Card titre="Alertes">
-        <div id="alertes" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+        <div id="alertes" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
             Une alerte de ce site reprend un constat déjà formulé par une

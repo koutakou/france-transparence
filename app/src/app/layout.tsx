@@ -80,10 +80,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         )}
         <header className="sticky top-0 z-30 border-b border-card-border bg-card">
           <div className="header-chrome mx-auto w-full max-w-7xl px-5 pt-3 pb-2">
-            <Link href="/" className="header-logo flex items-center gap-3">
+            <Link href="/" className="header-logo flex items-center gap-2 xl:gap-3">
               <LogoBouclier taille={30} />
               <span className="flex flex-col">
-                <span className="text-[15px] font-semibold leading-tight tracking-[0.18em] text-ink">
+                {/* tracking large dès xl : à 390 px il poussait le bouton
+                    Menu hors viewport (mesuré : summary.right = 421 > 390). */}
+                <span className="text-[15px] font-semibold leading-tight tracking-normal text-ink xl:tracking-[0.18em]">
                   FRANCE&nbsp;TRANSPARENCE
                 </span>
                 {/* fin liseré tricolore sous le titre */}
@@ -111,7 +113,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* tabIndex=-1 : sans ça, le skip-link fait défiler mais le
             focus clavier reste sur le lien — le prochain Tab rebondit
             en tête de page. */}
-        <main id="contenu" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-5 py-6">{children}</main>
+        {/* scroll-mt-32 : header sticky ~118–121 px. Sans ça, le skip-link
+            depuis le milieu de page pose #contenu sous le chrome (mesuré :
+            mainTop=0, headerBottom=118). */}
+        <main id="contenu" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 scroll-mt-32 px-5 py-6">{children}</main>
         <footer className="border-t border-card-border">
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-1.5 px-5 py-4 text-xs leading-relaxed text-ink-muted">
             {/* Licence : « pour la plupart », pas toutes. S3 (JORF « Lois

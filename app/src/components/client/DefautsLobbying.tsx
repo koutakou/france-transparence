@@ -105,7 +105,7 @@ export function DefautsLobbying({ premieres, total }: DefautsLobbyingProps) {
             type="button"
             onClick={toutAfficher}
             disabled={chargement}
-            className="rounded-lg border border-card-border bg-raised px-2.5 py-1 text-ink transition-colors hover:bg-hover disabled:cursor-wait"
+            className="inline-flex min-h-11 items-center rounded-lg border border-card-border bg-raised px-3 text-ink transition-colors hover:bg-hover disabled:cursor-wait"
           >
             {chargement ? "Chargement…" : `Tout afficher (${formatNombre(total)})`}
           </button>

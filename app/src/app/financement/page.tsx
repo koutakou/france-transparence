@@ -275,35 +275,6 @@ export default async function FinancementPage() {
         ]}
       />
 
-      <NoticeLecture
-        ancre="financement"
-        commentLire={
-          <p>
-            Un compte publié n’est pas le patrimoine d’un parti, ni
-            l’argent disponible. Une réformation par la Commission peut
-            relever ou abaisser un montant déclaré : le chiffre affiché
-            est le retenu. Les montants en francs CFP n’entrent pas dans
-            les totaux en euros.
-          </p>
-        }
-        provenance={
-          <p>
-            Comptes des partis et comptes de campagne publiés par la
-            Commission nationale des comptes de campagne et des
-            financements politiques (CNCCFP). L’aide publique est celle
-            du décret en vigueur.
-          </p>
-        }
-        limites={
-          <p>
-            Les comptes non encore publiés par la Commission n’y figurent
-            pas. Cette page ne produit aucun classement d’opinion, aucune
-            intention de vote, aucune mesure de notoriété. Elle ne publie
-            aucune nuance politique.
-          </p>
-        }
-      />
-
       {/* ── Pourquoi ces trois montants ne se comparent pas ─────────────── */}
       {decret2024 && aide2024 && (
         <div className="max-w-3xl rounded-xl border border-card-border bg-card p-4 text-[13px] leading-relaxed text-ink-secondary">
@@ -362,6 +333,35 @@ export default async function FinancementPage() {
           XPF ou unité absente) sont exclus des agrégats en euros.
         </p>
       )}
+
+      <NoticeLecture
+        ancre="financement"
+        commentLire={
+          <p>
+            Un compte publié n’est pas le patrimoine d’un parti, ni
+            l’argent disponible. Une réformation par la Commission peut
+            relever ou abaisser un montant déclaré : le chiffre affiché
+            est le retenu. Les montants en francs CFP n’entrent pas dans
+            les totaux en euros.
+          </p>
+        }
+        provenance={
+          <p>
+            Comptes des partis et comptes de campagne publiés par la
+            Commission nationale des comptes de campagne et des
+            financements politiques (CNCCFP). L’aide publique est celle
+            du décret en vigueur.
+          </p>
+        }
+        limites={
+          <p>
+            Les comptes non encore publiés par la Commission n’y figurent
+            pas. Cette page ne produit aucun classement d’opinion, aucune
+            intention de vote, aucune mesure de notoriété. Elle ne publie
+            aucune nuance politique.
+          </p>
+        }
+      />
 
       {/* ── Top 10 des partis par produits ───────────────────────────── */}
       <Card

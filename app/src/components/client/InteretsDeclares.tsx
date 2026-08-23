@@ -263,7 +263,7 @@ function Rubrique({ rubrique, chargeur }: { rubrique: RubriqueDeclaree; chargeur
                 <button
                   type="button"
                   onClick={toutAfficher}
-                  className="rounded-lg border border-card-border bg-raised px-2.5 py-1 text-ink transition-colors hover:bg-hover"
+                  className="inline-flex min-h-11 items-center rounded-lg border border-card-border bg-raised px-3 text-ink transition-colors hover:bg-hover"
                 >
                   Tout afficher ({nbTotal})
                 </button>
@@ -326,7 +326,7 @@ function Declaration({
           type="button"
           onClick={basculer}
           aria-expanded={ouverte}
-          className="rounded-lg border border-card-border bg-raised px-2.5 py-1 text-xs text-ink transition-colors hover:bg-hover"
+          className="inline-flex min-h-11 items-center rounded-lg border border-card-border bg-raised px-3 text-xs text-ink transition-colors hover:bg-hover"
         >
           {ouverte ? "Replier" : `Déplier (${declaration.nb_lignes} ligne${declaration.nb_lignes > 1 ? "s" : ""})`}
         </button>
