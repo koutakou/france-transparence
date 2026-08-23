@@ -78,7 +78,10 @@ const COLONNES_FLUX: Colonne<TexteVue>[] = [
     cle: "titre",
     entete: "Titre",
     rendu: (l) => (
-      <span title={l.titre} className="block max-w-[44ch] truncate xl:max-w-[62ch]">
+      <span
+        title={l.titre}
+        className="block max-xl:max-w-[44ch] max-xl:truncate xl:whitespace-normal xl:break-words"
+      >
         {l.titre}
       </span>
     ),
@@ -89,7 +92,10 @@ const COLONNES_FLUX: Colonne<TexteVue>[] = [
     largeur: "13rem",
     rendu: (l) =>
       l.ministere ? (
-        <span title={l.ministere} className="block max-w-[22ch] truncate">
+        <span
+          title={l.ministere}
+          className="block max-xl:max-w-[22ch] max-xl:truncate xl:whitespace-normal xl:break-words"
+        >
           {l.ministere}
         </span>
       ) : (

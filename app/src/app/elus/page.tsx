@@ -151,49 +151,16 @@ export default async function PageElus() {
   return (
     <div className="flex flex-col gap-6">
       <JsonLd donnees={BALISAGE} />
-      <section className="flex flex-col gap-3">
+      {/* Bande 1 — table des noms au pli, pas le mur pédagogique. */}
+      <section className="flex flex-col gap-2">
         <h1 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
           Élus &amp; institutions
         </h1>
         <p className="max-w-3xl text-sm text-ink-secondary">
-          Composition réelle des assemblées, participation des députés aux scrutins publics et
-          répertoire national des élus — données officielles AN, Sénat, ministère de l’Intérieur
-          (RNE), croisées avec les déclarations HATVP.
+          Composition réelle des assemblées (AN, Sénat) et répertoire national des élus
+          (RNE)&nbsp;: les conseillers municipaux n’entrent dans aucun chiffre de cette
+          page. Participation des députés aux scrutins publics, déclarations HATVP.
         </p>
-        <p className="max-w-3xl text-xs text-ink-muted">
-          Fiches détaillées&nbsp;: parlementaires et présidences d’exécutifs
-          départementaux/régionaux. Le suivi nominatif s’arrête aux mandats exécutifs et
-          parlementaires&nbsp;: le RNE recense en outre les conseillers municipaux, qui ne
-          sont pas ingérés nom par nom et ne comptent donc dans aucun chiffre de cette page.
-        </p>
-        <NoticeLecture
-          ancre="elus"
-          commentLire={
-            <p>
-              Une fiche nominative n’existe que pour les mandats nationaux et
-              les exécutifs départementaux et régionaux. Les conseillers
-              municipaux du RNE n’entrent dans aucun chiffre de cette page.
-              Deux scores de participation cohabitent : l’un calculé ici, l’autre
-              publié par Datan — deux méthodes, étiquetées.
-            </p>
-          }
-          provenance={
-            <p>
-              Assemblée nationale et Sénat (composition, groupes, scrutins
-              publics), répertoire national des élus (ministère de
-              l’Intérieur), déclarations d’intérêts de la HATVP, scores Datan
-              cités avec leur méthode.
-            </p>
-          }
-          limites={
-            <p>
-              Cette page ne publie aucune nuance ou sensibilité politique. Un
-              taux de participation aux scrutins n’est pas un jugement sur le
-              travail d’un élu. Le contenu des déclarations de patrimoine
-              consultables en préfecture n’y entre pas.
-            </p>
-          }
-        />
       </section>
 
       {stats && (
@@ -229,6 +196,77 @@ export default async function PageElus() {
           </div>
         </>
       )}
+
+      <div id="deputes" className="scroll-mt-20">
+        <Card
+          titre="Députés — participation aux scrutins"
+          sousTitre="Taux calculé par France Transparence et score Datan, côte à côte : deux méthodes distinctes, étiquetées."
+          droite={
+            <div className="flex flex-wrap justify-end gap-2">
+              <Badge source={sources["S5-AMO10"]} />
+              <Badge source={sources["S7-DATAN"]} mention="scores Datan crédités" />
+            </div>
+          }
+        >
+          <TableParlementaires
+            variante="deputes"
+            initiaux={deputes.slice(0, PREMIER_ECRAN)}
+            total={deputes.length}
+            groupes={groupesAn.map((g) => ({ valeur: g.sigle, libelle: `${g.sigle} — ${g.nom}` }))}
+            departements={departementsDeputes}
+          />
+          <div className="mt-3 flex flex-col gap-1 text-[11px] leading-relaxed text-ink-muted">
+            <p>
+              ¹ Calcul France Transparence : votes exprimés / scrutins publics de l’AN des 365
+              derniers jours depuis l’entrée en mandat (source AN, scrutins nominaux). Le 0,63 %
+              de la présidente de l’Assemblée est normal : elle préside et ne prend pas part aux
+              votes.
+            </p>
+            <p>
+              ² Score de participation publié par{" "}
+              <a
+                href="https://datan.fr"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
+              >
+                Datan (datan.fr)
+              </a>
+              , échelle 0 à 1, méthodologie Datan — calculé par Datan, non recalculé par France
+              Transparence.
+            </p>
+          </div>
+        </Card>
+      </div>
+
+      <NoticeLecture
+        ancre="elus"
+        commentLire={
+          <p>
+            Une fiche nominative n’existe que pour les mandats nationaux et
+            les exécutifs départementaux et régionaux. Les conseillers
+            municipaux du RNE n’entrent dans aucun chiffre de cette page.
+            Deux scores de participation cohabitent : l’un calculé ici, l’autre
+            publié par Datan — deux méthodes, étiquetées.
+          </p>
+        }
+        provenance={
+          <p>
+            Assemblée nationale et Sénat (composition, groupes, scrutins
+            publics), répertoire national des élus (ministère de
+            l’Intérieur), déclarations d’intérêts de la HATVP, scores Datan
+            cités avec leur méthode.
+          </p>
+        }
+        limites={
+          <p>
+            Cette page ne publie aucune nuance ou sensibilité politique. Un
+            taux de participation aux scrutins n’est pas un jugement sur le
+            travail d’un élu. Le contenu des déclarations de patrimoine
+            consultables en préfecture n’y entre pas.
+          </p>
+        }
+      />
 
       <Card
         titre="Assemblée nationale — groupes politiques"
@@ -275,48 +313,6 @@ export default async function PageElus() {
           validée pour le fond sombre — l’identité est portée par les libellés.
         </p>
       </Card>
-
-      <div id="deputes" className="scroll-mt-20">
-        <Card
-          titre="Députés — participation aux scrutins"
-          sousTitre="Taux calculé par France Transparence et score Datan, côte à côte : deux méthodes distinctes, étiquetées."
-          droite={
-            <div className="flex flex-wrap justify-end gap-2">
-              <Badge source={sources["S5-AMO10"]} />
-              <Badge source={sources["S7-DATAN"]} mention="scores Datan crédités" />
-            </div>
-          }
-        >
-          <TableParlementaires
-            variante="deputes"
-            initiaux={deputes.slice(0, PREMIER_ECRAN)}
-            total={deputes.length}
-            groupes={groupesAn.map((g) => ({ valeur: g.sigle, libelle: `${g.sigle} — ${g.nom}` }))}
-            departements={departementsDeputes}
-          />
-          <div className="mt-3 flex flex-col gap-1 text-[11px] leading-relaxed text-ink-muted">
-            <p>
-              ¹ Calcul France Transparence : votes exprimés / scrutins publics de l’AN des 365
-              derniers jours depuis l’entrée en mandat (source AN, scrutins nominaux). Le 0,63 %
-              de la présidente de l’Assemblée est normal : elle préside et ne prend pas part aux
-              votes.
-            </p>
-            <p>
-              ² Score de participation publié par{" "}
-              <a
-                href="https://datan.fr"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
-              >
-                Datan (datan.fr)
-              </a>
-              , échelle 0 à 1, méthodologie Datan — calculé par Datan, non recalculé par France
-              Transparence.
-            </p>
-          </div>
-        </Card>
-      </div>
 
       <div id="senateurs" className="scroll-mt-20">
         <Card

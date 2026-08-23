@@ -940,49 +940,16 @@ export default async function LobbyingPage() {
   return (
     <section className="flex flex-col gap-6">
       <JsonLd donnees={BALISAGE} />
-      {/* ── En-tête ─────────────────────────────────────────────────── */}
-      <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+      {/* Bande 1 — le chiffre au pli, pas le mur pédagogique. */}
+      <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="max-w-2xl">
           <h1 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
             Lobbying — représentants d&apos;intérêts
           </h1>
           <p className="mt-2 text-sm text-ink-secondary">
-            Répertoire des représentants d&apos;intérêts tenu par la Haute
-            Autorité pour la transparence de la vie publique (HATVP), créé par
-            la loi « Sapin II » du 9 décembre 2016. Les entités
-            inscrites y déclarent leurs activités de représentation
-            d&apos;intérêts et les moyens qui y sont consacrés ; le
-            répertoire est mis à jour quotidiennement.
+            Répertoire des représentants d&apos;intérêts de la HATVP, créé par
+            la loi « Sapin II » du 9 décembre 2016.
           </p>
-          <NoticeLecture
-            ancre="lobbying"
-            commentLire={
-              <p>
-                Une inscription au répertoire n’est pas une infraction. Un
-                «&nbsp;défaut de déclaration&nbsp;» reprend un constat de la
-                HATVP, ce n’est pas un jugement du site. Les budgets sont des
-                fourchettes déclarées, pas des montants exacts.
-              </p>
-            }
-            provenance={
-              <p>
-                Répertoire des représentants d’intérêts de la HATVP (loi du 9
-                décembre 2016), mis à jour quotidiennement. Le croisement avec
-                les marchés publics identifie les titulaires aussi inscrits
-                comme représentants d’intérêts.
-              </p>
-            }
-            limites={
-              <p>
-                Le répertoire ne couvre pas toutes les formes d’influence. Le
-                croisement avec les marchés ne dit pas qu’un marché a été
-                obtenu par cette activité. Il porte sur les 24 mois de détail
-                DECP, pas sur la fenêtre 12 mois du classement de la page
-                Marchés, et n’applique pas le même filtre d’identifiant : les
-                deux comptes ne portent pas sur la même population.
-              </p>
-            }
-          />
         </div>
         {badge}
       </header>
@@ -1041,6 +1008,37 @@ export default async function LobbyingPage() {
           />
         </VueTableau>
       </Card>
+
+      {/* notice 3 blocs APRÈS le chiffre, pas un mur sur le pli */}
+      <NoticeLecture
+        ancre="lobbying"
+        commentLire={
+          <p>
+            Une inscription au répertoire n’est pas une infraction. Un
+            «&nbsp;défaut de déclaration&nbsp;» reprend un constat de la
+            HATVP, ce n’est pas un jugement du site. Les budgets sont des
+            fourchettes déclarées, pas des montants exacts.
+          </p>
+        }
+        provenance={
+          <p>
+            Répertoire des représentants d’intérêts de la HATVP (loi du 9
+            décembre 2016), mis à jour quotidiennement. Le croisement avec
+            les marchés publics identifie les titulaires aussi inscrits
+            comme représentants d’intérêts.
+          </p>
+        }
+        limites={
+          <p>
+            Le répertoire ne couvre pas toutes les formes d’influence. Le
+            croisement avec les marchés ne dit pas qu’un marché a été
+            obtenu par cette activité. Il porte sur les 24 mois de détail
+            DECP, pas sur la fenêtre 12 mois du classement de la page
+            Marchés, et n’applique pas le même filtre d’identifiant : les
+            deux comptes ne portent pas sur la même population.
+          </p>
+        }
+      />
 
       {/* ── Top 20 des entités (12 mois) ─────────────────────────────── */}
       <Card

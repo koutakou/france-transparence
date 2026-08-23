@@ -42,13 +42,13 @@ export interface TableParlementairesProps {
 }
 
 const STYLE_SELECT =
-  "max-w-full rounded-lg border border-card-border bg-page px-3 py-1.5 text-[13px] text-ink focus:border-raised-border";
+  "max-w-full min-h-11 rounded-lg border border-card-border bg-page px-3 py-1.5 text-[13px] text-ink focus:border-raised-border";
 /* min-w-0 + max-w-full : un <select> aux options longues ne rétrécit pas de
    lui-même — sans ceci le filtre déborde du document en 390 px. */
 const STYLE_LABEL_FILTRE =
   "flex min-w-0 max-w-full flex-col gap-1 text-[11px] uppercase tracking-[0.04em] text-ink-muted";
 const STYLE_BOUTON =
-  "rounded-lg border border-card-border bg-raised px-3 py-1.5 text-[13px] text-ink transition-colors hover:bg-hover";
+  "inline-flex min-h-11 items-center rounded-lg border border-card-border bg-raised px-3 py-1.5 text-[13px] text-ink transition-colors hover:bg-hover";
 
 /**
  * Lien vers une fiche élu (id = `elus.id`), SANS préchargement au viewport.
@@ -150,7 +150,10 @@ const COLONNES_SENATEURS: Colonne<SenateurLigne>[] = [
     entete: "Commission",
     rendu: (l) =>
       l.commission ? (
-        <span className="block max-w-[18rem] truncate" title={l.commission}>
+        <span
+          className="block max-w-[18rem] truncate xl:max-w-none xl:overflow-visible xl:whitespace-normal"
+          title={l.commission}
+        >
           {l.commission}
         </span>
       ) : (
@@ -282,7 +285,7 @@ export function TableParlementaires({
           <button
             type="button"
             onClick={reinitialiser}
-            className="text-xs text-ink-muted underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
+            className="inline-flex min-h-11 items-center text-xs text-ink-muted underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
           >
             Réinitialiser
           </button>

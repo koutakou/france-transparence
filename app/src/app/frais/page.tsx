@@ -524,50 +524,17 @@ export default async function FraisPage() {
   return (
     <section className="flex flex-col gap-6">
       <JsonLd donnees={BALISAGE} />
-      {/* ------------------------------- En-tête ------------------------------- */}
+      {/* Bande 1 — le chiffre au pli, pas le mur pédagogique. */}
       <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-        <div className="max-w-3xl">
+        <div className="max-w-2xl">
           <h1 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
             Frais &amp; train de vie
           </h1>
-          <p className="mt-2 text-sm leading-relaxed text-ink-secondary">
-            Les montants alloués aux responsables publics sont publics&nbsp;: indemnités,
-            dotations et avances font l’objet de barèmes publiés par les assemblées et
-            l’administration, et les comptes de l’Élysée sont audités chaque année par la
-            Cour des comptes. En revanche, les justificatifs de frais des parlementaires ne
-            sont ni publiés ni communicables (ordonnance n°&nbsp;58-1100 du 17&nbsp;novembre
-            1958&nbsp;; refus écrits de l’Assemblée nationale et du Sénat du
-            11&nbsp;juin&nbsp;2026). Des «&nbsp;notes de frais en direct&nbsp;» sont donc
-            matériellement impossibles&nbsp;: cette page montre ce qui est réellement publié
-            — et documente ce qui ne l’est pas.
+          <p className="mt-2 text-sm text-ink-secondary">
+            Barèmes publics des indemnités, dotations et avances. Les notes de
+            frais des parlementaires ne sont ni publiées ni communicables (voir
+            la notice pour l’ordonnance et les refus du 11&nbsp;juin&nbsp;2026).
           </p>
-          <NoticeLecture
-            ancre="frais"
-            commentLire={
-              <p>
-                Un barème n’est pas un montant dépensé. Un rapport de
-                déontologue agrégé ne désigne personne. Cette page montre ce
-                qui est publié, et documente ce qui ne l’est pas.
-              </p>
-            }
-            provenance={
-              <p>
-                Barèmes des assemblées et de l’administration, rapports du
-                déontologue, comptes de l’Élysée audités par la Cour des
-                comptes. Les refus d’accès de l’Assemblée nationale et du
-                Sénat du 11 juin 2026 sont cités tels quels.
-              </p>
-            }
-            limites={
-              <p>
-                Aucune note de frais individuelle n’est publiée ni
-                communicable pour les parlementaires (ordonnance
-                n°&nbsp;58-1100 du 17 novembre 1958). L’absence d’une
-                catégorie n’est pas un oubli : c’est, dans les cas
-                documentés, un refus d’accès à la source.
-              </p>
-            }
-          />
         </div>
         {meta && (
           <FreshnessBadge
@@ -609,6 +576,34 @@ export default async function FraisPage() {
           </p>
         </div>
       )}
+
+      <NoticeLecture
+        ancre="frais"
+        commentLire={
+          <p>
+            Un barème n’est pas un montant dépensé. Un rapport de
+            déontologue agrégé ne désigne personne. Cette page montre ce
+            qui est publié, et documente ce qui ne l’est pas.
+          </p>
+        }
+        provenance={
+          <p>
+            Barèmes des assemblées et de l’administration, rapports du
+            déontologue, comptes de l’Élysée audités par la Cour des
+            comptes. Les refus d’accès de l’Assemblée nationale et du
+            Sénat du 11 juin 2026 sont cités tels quels.
+          </p>
+        }
+        limites={
+          <p>
+            Aucune note de frais individuelle n’est publiée ni
+            communicable pour les parlementaires (ordonnance
+            n°&nbsp;58-1100 du 17 novembre 1958). L’absence d’une
+            catégorie n’est pas un oubli : c’est, dans les cas
+            documentés, un refus d’accès à la source.
+          </p>
+        }
+      />
 
       {/* -------------------------- Ce qui est public -------------------------- */}
       <div className="flex flex-col gap-1">

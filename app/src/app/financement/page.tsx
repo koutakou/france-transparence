@@ -238,39 +238,9 @@ export default async function FinancementPage() {
             Financement de la vie politique
           </h1>
           <p className="mt-2 text-sm text-ink-secondary">
-            Comptes des partis et groupements politiques certifiés par leurs
-            commissaires aux comptes et déposés à la Commission nationale des
-            comptes de campagne et des financements politiques (CNCCFP).
-            Dernier exercice publié : 2024, paru le 10 février 2026.
+            Comptes des partis politiques déposés à la CNCCFP — exercice 2024,
+            paru le 10 février 2026.
           </p>
-          <NoticeLecture
-            ancre="financement"
-            commentLire={
-              <p>
-                Un compte publié n’est pas le patrimoine d’un parti, ni
-                l’argent disponible. Une réformation par la Commission peut
-                relever ou abaisser un montant déclaré : le chiffre affiché
-                est le retenu. Les montants en francs CFP n’entrent pas dans
-                les totaux en euros.
-              </p>
-            }
-            provenance={
-              <p>
-                Comptes des partis et comptes de campagne publiés par la
-                Commission nationale des comptes de campagne et des
-                financements politiques (CNCCFP). L’aide publique est celle
-                du décret en vigueur.
-              </p>
-            }
-            limites={
-              <p>
-                Les comptes non encore publiés par la Commission n’y figurent
-                pas. Cette page ne produit aucun classement d’opinion, aucune
-                intention de vote, aucune mesure de notoriété. Elle ne publie
-                aucune nuance politique.
-              </p>
-            }
-          />
         </div>
         {badgePartis}
       </header>
@@ -303,6 +273,35 @@ export default async function FinancementPage() {
             perimetre: PERIMETRE_DEPOTS_PARTIS,
           },
         ]}
+      />
+
+      <NoticeLecture
+        ancre="financement"
+        commentLire={
+          <p>
+            Un compte publié n’est pas le patrimoine d’un parti, ni
+            l’argent disponible. Une réformation par la Commission peut
+            relever ou abaisser un montant déclaré : le chiffre affiché
+            est le retenu. Les montants en francs CFP n’entrent pas dans
+            les totaux en euros.
+          </p>
+        }
+        provenance={
+          <p>
+            Comptes des partis et comptes de campagne publiés par la
+            Commission nationale des comptes de campagne et des
+            financements politiques (CNCCFP). L’aide publique est celle
+            du décret en vigueur.
+          </p>
+        }
+        limites={
+          <p>
+            Les comptes non encore publiés par la Commission n’y figurent
+            pas. Cette page ne produit aucun classement d’opinion, aucune
+            intention de vote, aucune mesure de notoriété. Elle ne publie
+            aucune nuance politique.
+          </p>
+        }
       />
 
       {/* ── Pourquoi ces trois montants ne se comparent pas ─────────────── */}

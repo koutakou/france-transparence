@@ -298,117 +298,147 @@ export default async function PageCollectivites() {
   return (
     <div className="flex flex-col gap-6">
       <JsonLd donnees={BALISAGE} />
-      {/* ------------------------------------------------ en-tête honnête */}
-      <header className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Bande 1 — le chiffre au pli, pas le mur pédagogique. */}
+      <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+        <div className="max-w-2xl">
           <h1 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
             Finances locales
           </h1>
-          {badge(mentionComptes)}
+          <p className="mt-2 text-sm text-ink-secondary">
+            Comptes {exerciceComptes} des collectivités (OFGL / DGFiP), budgets
+            principaux, montants provisoires jusqu&apos;en décembre 2026. DGF
+            jusqu&apos;à l&apos;exercice {exerciceDgf ?? "—"}.
+          </p>
         </div>
-        <p className="max-w-3xl text-sm text-ink-secondary">
-          Comptes {exerciceComptes} des collectivités locales (OFGL / DGFiP), chargés en
-          juillet 2026 :{" "}
-          <strong className="font-medium text-ink">
-            montants provisoires jusqu&apos;en décembre 2026
-          </strong>{" "}
-          (environ 97 communes encore manquantes). La colonne « Population » est la somme des
-          seules communes ayant rendu leurs comptes : elle sous-estime donc les départements où
-          il en manque, la Lozère de 13 % parce que Mende y figure parmi les manquantes.
-          <strong className="font-medium text-ink">
-            Tous les montants de cette page portent sur les budgets principaux seuls
-          </strong>{" "}
-          : les budgets annexes (eau, assainissement, transports, CCAS) en sont absents, ainsi
-          que les dépenses portées par l&apos;intercommunalité. Dotation globale de
-          fonctionnement (DGF) : jusqu&apos;à l&apos;exercice {exerciceDgf ?? "—"}. Chaque bloc
-          affiche sa source et sa fraîcheur — aucun montant estimé.
-        </p>
-        <NoticeLecture
-          ancre="collectivites"
-          commentLire={
-            <p>
-              Tous les montants portent sur le budget principal seul. Une
-              commune absente d’un exercice provisoire n’a pas dépensé zéro :
-              sa donnée n’est pas encore publiée. Un écart à la médiane de
-              strate n’est ni une faute ni un mérite. La participation
-              électorale porte sur les préfectures, les communes de plus de
-              50&nbsp;000&nbsp;habitants, et les 200 communes les plus
-              peuplées — pas sur les 35&nbsp;000 communes de France.
-            </p>
-          }
-          provenance={
-            <p>
-              Comptes des collectivités consolidés par l’OFGL à partir des
-              données DGFiP. Participation : résultats agrégés du ministère
-              de l’Intérieur. Dotation globale de fonctionnement : montants
-              officiels de l’exercice affiché.
-            </p>
-          }
-          limites={
-            <p>
-              Les budgets annexes et les dépenses portées par
-              l’intercommunalité n’y sont pas. L’agrégat de participation
-              s’appelle «&nbsp;ensemble des départements&nbsp;», jamais
-              «&nbsp;la France&nbsp;» : les Français établis hors de France
-              n’y figurent pas. Aucune nuance politique, aucun nom de
-              candidat.
-            </p>
-          }
-        />
+        {badge(mentionComptes)}
       </header>
 
       {/* ------------------------------------------------ KPI nationaux */}
       {tuiles.length > 0 && <StatStrip stats={tuiles} />}
 
-      {/* ------------------------------------------------ carte €/hab */}
+      {/* Première bande de parcours — carte = outil (22 rem), pas un poster ;
+          le tableau Grandes communes est l'objet à scanner, au plus près du pli. */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] xl:items-start">
       <section id="carte">
         <Card
           titre="Dépenses communales par habitant"
           sousTitre={`Fonctionnement + investissement des communes, agrégés par département — exercice ${exerciceComptes} (provisoire)`}
           droite={badge(mentionComptes)}
         >
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div>
-              <CarteDepartements
-                valeurs={valeursCarte}
-                format="euros-par-hab"
-                legendeTitre={`€ par habitant (${exerciceComptes})`}
-                ariaLabel="Carte de France : dépenses communales par habitant et par département"
-                messageAbsent="Fond de carte absent (data/geo/departements.geojson non trouvé) — les tableaux ci-contre restent complets."
-              />
-              {minDep && maxDep && (
-                <p className="mt-2 text-xs text-ink-secondary">
-                  De {formatEuros(minDep.euros_par_hab ?? 0)} par habitant ({minDep.nom}) à{" "}
-                  {formatEuros(maxDep.euros_par_hab ?? 0)} ({maxDep.nom},{" "}
-                  {formatNombre(maxDep.nb_communes ?? 0)} commune
-                  {(maxDep.nb_communes ?? 0) > 1 ? "s" : ""}).
-                </p>
-              )}
-              <p className="mt-1 text-[11px] text-ink-muted">
-                Outre-mer hors rendu cartographique — présent dans les tableaux.
-              </p>
-            </div>
-            <div className="flex flex-col gap-5">
-              <div>
-                <SousTitreBloc>Top 10 — les plus dépensiers par habitant</SousTitreBloc>
-                <DataTable
-                  colonnes={colonnesTopFlopDep}
-                  lignes={top10Dep}
-                  cleLigne={(l) => l.code}
-                />
-              </div>
-              <div>
-                <SousTitreBloc>Flop 10 — les plus faibles par habitant</SousTitreBloc>
-                <DataTable
-                  colonnes={colonnesTopFlopDep}
-                  lignes={flop10Dep}
-                  cleLigne={(l) => l.code}
-                />
-              </div>
-            </div>
+          <div className="mx-auto w-full max-w-[22rem]">
+            <CarteDepartements
+              valeurs={valeursCarte}
+              format="euros-par-hab"
+              legendeTitre={`€ par habitant (${exerciceComptes})`}
+              ariaLabel="Carte de France : dépenses communales par habitant et par département"
+              messageAbsent="Fond de carte absent (data/geo/departements.geojson non trouvé) — les tableaux restent complets."
+            />
+          </div>
+          {minDep && maxDep && (
+            <p className="mt-2 text-xs text-ink-secondary">
+              De {formatEuros(minDep.euros_par_hab ?? 0)} par habitant ({minDep.nom}) à{" "}
+              {formatEuros(maxDep.euros_par_hab ?? 0)} ({maxDep.nom},{" "}
+              {formatNombre(maxDep.nb_communes ?? 0)} commune
+              {(maxDep.nb_communes ?? 0) > 1 ? "s" : ""}).
+            </p>
+          )}
+          <p className="mt-1 text-[11px] text-ink-muted">
+            Outre-mer hors rendu cartographique — présent dans les tableaux.
+          </p>
+        </Card>
+      </section>
+
+      <section id="communes" className="min-w-0">
+        <Card
+          titre="Grandes communes"
+          sousTitre={
+            grandesCommunes.length > 0
+              ? `Les ${grandesCommunes.length} communes les plus peuplées — exercice ${grandesCommunes[0].exercice} (provisoire), séries 2018-2025 au clic`
+              : undefined
+          }
+          droite={badge(mentionComptes)}
+        >
+          <SeriesCommunes lignes={lignesGrandesCommunes} hauteurMax="420px" />
+          {/* Encadré méthode — cadre éditorial du module : aucune note,
+              aucun classement, aucun jugement ; la seule comparaison est la
+              médiane de strate, et une donnée absente reste absente. */}
+          <div className="mt-3 rounded-lg border border-card-border bg-raised p-3 text-[11px] leading-relaxed text-ink-muted">
+            <p className="mb-1 font-medium uppercase tracking-[0.04em]">Méthode</p>
+            <p>
+              Budget principal seul (les budgets annexes et les dépenses portées par
+              l&apos;intercommunalité n&apos;y figurent pas). Exercice {exerciceComptes}{" "}
+              provisoire : environ 97 communes manquent encore à la source — une commune
+              absente s&apos;affiche « donnée non disponible », jamais 0. La comparaison
+              proposée est la médiane des communes de la même strate démographique
+              (calculée par l&apos;API OFGL sur l&apos;ensemble des communes de France) :
+              un écart à la médiane de strate n&apos;est ni une faute ni un mérite —
+              strate, compétences transférées à l&apos;intercommunalité et
+              investissements ponctuels expliquent l&apos;essentiel des écarts.
+              L&apos;intercommunalité de la commune est mentionnée quand la source la
+              publie.
+            </p>
           </div>
         </Card>
       </section>
+      </div>
+
+      <VueTableau resume="Top et flop 10 par habitant">
+        <div className="flex flex-col gap-5 sm:flex-row sm:gap-8">
+          <div className="min-w-0 flex-1">
+            <SousTitreBloc>Top 10 — les plus dépensiers par habitant</SousTitreBloc>
+            <DataTable
+              colonnes={colonnesTopFlopDep}
+              lignes={top10Dep}
+              cleLigne={(l) => l.code}
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <SousTitreBloc>Flop 10 — les plus faibles par habitant</SousTitreBloc>
+            <DataTable
+              colonnes={colonnesTopFlopDep}
+              lignes={flop10Dep}
+              cleLigne={(l) => l.code}
+            />
+          </div>
+        </div>
+      </VueTableau>
+
+      {/* Bande 3 — notice APRÈS le chiffre et la 1re bande, pas un mur sur le pli. */}
+      <NoticeLecture
+        ancre="collectivites"
+        commentLire={
+          <p>
+            Tous les montants portent sur le budget principal seul. Une
+            commune absente d’un exercice provisoire n’a pas dépensé zéro :
+            sa donnée n’est pas encore publiée. La colonne Population est la
+            somme des seules communes ayant rendu leurs comptes : elle
+            sous-estime les départements où il en manque, la Lozère de
+            13&nbsp;% parce que Mende y figure parmi les manquantes. Un
+            écart à la médiane de strate n’est ni une faute ni un mérite. La
+            participation électorale porte sur les préfectures, les communes
+            de plus de 50&nbsp;000&nbsp;habitants, et les 200 communes les
+            plus peuplées — pas sur les 35&nbsp;000 communes de France.
+          </p>
+        }
+        provenance={
+          <p>
+            Comptes des collectivités consolidés par l’OFGL à partir des
+            données DGFiP. Participation : résultats agrégés du ministère
+            de l’Intérieur. Dotation globale de fonctionnement : montants
+            officiels de l’exercice affiché.
+          </p>
+        }
+        limites={
+          <p>
+            Les budgets annexes et les dépenses portées par
+            l’intercommunalité n’y sont pas. L’agrégat de participation
+            s’appelle «&nbsp;ensemble des départements&nbsp;», jamais
+            «&nbsp;la France&nbsp;» : les Français établis hors de France
+            n’y figurent pas. Aucune nuance politique, aucun nom de
+            candidat.
+          </p>
+        }
+      />
 
       {/* ------------------------------------------------ régions */}
       <section id="regions">
@@ -477,40 +507,6 @@ export default async function PageCollectivites() {
             et non dans le tableau des régions ci-dessus, où la base OFGL ne le
             publie pas.
           </p>
-        </Card>
-      </section>
-
-      {/* ------------------------------------------------ grandes communes */}
-      <section id="communes">
-        <Card
-          titre="Grandes communes"
-          sousTitre={
-            grandesCommunes.length > 0
-              ? `Les ${grandesCommunes.length} communes les plus peuplées — exercice ${grandesCommunes[0].exercice} (provisoire), séries 2018-2025 au clic`
-              : undefined
-          }
-          droite={badge(mentionComptes)}
-        >
-          <SeriesCommunes lignes={lignesGrandesCommunes} hauteurMax="420px" />
-          {/* Encadré méthode — cadre éditorial du module : aucune note,
-              aucun classement, aucun jugement ; la seule comparaison est la
-              médiane de strate, et une donnée absente reste absente. */}
-          <div className="mt-3 rounded-lg border border-card-border bg-raised p-3 text-[11px] leading-relaxed text-ink-muted">
-            <p className="mb-1 font-medium uppercase tracking-[0.04em]">Méthode</p>
-            <p>
-              Budget principal seul (les budgets annexes et les dépenses portées par
-              l&apos;intercommunalité n&apos;y figurent pas). Exercice {exerciceComptes}{" "}
-              provisoire : environ 97 communes manquent encore à la source — une commune
-              absente s&apos;affiche « donnée non disponible », jamais 0. La comparaison
-              proposée est la médiane des communes de la même strate démographique
-              (calculée par l&apos;API OFGL sur l&apos;ensemble des communes de France) :
-              un écart à la médiane de strate n&apos;est ni une faute ni un mérite —
-              strate, compétences transférées à l&apos;intercommunalité et
-              investissements ponctuels expliquent l&apos;essentiel des écarts.
-              L&apos;intercommunalité de la commune est mentionnée quand la source la
-              publie.
-            </p>
-          </div>
         </Card>
       </section>
 

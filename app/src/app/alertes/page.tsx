@@ -82,55 +82,20 @@ export default async function PageAlertes() {
   return (
     <section className="flex flex-col gap-6">
       <JsonLd donnees={BALISAGE} />
-      {/* En-tête factuel */}
-      <header className="flex flex-col gap-2">
-        <h1 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
-          Alertes transparence
-        </h1>
-        <p className="max-w-3xl text-sm text-ink-secondary">
-          {formatNombre(stats.total)} alertes calculées à l’ingestion des données
-          publiques (dernier calcul&nbsp;:{" "}
-          {stats.derniereDateCalcul ? formatDateFr(stats.derniereDateCalcul) : "—"}).
-          Chaque alerte cite sa règle de calcul et sa base légale (dépliables
-          ci-dessous) — un constat officiel ou un signal d’attention tiré des
-          sources, jamais un jugement. Recalcul à chaque mise à jour des sources
-          (HATVP hebdomadaire, lobbying quotidien, financement annuel).
-        </p>
-        <p className="max-w-3xl text-xs text-ink-muted">
-          Les retards HATVP «&nbsp;présumés&nbsp;» sont des agrégats non
-          nominatifs (réserve&nbsp;: répertoire des élus trimestriel). Les
-          constats officiels de la HATVP, les décisions de la CNCCFP et les
-          défauts du répertoire AGORA portent un nom.
-        </p>
-        <NoticeLecture
-          ancre="alertes"
-          commentLire={
-            <p>
-              Une alerte reprend un constat déjà formulé par une autorité, ou
-              un signal d’attention tiré des sources, avec sa règle et sa
-              base légale. Ce n’est pas un jugement du site. Les constats
-              officiels de la HATVP, les décisions de la CNCCFP et les
-              défauts AGORA portent un nom ; les retards HATVP
-              «&nbsp;présumés&nbsp;» sont des agrégats, jamais un nom.
-            </p>
-          }
-          provenance={
-            <p>
-              Déclarations HATVP, répertoire des représentants d’intérêts,
-              comptes de campagne publiés par la CNCCFP. Recalcul à chaque
-              mise à jour des sources.
-            </p>
-          }
-          limites={
-            <p>
-              Une alerte n’est pas une infraction constatée par ce site. Un
-              homonyme non tranché ne donne lieu à aucune alerte nominative.
-              Une donnée manquante en amont exclut le cas, plutôt que
-              d’être estimée.
-            </p>
-          }
-        />
-        <div className="flex flex-wrap gap-2">
+      {/* Bande 1 — une alerte au pli, pas le mur pédagogique. */}
+      <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <div className="max-w-2xl">
+          <h1 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
+            Alertes transparence
+          </h1>
+          <p className="mt-2 text-sm text-ink-secondary">
+            {formatNombre(stats.total)} alertes calculées à l’ingestion
+            (dernier calcul&nbsp;:{" "}
+            {stats.derniereDateCalcul ? formatDateFr(stats.derniereDateCalcul) : "—"}
+            ).
+          </p>
+        </div>
+        <div className="flex flex-wrap justify-end gap-2">
           {SOURCES_ALERTES.map((id) => {
             const source = sources[id];
             if (!source) return null;
@@ -173,7 +138,44 @@ export default async function PageAlertes() {
         ]}
       />
 
-      {/* Répartition par domaine */}
+      {/* Filtres + liste + pagination (client, fragment /data/alertes.json) */}
+      <AlertesListe
+        types={types}
+        parGravite={stats.parGravite}
+        total={stats.total}
+        initiales={premierePage}
+      />
+
+      <NoticeLecture
+        ancre="alertes"
+        commentLire={
+          <p>
+            Une alerte reprend un constat déjà formulé par une autorité, ou
+            un signal d’attention tiré des sources, avec sa règle et sa
+            base légale. Ce n’est pas un jugement du site. Les constats
+            officiels de la HATVP, les décisions de la CNCCFP et les
+            défauts AGORA portent un nom ; les retards HATVP
+            «&nbsp;présumés&nbsp;» sont des agrégats, jamais un nom
+            (réserve&nbsp;: répertoire des élus trimestriel).
+          </p>
+        }
+        provenance={
+          <p>
+            Déclarations HATVP, répertoire des représentants d’intérêts,
+            comptes de campagne publiés par la CNCCFP. Recalcul à chaque
+            mise à jour des sources.
+          </p>
+        }
+        limites={
+          <p>
+            Une alerte n’est pas une infraction constatée par ce site. Un
+            homonyme non tranché ne donne lieu à aucune alerte nominative.
+            Une donnée manquante en amont exclut le cas, plutôt que
+            d’être estimée.
+          </p>
+        }
+      />
+
       <Card
         titre="Répartition par domaine"
         sousTitre="Le préfixe du type d’alerte porte son domaine — valeurs exactes affichées"
@@ -184,14 +186,6 @@ export default async function PageAlertes() {
           largeurLibelle="42%"
         />
       </Card>
-
-      {/* Filtres + liste + pagination (client, fragment /data/alertes.json) */}
-      <AlertesListe
-        types={types}
-        parGravite={stats.parGravite}
-        total={stats.total}
-        initiales={premierePage}
-      />
     </section>
   );
 }

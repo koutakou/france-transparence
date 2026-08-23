@@ -324,115 +324,156 @@ export default async function PageMarches() {
   return (
     <div className="flex flex-col gap-6">
       <JsonLd donnees={BALISAGE} />
-      {/* ---------------------------------------------------------- */}
-      {/* En-tête honnête                                            */}
-      {/* ---------------------------------------------------------- */}
-      <section className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      {/* Bande 1 — le chiffre au pli, pas le mur pédagogique. */}
+      <section className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+        <div className="max-w-2xl">
           <h1 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
             Marchés publics
           </h1>
-          {badgeS1}
+          <p className="mt-2 text-sm text-ink-secondary">
+            Marchés notifiés d’après les DECP consolidées par{" "}
+            <a
+              href="https://www.data.gouv.fr/datasets/donnees-essentielles-de-la-commande-publique-consolidees-format-tabulaire"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-dotted underline-offset-2 hover:text-ink"
+            >
+              decp-processing
+            </a>{" "}
+            (Colin Maudry), datés de leur notification initiale. Latence
+            légale jusqu’à 2&nbsp;mois : les fenêtres récentes sont
+            incomplètes.
+          </p>
         </div>
-        <p className="max-w-3xl text-sm text-ink-secondary">
-          Marchés notifiés d’après les données essentielles de la commande
-          publique (DECP), consolidées par le projet communautaire{" "}
-          <a
-            href="https://www.data.gouv.fr/datasets/donnees-essentielles-de-la-commande-publique-consolidees-format-tabulaire"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline decoration-dotted underline-offset-2 hover:text-ink"
-          >
-            decp-processing
-          </a>{" "}
-          (Colin Maudry) — complétés des appels d’offres en cours (BOAMP) et
-          des achats annoncés (APProch). La publication des marchés connaît
-          une latence légale jusqu’à 2&nbsp;mois : les fenêtres récentes sont
-          structurellement incomplètes. Les montants d’accords-cadres sont des
-          <strong className="font-medium text-ink"> maximums</strong>, pas du
-          dépensé. Un marché est daté de sa{" "}
-          <strong className="font-medium text-ink">
-            notification initiale
-          </strong>{" "}
-          — un avenant ne le redate pas — et toutes les fenêtres de cette page
-          (30&nbsp;jours, 12&nbsp;mois, 36&nbsp;mois) portent sur cette date ;
-          les montants et les titulaires affichés sont, eux, ceux de la
-          version courante du marché.
-        </p>
-        <NoticeLecture
-          ancre="marches"
-          commentLire={
-            <p>
-              Un marché est daté de sa notification initiale, pas de son
-              dernier avenant. Les totaux «&nbsp;12 mois&nbsp;» et
-              «&nbsp;30 jours&nbsp;» portent sur cette date. Les montants
-              agrégés sont écrêtés à 100&nbsp;M€ par marché avant sommation ;
-              un accord-cadre y entre pour son maximum, pas pour le dépensé.
-              Un tiret «&nbsp;—&nbsp;» n’est pas un zéro.
-            </p>
-          }
-          provenance={
-            <p>
-              Données essentielles de la commande publique (DECP),
-              consolidées par le projet communautaire decp-processing ;
-              appels d’offres en cours du BOAMP ; achats annoncés d’APProch.
-              La publication légale peut prendre jusqu’à deux mois : les
-              fenêtres récentes sont incomplètes.
-            </p>
-          }
-          limites={
-            <p>
-              Cette page ne dit pas si un marché a été exécuté, ni s’il a été
-              payé, ni s’il était le mieux-disant. Un identifiant qui n’est
-              pas un SIRET de 14 chiffres est écarté des classements et
-              compté à part — il n’est pas complété d’un zéro de tête. Le
-              classement s’arrête à l’entreprise : il ne remonte pas au
-              groupe.
-            </p>
-          }
-        />
+        {badgeS1}
       </section>
 
+      <StatStrip
+        stats={[
+          {
+            label: "Marchés notifiés (12 mois)",
+            valeur: formatNombre(kpis.nbMarches12m),
+            tendance: tendanceNb,
+            perimetre:
+              "notification initiale, 12 derniers mois — ce n’est pas le stock total",
+          },
+          {
+            label: "Montant notifié (12 mois, écrêté)",
+            valeur: kpis.montant12m !== null ? <Money valeur={kpis.montant12m} /> : "—",
+            montantVedette: true,
+            tendance: tendanceMontant,
+            perimetre:
+              "notification initiale, 12 derniers mois, plafond 100 M€ par marché",
+          },
+          {
+            label: "Marchés notifiés (30 derniers jours)",
+            valeur: formatNombre(kpis.nbMarches30j),
+            perimetre:
+              "notification initiale, 30 derniers jours — ce n’est pas le stock total",
+          },
+          {
+            label: "Appels d’offres en cours (BOAMP)",
+            valeur: formatNombre(kpis.aoEnCours),
+            perimetre:
+              "annonces BOAMP non annulées, date limite encore ouverte — stock du jour, pas un flux 30 j",
+          },
+          {
+            label: "Achats annoncés (APProch)",
+            valeur: formatNombre(kpis.marchesAVenir),
+            perimetre: "projets à publication prévue — stock du jour, pas une fenêtre de 12 mois",
+          },
+        ]}
+      />
+
       {/* ---------------------------------------------------------- */}
-      {/* KPI                                                        */}
+      {/* Carte des montants par département                          */}
       {/* ---------------------------------------------------------- */}
+      <Card
+        titre="Montants par département"
+        sousTitre="Marchés notifiés sur 12 mois (notification initiale) — montants écrêtés, acheteurs à département connu"
+        droite={badgeS1}
+      >
+        {/* Carte = outil (22 rem), tableau = scan. grid-cols-1 explicite :
+            piste minmax(0,1fr) — sans elle, « auto » s'élargit au
+            min-content du tableau (débord mobile). */}
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] xl:items-start">
+          <div className="mx-auto w-full max-w-[22rem] xl:mx-0">
+            <CarteDepartements
+              valeurs={valeursCarte}
+              format="euros"
+              legendeTitre="Montant notifié (12 mois)"
+              ariaLabel="Carte de France des montants de marchés publics notifiés par département sur 12 mois"
+              messageAbsent="Fond de carte indisponible (data/geo/departements.geojson manquant) — les valeurs restent lisibles dans le tableau ci-contre."
+            />
+            <p className="mt-2 text-xs leading-relaxed text-ink-muted">
+              « Donnée manquante » = aucun montant connu pour le département
+              (jamais confondu avec 0&nbsp;€). Outre-mer hors rendu carte&nbsp;:
+              les valeurs figurent dans le tableau. Montants écrêtés à
+              100&nbsp;M€ par marché.
+            </p>
+          </div>
+          <div className="min-w-0">
+          <TableTronquee
+            colonnes={[
+              { cle: "departement_code", entete: "Code", largeur: "4rem" },
+              { cle: "departement_nom", entete: "Département" },
+              { cle: "nb_marches", entete: "Marchés", type: "nombre" },
+              {
+                cle: "montant_total",
+                entete: "Montant",
+                type: "money",
+                titreSiNull: "Aucun montant connu",
+              },
+              { cle: "nb_marches_ecretes", entete: "Écrêtés", type: "nombre" },
+            ]}
+            lignes={donnees.departements}
+            cleChamp="departement_code"
+            premierEcran={20}
+            libellePluriel="départements"
+            hauteurMax="460px"
+            vide="Aucun agrégat départemental"
+          />
+          </div>
+        </div>
+      </Card>
+
+      {/* notice 3 blocs APRÈS le chiffre, pas un mur sur le pli */}
+      <NoticeLecture
+        ancre="marches"
+        commentLire={
+          <p>
+            Un marché est daté de sa notification initiale, pas de son
+            dernier avenant. Les totaux «&nbsp;12 mois&nbsp;» et
+            «&nbsp;30 jours&nbsp;» portent sur cette date ; les montants
+            et les titulaires affichés sont ceux de la version courante.
+            Les montants agrégés sont écrêtés à 100&nbsp;M€ par marché
+            avant sommation ; un accord-cadre y entre pour son maximum,
+            pas pour le dépensé. Un tiret «&nbsp;—&nbsp;» n’est pas un
+            zéro.
+          </p>
+        }
+        provenance={
+          <p>
+            Données essentielles de la commande publique (DECP),
+            consolidées par le projet communautaire decp-processing
+            (Colin Maudry) ; appels d’offres en cours du BOAMP ; achats
+            annoncés d’APProch. La publication légale peut prendre jusqu’à
+            deux mois : les fenêtres récentes sont incomplètes.
+          </p>
+        }
+        limites={
+          <p>
+            Cette page ne dit pas si un marché a été exécuté, ni s’il a été
+            payé, ni s’il était le mieux-disant. Un identifiant qui n’est
+            pas un SIRET de 14 chiffres est écarté des classements et
+            compté à part — il n’est pas complété d’un zéro de tête. Le
+            classement s’arrête à l’entreprise : il ne remonte pas au
+            groupe.
+          </p>
+        }
+      />
+
       <section className="flex flex-col gap-2">
-        <StatStrip
-          stats={[
-            {
-              label: "Marchés notifiés (12 mois)",
-              valeur: formatNombre(kpis.nbMarches12m),
-              tendance: tendanceNb,
-              perimetre:
-                "notification initiale, 12 derniers mois — ce n’est pas le stock total",
-            },
-            {
-              label: "Montant notifié (12 mois, écrêté)",
-              valeur: kpis.montant12m !== null ? <Money valeur={kpis.montant12m} /> : "—",
-              montantVedette: true,
-              tendance: tendanceMontant,
-              perimetre:
-                "notification initiale, 12 derniers mois, plafond 100 M€ par marché",
-            },
-            {
-              label: "Marchés notifiés (30 derniers jours)",
-              valeur: formatNombre(kpis.nbMarches30j),
-              perimetre:
-                "notification initiale, 30 derniers jours — ce n’est pas le stock total",
-            },
-            {
-              label: "Appels d’offres en cours (BOAMP)",
-              valeur: formatNombre(kpis.aoEnCours),
-              perimetre:
-                "annonces BOAMP non annulées, date limite encore ouverte — stock du jour, pas un flux 30 j",
-            },
-            {
-              label: "Achats annoncés (APProch)",
-              valeur: formatNombre(kpis.marchesAVenir),
-              perimetre: "projets à publication prévue — stock du jour, pas une fenêtre de 12 mois",
-            },
-          ]}
-        />
         <p className="text-xs leading-relaxed text-ink-muted">
           Méthode : montants agrégés écrêtés à 100&nbsp;M€ par marché pour
           neutraliser les saisies aberrantes ; les montants non renseignés
@@ -558,55 +599,6 @@ export default async function PageMarches() {
           </div>
         )}
       </section>
-
-      {/* ---------------------------------------------------------- */}
-      {/* Carte des montants par département                          */}
-      {/* ---------------------------------------------------------- */}
-      <Card
-        titre="Montants par département"
-        sousTitre="Marchés notifiés sur 12 mois (notification initiale) — montants écrêtés, acheteurs à département connu"
-        droite={badgeS1}
-      >
-        {/* grid-cols-1 explicite : piste minmax(0,1fr) — sans elle, la piste
-            implicite « auto » s'élargit au min-content du tableau (débord mobile). */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div>
-            <CarteDepartements
-              valeurs={valeursCarte}
-              format="euros"
-              legendeTitre="Montant notifié (12 mois)"
-              ariaLabel="Carte de France des montants de marchés publics notifiés par département sur 12 mois"
-              messageAbsent="Fond de carte indisponible (data/geo/departements.geojson manquant) — les valeurs restent lisibles dans le tableau ci-contre."
-            />
-            <p className="mt-2 text-xs leading-relaxed text-ink-muted">
-              « Donnée manquante » = aucun montant connu pour le département
-              (jamais confondu avec 0&nbsp;€). Outre-mer hors rendu carte&nbsp;:
-              les valeurs figurent dans le tableau. Montants écrêtés à
-              100&nbsp;M€ par marché.
-            </p>
-          </div>
-          <TableTronquee
-            colonnes={[
-              { cle: "departement_code", entete: "Code", largeur: "4rem" },
-              { cle: "departement_nom", entete: "Département" },
-              { cle: "nb_marches", entete: "Marchés", type: "nombre" },
-              {
-                cle: "montant_total",
-                entete: "Montant",
-                type: "money",
-                titreSiNull: "Aucun montant connu",
-              },
-              { cle: "nb_marches_ecretes", entete: "Écrêtés", type: "nombre" },
-            ]}
-            lignes={donnees.departements}
-            cleChamp="departement_code"
-            premierEcran={20}
-            libellePluriel="départements"
-            hauteurMax="460px"
-            vide="Aucun agrégat départemental"
-          />
-        </div>
-      </Card>
 
       {/* ---------------------------------------------------------- */}
       {/* Série mensuelle 36 mois                                     */}

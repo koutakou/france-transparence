@@ -466,12 +466,18 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
   return (
     <div className="flex flex-col gap-6">
       <JsonLd donnees={balisage} />
-      <nav aria-label="Fil d’Ariane">
-        <Link
-          href="/elus"
-          className="text-xs text-ink-muted transition-colors hover:text-ink-secondary"
-        >
+      <nav
+        aria-label="Fil d’Ariane"
+        className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted"
+      >
+        <Link href="/elus" className="transition-colors hover:text-ink-secondary">
           ← Élus &amp; institutions
+        </Link>
+        <Link
+          href={depute ? "/elus#deputes" : senateur ? "/elus#senateurs" : "/elus"}
+          className="transition-colors hover:text-ink-secondary"
+        >
+          Chercher un autre élu
         </Link>
       </nav>
 

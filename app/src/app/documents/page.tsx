@@ -208,46 +208,19 @@ export default async function DocumentsPage() {
   return (
     <section className="flex flex-col gap-6">
       <JsonLd donnees={BALISAGE} />
-      {/* ------------------------------- En-tête ------------------------------- */}
+      {/* Bande 1 — le chiffre au pli, pas le mur pédagogique. */}
       <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-        <div className="max-w-3xl">
+        <div className="max-w-2xl">
           <h1 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
             Documents — Journal officiel
           </h1>
-          <p className="mt-2 text-sm leading-relaxed text-ink-secondary">
-            Tous les textes du Journal officiel «&nbsp;Lois et décrets&nbsp;» — lois,
-            décrets, arrêtés, avis, nominations — à partir des livraisons quotidiennes
-            JORFSIMPLE de la DILA{meta ? <> ({meta.licence})</> : null}. Fenêtre
-            courante&nbsp;: les {formatNombre(kpis.nbJours)}&nbsp;derniers JO parus, du{" "}
-            {formatDateFr(kpis.premierJo)} au {formatDateFr(kpis.dernierJo)}. Chaque texte
-            renvoie vers Légifrance.
+          <p className="mt-2 text-sm text-ink-secondary">
+            Journal officiel «&nbsp;Lois et décrets&nbsp;»
+            {meta ? <> ({meta.licence})</> : null} : les{" "}
+            {formatNombre(kpis.nbJours)} derniers JO parus, du{" "}
+            {formatDateFr(kpis.premierJo)} au {formatDateFr(kpis.dernierJo)}.
+            Chaque texte renvoie vers Légifrance.
           </p>
-          <NoticeLecture
-            ancre="documents"
-            commentLire={
-              <p>
-                Chaque ligne est un texte paru au Journal officiel, pas un
-                résumé. Le titre et la nature viennent de la DILA. Le texte
-                intégral se lit sur Légifrance, pas ici.
-              </p>
-            }
-            provenance={
-              <p>
-                Livraisons quotidiennes JORFSIMPLE de la DILA (Journal
-                officiel «&nbsp;Lois et décrets&nbsp;»). La fenêtre affichée
-                est celle des derniers JO parus, pas l’intégralité de
-                l’historique.
-              </p>
-            }
-            limites={
-              <p>
-                Une nomination au JO n’est pas une biographie. Un décret
-                n’est pas commenté. Les autres séries du Journal officiel
-                (annonces, associations, marchés) n’entrent pas dans cette
-                page.
-              </p>
-            }
-          />
         </div>
         {meta && (
           <FreshnessBadge
@@ -284,6 +257,42 @@ export default async function DocumentsPage() {
             perimetre: perimetreNominationsJour(),
           },
         ]}
+      />
+
+      {/* Flux — l'objet à parcourir, au plus près du pli. */}
+      <FluxTextes
+        natures={naturesFiltre}
+        initiales={flux?.lignes ?? []}
+        total={flux?.total ?? kpis.textesFenetre}
+        pctSansMinistere={pctSansMinistere}
+        nbJours={kpis.nbJours}
+      />
+
+      <NoticeLecture
+        ancre="documents"
+        commentLire={
+          <p>
+            Chaque ligne est un texte paru au Journal officiel, pas un
+            résumé. Le titre et la nature viennent de la DILA. Le texte
+            intégral se lit sur Légifrance, pas ici.
+          </p>
+        }
+        provenance={
+          <p>
+            Livraisons quotidiennes JORFSIMPLE de la DILA (Journal
+            officiel «&nbsp;Lois et décrets&nbsp;»). La fenêtre affichée
+            est celle des derniers JO parus, pas l’intégralité de
+            l’historique.
+          </p>
+        }
+        limites={
+          <p>
+            Une nomination au JO n’est pas une biographie. Un décret
+            n’est pas commenté. Les autres séries du Journal officiel
+            (annonces, associations, marchés) n’entrent pas dans cette
+            page.
+          </p>
+        }
       />
 
       {/* --------------------- Parutions & répartition ------------------------- */}
@@ -345,7 +354,7 @@ export default async function DocumentsPage() {
             {sansNature > 0 ? (
               <> · {formatNombre(sansNature)} textes sans nature renseignée (réel)</>
             ) : null}{" "}
-            — détail par nature via le filtre du flux ci-dessous.
+            — détail par nature via le filtre du flux ci-dessus.
           </p>
         </Card>
       </div>
@@ -369,15 +378,6 @@ export default async function DocumentsPage() {
           </p>
         )}
       </Card>
-
-      {/* ------------------------------- Flux ---------------------------------- */}
-      <FluxTextes
-        natures={naturesFiltre}
-        initiales={flux?.lignes ?? []}
-        total={flux?.total ?? kpis.textesFenetre}
-        pctSansMinistere={pctSansMinistere}
-        nbJours={kpis.nbJours}
-      />
 
       {/* Dossiers législatifs (S43) — stock DOLE, cloisonné du JO du jour */}
       {dole && (

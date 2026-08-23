@@ -282,7 +282,7 @@ export function AlertesListe({ types, parGravite, total, initiales }: AlertesLis
       </div>
 
       {/* Liste paginée */}
-      <div className="flex flex-col gap-2.5">
+      <div className="flex flex-col gap-1.5">
         <p className="text-xs text-ink-muted" aria-live="polite">
           {totalFiltre === 0
             ? "Aucune alerte ne correspond à ces filtres."
@@ -295,7 +295,7 @@ export function AlertesListe({ types, parGravite, total, initiales }: AlertesLis
             {formatNombre(initiales.length)} premières alertes restent affichées.
           </p>
         )}
-        <div className={chargement ? "flex flex-col gap-2.5 opacity-50" : "flex flex-col gap-2.5"}>
+        <div className={chargement ? "flex flex-col gap-1.5 opacity-50" : "flex flex-col gap-1.5"}>
           {affichees.map((a) => {
             const ui = estGravite(a.gravite) ? GRAVITE_UI[a.gravite] : GRAVITE_UI.info;
             return (
