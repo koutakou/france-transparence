@@ -22,8 +22,10 @@
 # CREATE recopié du pipeline P20 (sans IF NOT EXISTS).
 # Puis table cge_bilan_etat (S22, CGE DGFiP, pièce de synthèse) —
 # CREATE recopié du pipeline P21 (sans IF NOT EXISTS).
+# Puis table protection_sociale_prestations (S45, DREES CPS, prestations E11) —
+# CREATE recopié du pipeline P22 (sans IF NOT EXISTS).
 
-> **Extrait daté.** Ce document décrit **80 tables**, **6 vues** et **58 index**, et cette
+> **Extrait daté.** Ce document décrit **81 tables**, **6 vues** et **58 index**, et cette
 > couverture est sa propriété essentielle : une table de la base absente d'ici est un trou de
 > documentation, et une table décrite ici qui n'existe nulle part est une invention. Les **75**
 > tables, les 6 vues et les 55 index sont ceux que `sqlite_master` recense au 22/08/2026 (matin), et le
@@ -35,11 +37,14 @@
 > (`idx_dole_dossiers_type`, `idx_dole_dossiers_leg`, `idx_dole_dossiers_modif`)
 > qui portent le compte d'index de 55 à **58**. La 79e, `agregats_apu_esa`
 > (S44), est celle du pipeline P20. La 80e, `cge_bilan_etat` (S22), est
-> celle du pipeline P21. Tant que l'ingestion n'a pas
+> celle du pipeline P21. La 81e, `protection_sociale_prestations` (S45),
+> est celle du pipeline P22 — aucun index supplémentaire, le compte
+> d'index reste **58**. Tant que l'ingestion n'a pas
 > tourné sur la base servie, le contrôle affichera
-> `doc sans base : ['cge_bilan_etat']` (et éventuellement
-> `agregats_apu_esa` / `dole_dossiers` / `deficit_apu_maastricht` /
-> `dette_apu_maastricht` si P20/P19/P18/P17 n'ont pas non plus tourné)
+> `doc sans base : ['protection_sociale_prestations']` (et éventuellement
+> `cge_bilan_etat` / `agregats_apu_esa` / `dole_dossiers` /
+> `deficit_apu_maastricht` / `dette_apu_maastricht` si
+> P21/P20/P19/P18/P17 n'ont pas non plus tourné)
 > — attendu, pas un trou.
 >
 > Le contrôle porte, à cette date, sur plus que les colonnes. Noms, types, `NOT NULL`, valeurs par
@@ -1038,6 +1043,21 @@ CREATE TABLE cge_bilan_etat (
     valeur_euros   REAL NOT NULL,
     unite_source   TEXT NOT NULL CHECK (unite_source IN ('EUR', 'MIO_EUR')),
     PRIMARY KEY (annee, poste)
+);
+-- ---------------------------------------------------------------------------
+-- S45, P22 — DREES CPS, prestations E11. Grains exclusifs (total / risque /
+-- régime) : les niveaux 2-3 recouvrent et ne sont pas ingérés. Distinct de
+-- S13 (budget État), S44 (TE APU) et S22 (bilan patrimonial CGE). Unité
+-- native : million d'euros ; Md€ à la lecture (÷ 1000), jamais ÷ 1e9.
+-- date_donnees = 31/12 de l'année max, jamais last_update data.gouv.
+-- ---------------------------------------------------------------------------
+CREATE TABLE protection_sociale_prestations (
+    annee          INTEGER NOT NULL,
+    grain          TEXT NOT NULL CHECK (grain IN ('total', 'risque', 'regime')),
+    code           TEXT NOT NULL,
+    libelle        TEXT NOT NULL,
+    val_mio_eur    REAL NOT NULL CHECK (val_mio_eur > 0),
+    PRIMARY KEY (annee, grain, code)
 );
 CREATE TABLE partis (
     id               TEXT PRIMARY KEY REFERENCES entites(id),

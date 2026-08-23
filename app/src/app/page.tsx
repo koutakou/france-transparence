@@ -259,9 +259,10 @@ export default async function Accueil() {
         <p className="rounded-lg border border-card-border bg-card px-4 py-2.5 text-xs leading-relaxed text-ink-secondary">
           Ce tableau de bord couvre l&apos;État (budget, marchés publics, Journal
           officiel), le Parlement et les élus, le lobbying, le financement de la
-          vie politique et les finances locales, uniquement à partir de données
-          publiques officielles — chaque bloc affiche la date et la fréquence
-          réelle de sa source ; comment les lire sur{" "}
+          vie politique, les finances locales et les prestations de protection
+          sociale (tous régimes, millésime dans la tuile), uniquement à partir
+          de données publiques officielles — chaque bloc affiche la date et la
+          fréquence réelle de sa source ; comment les lire sur{" "}
           <Link
             href="/comprendre"
             className="underline decoration-dotted underline-offset-2 hover:text-ink"

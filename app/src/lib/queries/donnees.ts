@@ -3,7 +3,7 @@
  * statiques (/api/meta.json, /api/elus.json, /api/marches-agregats.json,
  * /api/budget-mensuel.json) — générés au build, servis en fichiers.
  *
- * La table pivot est `meta_sources` (31 sources tracées) : chaque source y
+ * La table pivot est `meta_sources` (36 sources tracées) : chaque source y
  * porte sa date de données réelle, sa date d'ingestion, sa fréquence déclarée,
  * sa licence et ses notes — c'est le « moniteur de fraîcheur » du projet
  * (docs/SOURCES.md, alerte A11).
@@ -136,6 +136,12 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // porter N+1 avant que la pièce ne l'ajoute ; 650/750 = 21,5/25 mois
   // couvre un exercice de retard de la pièce sans sonner dès février.
   S22: { unite: "jc", retard: 650, alerte: 750 },
+  // Annuelle DREES, comptes de la protection sociale. date_donnees =
+  // 31/12 de l'année max (2024 → 2024-12-31), jamais last_update
+  // 2025-12-18. 650/750 comme S22 : millésime 2024 paru en décembre
+  // 2025 ; 400/440 sonnerait dès l'été. Rupture à poser dans
+  // fraicheur.conf (hors de ce fichier).
+  S45: { unite: "jc", retard: 650, alerte: 750 },
   // Annuelles à décalage structurel documenté
   S21: { unite: "jc", retard: 400, alerte: 440 },
   S23: { unite: "jc", retard: 760, alerte: 850 },
@@ -293,7 +299,7 @@ export function evalueFraicheur(
 
 export type SourceCataloguee = MetaSource & { fraicheur: Fraicheur };
 
-/** Les 31 sources tracées, avec leur fraîcheur calculée. */
+/** Les 36 sources tracées, avec leur fraîcheur calculée. */
 export function getCatalogueSources(): SourceCataloguee[] | null {
   const db = getDb();
   if (!db) return null;

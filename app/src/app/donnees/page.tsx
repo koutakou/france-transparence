@@ -192,6 +192,13 @@ const POSTES: { poste: string; donnee: string; publie: string }[] = [
     publie:
       "Des alertes recalculées à chaque mise à jour de source, chacune datée — voir la page Alertes.",
   },
+  {
+    poste: "Protection sociale",
+    donnee:
+      "Les comptes de la protection sociale (DREES) publient chaque année les prestations versées, tous régimes, par risque et par régime. Ce n'est pas la LFSS votée, ni les recettes, ni les frais de gestion.",
+    publie:
+      "Un total tous régimes et le régime général, plus la ventilation par risque, millésimés, sur la page Dépenses. Les niveaux fins de l'arbre (qui recouvrent) ne sont pas sommés.",
+  },
 ];
 
 /* ---------------------------------------------------------------- */
@@ -534,14 +541,16 @@ export default async function PageDonnees() {
             Le dashboard couvre le <strong className="text-ink">budget général de
             l’État</strong>, le <strong className="text-ink">Parlement et la vie
             politique</strong> (élus, lobbying, financement), la{" "}
-            <strong className="text-ink">commande publique</strong> et les{" "}
-            <strong className="text-ink">finances locales</strong>. Hors champ,
-            et dit tel quel&nbsp;: les administrations de sécurité sociale
-            (~600&nbsp;Md€, premier poste de la dépense publique), la dépense
-            propre des opérateurs de l’État (seuls leurs crédits budgétaires
-            apparaissent) et les entreprises publiques. Tout compteur global
-            porte la mention «&nbsp;budget général de l’État&nbsp;» — jamais
-            «&nbsp;la dépense publique&nbsp;».
+            <strong className="text-ink">commande publique</strong>, les{" "}
+            <strong className="text-ink">finances locales</strong> et les{" "}
+            <strong className="text-ink">prestations de protection sociale</strong>{" "}
+            (DREES, tous régimes, flux annuel — millésime dans la tuile). Hors
+            champ, et dit tel quel&nbsp;: la loi de financement de la sécurité
+            sociale en tant que texte voté (pas de millésime structuré 2026),
+            la dépense propre des opérateurs de l’État (seuls leurs crédits
+            budgétaires apparaissent) et les entreprises publiques. Tout
+            compteur du budget général porte la mention «&nbsp;budget général
+            de l’État&nbsp;» — jamais «&nbsp;la dépense publique&nbsp;».
           </p>
         </div>
 

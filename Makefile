@@ -43,7 +43,8 @@ PY     := $(VENV)/bin/python
 PIPELINES := referentiels budget_mensuel budget_structure decp boamp approch \
              jorf parlement integrite hatvp_declarations lobbying financement \
              collectivites elections trainvie cada registre_ue \
-             dette_maastricht deficit_maastricht dole agregats_apu cge sirene
+             dette_maastricht deficit_maastricht dole agregats_apu cge \
+             protection_sociale sirene
 
 # NB : ne PAS déclarer les cibles ingest-<x> en .PHONY — make saute la
 # recherche de règles implicites (ingest-%) pour les cibles phony.

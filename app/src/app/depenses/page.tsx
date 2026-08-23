@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { BarChart } from "@/components/ui/BarChart";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
 import { JsonLd } from "@/components/JsonLd";
@@ -19,6 +20,11 @@ import {
   getBilanCge,
   perimetreCge,
 } from "@/lib/queries/cge";
+import {
+  getProtectionSociale,
+  perimetreRegimeGeneral,
+  perimetreTotal,
+} from "@/lib/queries/protection-sociale";
 import {
   getDeficitMaastricht,
   perimetreDeficit,
@@ -100,9 +106,10 @@ function VueTableau({ children }: { children: ReactNode }) {
 /**
  * Dépenses de l'État — exécution mensuelle (S13), budget par mission
  * (S20, PLF 2026), destination 2025 (S21), subventions aux associations
- * (S23), et blocs cloisonnés S41/S42/S44/S22. Server Component : les
+ * (S23), et blocs cloisonnés S41/S42/S44/S22/S45. Server Component : les
  * lectures S13/S20/S21/S23 viennent de `@/lib/queries/depenses` ; S22
- * vient de `@/lib/queries/cge`. Aucune donnée n'est fabriquée.
+ * vient de `@/lib/queries/cge` ; S45 de `@/lib/queries/protection-sociale`.
+ * Aucune donnée n'est fabriquée.
  */
 export default async function PageDepenses() {
   const sources = getSourcesBudget();
@@ -129,6 +136,7 @@ export default async function PageDepenses() {
   const deficit = getDeficitMaastricht();
   const depensesApu = getAgregatApu("TE");
   const bilanCge = getBilanCge();
+  const protectionSociale = getProtectionSociale();
   const missions = getMissionsPlf2026(10);
   const ministeres = getMinisteresDestination2025(10);
   const subventions = getSubventionsAssociations(10);
@@ -204,9 +212,11 @@ export default async function PageDepenses() {
               <p>
                 Le détail des paiements n’existe pas en donnée ouverte. La
                 mission «&nbsp;Pensions&nbsp;» est un compte d’affectation
-                spéciale, pas une politique comparable aux autres. Les
-                administrations de sécurité sociale, la dépense propre des
-                opérateurs et les entreprises publiques sont hors champ.
+                spéciale, pas une politique comparable aux autres. Ce bloc
+                (budget général) ne couvre pas les prestations de protection
+                sociale&nbsp;: elles figurent dans le bloc DREES, plus bas.
+                La dépense propre des opérateurs et les entreprises
+                publiques restent hors champ.
               </p>
             }
           />
@@ -842,6 +852,192 @@ export default async function PageDepenses() {
                   ne sont pas sommées : un total 2025 n’est pas publié tant
                   que la pièce de synthèse ne le porte pas. Ce n’est pas
                   un montant par habitant.
+                </p>
+              }
+            />
+            </div>
+          </Card>
+        </>
+      )}
+
+      {/* Prestations de protection sociale (S45) — flux annuel tous régimes, cloisonné du budget S13, de Maastricht/ESA et du CGE */}
+      {protectionSociale && (
+        <>
+          <div className="flex items-center gap-3" role="separator">
+            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+              Autre objet · prestations de protection sociale, pas le budget de l&apos;État
+            </span>
+            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+          </div>
+
+          <Card
+            titre="Prestations de protection sociale"
+            sousTitre="tous régimes, flux d'année civile — distinct du budget général et des agrégats ESA des APU"
+            droite={
+              <FreshnessBadge
+                dateDonnees={protectionSociale.meta.date_donnees}
+                source="DREES — comptes de la protection sociale"
+                frequence={protectionSociale.meta.frequence}
+                url={protectionSociale.meta.url}
+              />
+            }
+          >
+            <div className="mb-4 rounded-xl border border-card-border bg-raised p-4">
+              <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+                Pourquoi ce bloc est séparé du reste de la page
+              </h3>
+              <p className="text-xs leading-relaxed text-ink-secondary">
+                Le budget général (source S13, DGFiP) est un flux de
+                l&apos;État, cumulé depuis le 1er janvier (caisse). L&apos;encours
+                (S41), le déficit (S42) et les agrégats ESA (S44) relèvent de
+                Maastricht / ESA des APU. Le CGE (S22) est un stock
+                patrimonial de l&apos;État. Ce bloc est le{" "}
+                <strong className="font-medium text-ink">
+                  flux annuel des prestations de protection sociale
+                </strong>
+                , tous régimes, publié par la DREES. Les objets ne
+                s&apos;additionnent pas.
+              </p>
+            </div>
+            <KpiTile
+              nu
+              label="Prestations de protection sociale"
+              valeur={`${formatNombre(protectionSociale.montantMd, 1)}${ESPACE_FINE}Md€`}
+              montantVedette
+              perimetre={perimetreTotal(protectionSociale.dernier)}
+              delta={
+                protectionSociale.deltaPct === null
+                  ? undefined
+                  : {
+                      valeur: protectionSociale.deltaPct,
+                      vs: protectionSociale.precedent
+                        ? `année ${protectionSociale.precedent.annee}`
+                        : "année précédente",
+                      upIsGood: null,
+                    }
+              }
+            />
+            <div className="mt-4">
+              <KpiTile
+                nu
+                label="dont régime général de la Sécurité sociale"
+                valeur={`${formatNombre(protectionSociale.regimeGeneral.montantMd, 1)}${ESPACE_FINE}Md€`}
+                perimetre={perimetreRegimeGeneral(protectionSociale.dernier.annee)}
+              />
+            </div>
+            {protectionSociale.risques.length === 6 && (
+              <>
+                <BarChart
+                  className="mt-4"
+                  items={protectionSociale.risques.map((r) => ({
+                    libelle: r.libelle,
+                    valeur: r.val_mio_eur / 1000,
+                  }))}
+                  formatValeur={(v) => `${formatNombre(v, 1)}${ESPACE_FINE}Md€`}
+                  maxEtiquettesX={6}
+                  largeur={800}
+                  ariaLabel={`Prestations de protection sociale par risque, année ${protectionSociale.dernier.annee}, tous régimes, ordre des codes E11-1 à E11-6`}
+                />
+                <p className="mt-2 text-xs text-ink-muted">
+                  Ordre des codes DREES (E11-1 à E11-6), année{" "}
+                  {protectionSociale.dernier.annee}. Les six risques sont
+                  exclusifs et recomposent le total — ce n&apos;est pas un
+                  classement.
+                </p>
+              </>
+            )}
+            <VueTableau>
+              <DataTable
+                colonnes={[
+                  { cle: "annee", entete: "Année" },
+                  {
+                    cle: "prestations",
+                    entete: "Prestations Md€",
+                    type: "montant",
+                    decimales: 1,
+                  },
+                ]}
+                lignes={protectionSociale.serie.slice(-12).map((o) => ({
+                  annee: o.annee,
+                  prestations: o.val_mio_eur / 1000,
+                }))}
+                cleLigne={(l) => String(l.annee)}
+              />
+              {protectionSociale.risques.length === 6 && (
+                <div className="mt-3">
+                  <DataTable
+                    colonnes={[
+                      { cle: "risque", entete: "Risque" },
+                      {
+                        cle: "montant",
+                        entete: "Md€",
+                        type: "montant",
+                        decimales: 1,
+                      },
+                    ]}
+                    lignes={protectionSociale.risques.map((r) => ({
+                      risque: r.libelle,
+                      montant: r.val_mio_eur / 1000,
+                    }))}
+                    cleLigne={(l) => l.risque}
+                  />
+                </div>
+              )}
+              {protectionSociale.regimes.length > 0 && (
+                <div className="mt-3">
+                  <DataTable
+                    colonnes={[
+                      { cle: "regime", entete: "Régime" },
+                      {
+                        cle: "montant",
+                        entete: "Md€",
+                        type: "montant",
+                        decimales: 1,
+                      },
+                    ]}
+                    lignes={protectionSociale.regimes.map((r) => ({
+                      regime: r.libelle,
+                      montant: r.val_mio_eur / 1000,
+                    }))}
+                    cleLigne={(l) => l.regime}
+                  />
+                </div>
+              )}
+            </VueTableau>
+            <div className="mt-4">
+            <NoticeLecture
+              ancre="protection-sociale"
+              commentLire={
+                <p>
+                  C’est un flux annuel de prestations, tous régimes, pas un
+                  stock et pas un cumul depuis le 1er janvier. L’unité
+                  affichée (Md€) est le million d’euros DREES divisé par
+                  1&nbsp;000. Les montants sont en euros courants. Un delta
+                  d’une année sur l’autre n’est ni «&nbsp;bon&nbsp;» ni
+                  «&nbsp;mauvais&nbsp;» : il est affiché neutre. Le régime
+                  général (S13141) est un régime parmi d’autres, pas
+                  l’ensemble de la protection sociale.
+                </p>
+              }
+              provenance={
+                <p>
+                  DREES, jeu 305_les-comptes-de-la-protection-sociale, export
+                  JSON. Licence Ouverte 2.0. Le millésime est l’année des
+                  chiffres, jamais last_update du catalogue. Fiche{" "}
+                  data.gouv.fr/datasets/les-comptes-de-la-protection-sociale.
+                </p>
+              }
+              limites={
+                <p>
+                  Ce n’est pas la LFSS. Ce n’est pas l’exécution du budget
+                  général (S13, État, cumul depuis le 1er janvier). Ce n’est
+                  pas le total des dépenses des APU (S44, TE). Ce n’est pas
+                  « la dette de l’État ». Ce n’est pas un montant par
+                  habitant. Ce n’est pas les recettes. Les niveaux 2 et 3 de
+                  l’arbre ne sont pas affichés : ils recouvrent les niveaux
+                  0 et 1. S13141 n’est pas toute la sécurité sociale (S13142
+                  existe).
                 </p>
               }
             />

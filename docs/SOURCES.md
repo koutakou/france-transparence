@@ -57,8 +57,16 @@
 > sont lus dans la pièce, jamais sommés depuis les 517 489 lignes
 > compte×programme. Pipeline sans dépendance d'ordre, placé avant `sirene`.
 >
+> **Mise à jour du 23/08/2026.** **S45** (prestations de protection sociale,
+> DREES « Les comptes de la protection sociale », via
+> `pipelines/ingest_protection_sociale.py`) s'ajoute. L'ingestion compte donc
+> **24 pipelines** et **36 sources tracées dans `meta_sources`**. Distinct
+> de S13 (budget général, YTD), de S44 (TE des APU), de la LFSS (loi votée,
+> non ingérée) et d'ESSPROS (Eurostat, non ingéré). Pipeline sans
+> dépendance d'ordre, placé avant `sirene`.
+>
 > **Document daté.** Les fraîcheurs et volumétries amont relevées ici l'ont été par appels réels le
-> 19/08/2026 (et le 20/08 pour S38 et S40, le 22/08 soir ~22:30 CEST pour S43, le 23/08 pour S44 et S22) : elles décrivent ces jours-là et **ont dérivé depuis**.
+> 19/08/2026 (et le 20/08 pour S38 et S40, le 22/08 soir ~22:30 CEST pour S43, le 23/08 pour S44, S22 et S45) : elles décrivent ces jours-là et **ont dérivé depuis**.
 > Le catalogue vivant, avec la date réellement ingérée de chaque source, est la page `/donnees`
 > du site, régénérée à chaque publication.
 
@@ -377,6 +385,16 @@ Tous téléchargés/dépouillés le 19/08/2026 (05-frais-indemnites.md) :
 - **Relevé daté du 23/08/2026** (re-fetch HTTP 200 ; `n_values` 31 par extrait ; TIME 1975–2025 dans la dimension, observations à partir de 1995) : TE 2025 = 1 714 137,2 MIO_EUR / 57,2 PC_GDP ; TE 2024 = 1 672 708,2 / 57,0 ; TR 2025 = 1 561 626,1 MIO_EUR / 52,1 PC_GDP ; TR 2024 = 1 503 590,1 / 51,2. Ces montants décrivent ce jour-là et **dérivent** : ce n'est pas une constante du document.
 - **Modules** : `/depenses` (bloc TE) et `/recettes` (bloc TR). **INGÉRÉE** — pipeline P20 `pipelines/ingest_agregats_apu.py`.
 
+#### S45. Prestations de protection sociale (DREES, comptes de la protection sociale, évalué le 23/08/2026)
+- **Producteur** : DREES (ministère des Solidarités et de la Santé). Jeu ODS `305_les-comptes-de-la-protection-sociale`. **URL dataset** : `https://www.data.gouv.fr/datasets/les-comptes-de-la-protection-sociale` (HTTP 200 le 23/08/2026). **Export** (bulk `/exports/json`, pas le plafond `/records`) : `https://data.drees.solidarites-sante.gouv.fr/api/explore/v2.1/catalog/datasets/305_les-comptes-de-la-protection-sociale/exports/json` (HTTP 200 le 23/08/2026, **15 654** enregistrements, années **1959–2024**).
+- **Licence relue** (23/08/2026) : métadonnées DREES « Licence Ouverte v2.0 (Etalab) » ; fiche data.gouv « Licence Ouverte / Open Licence version 2.0 » HTTP 200 ; texte légal `https://www.data.gouv.fr/pages/legal/licences/etalab-2.0` HTTP 200. Libellé `meta_sources` : `Licence Ouverte 2.0 (Etalab)`.
+- **Fréquence** : annuelle. **Date des données** = 31 décembre de l'année max (**2024-12-31** au 23/08/2026), **jamais** `last_update` data.gouv (2025-12-18) ni `modified` du catalogue.
+- **Objet** : flux annuel des **prestations** (ps_code E11), tous régimes (si_code S1). Ce n'est **pas** le budget général (S13), **pas** le total des dépenses des APU (S44, TE), **pas** le bilan patrimonial (S22), **pas** la LFSS (loi votée, non ingérée), **pas** ESSPROS (Eurostat `spr_exp_func`, non ingéré — recoupement seulement). `source_id` = **S45**.
+- **Règle du total** : grain `total` = si_niveau=0, si_code=S1, ps_niveau=0, ps_code=E11-0. Unité native = million d'euros (`val`). Md€ = M€ **÷ 1000** à la lecture, jamais ÷ 1e9. Pas de % du PIB, pas de par habitant, pas de recettes, pas de frais de gestion.
+- **Relevé daté du 23/08/2026** (export JSON HTTP 200) : total 2024 S1/E11-0 = 932 548,27 M€ (= 932,5 Md€). Six risques à ps_niveau=1, si_code=S1, somme exacte 932 548,27 : SANTÉ 338 880,82 ; VIEILLESSE-SURVIE 426 665,30 ; FAMILLE 65 806,89 ; EMPLOI 51 123,85 ; LOGEMENT 16 058,54 ; PAUVRETÉ-EXCLUSION SOCIALE 34 012,87. Neuf régimes à si_niveau=1, ps_code=E11-0, même somme, dont S13141 régime général 582 377,05 M€. Recoupement Eurostat `spr_exp_func` TOTAL 2024 = 932 548,26 M€ — **non ingéré**. Ces montants décrivent ce jour-là et **dérivent**.
+- **Pièges** : les niveaux 2 et 3 recouvrent les niveaux 0 et 1 — n'ingérer que les grains exclusifs (`total` / `risque` / `regime`) ; S13141 (régime général) n'est **pas** l'ensemble de la sécurité sociale (S13142 existe à côté) ; `last_update` 2025-12-18 n'est pas `date_donnees` ; unité = million d'euros, pas l'euro ; ce n'est pas la LFSS. Ne pas nommer ce chiffre « dette de l'État ».
+- **Modules** : Dépenses de l'État (bloc cloisonné). **INGÉRÉE** — pipeline P22 `pipelines/ingest_protection_sociale.py`.
+
 ### Groupe E — Sources écartées (raison prouvée le 19/08/2026)
 
 | Source écartée | Raison constatée | Rapport |
@@ -453,7 +471,7 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 
 ## 2. Mapping module → sources
 
-> **Encart de périmètre « argent public » (obligatoire, affiché sur l'Accueil et dans API & Données)** : le dashboard couvre le **budget général de l'État**, le **Parlement et la vie politique** (élus, lobbying, financement), la **commande publique** et les **finances locales**. Hors champ, et dit tel quel dans l'UI : les **administrations de sécurité sociale (~600 Md€, premier poste de la dépense publique)**, la dépense propre des **opérateurs de l'État** (seuls leurs crédits budgétaires apparaissent via S20/S21 ; référentiel S39 non ingéré) et les **entreprises publiques**. Tout compteur global porte la mention « budget général de l'État » — jamais « la dépense publique » (10-critique I8).
+> **Encart de périmètre « argent public » (obligatoire, affiché sur l'Accueil et dans API & Données)** : le dashboard couvre le **budget général de l'État**, le **Parlement et la vie politique** (élus, lobbying, financement), la **commande publique**, les **finances locales**, et les **prestations de protection sociale** (DREES, tous régimes, millésime porté par la tuile — S45). Ce n'est **pas** la LFSS comme loi votée, **pas** la dépense propre des **opérateurs de l'État** (seuls leurs crédits budgétaires apparaissent via S20/S21 ; référentiel S39 non ingéré) et **pas** les **entreprises publiques**. Tout compteur global du budget général porte la mention « budget général de l'État » — jamais « la dépense publique » (10-critique I8) ; le total S45 porte « prestations de protection sociale », jamais « la Sécu » ni « dette de l'État ».
 
 ### Accueil synthétique
 - **Sources** : S13 (compteur dépenses État), S1 (flux marchés + carte 30 j), S2 (nb d'AO en cours), S3 (derniers textes JO), S14 (compteur d'alertes HATVP), S17/S4 (bandeau de stats), S20 (top missions).
@@ -461,7 +479,7 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 - **Contenu concret** : compteur « dépenses de l'État depuis le 1er janvier » (cumul mensuel, ex. réel : 195,0 Md€ de dépenses nettes du BG au 31/05/2026, 01) avec variation vs même période 2025 ; donut par grands postes (titres, S13) ; top missions (S20, annuel, mention PLF) ; carte de France des marchés notifiés sur 30 jours (S1, lat/lng natives) ; flux « derniers marchés notifiés » (J-1) et « derniers textes au JO » (jour même) ; « X appels d'offres en cours » ; bandeau : marchés notifiés/12 mois, ~500 000 mandats d'élus (S17), 6 829 lobbyistes enregistrés (S4), 12 930 dossiers déclaratifs HATVP (S14).
 
 ### Dépenses de l'État
-- **Sources** : S13 (mensuel), S20 + S21 (structure mission→action), S23 (subventions aux associations), S41 (encours APU Maastricht, bloc cloisonné), S42 (déficit public APU Maastricht, bloc cloisonné), S44 (agrégats ESA TE/TR, bloc TE sur `/depenses` et bloc TR sur `/recettes`), S22 (bilan patrimonial CGE, bloc cloisonné), S24 (performance, non ingéré), S30 (missions mensuelles PDF, non ingéré), S39 (référentiel des opérateurs, non ingéré).
+- **Sources** : S13 (mensuel), S20 + S21 (structure mission→action), S23 (subventions aux associations), S41 (encours APU Maastricht, bloc cloisonné), S42 (déficit public APU Maastricht, bloc cloisonné), S44 (agrégats ESA TE/TR, bloc TE sur `/depenses` et bloc TR sur `/recettes`), S22 (bilan patrimonial CGE, bloc cloisonné), S45 (prestations de protection sociale DREES, bloc cloisonné), S24 (performance, non ingéré), S30 (missions mensuelles PDF, non ingéré), S39 (référentiel des opérateurs, non ingéré).
 - **Fraîcheur affichable** : « Exécution mensuelle : données au 30/06/2026, ~6 semaines de décalage » (01) · « Structure du budget : PLF 2026 (déposé oct. 2025) et exécution 2024 » (01) · « Subventions aux associations : versements 2023 (dernier millésime publié) » (01).
 - **Contenu concret** : courbes 2013-2026 dépenses/recettes/solde, N vs N-1 par titre ; treemap mission → programme → action (comparateur exéc. 2024 / LFI 2025 / PLF 2026 + cotation budget vert) ; recherche parmi 112 722 subventions (SIREN, programme, commune). **Avertissements obligatoires** : PLF ≠ LFI 2026 (jamais publiée en données) ; aucune donnée de paiement en temps réel n'existe (01).
 
@@ -550,7 +568,7 @@ Chaque alerte ci-dessous est calculable avec les données réellement testées. 
 | **A10. Publication DECP hors délai légal** | `datePublicationDonnees − dateNotification > 2 mois` par acheteur | S1/S8 | Arrêté du 22/12/2022 : publication sous 2 mois après notification | 02 |
 | **A11. Moniteur de fraîcheur des sources (méta-alerte)** | Dernière donnée réellement ingérée vs fréquence déclarée par source ; alerte si dérive (leçon : les sites morts répondent 200). **Surveillance nominative des maillons communautaires** : build quotidien S1 **et** activité du dépôt `decp-processing` (plan B C1) ; CSV Datan S7 (fallback I6) | toutes | — (engagement méthodologique du projet) | 08, 10-critique C1/I6 |
 
-Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication des justificatifs parlementaires (11/06/2026) ; disparition des rémunérations des cabinets des jaunes budgétaires depuis PLF 2024 ; absence de LFI 2026 en open data ; RIE sans open data (04, 05, 01, 08) ; **aides publiques aux entreprises : ~211 Md€/an sans donnée consolidée** (rapport Sénat 08/07/2025 ; vérifié le 19/08 : 0 dataset) ; **« 10 plus hautes rémunérations » : obligation légale (art. 37, loi TFP 2019) éclatée en 25 datasets sans consolidation nationale** ; **collaborateurs parlementaires et comptes des groupes politiques : 0 dataset** (listes/PDF sur les sites des assemblées) ; **pantouflage : 641 avis de mobilité HATVP 2025 sans export open data** ; **périmètre : sécurité sociale (~600 Md€) et dépense propre des opérateurs hors champ du dashboard** (10-critique I2, I3, I7, I8, I10).
+Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication des justificatifs parlementaires (11/06/2026) ; disparition des rémunérations des cabinets des jaunes budgétaires depuis PLF 2024 ; absence de LFI 2026 en open data ; RIE sans open data (04, 05, 01, 08) ; **aides publiques aux entreprises : ~211 Md€/an sans donnée consolidée** (rapport Sénat 08/07/2025 ; vérifié le 19/08 : 0 dataset) ; **« 10 plus hautes rémunérations » : obligation légale (art. 37, loi TFP 2019) éclatée en 25 datasets sans consolidation nationale** ; **collaborateurs parlementaires et comptes des groupes politiques : 0 dataset** (listes/PDF sur les sites des assemblées) ; **pantouflage : 641 avis de mobilité HATVP 2025 sans export open data** ; **périmètre : les prestations de protection sociale sont désormais S45 (DREES, tous régimes) ; restent hors champ la LFSS comme loi votée, la dépense propre des opérateurs et les entreprises publiques** (10-critique I2, I3, I7, I8, I10).
 
 ---
 
@@ -637,6 +655,7 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 | S42 Déficit public des APU (Maastricht) | Annuelle (31/12 du TIME max, jamais `updated`) | décision 2011/833/UE (22/08/2026) | Dépenses (bloc cloisonné) | **ingérée** (P18) |
 | S43 DILA dossiers législatifs (DOLE) | Freemium + incréments (jusqu'à 5/sem. ; gap max observé 12 j le 22/08 soir) | LO 2.0 (fr-lo) | Documents/JO | **ingérée** (P19) |
 | S44 Recettes et dépenses des APU (agrégats ESA) | Annuelle (31/12 du TIME max, jamais `updated` ; 520/600) | décision 2011/833/UE (23/08/2026) | Dépenses (bloc TE) / Recettes (bloc TR) | **ingérée** (P20) |
+| S45 Prestations de protection sociale (DREES CPS) | Annuelle (31/12 de l'année max, jamais last_update ; millésime 2024 au 23/08/2026) | LO 2.0 (Etalab) | Dépenses de l'État (bloc cloisonné) | **ingérée** (P22) |
 
 ---
 

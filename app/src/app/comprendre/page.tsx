@@ -437,6 +437,7 @@ const SOMMAIRE: { href: string; libelle: string }[] = [
   { href: "#depenses-apu-esa", libelle: "Dépenses des APU (ESA)" },
   { href: "#recettes-apu-esa", libelle: "Recettes des APU (ESA)" },
   { href: "#cge", libelle: "Situation nette de l’État (CGE)" },
+  { href: "#protection-sociale", libelle: "Prestations de protection sociale" },
   { href: "#recettes", libelle: "Recettes de l’État" },
   { href: "#collectivites", libelle: "Finances locales" },
   { href: "#frais", libelle: "Frais et train de vie" },
@@ -901,9 +902,10 @@ export default function PageComprendre() {
             ni une baisse «&nbsp;mauvaise&nbsp;» : il est affiché neutre. La
             mission «&nbsp;Pensions&nbsp;» pèse lourd dans le budget par
             destination : c’est un compte d’affectation spéciale, pas une
-            politique publique comparable aux autres missions. Les
-            administrations de sécurité sociale, la dépense propre des
-            opérateurs et les entreprises publiques sont hors champ.
+            politique publique comparable aux autres missions. Le budget
+            général ne couvre pas les prestations de protection sociale
+            (bloc DREES). La dépense propre des opérateurs et les
+            entreprises publiques restent hors champ.
           </p>
         </div>
       </Card>
@@ -1088,6 +1090,42 @@ export default function PageComprendre() {
             balances compte × programme ne sont pas sommées : un total
             2025 n’est pas publié tant que la pièce de synthèse ne le
             porte pas. Ce n’est pas un montant par habitant.
+          </p>
+        </div>
+      </Card>
+
+      <Card titre="Prestations de protection sociale">
+        <div id="protection-sociale" className="scroll-mt-20 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+          <p>
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
+            Les prestations de protection sociale sont le flux annuel des
+            prestations versées, tous régimes, publié par la DREES. Ce n’est
+            pas le budget de l’État, ni un agrégat ESA des APU, ni le
+            bilan patrimonial. L’unité native est le million d’euros ; le
+            milliard affiché est ce million divisé par 1&nbsp;000. Les
+            montants sont en euros courants. Un delta d’une année sur
+            l’autre n’est ni «&nbsp;bon&nbsp;» ni «&nbsp;mauvais&nbsp;».
+            Le régime général (S13141) est un régime parmi d’autres, pas
+            l’ensemble de la protection sociale. Voir{" "}
+            <LienPage href="/depenses/#protection-sociale">Dépenses</LienPage>.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
+            DREES, jeu 305_les-comptes-de-la-protection-sociale, export
+            JSON. Licence Ouverte 2.0. Le millésime est l’année des
+            chiffres, jamais last_update du catalogue. Fiche
+            data.gouv.fr/datasets/les-comptes-de-la-protection-sociale.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
+            Ce n’est pas la LFSS. Ce n’est pas l’exécution du budget
+            général (source S13, caisse, cumul depuis le 1<sup>er</sup>{" "}
+            janvier). Ce n’est pas le total des dépenses des APU (S44,
+            TE). Ce n’est pas « la dette de l’État ». Ce n’est pas un
+            montant par habitant. Ce n’est pas les recettes. Les niveaux
+            2 et 3 de l’arbre ne sont pas affichés : ils recouvrent les
+            niveaux 0 et 1. S13141 n’est pas toute la sécurité sociale
+            (S13142 existe).
           </p>
         </div>
       </Card>
