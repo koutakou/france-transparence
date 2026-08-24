@@ -1100,7 +1100,7 @@ CREATE TABLE ircom_communes (
     dep_source         TEXT    NOT NULL,
     com_source         TEXT    NOT NULL,
     libelle            TEXT    NOT NULL,
-    n_foyers           INTEGER NOT NULL,
+    n_foyers           INTEGER,
     impot_net_euros    REAL,
     n_foyers_imposes   INTEGER,
     PRIMARY KEY (annee, dep_source, com_source)

@@ -53,7 +53,10 @@ export function perimetreIrcom(annee: number): string {
 }
 
 export function perimetreFoyersIrcom(annee: number): string {
-  return `foyers fiscaux IRCOM, revenus ${annee} · une déclaration = un foyer · y compris non imposés`;
+  return (
+    `foyers fiscaux IRCOM, revenus ${annee} · une déclaration = un foyer · ` +
+    `somme des communes publiées, hors n.c.`
+  );
 }
 
 function tablePresente(): boolean {

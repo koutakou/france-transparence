@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS ircom_communes (
     dep_source         TEXT    NOT NULL,
     com_source         TEXT    NOT NULL,
     libelle            TEXT    NOT NULL,
-    n_foyers           INTEGER NOT NULL,
+    n_foyers           INTEGER,
     impot_net_euros    REAL,
     n_foyers_imposes   INTEGER,
     PRIMARY KEY (annee, dep_source, com_source)
@@ -301,11 +301,6 @@ def extraire(chemin_xlsx: Path) -> tuple[int, list[dict]]:
                     f"libelle={libelle!r}"
                 )
             n_foyers = _nombre(cells.get("F"))
-            if n_foyers is None:
-                raise ValueError(
-                    f"Total {dep}/{com} : nombre de foyers n.c. ou vide "
-                    "(le total commune doit porter les foyers)"
-                )
             impot_k = _nombre(cells.get("H"))
             n_imp = _nombre(cells.get("I"))
             lignes.append(
@@ -314,7 +309,7 @@ def extraire(chemin_xlsx: Path) -> tuple[int, list[dict]]:
                     "com_source": com,
                     "dep_carte": departement_carte(dep, com),
                     "libelle": libelle,
-                    "n_foyers": int(n_foyers),
+                    "n_foyers": None if n_foyers is None else int(n_foyers),
                     "impot_net_euros": (
                         None if impot_k is None else milliers_en_euros(impot_k)
                     ),
@@ -373,7 +368,7 @@ def controler_ampleur(annee: int, lignes: list[dict]) -> None:
             f"impôt net {annee} = {somme} € "
             f"hors ]{BORNE_IMPOT_EUR[0]:g}, {BORNE_IMPOT_EUR[1]:g}["
         )
-    foyers = sum(o["n_foyers"] for o in lignes)
+    foyers = sum(o["n_foyers"] or 0 for o in lignes)
     if not (BORNE_FOYERS[0] < foyers < BORNE_FOYERS[1]):
         raise ValueError(
             f"foyers {annee} = {foyers}, hors ]{BORNE_FOYERS[0]:g}, {BORNE_FOYERS[1]:g}["
@@ -390,7 +385,8 @@ def _agreger(annee: int, lignes: list[dict]) -> tuple[list[dict], dict]:
     n_foyers = 0
     impot = 0.0
     for o in lignes:
-        n_foyers += o["n_foyers"]
+        if o["n_foyers"] is not None:
+            n_foyers += o["n_foyers"]
         if o["impot_net_euros"] is None:
             n_nc += 1
         else:
@@ -410,7 +406,8 @@ def _agreger(annee: int, lignes: list[dict]) -> tuple[list[dict], dict]:
             },
         )
         slot["n_communes"] += 1
-        slot["n_foyers"] += o["n_foyers"]
+        if o["n_foyers"] is not None:
+            slot["n_foyers"] += o["n_foyers"]
         if o["impot_net_euros"] is None:
             slot["n_communes_nc"] += 1
         else:

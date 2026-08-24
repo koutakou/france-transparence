@@ -146,13 +146,13 @@ def _fixture(tmp_path: Path) -> Path:
                 ("H", "#2000"),
                 ("I", "#500"),
             ],
-            # Secret statistique
+            # Secret statistique (F, H et I n.c. — mesuré live : Bruys)
             [
                 ("B", "020"),
                 ("C", "129"),
                 ("D", "Bruys"),
                 ("E", "Total"),
-                ("F", "#11"),
+                ("F", "n.c."),
                 ("H", "n.c."),
                 ("I", "n.c."),
             ],
@@ -252,6 +252,7 @@ def test_extraire_convertit_les_milliers_et_garde_le_nc(extrait):
     assert par["L'Abergement-Clémenciat"]["impot_net_euros"] == 1_000_000.0
     assert par["Paris 1er Arrondissement"]["dep_carte"] == "75"
     assert par["Bruys"]["impot_net_euros"] is None
+    assert par["Bruys"]["n_foyers"] is None
     assert par["Bruys"]["n_foyers_imposes"] is None
     assert par["Muscourt"]["impot_net_euros"] == pytest.approx(-1_500.0)
     assert par["Ajaccio"]["dep_carte"] == "2A"
@@ -304,7 +305,7 @@ def test_ecrire_db_agrege_et_metadonnees(tmp_path, extrait):
     assert nat["n_communes_nc"] == 1
     # 1 000 000 + 2 000 000 + 0 (nc) + (-1 500) + 50 000 + 10 000
     assert nat["impot_net_euros"] == pytest.approx(3_058_500.0)
-    assert nat["n_foyers"] == 480 + 1000 + 11 + 20 + 100 + 5
+    assert nat["n_foyers"] == 480 + 1000 + 20 + 100 + 5
     paris = conn.execute(
         "SELECT * FROM ircom_departements WHERE dep_carte = '75'"
     ).fetchone()
