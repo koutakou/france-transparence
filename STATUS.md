@@ -1,6 +1,7 @@
 # STATUS — France Transparence
 
 - **Phase courante** : le site tourne seul sur son propre serveur. La mission de déploiement initiale (phases R1-R4, décisions 20-24, GitHub Pages) est close ; le **20/08/2026** le site a été migré vers un serveur dédié et son propre domaine (décision 25).
+- **État courant (24/08/2026)** : release servie `20260824-104146` — **11 onglets** + `/comprendre` hors nav, **36 sources** (catalogue `/donnees`). Export nginx, aucun process Node.
 - **SITE PUBLIC EN LIGNE** : https://francetransparence.fr — export statique Next.js servi **directement par nginx** sur un serveur dédié (Scaleway Dedibox, Ubuntu 22.04), **aucun process Node en production**. Reconstruit chaque matin vers **05:17 Paris** par `ft-deploy` (minuterie systemd `ft-deploy.timer`), en **tout ou rien** : `git pull` → contrôle d'identité de déploiement (`ft-localiser`) → ingestion → tests → build → contrôles de santé → **bascule atomique du lien `current`**. Échec d'une étape = le lien ne bascule pas, l'ancienne version reste servie, une alerte part. 5 releases conservées, retour arrière par `ft-rollback` sans rebuild.
 - **Hébergement** : serveur dédié — payant. L'ancien « 0 €/mois » de GitHub Pages n'a plus cours.
 - **GitHub Pages ne sert plus le site** : l'ancienne adresse ne porte plus qu'une page de redirection canonique (`pages-redirection/`) — deux copies du site en ligne se seraient partagé l'autorité de référencement sur ~1 066 pages, et Pages ne sait pas émettre de 301.
@@ -9,4 +10,4 @@
 - **Repo public** : https://github.com/koutakou/france-transparence (main). Un push sur `main` ne publie plus rien tout seul : la production se met à jour au cycle suivant de `ft-deploy` (ou par un `ft-deploy` lancé à la main sur le serveur).
 - **Exploitation** : docs/deploiement/RUNBOOK.md (serveur, de bout en bout) ; décision et limites : docs/deploiement/DECISION.md ; ce qui exige encore un humain : docs/ACTIONS-HUMAINES.md.
 - **Chaîne locale intacte** : `make dev` (SSR local, port 3620), `make ingest`, `make test` (suite pytest complète), `make build-static`/`serve-static` (export identique à la prod).
-- **Reprise éventuelle** : lire JOURNAL.md + docs/deploiement/DECISION.md + RUNBOOK.md — le site tourne seul ; ce qui n'est pas ingéré à ce jour est listé dans docs/RAPPORT-MISSION.md §7.
+- **Reprise éventuelle** : lire JOURNAL.md + docs/deploiement/DECISION.md + RUNBOOK.md — le site tourne seul. `docs/RAPPORT-MISSION.md` est un journal **daté** (19-20/08) : son §7 « non ingéré » se lit au passé. L'état courant des sources est `/donnees` et `docs/SOURCES.md`.

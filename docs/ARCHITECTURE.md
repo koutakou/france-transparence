@@ -1,7 +1,10 @@
 # ARCHITECTURE.md — France Transparence
 
-**Document de référence technique · Établi le 19/08/2026.**
-Complète `docs/SOURCES.md` (le *quoi* : le périmètre de sources ingérées, 11 modules) et `docs/DATAVIZ.md` (le *comment visuel*). Ici : le *comment technique*.
+**Document de référence technique · Établi le 19/08/2026. Révisé le 24/08/2026.**
+
+État courant : **24 pipelines**, **36 sources**, **11 onglets** + `/comprendre` hors nav, kit `app/src/components/ui/` écrit (G2/G8). Le flux de données et le schéma SQL noyau ci-dessous n'ont pas changé de contrat.
+
+Complète `docs/SOURCES.md` (le *quoi* : le périmètre de sources ingérées) et `docs/DATAVIZ.md` (le *comment visuel*). Ici : le *comment technique*.
 
 ---
 
@@ -43,10 +46,16 @@ france-transparence/
     ├── next.config.ts        # serverExternalPackages: better-sqlite3 ; turbopack.root
     └── src/
         ├── lib/db.ts         # ouverture lecture seule + garde « base absente »
+        ├── components/
+        │   ├── MainNav.tsx   # client — 11 onglets (pas /comprendre, pas /alertes)
+        │   └── ui/           # kit partagé (G2/G8) : graphiques, FreshnessBadge, NoticeLecture…
         └── app/
             ├── globals.css   # jetons DATAVIZ.md §0 en variables CSS + @theme
-            ├── layout.tsx    # header FRANCE TRANSPARENCE + nav des modules
-            └── page.tsx      # (pages des modules au fur et à mesure)
+            ├── layout.tsx    # chrome + SearchBox ; pied vers /comprendre
+            ├── page.tsx      # accueil
+            ├── recettes/     # onglet Recettes (après Dépenses)
+            ├── comprendre/   # appareil pédagogique, hors nav
+            └── …             # un dossier par module
 ```
 
 ---
@@ -70,9 +79,9 @@ data/france.db                   (SQLite, WAL ; tables métier par pipeline)
       │    dans meta_sources À CHAQUE ingestion réussie
       ▼
 app/src/lib/db.ts                (better-sqlite3, readonly, query_only=ON)
-      │  Server Components : requêtes directes dans les pages ;
-      │  route handlers app/src/app/api/* seulement pour l'interactif
-      │  (recherche, filtres client) et le ré-export /donnees
+      │  Server Components : requêtes au BUILD (export statique) ;
+      │  l'interactif côté navigateur lit des JSON pré-générés
+      │  (/data/recherche-index.json, /api/*.json) — pas une API live
       ▼
 Composants React (jetons DATAVIZ.md, badge de fraîcheur obligatoire)
 ```
@@ -90,7 +99,7 @@ Règles du flux :
 
 ```sql
 CREATE TABLE meta_sources (           -- fraîcheur : donnée de premier rang
-    source_id      TEXT PRIMARY KEY,  -- 'S1'…'S44', 'S22' (ids de SOURCES.md)
+    source_id      TEXT PRIMARY KEY,  -- 'S1'…'S45', ids composés (S5-AMO10, S27-*, …)
     nom            TEXT NOT NULL,
     url            TEXT NOT NULL,
     licence        TEXT NOT NULL,     -- 'Licence Ouverte 2.0', 'ODbL'…
@@ -184,7 +193,7 @@ Contrat d'un pipeline :
 5. échoue bruyamment (exception, exit ≠ 0) plutôt que d'écrire des données partielles : pas de `meta_sources` mis à jour = ingestion non comptée ;
 6. tout paramètre variable (législature 17, seuils 40/60 k€ au 01/04/2026, millésimes) est une constante nommée en tête de module, jamais enfouie.
 
-Côté app : pages de module dans `app/src/app/<module>/page.tsx` (routes : `/depenses`, `/marches`, `/elus`, `/lobbying`, `/financement`, `/frais`, `/collectivites`, `/documents`, `/donnees`) ; requêtes SQL dans `app/src/lib/` (un fichier par domaine), jamais dans les composants client.
+Côté app : pages de module dans `app/src/app/<module>/page.tsx` (routes de nav : `/depenses`, `/recettes`, `/marches`, `/elus`, `/lobbying`, `/financement`, `/frais`, `/collectivites`, `/documents`, `/donnees` ; `/comprendre` hors nav ; `/alertes` existe, ce n'est pas un onglet) ; requêtes SQL dans `app/src/lib/` (un fichier par domaine), jamais dans les composants client. Le kit `ui/` est partagé : une page module ne le fork pas. Les pages restent des Server Components ; les îles `"use client"` et l'interaction G8 sont décrites dans `docs/NOTES-FRONT.md`.
 
 ---
 

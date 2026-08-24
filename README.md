@@ -1,14 +1,14 @@
 # France Transparence
 
-Dashboard web sur la transparence de la vie politique française : dépenses de l'État, commande publique, élus, lobbying, financement politique, frais et train de vie, Journal officiel — **100 % données publiques réelles**, aucun chiffre fabriqué. L'honnêteté est le principe produit : chaque module affiche la date réelle de ses données (badge de fraîcheur alimenté par la table `meta_sources`), le mot « en direct » est banni parce qu'aucune source publique ne le permet, et ce que l'open data ne contient pas est documenté comme tel (la « boîte noire » du module Frais & train de vie). L'ensemble tient dans une base SQLite unique, reconstruite localement depuis 30 sources officielles tracées.
+Dashboard web sur la transparence de la vie politique française : dépenses et recettes de l'État, commande publique, élus, lobbying, financement politique, frais et train de vie, finances locales, Journal officiel — **100 % données publiques réelles**, aucun chiffre fabriqué. L'honnêteté est le principe produit : chaque module affiche la date réelle de ses données (badge de fraîcheur alimenté par la table `meta_sources`), le mot « en direct » est banni parce qu'aucune source publique ne le permet, et ce que l'open data ne contient pas est documenté comme tel (la « boîte noire » du module Frais & train de vie, l'encart « hors champ » de l'accueil). L'ensemble tient dans une base SQLite unique, reconstruite localement depuis **36 sources officielles tracées** — le catalogue daté, avec la date réellement ingérée de chacune, est la page [`/donnees`](https://francetransparence.fr/donnees/), régénérée à chaque publication. Une page pédagogique [`/comprendre`](https://francetransparence.fr/comprendre/) — **hors navigation principale** — explique comment lire ces publications : glossaire, provenance, limites, journal des lectures.
 
-![Page d'accueil de France Transparence](docs/screenshots/accueil.png)
+![Page d'accueil, 24/08/2026 : onze onglets dont Recettes, champ de recherche dans le chrome, encart « hors champ » au-dessus du 240 Md€ d'exécution](docs/screenshots/accueil.png)
 
 ## Site public
 
 **https://francetransparence.fr**
 
-Export statique du dashboard, servi **directement par nginx** depuis un serveur dédié (Scaleway Dedibox, Ubuntu 22.04). **Aucun process Node en production** : le HTML est pré-rendu au build, nginx ne fait que servir des fichiers déjà écrits sur disque (et déjà compressés).
+Export statique du dashboard, servi **directement par nginx** depuis un serveur dédié (Scaleway Dedibox, Ubuntu 22.04). **Aucun process Node en production** : le HTML est pré-rendu au build, nginx ne fait que servir des fichiers déjà écrits sur disque (et déjà compressés). Thème sombre unique, **aucun cookie, aucun traceur** — le HTML servi n'en porte pas. Ce n'est pas un flux temps réel : la fraîcheur affichée est celle de la dernière ingestion qui a réussi à publier.
 
 Le site est reconstruit chaque matin vers 05:17 (heure de Paris) par le script serveur `ft-deploy`, déclenché par la minuterie systemd `ft-deploy.timer`. La publication est **tout ou rien** : mise à jour du dépôt → contrôle de l'identité de déploiement → ingestion de tous les pipelines → tests → build statique → contrôles de santé du site généré → **bascule atomique** du lien symbolique `current` vers la nouvelle release. Si une étape échoue, le lien ne bascule pas : l'ancienne version continue d'être servie sans interruption, et une alerte part. La fraîcheur affichée reste donc toujours celle de la base réellement construite.
 
@@ -41,9 +41,9 @@ make app-install  # npm install dans app/
 make dev          # http://localhost:3620
 ```
 
-Production : `make build` puis `cd app && npm run start` (port 3620 dans les deux cas).
+Le mode local SSR (`make build` puis `cd app && npm run start`, port 3620) n'est **pas** la production : en ligne, c'est `make build-static` (`FT_EXPORT=1`) servi par nginx, sans process Node.
 
-La base `data/france.db` (~490 Mo, 70 tables) est gitignorée : elle se reconstruit entièrement par `make ingest`.
+La base `data/france.db` (493 Mo, 81 tables et 6 vues au 24/08/2026 — ça bouge ; le schéma : [docs/SCHEMA-DB.md](docs/SCHEMA-DB.md)) est gitignorée : elle se reconstruit entièrement par `make ingest`.
 
 ## Ré-ingérer
 
@@ -53,7 +53,7 @@ La base `data/france.db` (~490 Mo, 70 tables) est gitignorée : elle se reconstr
 make ingest-<source>
 ```
 
-avec `<source>` parmi les pipelines déclarés dans la variable `PIPELINES` du `Makefile`, qui fait autorité : `referentiels`, `budget_mensuel`, `budget_structure`, `decp`, `boamp`, `approch`, `jorf`, `parlement`, `integrite`, `hatvp_declarations`, `lobbying`, `financement`, `collectivites`, `elections`, `trainvie`, `cada`, `registre_ue`, `dette_maastricht`, `deficit_maastricht`, `dole`, `agregats_apu`, `sirene`.
+avec `<source>` parmi les pipelines déclarés dans la variable `PIPELINES` du `Makefile`, qui fait autorité (24 cibles, dans cet ordre) : `referentiels`, `budget_mensuel`, `budget_structure`, `decp`, `boamp`, `approch`, `jorf`, `parlement`, `integrite`, `hatvp_declarations`, `lobbying`, `financement`, `collectivites`, `elections`, `trainvie`, `cada`, `registre_ue`, `dette_maastricht`, `deficit_maastricht`, `dole`, `agregats_apu`, `cge`, `protection_sociale`, `sirene`.
 
 ## Tests
 
@@ -78,26 +78,40 @@ Détails : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Modules du dashboard
 
+Onze onglets, dans l'ordre de la navigation (`MainNav`) — libellés complets, pas de 12ᵉ onglet. `/comprendre` et `/alertes` existent ; ce ne sont pas des onglets.
+
 | Route | Module | Contenu et fraîcheur réelle |
 |---|---|---|
-| `/` | Accueil | Compteurs, carte des marchés, flux JO et alertes — chaque bloc daté par sa source (budget au dernier mois publié, marchés J-1, JO du jour). |
-| `/depenses` | Dépenses de l'État | Exécution mensuelle DGFiP (~6 semaines de décalage), structure PLF 2026 (mention « PLF » : la LFI 2026 n'existe pas en données), 112 722 subventions aux associations (versements 2023). |
-| `/marches` | Commande publique | Plusieurs centaines de milliers de marchés consolidés, sur 24 mois glissants comptés à la date de notification initiale du marché (quotidien, notifications J-1, consolidation légale ≤ 2 mois), environ 9 000 appels d'offres en cours (BOAMP, jour même), environ 4 000 achats à venir (APProch). |
-| `/elus` | Élus & institutions | Environ 36 000 élus (RNE, trimestriel) dont 577 députés et 348 sénateurs (open data AN/Sénat/Datan, quotidien). |
-| `/elus/[id]` | Fiche élu | Plus de 1 000 fiches statiques (parlementaires et présidences d'exécutifs départementaux/régionaux — les autres élus restent dans les listes et agrégats) : mandats, 30 derniers votes sur les quelque 8 400 scrutins AN (le scrutin le plus récent est daté : hors session, il peut avoir plusieurs semaines), scores Datan crédités, lien HATVP. |
+| `/` | Accueil | Compteurs, carte des marchés, flux JO et alertes — chaque bloc daté par sa source (budget au dernier mois publié, marchés J-1, JO du jour). Encart « hors champ » au-dessus de l'exécution : ce que le site ne couvre pas. |
+| `/depenses` | Dépenses | Exécution mensuelle DGFiP (~6 semaines de décalage), structure PLF 2026 (mention « PLF » : la LFI 2026 n'existe pas en données), subventions aux associations (versements 2023). |
+| `/recettes` | Recettes | Même source S13 que les dépenses : recettes nettes du budget général (fiscales, non fiscales, fonds de concours à part), cumuls depuis le 1er janvier, séries depuis 2013. Section cloisonnée : agrégats ESA des APU (S44) — ce n'est pas le budget de l'État. |
+| `/marches` | Marchés publics | Marchés consolidés sur 24 mois glissants comptés à la date de notification initiale (quotidien, notifications J-1, consolidation légale ≤ 2 mois), appels d'offres en cours (BOAMP, jour même), achats à venir (APProch). Les comptes bougent chaque jour : voir `/donnees`. |
+| `/elus` | Élus & Institutions | Environ 36 000 élus (RNE, trimestriel) dont 577 députés et 348 sénateurs (open data AN/Sénat/Datan, quotidien). Les conseillers municipaux n'entrent dans aucun chiffre de cette page. |
+| `/elus/[id]` | Fiche élu | Pas un onglet. Plus de 1 000 fiches statiques (parlementaires et présidences d'exécutifs départementaux/régionaux — les autres élus restent dans les listes et agrégats) : mandats, 30 derniers votes sur les quelque 8 400 scrutins AN (le scrutin le plus récent est daté : hors session, il peut avoir plusieurs semaines), scores Datan crédités, lien HATVP. |
 | `/lobbying` | Lobbying | Répertoire HATVP des représentants d'intérêts (quotidien) : entités inscrites, activités déclarées, dépenses par exercice annuel en fourchettes, croisement avec les marchés publics. Puis, dans un bloc **cloisonné** en fin de page, le registre de transparence de l'Union européenne (quotidien) : organisations inscrites, dont celles à siège en France. Deux registres, deux cadres juridiques — jamais fusionnés, jamais comparés. |
-| `/financement` | Financement politique | Comptes des partis, exercice 2024 (publié le 10/02/2026 — le dernier possible) ; comptes de campagne des législatives 2024, 4 010 candidats (municipales 2026 : aucun compte publié à ce jour, instruction CNCCFP en cours). |
-| `/frais` | Frais & train de vie | 56 faits chiffrés sourcés (barèmes au 01/01/2026, contrôles exercice 2024, Élysée audité 2024) + 8 opacités documentées — pas de notes de frais : elles ne sont ni publiées ni communicables. **Carte des verrous** : 60 941 avis et conseils de la CADA de 1984 à 2024, dépouillés en agrégats (qui refuse, sur quel fondement, et dans quel sens la commission tranche), avec le retard de versement de la source affiché en clair. |
+| `/financement` | Financement | Comptes des partis, exercice 2024 (publié le 10/02/2026 — le dernier possible) ; comptes de campagne des législatives 2024, 4 010 candidats (municipales 2026 : aucun compte publié à ce jour, instruction CNCCFP en cours). |
+| `/frais` | Frais | 56 faits chiffrés sourcés (barèmes au 01/01/2026, contrôles exercice 2024, Élysée audité 2024) + 8 opacités documentées — pas de notes de frais : elles ne sont ni publiées ni communicables. **Carte des verrous** : avis et conseils de la CADA de 1984 à 2024, dépouillés en agrégats (qui refuse, sur quel fondement, et dans quel sens la commission tranche), avec le retard de versement de la source affiché en clair. |
 | `/collectivites` | Finances locales | Comptes OFGL 2025 (provisoires, chargés en juillet 2026), dotations DGF 2018-2026, carte en €/habitant. |
-| `/documents` | Journal officiel | Environ 2 700 textes des 30 derniers JO (quotidien, JO du jour disponible vers 00h30), filtres lois/décrets/nominations. |
-| `/alertes` | Alertes transparence | Environ 1 600 alertes sur 8 types, chacune avec sa règle de calcul et sa base légale, recalculées à chaque ingestion. |
-| `/donnees` | Données & exports | Catalogue des 30 sources avec fraîcheur mesurée (le moniteur de santé des sources), licences, règles des alertes, 6 exports JSON statiques (méta, alertes, élus, budget mensuel, agrégats marchés, index de recherche) reconstruits à chaque publication. |
+| `/documents` | Documents | Environ 2 600 textes des 30 derniers JO (quotidien, JO du jour disponible vers 00h30), filtres lois/décrets/nominations ; dossiers législatifs DILA (fonds DOLE) en page dédiée. |
+| `/donnees` | Données | Catalogue des **36 sources** avec fraîcheur mesurée (le moniteur de santé des sources), licences, règles des alertes, **7** exports JSON statiques (`/api/meta.json`, `alertes`, `elus`, `budget-mensuel`, `marches-agregats`, `lobbying-marches`, `/data/recherche-index.json`) reconstruits à chaque publication. |
+| `/alertes` | Alertes transparence | **Page, pas un onglet.** Environ 1 600 alertes sur 8 types, chacune avec sa règle de calcul et sa base légale, recalculées à chaque ingestion. |
+| `/comprendre` | Comprendre les données | **Hors nav.** Appareil pédagogique déjà en ligne : fonctionnement de chaque publication, glossaire, provenance, limites, journal daté des lectures. Lien pied de page, encart accueil, `/donnees`. Aucun chiffre qui dérive. |
 
 Les volumes de ce tableau sont donnés en **ordre de grandeur** : la plupart des sources publient quotidiennement, ces nombres bougent à chaque ingestion. La seule valeur qui fait foi est celle affichée par le site lui-même, avec la date de ses données — c'est le rôle du badge de fraîcheur et de la page `/donnees`, régénérée à chaque publication.
 
+Captures de la release servie le 24/08/2026 — elles datent ce jour-là, elles ne gèlent pas un compteur :
+
+![Dépenses de l'État : tuiles d'exécution, recettes et solde au pli, onze onglets dont Recettes](docs/screenshots/depenses.png)
+
+![Marchés publics : tuiles DECP, BOAMP et APProch, carte des montants par département](docs/screenshots/marches.png)
+
+![Comprendre les données : sommaire pédagogique, page hors navigation principale](docs/screenshots/comprendre.png)
+
+![Données & exports : 36 sources tracées, moniteur de fraîcheur](docs/screenshots/donnees.png)
+
 ## Sources & licences
 
-Sources majeures (le catalogue complet et daté est sur la page `/donnees` et dans [docs/SOURCES.md](docs/SOURCES.md)) :
+Sources majeures (le catalogue **complet et daté** des 36 sources est la page `/donnees`, régénérée à chaque publication ; le référentiel : [docs/SOURCES.md](docs/SOURCES.md)) :
 
 | Source | Fraîcheur | Licence |
 |---|---|---|
@@ -116,8 +130,11 @@ Sources majeures (le catalogue complet et daté est sur la page `/donnees` et da
 | CNCCFP — comptes des partis et comptes de campagne | annuelle / par scrutin | Licence Ouverte |
 | geo.api.gouv.fr, france-geojson, populations INSEE | statique / annuelle | Licence Ouverte |
 | CADA — avis et conseils (ensemble consolidé, agrégats seulement) | irrégulière (lots, 2 à 4 fois par an) | Licence Ouverte (fr-lo) |
+| CGE — bilan patrimonial de l'État, pièce de synthèse (DGFiP) | annuelle | Licence Ouverte 2.0 (Etalab) |
+| Eurostat — dette et déficit des APU au sens de Maastricht, agrégats ESA | trimestrielle / annuelle | Décision 2011/833/UE |
+| DREES — prestations de protection sociale | annuelle | Licence Ouverte 2.0 (Etalab) |
 
-Crédits : consolidation DECP par le projet communautaire `decp-processing` de Colin Maudry ; scores calculés par Datan (datan.fr, méthodologie liée dans l'UI) ; DILA (BOAMP, JORF, annuaire, référentiel de l'organisation de l'État) ; HATVP ; CADA ; OFGL ; INSEE ; CNCCFP ; DGFiP / data.economie.gouv.fr ; fonds de carte france-geojson (Grégoire David) et contours Etalab. Toutes les réutilisations mentionnent leur source, conformément à la Licence Ouverte.
+Crédits : consolidation DECP par le projet communautaire `decp-processing` de Colin Maudry ; scores calculés par Datan (datan.fr, méthodologie liée dans l'UI) ; DILA (BOAMP, JORF, annuaire, référentiel de l'organisation de l'État) ; HATVP ; CADA ; OFGL ; INSEE ; CNCCFP ; DGFiP / data.economie.gouv.fr ; Eurostat ; DREES ; fonds de carte france-geojson (Grégoire David) et contours Etalab. Chaque réutilisation mentionne sa source et porte la licence de **cette** source — il n'y a pas une licence unique pour tout le site.
 
 ## Limites connues
 
@@ -138,4 +155,4 @@ Signaler une donnée fausse (avec source officielle), proposer une source, corri
 
 ## Rapport de mission
 
-Construction, méthode multi-agents, corrections d'honnêteté en cours de route et ce qui n'est pas ingéré à ce jour : [docs/RAPPORT-MISSION.md](docs/RAPPORT-MISSION.md).
+Journal de construction du 19-20/08/2026 (volumétrie **datée**, non réécrite) : [docs/RAPPORT-MISSION.md](docs/RAPPORT-MISSION.md). L'état courant se lit ici et sur `/donnees`.

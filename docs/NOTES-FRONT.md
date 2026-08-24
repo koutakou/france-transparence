@@ -1,5 +1,7 @@
 # Notes des pipelines pour le frontend — compilées le 19/08/2026
 
+**Contrat front révisé le 24/08/2026** (îles client, kit `ui/`) — les volumétries ci-dessous restent celles du 19/08 et **dérivent**.
+
 Condensé des avertissements « pour le front » remontés par chaque pipeline après épreuve réelle. À lire avec docs/SCHEMA-DB.md (schéma exact + counts). **Les volumétries et les montants cités sont ceux constatés à cette date** : les sources publient quotidiennement, ces valeurs dérivent à chaque ingestion, et seule celle qu'affiche le site fait foi. Ce qui ne dérive pas — les pièges de données, les conventions de calcul, les interdits d'affichage — est l'objet réel de ces notes. Règle générale : **chaque module affiche son FreshnessBadge** (date_donnees, source, fréquence, url — depuis `meta_sources`) et ne montre JAMAIS un montant sans source.
 
 ## Budget de l'État (S13, S20, S21, S23)
@@ -72,10 +74,13 @@ Condensé des avertissements « pour le front » remontés par chaque pipeline a
 - `alertes(id, type, gravite, titre, detail, regle, base_legale, source_url, date_calcul)` — TOUJOURS afficher règle + base légale (dépliable AlertItem) ; gravités : haute/moyenne/info ; types préfixés par domaine (`A1_*`, `lobbying_*`, `financement_*`).
 
 ## Design system (rappels)
-- Imports nommés `@/components/ui/*`, `@/lib/format` ; pages = Server Components (seule SearchBox est client) ; `getDb()` peut renvoyer null → message honnête « base non construite, lancer make ingest ».
+- Imports nommés `@/components/ui/*`, `@/lib/format`. Les **pages restent des Server Components** : elles lisent la base et montent le kit. `getDb()` peut renvoyer null → message honnête « base non construite, lancer make ingest ».
+- **Îles `"use client"`** (constaté le 24/08) : `MainNav`, `SearchBox`, `MapFrance`, et les wrappers de `app/src/components/client/` (filtres, listes paginées, cartes hydratées). Ce n'est plus « seule SearchBox est client ».
+- **Graphiques du kit** (`LineChart`, `BarList`, `Donut`) et `VueTableau` / `AlertItem` : interactifs depuis G8 **sans île JS** — survol par CSS `:has()`, tableau jumelle et dépliable d'alerte en `<details>` natif. Ils se rendent depuis un Server Component. G8 a rouvert l'interaction ; ça ne fait pas de chaque graphique une île.
+- Le kit `app/src/components/ui/` est **partagé**. Une page module ne le fork pas. Le chrome (`layout.tsx`, `MainNav`, `globals.css`) se change avec le **chantier chrome**, pas en silence depuis une page. L'interdiction d'écrire `ui/*` n'est plus le contrat : G2 a écrit le kit, G8 l'a rouvert pour l'interaction.
 - Chaque page crée ses requêtes dans `app/src/lib/queries/<module>.ts` (fichier PAR module, jamais partagé entre agents).
-- Ne PAS toucher : layout.tsx, MainNav, globals.css, composants ui/* (signaler un besoin, ne pas modifier).
 - Vue tableau jumelle pour chaque graphique (règle DATAVIZ) ; deltas de dépense = neutres par défaut (upIsGood null).
+- **Toujours vrai** : FreshnessBadge sur chaque module ; `perimetre` / `NoticeLecture` (ne pas recoudre un périmètre depuis ici) ; **11 onglets, pas un 12ᵉ** (`/comprendre` et `/alertes` hors nav) ; thème sombre unique ; 0 sondage.
 - **Appareil pédagogique** : page `/comprendre` (fonctionnement de chaque publication, glossaire, provenance labellée « D’où ça vient » sur chaque module, limites, journal daté des lectures, hors nav principale — 11 onglets déjà justes). Canal public des signalements d’erreur de lecture : `CONTACT_ISSUES_URL` (issues du dépôt) ; une demande qui porte sur une personne reste le canal privé de `/donnees-personnelles`. Chaque module de données porte `NoticeLecture` (comment lire / d’où viennent / ce que ça ne dit pas) renvoyant vers `/comprendre/#…` — y compris `/alertes` et `/depenses/destination`. Les fiches d’élus et les pages de mission renvoient vers l’ancre correspondante. Pied de page + `/donnees` + accueil y renvoient. L’ancre `#recettes` existe : ne pas la faire pointer vers `#depenses`. L’ancre `#lectures` porte le journal. Un chiffre borné d’une tuile porte sa borne (`perimetre`) : la fenêtre du croisement lobbying × marchés (24 mois), le caractère provisoire des totaux communaux, le fait que la « DGF nationale » affichée est celle des communes, le PLF 2025 (projet) des tuiles CP/AE de mission, le budget général des cumuls d’exécution, le stock du jour des achats APProch (ce n’est pas une fenêtre de 12 mois), et les travailleurs indépendants inclus dans les totaux du registre de l’Union. « Entités actives » du répertoire HATVP veut dire encore inscrites.
 
 ## Référencement et cartes de partage (rappels)
