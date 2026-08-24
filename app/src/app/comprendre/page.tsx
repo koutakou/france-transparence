@@ -522,6 +522,7 @@ const SOMMAIRE: { href: string; libelle: string }[] = [
   { href: "#cge", libelle: "Situation nette de l’État (CGE)" },
   { href: "#protection-sociale", libelle: "Prestations de protection sociale" },
   { href: "#recettes", libelle: "Recettes de l’État" },
+  { href: "#recettes-plf", libelle: "Recettes non fiscales du PLF" },
   { href: "#collectivites", libelle: "Finances locales" },
   { href: "#frais", libelle: "Frais et train de vie" },
   { href: "#documents", libelle: "Documents officiels" },
@@ -778,6 +779,15 @@ export default function PageComprendre() {
               Le croisement porte sur 24 mois de détail DECP, pas sur la
               fenêtre 12 mois du classement de la page Marchés, et
               n’applique pas le même filtre d’identifiant.
+            </li>
+            <li>
+              <strong className="font-medium text-ink">
+                24 août 2026 — Recettes non fiscales du PLF.
+              </strong>{" "}
+              Le détail des recettes non fiscales est celui du projet de
+              loi de finances (État A, recettes brutes), pas de
+              l’exécution mensuelle. Ce n’est pas la LFI votée, pas le
+              rapport de l’Agence des participations de l’État.
             </li>
           </ul>
         </div>
@@ -1271,9 +1281,13 @@ export default function PageComprendre() {
           <p>
             <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
             La même situation mensuelle de la DGFiP que celle des dépenses,
-            nette des remboursements et dégrèvements. Aucune autre source
-            n’est ajoutée pour détailler les recettes non fiscales : la
-            situation n’en publie que le total.
+            nette des remboursements et dégrèvements. Cette source n’en
+            publie, pour les recettes non fiscales, qu’un total. Le
+            détail est une autre source, le PLF — voir{" "}
+            <a href="#recettes-plf" className={LIEN}>
+              Recettes non fiscales du PLF
+            </a>
+            .
           </p>
           <p>
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
@@ -1284,8 +1298,47 @@ export default function PageComprendre() {
             de recettes. La ligne TVA ne couvre que la part revenant au
             budget général : les fractions affectées à d’autres
             administrations n’y figurent pas. Les recettes non fiscales
-            paraissent en un seul total : la situation mensuelle n’en
-            publie aucun détail, et ce site n’en fabrique pas.
+            d’exécution restent un seul total : le détail ci-dessous est
+            un projet, pas cette exécution.
+          </p>
+        </div>
+      </Card>
+
+      <Card titre="Recettes non fiscales du PLF">
+        <div id="recettes-plf" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+          <p>
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
+            L’État A du projet de loi de finances détaille les recettes
+            du budget général ligne par ligne, y compris les recettes
+            non fiscales (participations, domaine, amendes, remboursements
+            de prêts). C’est un projet, pour une année civile, en
+            recettes brutes. Voir{" "}
+            <LienPage href="/recettes/#recettes-plf">Recettes</LienPage>.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
+            Direction du Budget, jeu{" "}
+            <code className="rounded bg-raised px-1.5 py-0.5">
+              plf25-recettes-du-budget-general
+            </code>
+            {" "}
+            sur data.economie.gouv.fr. Licence Ouverte 2.0. Millésime 2025,
+            jeu publié le 11 octobre 2024 — lendemain de l’enregistrement
+            du projet à l’Assemblée nationale (10 octobre 2024, texte
+            n° 324). Aucun équivalent PLF 2026 ni LFI en données au
+            24 août 2026.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
+            Ce n’est pas l’exécution de la situation mensuelle (S13,
+            nettes, cumul depuis le 1<sup>er</sup> janvier). Ce n’est pas
+            la LFI votée. Ce n’est pas le rapport annuel de l’Agence des
+            participations de l’État : les lignes 2110, 2116 et 2199
+            sont celles de l’État A, pas un portefeuille nominatif. Les
+            recettes fiscales de ce même fichier sont brutes : elles ne
+            se comparent pas aux nettes S13 et ne sont pas additionnées
+            ici. Les prélèvements sur recettes (collectivités, Union
+            européenne) sont un autre objet.
           </p>
         </div>
       </Card>

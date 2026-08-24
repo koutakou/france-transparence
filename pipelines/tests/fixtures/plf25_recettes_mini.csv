@@ -1,0 +1,8 @@
+﻿annee;type_de_recettes;code_ligne_recettes;libelle;montant_recettes_plf
+2025;Recettes fiscales;1101.0;Impôt inventé;1000.0
+2025;Recettes non fiscales;2110.0;Participations financières inventées;100.0
+2025;Recettes non fiscales;2116.0;Participations non financières inventées;200.0
+2025;Recettes non fiscales;2199.0;Autres dividendes inventés;0.0
+2025;Recettes non fiscales;2501.0;Amendes inventées;50.0
+2025;Prélèvements sur les recettes de l'État au profit des collectivités territoriales;3101.0;DGF inventée;50.0
+2025;Prélèvement sur les recettes de l'État au profit de l'Union européenne;3201.0;PSR UE inventé;25.0

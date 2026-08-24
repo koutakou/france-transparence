@@ -2,7 +2,7 @@
 
 **Document de référence technique · Établi le 19/08/2026. Révisé le 24/08/2026.**
 
-État courant : **24 pipelines**, **36 sources**, **11 onglets** + `/comprendre` hors nav, kit `app/src/components/ui/` écrit (G2/G8). Le flux de données et le schéma SQL noyau ci-dessous n'ont pas changé de contrat.
+État courant : **25 pipelines**, **37 sources**, **11 onglets** + `/comprendre` hors nav, kit `app/src/components/ui/` écrit (G2/G8). Le flux de données et le schéma SQL noyau ci-dessous n'ont pas changé de contrat.
 
 Complète `docs/SOURCES.md` (le *quoi* : le périmètre de sources ingérées) et `docs/DATAVIZ.md` (le *comment visuel*). Ici : le *comment technique*.
 
@@ -99,7 +99,7 @@ Règles du flux :
 
 ```sql
 CREATE TABLE meta_sources (           -- fraîcheur : donnée de premier rang
-    source_id      TEXT PRIMARY KEY,  -- 'S1'…'S45', ids composés (S5-AMO10, S27-*, …)
+    source_id      TEXT PRIMARY KEY,  -- 'S1'…'S46', ids composés (S5-AMO10, S27-*, …)
     nom            TEXT NOT NULL,
     url            TEXT NOT NULL,
     licence        TEXT NOT NULL,     -- 'Licence Ouverte 2.0', 'ODbL'…
@@ -183,6 +183,7 @@ Un module par pipeline : `pipelines/ingest_<source>.py`, exécutable par `python
 | `ingest-agregats_apu` | `ingest_agregats_apu.py` | P20 — Recettes et dépenses des APU, agrégats ESA (S44, Eurostat `gov_10a_main`, na_item TE/TR). Aucune dépendance d'ordre : n'écrit que `agregats_apu_esa`. Distinct de S13 (État YTD), S41 (stock GD) et S42 (B9). Pas de B9 dérivé, pas de COFOG. TE/TR ne sont pas Maastricht. Placé avant `sirene`. |
 | `ingest-cge` | `ingest_cge.py` | P21 — Bilan patrimonial de l'État (S22, CGE DGFiP, pièce de synthèse xlsx). Aucune dépendance d'ordre : n'écrit que `cge_bilan_etat`. Distinct de S13 (budget, caisse), S41/S42/S44 (Maastricht / ESA des APU). Totaux lus dans la pièce, jamais sommés depuis les balances compte×programme. Placé avant `sirene`. |
 | `ingest-protection_sociale` | `ingest_protection_sociale.py` | P22 — Prestations de protection sociale (S45, DREES comptes de la protection sociale, prestations E11). Aucune dépendance d'ordre : n'écrit que `protection_sociale_prestations`. Distinct de S13 (budget État), S44 (TE APU) et S22 (CGE). Grains exclusifs seulement. Md€ = M€ ÷ 1000, jamais ÷ 1e9. Placé avant `sirene`. |
+| `ingest-recettes_plf` | `ingest_recettes_plf.py` | P23 — Recettes du budget général au PLF (S46, État A, data.economie `plf25-recettes-du-budget-general`). Aucune dépendance d'ordre : n'écrit que `recettes_plf_etat_a`. Distinct de S13 (exécution nette, cumul YTD). Recettes BRUTES du projet, pas la LFI. Md€ = euros ÷ 1e9, jamais ÷ 1000. Placé avant `sirene`. |
 | `ingest-sirene` | `ingest_sirene.py` | Stock Sirene — attributs des unités légales citées (S18). **Pipeline dérivé** : il lit les SIREN cités par les autres tables et doit donc passer **après** elles ; sur une base neuve il échoue franchement au lieu d'écrire un référentiel vide. À ne pas confondre avec `pipelines/sirene.py`, qui est la résolution unitaire par API de S10. |
 
 Contrat d'un pipeline :

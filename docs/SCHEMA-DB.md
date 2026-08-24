@@ -24,8 +24,11 @@
 # CREATE recopié du pipeline P21 (sans IF NOT EXISTS).
 # Puis table protection_sociale_prestations (S45, DREES CPS, prestations E11) —
 # CREATE recopié du pipeline P22 (sans IF NOT EXISTS).
+# Puis table recettes_plf_etat_a (S46, État A du PLF, recettes du budget
+# général) — CREATE recopié du pipeline P23 (avec IF NOT EXISTS : table
+# neuve, pas une migration).
 
-> **Extrait daté.** Ce document décrit **81 tables**, **6 vues** et **58 index**, et cette
+> **Extrait daté.** Ce document décrit **82 tables**, **6 vues** et **58 index**, et cette
 > couverture est sa propriété essentielle : une table de la base absente d'ici est un trou de
 > documentation, et une table décrite ici qui n'existe nulle part est une invention. Les **75**
 > tables, les 6 vues et les 55 index sont ceux que `sqlite_master` recense au 22/08/2026 (matin), et le
@@ -39,7 +42,8 @@
 > (S44), est celle du pipeline P20. La 80e, `cge_bilan_etat` (S22), est
 > celle du pipeline P21. La 81e, `protection_sociale_prestations` (S45),
 > est celle du pipeline P22 — aucun index supplémentaire, le compte
-> d'index reste **58**. Tant que l'ingestion n'a pas
+> d'index reste **58**. La 82e, `recettes_plf_etat_a` (S46), est
+> celle du pipeline P23 — aucun index supplémentaire. Tant que l'ingestion n'a pas
 > tourné sur la base servie, le contrôle affichera
 > `doc sans base : ['protection_sociale_prestations']` (et éventuellement
 > `cge_bilan_etat` / `agregats_apu_esa` / `dole_dossiers` /
@@ -1058,6 +1062,27 @@ CREATE TABLE protection_sociale_prestations (
     libelle        TEXT NOT NULL,
     val_mio_eur    REAL NOT NULL CHECK (val_mio_eur > 0),
     PRIMARY KEY (annee, grain, code)
+);
+-- ---------------------------------------------------------------------------
+-- S46, P23 — État A du PLF, recettes du budget général. Recettes BRUTES
+-- du projet, pas les nettes S13, pas la LFI. Unité native : euros ;
+-- Md€ à la lecture (÷ 1e9), jamais ÷ 1000. date_donnees = publication
+-- open data du millésime max (2025 → 2024-10-11, pas le dépôt AN
+-- du 10/10/2024), jamais modified relu à chaque run.
+-- Un zéro publié est un zéro (CHECK >= 0, pas > 0).
+-- ---------------------------------------------------------------------------
+CREATE TABLE recettes_plf_etat_a (
+    annee          INTEGER NOT NULL,
+    type_recette   TEXT NOT NULL CHECK (type_recette IN (
+                       'fiscales',
+                       'non_fiscales',
+                       'psr_collectivites',
+                       'psr_ue'
+                   )),
+    code           INTEGER NOT NULL,
+    libelle        TEXT NOT NULL,
+    montant_euros  REAL NOT NULL CHECK (montant_euros >= 0),
+    PRIMARY KEY (annee, code)
 );
 CREATE TABLE partis (
     id               TEXT PRIMARY KEY REFERENCES entites(id),

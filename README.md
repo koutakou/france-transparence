@@ -1,6 +1,6 @@
 # France Transparence
 
-Dashboard web sur la transparence de la vie politique française : dépenses et recettes de l'État, commande publique, élus, lobbying, financement politique, frais et train de vie, finances locales, Journal officiel — **100 % données publiques réelles**, aucun chiffre fabriqué. L'honnêteté est le principe produit : chaque module affiche la date réelle de ses données (badge de fraîcheur alimenté par la table `meta_sources`), le mot « en direct » est banni parce qu'aucune source publique ne le permet, et ce que l'open data ne contient pas est documenté comme tel (la « boîte noire » du module Frais & train de vie, l'encart « hors champ » de l'accueil). L'ensemble tient dans une base SQLite unique, reconstruite localement depuis **36 sources officielles tracées** — le catalogue daté, avec la date réellement ingérée de chacune, est la page [`/donnees`](https://francetransparence.fr/donnees/), régénérée à chaque publication. Une page pédagogique [`/comprendre`](https://francetransparence.fr/comprendre/) — **hors navigation principale** — explique comment lire ces publications : glossaire, provenance, limites, journal des lectures.
+Dashboard web sur la transparence de la vie politique française : dépenses et recettes de l'État, commande publique, élus, lobbying, financement politique, frais et train de vie, finances locales, Journal officiel — **100 % données publiques réelles**, aucun chiffre fabriqué. L'honnêteté est le principe produit : chaque module affiche la date réelle de ses données (badge de fraîcheur alimenté par la table `meta_sources`), le mot « en direct » est banni parce qu'aucune source publique ne le permet, et ce que l'open data ne contient pas est documenté comme tel (la « boîte noire » du module Frais & train de vie, l'encart « hors champ » de l'accueil). L'ensemble tient dans une base SQLite unique, reconstruite localement depuis **37 sources officielles tracées** — le catalogue daté, avec la date réellement ingérée de chacune, est la page [`/donnees`](https://francetransparence.fr/donnees/), régénérée à chaque publication. Une page pédagogique [`/comprendre`](https://francetransparence.fr/comprendre/) — **hors navigation principale** — explique comment lire ces publications : glossaire, provenance, limites, journal des lectures.
 
 ![Page d'accueil, 24/08/2026 : onze onglets dont Recettes, champ de recherche dans le chrome, encart « hors champ » au-dessus du 240 Md€ d'exécution](docs/screenshots/accueil.png)
 
@@ -84,7 +84,7 @@ Onze onglets, dans l'ordre de la navigation (`MainNav`) — libellés complets, 
 |---|---|---|
 | `/` | Accueil | Compteurs, carte des marchés, flux JO et alertes — chaque bloc daté par sa source (budget au dernier mois publié, marchés J-1, JO du jour). Encart « hors champ » au-dessus de l'exécution : ce que le site ne couvre pas. |
 | `/depenses` | Dépenses | Exécution mensuelle DGFiP (~6 semaines de décalage), structure PLF 2026 (mention « PLF » : la LFI 2026 n'existe pas en données), subventions aux associations (versements 2023). |
-| `/recettes` | Recettes | Même source S13 que les dépenses : recettes nettes du budget général (fiscales, non fiscales, fonds de concours à part), cumuls depuis le 1er janvier, séries depuis 2013. Section cloisonnée : agrégats ESA des APU (S44) — ce n'est pas le budget de l'État. |
+| `/recettes` | Recettes | Même source S13 que les dépenses : recettes nettes du budget général (fiscales, non fiscales, fonds de concours à part), cumuls depuis le 1er janvier, séries depuis 2013. Sections cloisonnées : détail non fiscal du PLF (S46, projet, pas l'exécution) ; agrégats ESA des APU (S44) — ce n'est pas le budget de l'État. |
 | `/marches` | Marchés publics | Marchés consolidés sur 24 mois glissants comptés à la date de notification initiale (quotidien, notifications J-1, consolidation légale ≤ 2 mois), appels d'offres en cours (BOAMP, jour même), achats à venir (APProch). Les comptes bougent chaque jour : voir `/donnees`. |
 | `/elus` | Élus & Institutions | Environ 36 000 élus (RNE, trimestriel) dont 577 députés et 348 sénateurs (open data AN/Sénat/Datan, quotidien). Les conseillers municipaux n'entrent dans aucun chiffre de cette page. |
 | `/elus/[id]` | Fiche élu | Pas un onglet. Plus de 1 000 fiches statiques (parlementaires et présidences d'exécutifs départementaux/régionaux — les autres élus restent dans les listes et agrégats) : mandats, 30 derniers votes sur les quelque 8 400 scrutins AN (le scrutin le plus récent est daté : hors session, il peut avoir plusieurs semaines), scores Datan crédités, lien HATVP. |
@@ -93,7 +93,7 @@ Onze onglets, dans l'ordre de la navigation (`MainNav`) — libellés complets, 
 | `/frais` | Frais | 56 faits chiffrés sourcés (barèmes au 01/01/2026, contrôles exercice 2024, Élysée audité 2024) + 8 opacités documentées — pas de notes de frais : elles ne sont ni publiées ni communicables. **Carte des verrous** : avis et conseils de la CADA de 1984 à 2024, dépouillés en agrégats (qui refuse, sur quel fondement, et dans quel sens la commission tranche), avec le retard de versement de la source affiché en clair. |
 | `/collectivites` | Finances locales | Comptes OFGL 2025 (provisoires, chargés en juillet 2026), dotations DGF 2018-2026, carte en €/habitant. |
 | `/documents` | Documents | Environ 2 600 textes des 30 derniers JO (quotidien, JO du jour disponible vers 00h30), filtres lois/décrets/nominations ; dossiers législatifs DILA (fonds DOLE) en page dédiée. |
-| `/donnees` | Données | Catalogue des **36 sources** avec fraîcheur mesurée (le moniteur de santé des sources), licences, règles des alertes, **7** exports JSON statiques (`/api/meta.json`, `alertes`, `elus`, `budget-mensuel`, `marches-agregats`, `lobbying-marches`, `/data/recherche-index.json`) reconstruits à chaque publication. |
+| `/donnees` | Données | Catalogue des **37 sources** avec fraîcheur mesurée (le moniteur de santé des sources), licences, règles des alertes, **7** exports JSON statiques (`/api/meta.json`, `alertes`, `elus`, `budget-mensuel`, `marches-agregats`, `lobbying-marches`, `/data/recherche-index.json`) reconstruits à chaque publication. |
 | `/alertes` | Alertes transparence | **Page, pas un onglet.** Environ 1 600 alertes sur 8 types, chacune avec sa règle de calcul et sa base légale, recalculées à chaque ingestion. |
 | `/comprendre` | Comprendre les données | **Hors nav.** Appareil pédagogique déjà en ligne : fonctionnement de chaque publication, glossaire, provenance, limites, journal daté des lectures. Lien pied de page, encart accueil, `/donnees`. Aucun chiffre qui dérive. |
 
@@ -107,11 +107,11 @@ Captures de la release servie le 24/08/2026 — elles datent ce jour-là, elles 
 
 ![Comprendre les données : sommaire pédagogique, page hors navigation principale](docs/screenshots/comprendre.png)
 
-![Données & exports : 36 sources tracées, moniteur de fraîcheur](docs/screenshots/donnees.png)
+![Données & exports : 37 sources tracées, moniteur de fraîcheur](docs/screenshots/donnees.png)
 
 ## Sources & licences
 
-Sources majeures (le catalogue **complet et daté** des 36 sources est la page `/donnees`, régénérée à chaque publication ; le référentiel : [docs/SOURCES.md](docs/SOURCES.md)) :
+Sources majeures (le catalogue **complet et daté** des 37 sources est la page `/donnees`, régénérée à chaque publication ; le référentiel : [docs/SOURCES.md](docs/SOURCES.md)) :
 
 | Source | Fraîcheur | Licence |
 |---|---|---|

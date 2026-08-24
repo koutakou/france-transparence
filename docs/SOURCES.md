@@ -65,6 +65,14 @@
 > non ingérée) et d'ESSPROS (Eurostat, non ingéré). Pipeline sans
 > dépendance d'ordre, placé avant `sirene`.
 >
+> **Mise à jour du 24/08/2026.** **S46** (recettes du budget général au PLF,
+> État A, data.economie `plf25-recettes-du-budget-general`, via
+> `pipelines/ingest_recettes_plf.py`) s'ajoute. L'ingestion compte donc
+> **25 pipelines** et **37 sources tracées dans `meta_sources`**. Distinct
+> de S13 (exécution nette, cumul YTD). Recettes **brutes** du projet, pas
+> la LFI votée, pas 2026. Pipeline sans dépendance d'ordre, placé avant
+> `sirene`.
+>
 > **Document daté.** Les fraîcheurs et volumétries amont relevées ici l'ont été par appels réels le
 > 19/08/2026 (et le 20/08 pour S38 et S40, le 22/08 soir ~22:30 CEST pour S43, le 23/08 pour S44, S22 et S45) : elles décrivent ces jours-là et **ont dérivé depuis**.
 > Le catalogue vivant, avec la date réellement ingérée de chaque source, est la page `/donnees`
@@ -395,6 +403,16 @@ Tous téléchargés/dépouillés le 19/08/2026 (05-frais-indemnites.md) :
 - **Pièges** : les niveaux 2 et 3 recouvrent les niveaux 0 et 1 — n'ingérer que les grains exclusifs (`total` / `risque` / `regime`) ; S13141 (régime général) n'est **pas** l'ensemble de la sécurité sociale (S13142 existe à côté) ; `last_update` 2025-12-18 n'est pas `date_donnees` ; unité = million d'euros, pas l'euro ; ce n'est pas la LFSS. Ne pas nommer ce chiffre « dette de l'État ».
 - **Modules** : Dépenses de l'État (bloc cloisonné). **INGÉRÉE** — pipeline P22 `pipelines/ingest_protection_sociale.py`.
 
+#### S46. Recettes du budget général au PLF (État A, évalué le 24/08/2026)
+- **Producteur** : Direction du Budget. Jeu ODS `plf25-recettes-du-budget-general`. **URL dataset** : `https://data.economie.gouv.fr/explore/dataset/plf25-recettes-du-budget-general/` (HTTP 200 le 24/08/2026). **Export CSV** : `https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/plf25-recettes-du-budget-general/exports/csv` (HTTP 200 le 24/08/2026, **19 865 o**, **156** lignes, UTF-8 BOM, séparateur `;`).
+- **Licence relue** (24/08/2026) : fiche ODS `license: Licence Ouverte v2.0 (Etalab)`, HTTP 200. Libellé `meta_sources` : `Licence Ouverte 2.0 (Etalab)`.
+- **Fréquence** : annuelle (open data du PLF). **Date des données** = jour de publication de *ce* jeu (**2024-10-11** pour 2025, `created`/`modified` ODS mesurés le 24/08). Ce n'est **pas** le dépôt parlementaire (AN, texte n° 324, **10/10/2024**). Un millésime nouveau sans date écrite dans le pipeline fait échouer l'ingestion : on ne relit pas `modified` à chaque run. Seuils **400/440** jours calendaires, comme S21 : aucune édition PLF 2026 en données (préfixe `plf26` = 0 le 24/08 ; seul `plf-2026-budget-vert`).
+- **Objet** : État A du **Projet** de loi de finances, recettes **brutes** du budget général, année civile. Quatre types mesurés le 24/08 : Recettes fiscales (67, 500,349 Md€) ; Recettes non fiscales (56, 20,549 Md€) ; PSR collectivités (32, 44,189 Md€) ; PSR UE (1, 23,321 Md€). 156 codes uniques, 0 doublon, 17 zéros publiés, 0 négatif. `source_id` = **S46**, jamais `'S13'`.
+- **Ce que la page affiche** : le détail des **non fiscales** (le trou de S13) et, parmi elles, les lignes **2110, 2116, 2199** (produits des participations / dividendes, 5,954 Md€ au 24/08). Les fiscales brutes et les PSR sont ingérés, pas additionnés à S13.
+- **Pièges** : brutes ≠ nettes S13 (TVA PLF 189,9 Md€ vs TVA S13 2025 98,1 Md€) ; projet ≠ exécution (non fiscales PLF 20,5 Md€ vs S13 2025-12-31 24,0 Md€) ; pas la LFI ; pas 2026 ; pas le rapport APE (aucun jeu APE sur data.gouv / data.economie le 24/08) ; PSR ≠ encaissement conservé ; un zéro publié est un zéro ; Md€ = euros ÷ 1e9, jamais ÷ 1000. Un millésime nouveau sans date écrite dans `DATES_PUBLICATION` fait échouer l'ingestion.
+- **Relevé daté du 24/08/2026** (export CSV HTTP 200) : non fiscales 20 548 548 212 € dont 2110 = 1 467 M€, 2116 = 4 472 M€, 2199 = 15 M€. Ces montants décrivent ce jour-là et **dérivent**.
+- **Modules** : `/recettes` (bloc cloisonné). **INGÉRÉE** — pipeline P23 `pipelines/ingest_recettes_plf.py`.
+
 ### Groupe E — Sources écartées (raison prouvée le 19/08/2026)
 
 | Source écartée | Raison constatée | Rapport |
@@ -479,7 +497,7 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 - **Contenu concret** : compteur « dépenses de l'État depuis le 1er janvier » (cumul mensuel, ex. réel : 195,0 Md€ de dépenses nettes du BG au 31/05/2026, 01) avec variation vs même période 2025 ; donut par grands postes (titres, S13) ; top missions (S20, annuel, mention PLF) ; carte de France des marchés notifiés sur 30 jours (S1, lat/lng natives) ; flux « derniers marchés notifiés » (J-1) et « derniers textes au JO » (jour même) ; « X appels d'offres en cours » ; bandeau : marchés notifiés/12 mois, ~500 000 mandats d'élus (S17), 6 829 lobbyistes enregistrés (S4), 12 930 dossiers déclaratifs HATVP (S14).
 
 ### Dépenses de l'État
-- **Sources** : S13 (mensuel), S20 + S21 (structure mission→action), S23 (subventions aux associations), S41 (encours APU Maastricht, bloc cloisonné), S42 (déficit public APU Maastricht, bloc cloisonné), S44 (agrégats ESA TE/TR, bloc TE sur `/depenses` et bloc TR sur `/recettes`), S22 (bilan patrimonial CGE, bloc cloisonné), S45 (prestations de protection sociale DREES, bloc cloisonné), S24 (performance, non ingéré), S30 (missions mensuelles PDF, non ingéré), S39 (référentiel des opérateurs, non ingéré).
+- **Sources** : S13 (mensuel), S20 + S21 (structure mission→action), S23 (subventions aux associations), S41 (encours APU Maastricht, bloc cloisonné), S42 (déficit public APU Maastricht, bloc cloisonné), S44 (agrégats ESA TE/TR, bloc TE sur `/depenses` et bloc TR sur `/recettes`), S22 (bilan patrimonial CGE, bloc cloisonné), S45 (prestations de protection sociale DREES, bloc cloisonné), **S46** (État A du PLF, recettes non fiscales, bloc cloisonné sur `/recettes`), S24 (performance, non ingéré), S30 (missions mensuelles PDF, non ingéré), S39 (référentiel des opérateurs, non ingéré).
 - **Fraîcheur affichable** : « Exécution mensuelle : données au 30/06/2026, ~6 semaines de décalage » (01) · « Structure du budget : PLF 2026 (déposé oct. 2025) et exécution 2024 » (01) · « Subventions aux associations : versements 2023 (dernier millésime publié) » (01).
 - **Contenu concret** : courbes 2013-2026 dépenses/recettes/solde, N vs N-1 par titre ; treemap mission → programme → action (comparateur exéc. 2024 / LFI 2025 / PLF 2026 + cotation budget vert) ; recherche parmi 112 722 subventions (SIREN, programme, commune). **Avertissements obligatoires** : PLF ≠ LFI 2026 (jamais publiée en données) ; aucune donnée de paiement en temps réel n'existe (01).
 
@@ -656,6 +674,7 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 | S43 DILA dossiers législatifs (DOLE) | Freemium + incréments (jusqu'à 5/sem. ; gap max observé 12 j le 22/08 soir) | LO 2.0 (fr-lo) | Documents/JO | **ingérée** (P19) |
 | S44 Recettes et dépenses des APU (agrégats ESA) | Annuelle (31/12 du TIME max, jamais `updated` ; 520/600) | décision 2011/833/UE (23/08/2026) | Dépenses (bloc TE) / Recettes (bloc TR) | **ingérée** (P20) |
 | S45 Prestations de protection sociale (DREES CPS) | Annuelle (31/12 de l'année max, jamais last_update ; millésime 2024 au 23/08/2026) | LO 2.0 (Etalab) | Dépenses de l'État (bloc cloisonné) | **ingérée** (P22) |
+| S46 Recettes du budget général au PLF (État A) | Annuelle (publication open data du millésime, pas le dépôt AN ; 2025 → 2024-10-11) | LO 2.0 (Etalab) | Recettes (bloc cloisonné, non fiscales) | **ingérée** (P23) |
 
 ---
 

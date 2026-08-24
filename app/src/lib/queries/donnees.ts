@@ -3,7 +3,7 @@
  * statiques (/api/meta.json, /api/elus.json, /api/marches-agregats.json,
  * /api/budget-mensuel.json) — générés au build, servis en fichiers.
  *
- * La table pivot est `meta_sources` (36 sources tracées) : chaque source y
+ * La table pivot est `meta_sources` (37 sources tracées) : chaque source y
  * porte sa date de données réelle, sa date d'ingestion, sa fréquence déclarée,
  * sa licence et ses notes — c'est le « moniteur de fraîcheur » du projet
  * (docs/SOURCES.md, alerte A11).
@@ -80,7 +80,7 @@ type SeuilSource = { unite: UniteAge; retard: number; alerte: number };
  * seuils dans `meta_sources` (colonnes dédiées) via les pipelines.
  *
  * Ordre et valeurs repris ligne à ligne de `fraicheur.conf`.
- * Dernière synchronisation : 23/08/2026, 36 sources (ajout de S44, S22 et S45).
+ * Dernière synchronisation : 24/08/2026, 37 sources (ajout de S46).
  */
 const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // Quotidiennes strictes, calendrier ouvré
@@ -144,6 +144,10 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   S45: { unite: "jc", retard: 650, alerte: 750 },
   // Annuelles à décalage structurel documenté
   S21: { unite: "jc", retard: 400, alerte: 440 },
+  // Publication open data du PLF 2025 = 11/10/2024 (pas le dépôt AN
+  // du 10/10). Aucun équivalent PLF 2026 en données : le seuil annuel
+  // simple rend le silence visible, comme S21.
+  S46: { unite: "jc", retard: 400, alerte: 440 },
   S23: { unite: "jc", retard: 760, alerte: 850 },
   S25: { unite: "jc", retard: 850, alerte: 950 },
   S38: { unite: "jc", retard: 730, alerte: 820 },
@@ -299,7 +303,7 @@ export function evalueFraicheur(
 
 export type SourceCataloguee = MetaSource & { fraicheur: Fraicheur };
 
-/** Les 36 sources tracées, avec leur fraîcheur calculée. */
+/** Les 37 sources tracées, avec leur fraîcheur calculée. */
 export function getCatalogueSources(): SourceCataloguee[] | null {
   const db = getDb();
   if (!db) return null;

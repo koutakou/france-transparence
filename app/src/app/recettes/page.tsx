@@ -24,6 +24,11 @@ import {
   getSourceRecettes,
   LIGNE_ID_TVA,
 } from "@/lib/queries/recettes";
+import {
+  getRecettesPlfNonFiscales,
+  perimetreNonFiscales,
+  perimetreParticipations,
+} from "@/lib/queries/recettes-plf";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
 // Rendu statique : la donnée ne change qu'à l'ingestion, le site est
@@ -35,7 +40,7 @@ import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 const CHEMIN = "/recettes/";
 const TITRE = "Recettes de l'État";
 const DESCRIPTION =
-  "Recettes nettes du budget général de l'État (DGFiP, situations mensuelles) : recettes fiscales par grand impôt, recettes non fiscales, fonds de concours — séries depuis 2013.";
+  "Recettes nettes du budget général de l'État (DGFiP, situations mensuelles) : recettes fiscales par grand impôt, recettes non fiscales, fonds de concours — séries depuis 2013. Le détail des non fiscales est celui du PLF, projet, pas l'exécution.";
 
 export const metadata: Metadata = metadonneesPage({
   chemin: CHEMIN,
@@ -72,6 +77,21 @@ function variationPct(v: number | null, n1: number | null): number | null {
   return ((v - n1) / Math.abs(n1)) * 100;
 }
 
+function LienComprendre({ ancre }: { ancre: string }) {
+  return (
+    <p className="mt-3 text-[11px] text-ink-muted">
+      Glossaire et méthode :{" "}
+      <Link
+        href={`/comprendre/#${ancre}`}
+        className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
+      >
+        comprendre ces données
+      </Link>
+      .
+    </p>
+  );
+}
+
 /**
  * Recettes de l'État — pendant de /depenses, sur la MÊME source S13
  * (situations mensuelles budgétaires DGFiP) et elle seule. Server
@@ -101,6 +121,7 @@ export default async function PageRecettes() {
   const detail = getRecettesFiscalesDetail();
   const longues = getSeriesLonguesRecettes();
   const recettesApu = getAgregatApu("TR");
+  const nonFiscalesPlf = getRecettesPlfNonFiscales();
 
   // Les mois infra-annuels de la DGFiP sont provisoires : la mention
   // accompagne chaque badge tant que l'année en cours est incomplète.
@@ -194,7 +215,8 @@ export default async function PageRecettes() {
                 {
                   label: "Recettes non fiscales",
                   valeur: <MontantMd valeur={kpis.nonFiscales} />,
-                  perimetre: "budget général, un seul total — aucun détail publié",
+                  perimetre:
+                    "exécution S13, un seul total — le détail du PLF (projet) est plus bas",
                   delta:
                     deltaNonFiscales === null ? undefined : { valeur: deltaNonFiscales, vs: vsN1 },
                 },
@@ -302,13 +324,91 @@ export default async function PageRecettes() {
                 administrations (sécurité sociale, collectivités territoriales)
                 n&apos;y figurent pas. Les recettes non fiscales (
                 {kpis.nonFiscales === null ? "montant non publié ce mois-ci" : enMd(kpis.nonFiscales)}
-                ) ne sont pas détaillées dans cette source&nbsp;: la situation
-                mensuelle n&apos;en publie que le total.
+                ) n&apos;ont, dans cette source, qu&apos;un total. Le détail
+                ci-dessous est celui du PLF&nbsp;: un projet, pas cette
+                exécution.
               </p>
             </Card>
           )}
         </div>
       ) : null}
+
+      {nonFiscalesPlf && (
+        <div id="recettes-plf" className="flex scroll-mt-32 flex-col gap-6">
+          <div className="flex items-center gap-3" role="separator">
+            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+              Autre objet · PLF {nonFiscalesPlf.annee}, projet, pas l&apos;exécution
+            </span>
+            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+          </div>
+
+          <Card
+            titre={`Recettes non fiscales prévues au PLF ${nonFiscalesPlf.annee}`}
+            sousTitre="projet de loi, État A, recettes brutes — distinct du total d'exécution de la situation mensuelle"
+            droite={
+              <FreshnessBadge
+                dateDonnees={nonFiscalesPlf.meta.date_donnees}
+                source="Direction du Budget — État A du PLF"
+                frequence={nonFiscalesPlf.meta.frequence}
+                url={nonFiscalesPlf.meta.url}
+                mention="PLF"
+              />
+            }
+          >
+            <div className="grid gap-3 sm:grid-cols-2">
+              <KpiTile
+                nu
+                label={`Non fiscales prévues (PLF ${nonFiscalesPlf.annee})`}
+                valeur={`${formatNombre(nonFiscalesPlf.totalMd, 1)}${ESPACE_FINE}Md€`}
+                perimetre={perimetreNonFiscales(nonFiscalesPlf.annee)}
+              />
+              <KpiTile
+                nu
+                label="dont participations et dividendes"
+                valeur={`${formatNombre(nonFiscalesPlf.participations.totalMd, 1)}${ESPACE_FINE}Md€`}
+                perimetre={perimetreParticipations(nonFiscalesPlf.annee)}
+              />
+            </div>
+            <BarList
+              className="mt-4"
+              items={nonFiscalesPlf.lignes.slice(0, 8).map((l) => ({
+                libelle: l.libelle,
+                valeur: l.montantEuros / 1e9,
+              }))}
+              formatValeur={(v) => `${formatNombre(v, 2)}${ESPACE_FINE}Md€`}
+            />
+            <VueTableau>
+              <DataTable
+                colonnes={[
+                  { cle: "code", entete: "Ligne" },
+                  { cle: "libelle", entete: "Libellé" },
+                  {
+                    cle: "md",
+                    entete: "PLF (Md€)",
+                    type: "montant",
+                    decimales: 3,
+                  },
+                ]}
+                lignes={nonFiscalesPlf.lignes.map((l) => ({
+                  code: String(l.code),
+                  libelle: l.libelle,
+                  md: l.montantEuros / 1e9,
+                }))}
+                cleLigne={(l) => l.code}
+              />
+            </VueTableau>
+            <p className="mt-3 text-xs text-ink-muted">
+              {nonFiscalesPlf.etiquette}. Un zéro publié est un zéro. Les
+              recettes fiscales de ce même État A sont brutes&nbsp;: elles
+              ne se comparent pas aux nettes de la situation mensuelle, et
+              ne sont pas additionnées ici. Les prélèvements sur recettes
+              (collectivités, Union européenne) sont un autre objet.
+            </p>
+            <LienComprendre ancre="recettes-plf" />
+          </Card>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3">
         <NoticeLecture
@@ -336,7 +436,9 @@ export default async function PageRecettes() {
               protection sociale (tous régimes) sont sur la page Dépenses.
               La LFSS, comme texte voté, n’est pas un module de recettes.
               Un impôt «&nbsp;net&nbsp;» n’est pas le montant mis à la
-              charge du contribuable.
+              charge du contribuable. Le détail des recettes non fiscales
+              est celui du PLF (projet, recettes brutes), pas de
+              l’exécution.
             </p>
           }
         />
