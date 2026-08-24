@@ -61,13 +61,14 @@ export function BarList({
   const reserveCh = Math.max(...valeurs.map((v) => v.length)) + 1;
 
   return (
-    <ul className={`flex flex-col gap-2 ${className ?? ""}`}>
+    <ul className={`ft-bl flex flex-col gap-2 ${className ?? ""}`}>
+      <style>{`.ft-bl-row .ft-tip{opacity:0;visibility:hidden}.ft-bl-row:hover .ft-tip,.ft-bl-row:focus-within .ft-tip{opacity:1;visibility:visible}`}</style>
       {items.map((item, i) => {
         const part = Math.max(item.valeur, 0) / max;
         return (
           <li
             key={`${item.libelle}-${i}`}
-            className="group relative flex items-start gap-3"
+            className="ft-bl-row relative flex items-start gap-3"
           >
             <span
               className="shrink-0 whitespace-normal text-[13px] leading-snug text-ink-secondary"
@@ -114,8 +115,8 @@ export function BarList({
                   couleur: item.couleur ?? "var(--viz-serie-1)",
                 },
               ]}
-              className="bottom-full left-1/2 mb-1 -translate-x-1/2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
-              style={{ visibility: "visible", position: "absolute" }}
+              className="bottom-full left-1/2 mb-1 -translate-x-1/2"
+              style={{ position: "absolute" }}
             />
           </li>
         );
