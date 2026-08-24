@@ -79,6 +79,13 @@
 > Distinct de S13 (IR de caisse, cumul YTD). Impôt net **sur rôle**, année
 > des **revenus**. Tranches de RFR, salaires et pensions non ingérés.
 >
+> **Mise à jour du 24/08/2026, soir.** **S48** (REI, fiscalité directe
+> locale, DGFiP/DESF, via `pipelines/ingest_rei.py`) s'ajoute.
+> L'ingestion compte donc **27 pipelines** et **39 sources**. Distinct
+> de S16 (comptes OFGL), S13 (caisse) et S47 (IRCOM). Impositions
+> primitives du rôle général, année d'**imposition**. Taux, compensations
+> TVA et pages communales non ingérés.
+>
 > **Document daté.** Les fraîcheurs et volumétries amont relevées ici l'ont été par appels réels le
 > 19/08/2026 (et le 20/08 pour S38 et S40, le 22/08 soir ~22:30 CEST pour S43, le 23/08 pour S44, S22 et S45) : elles décrivent ces jours-là et **ont dérivé depuis**.
 > Le catalogue vivant, avec la date réellement ingérée de chaque source, est la page `/donnees`
@@ -429,6 +436,16 @@ Tous téléchargés/dépouillés le 19/08/2026 (05-frais-indemnites.md) :
 - **Relevé daté du 24/08/2026** (xlsx HTTP 200) : 35 156 lignes Total, 162 n.c. sur l'impôt net, 158 restitutions (négatifs), 41 634 350 foyers, somme des communes publiées 91,679 Md€. Ces montants décrivent ce jour-là et **dérivent**.
 - **Modules** : `/recettes` (bloc cloisonné). **INGÉRÉE** — pipeline P24 `pipelines/ingest_ircom.py`.
 
+#### S48. REI — fiscalité directe locale (évalué le 24/08/2026)
+- **Producteur** : DGFiP / DESF (ministères économiques et financiers). Jeu data.gouv `impots-locaux-fichier-de-recensement-des-elements-dimposition-a-la-fiscalite-directe-locale-rei-4` (id `6657c57abbefc8869c7c6364`). **URL dataset** : `https://www.data.gouv.fr/datasets/impots-locaux-fichier-de-recensement-des-elements-dimposition-a-la-fiscalite-directe-locale-rei-4` (HTTP 200 le 24/08/2026). Ressource zip du millésime courant (`REI-2025-fichier-notice-trace.zip`, 18 486 782 o). Le jeu ODS tableur du même slug a **0 enregistrement** : les données sont dans les pièces jointes. Les jeux « fiscalité locale des particuliers / professionnels » sont des **taux**, pas des produits.
+- **Licence relue** (24/08/2026) : fiche data.gouv « Licence Ouverte / Open Licence version 2.0 » HTTP 200 ; fiche data.economie `Licence Ouverte v2.0 (Etalab)` HTTP 200. Libellé `meta_sources` : `Licence Ouverte / Open Licence version 2.0`.
+- **Fréquence** : annuelle. **Date des données** = 31 décembre de l'année d'imposition (**2025-12-31** au 24/08/2026), **jamais** `last_update` data.gouv (2026-05-11) ni last-modified du zip. Seuils **650/750** jours calendaires, comme S22/S45/S47.
+- **Objet** : impositions primitives du **rôle général**, par taxe et par collectivité bénéficiaire. Ce n'est **pas** le compte OFGL (S16), **pas** l'IRCOM (S47), **pas** la caisse S13. `source_id` = **S48**.
+- **Ce que la page affiche** : TFPB (somme E13+E23+E33 des communes non occultées), total FDL (TFPB, TFPNB, THS, THLV, CFE, TEOM F13, TASCOM, IFER, TSE, GEMAPI, TASA, TAFNB, TSC), détail par taxe, TFPB par département. 0 page communale. 0 taux. TIEOM* (part incitative) non additionné : déjà dans F13.
+- **Pièges** : IFERREG répliqué sur chaque commune d'une région (une valeur par LIBREG) ; P33 est le total CFE intercommunal (P33_1/P33_2 non additionnés) ; F13 est le TEOM total (F23–F83 **et** TIEOM* non additionnés — TIEOM = 10–45 % de F13, CGI 1522 bis) ; cellule vide = secret statistique, pas un zéro ; compensations/fractions de TVA **non ingérées** ; chambres **non ingérées** ; TFPB publié ≠ 55,1 Md€ « dus y compris annexes et frais d'État » ; FDL REI ≠ agrégat comptable « Impôts locaux » OFGL (54,9 Md€ communes BP). Unité native = euros. Md€ = euros ÷ 1e9.
+- **Relevé daté du 24/08/2026** (CSV HTTP 200, 34 907 communes) : TFPB 42,961 Md€ ; TEOM F13 9,164 Md€ ; CFE 8,221 Md€ ; THS 2,583 Md€. Ces montants décrivent ce jour-là et **dérivent**.
+- **Modules** : `/collectivites` (bloc cloisonné). **INGÉRÉE** — pipeline P25 `pipelines/ingest_rei.py`.
+
 ### Groupe E — Sources écartées (raison prouvée le 19/08/2026)
 
 | Source écartée | Raison constatée | Rapport |
@@ -544,7 +561,7 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 - **Boîte noire — arbitrages post-critique (documentaire assumé, aucun pipeline)** : **aides publiques aux entreprises** : ~211 Md€/an « ni lisibles, ni conditionnées, ni évaluées » (rapport Sénat 08/07/2025) et **aucune donnée consolidée** (vérifié le 19/08 : 0 dataset) → alerte documentaire + veille active ; micro-module possible sur les briques partielles (CIR via jaune, exonérations) (I2). **Hautes rémunérations de la fonction publique** : obligation « 10 plus hautes rémunérations » (art. 37, loi TFP du 06/08/2019) éclatée en **25 datasets épars sans consolidation nationale** (vérifié) → patron S32 : panel assumé, non ingéré, **jamais « national »**, + ligne documentaire « obligation légale massivement inappliquée/éclatée » (I3). **Collaborateurs parlementaires et emplois familiaux** (loi 2017) : **0 dataset** (vérifié) ; listes HTML par élu sur les sites AN/Sénat → extraction coûteuse, non ingérée ou documentaire (I10). **Comptes des groupes politiques des assemblées** : **0 dataset** (vérifié) ; PDF probables sur les sites AN/Sénat à vérifier en Phase 1 → intégrer aux constantes S31, sinon manque assumé ici (I10).
 
 ### Finances locales
-- **Sources** : S16 (OFGL : comptes + dotations), S27 (fonds de carte + population), S28 (balances, drill-down non ingéré), S33 (strates, non ingéré), S32 (subventions locales, panel non ingéré).
+- **Sources** : S16 (OFGL : comptes + dotations), **S48** (REI, fiscalité directe locale, bloc cloisonné), S27 (fonds de carte + population), S28 (balances, drill-down non ingéré), S33 (strates, non ingéré), S32 (subventions locales, panel non ingéré).
 - **Fraîcheur affichable** : « Comptes 2025 provisoires (chargés juillet 2026 ; ~97 communes manquantes jusqu'en décembre 2026) » (06) · « Dotations de l'État : exercice 2026 » (06).
 - **Contenu concret** : carte départementale en 1 requête `group_by` (101 départements) ; carte communale pré-calculée (34 778 communes, €/habitant natif) ; fiches collectivité (séries 2012/2018→2025, DGF 2018-2026, comparaison de strate) ; drill-down comptable par SIREN à la demande. **Jamais** de vue « subventions France entière » (aucune consolidation nationale SCDL, 06).
 
@@ -692,6 +709,7 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 | S45 Prestations de protection sociale (DREES CPS) | Annuelle (31/12 de l'année max, jamais last_update ; millésime 2024 au 23/08/2026) | LO 2.0 (Etalab) | Dépenses de l'État (bloc cloisonné) | **ingérée** (P22) |
 | S46 Recettes du budget général au PLF (État A) | Annuelle (publication open data du millésime, pas le dépôt AN ; 2025 → 2024-10-11) | LO 2.0 (Etalab) | Recettes (bloc cloisonné, non fiscales) | **ingérée** (P23) |
 | S47 IRCOM (impôt net sur rôle par commune) | Annuelle (31/12 de l'année des revenus ; 2024 → 2024-12-31 ; publication 26/05/2026) | Licence Ouverte / Open Licence | Recettes (bloc cloisonné) | **ingérée** (P24) |
+| S48 REI (fiscalité directe locale) | Annuelle (31/12 de l'année d'imposition ; 2025 → 2025-12-31 ; publication 22/06/2026) | Licence Ouverte / Open Licence version 2.0 | Finances locales (bloc cloisonné) | **ingérée** (P25) |
 
 ---
 

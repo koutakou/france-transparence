@@ -525,6 +525,7 @@ const SOMMAIRE: { href: string; libelle: string }[] = [
   { href: "#recettes-plf", libelle: "Recettes non fiscales du PLF" },
   { href: "#ircom", libelle: "Impôt sur le revenu par territoire (IRCOM)" },
   { href: "#collectivites", libelle: "Finances locales" },
+  { href: "#rei", libelle: "Fiscalité directe locale (REI)" },
   { href: "#frais", libelle: "Frais et train de vie" },
   { href: "#documents", libelle: "Documents officiels" },
   { href: "#dossiers-legislatifs", libelle: "Dossiers législatifs" },
@@ -1427,6 +1428,36 @@ export default function PageComprendre() {
             des tuiles est la somme des départements et collectivités de
             ce scrutin, pas un total France du ministère. Aucune nuance
             politique, aucun nom de candidat.
+          </p>
+        </div>
+      </Card>
+
+      <Card titre="Fiscalité directe locale (REI)">
+        <div id="rei" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+          <p>
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
+            Le fichier de recensement des éléments d&apos;imposition (REI)
+            décrit les impositions primitives du rôle général, par taxe et
+            par collectivité bénéficiaire, pour une année d&apos;imposition.
+            Ce n&apos;est pas le compte OFGL de la commune, pas l&apos;IRCOM,
+            pas la caisse du budget général. Voir{" "}
+            <LienPage href="/collectivites/#rei">Finances locales</LienPage>.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">D&apos;où ça vient.</strong>{" "}
+            DGFiP / DESF, jeu data.gouv du REI, zip du millésime courant.
+            Licence Ouverte / Open Licence version 2.0. Une cellule vide
+            est un secret statistique (BOI-DJC-CADA-20), pas un zéro. Le
+            produit IFER régional est répliqué sur chaque commune de la
+            région : le site en prend une valeur par région.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
+            Pas les taux, pas les bases, pas les compensations de TVA, pas
+            les chambres, pas les frais d&apos;assiette de l&apos;État, pas
+            les 34&nbsp;000 pages communales. Un total TFPB n&apos;est pas
+            le 55&nbsp;Md€ « dus y compris annexes et frais ». Aucun
+            classement de communes par pression fiscale.
           </p>
         </div>
       </Card>

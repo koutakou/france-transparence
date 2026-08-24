@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
 import { CarteDepartements } from "@/components/client/CarteDepartements";
 import { DataTable } from "@/components/ui/DataTable";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
-import type { KpiTileProps } from "@/components/ui/KpiTile";
+import { KpiTile, type KpiTileProps } from "@/components/ui/KpiTile";
 import { LineChart } from "@/components/ui/LineChart";
 import { Money } from "@/components/ui/Money";
 import { ParticipationElectorale } from "@/components/client/ParticipationElectorale";
@@ -12,7 +14,7 @@ import { SeriesCommunes } from "@/components/client/SeriesCommunes";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { TableTronquee } from "@/components/client/TableTronquee";
 import { VueTableau } from "@/components/ui/VueTableau";
-import { formatEuros, formatNombre } from "@/lib/format";
+import { ESPACE_FINE, formatEuros, formatNombre } from "@/lib/format";
 import {
   getConseilsDepartementaux,
   getDepartementsDepenses,
@@ -32,6 +34,11 @@ import {
   PERIMETRE_PARTICIPATION,
   PERIMETRE_VOTANTS,
 } from "@/lib/queries/elections";
+import {
+  getRei,
+  perimetreFdl,
+  perimetreTfpb,
+} from "@/lib/queries/rei";
 import { JsonLd } from "@/components/JsonLd";
 import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
@@ -49,7 +56,7 @@ import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 const CHEMIN = "/collectivites/";
 const TITRE = "Finances locales";
 const DESCRIPTION =
-  "Comptes des communes, départements et régions : dépenses par habitant, dotations de l’État — données OFGL datées.";
+  "Comptes des communes, départements et régions : dépenses par habitant, dotations de l’État — données OFGL datées. La fiscalité directe locale (REI) est un autre objet : impositions primitives du rôle général, pas les comptes.";
 
 export const metadata: Metadata = metadonneesPage({
   chemin: CHEMIN,
@@ -75,6 +82,21 @@ const BALISAGE = jsonLdPage({
   description: DESCRIPTION,
   ariane: [{ nom: "Accueil", chemin: "/" }, { nom: TITRE }],
 });
+
+function LienComprendre({ ancre }: { ancre: string }) {
+  return (
+    <p className="mt-3 text-[11px] text-ink-muted">
+      Glossaire et méthode :{" "}
+      <Link
+        href={`/comprendre/#${ancre}`}
+        className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
+      >
+        comprendre ces données
+      </Link>
+      .
+    </p>
+  );
+}
 
 /** Titre de sous-bloc (dans une Card). */
 function SousTitreBloc({ children }: { children: React.ReactNode }) {
@@ -114,6 +136,7 @@ export default async function PageCollectivites() {
   const grandesCommunes = getGrandesCommunes() ?? [];
   const dgfTopFlop = getDgfCommunesTopFlop();
   const dgfDepartements = getDgfDepartements() ?? [];
+  const rei = getRei();
 
   // Badge de fraîcheur S16 (un par bloc) — fréquence réelle abrégée au 1er mot.
   const frequenceCourte = meta.frequence.split(" ")[0];
@@ -307,6 +330,95 @@ export default async function PageCollectivites() {
 
       {/* ------------------------------------------------ KPI nationaux */}
       {tuiles.length > 0 && <StatStrip stats={tuiles} />}
+
+      {rei && (
+        <div id="rei" className="flex scroll-mt-32 flex-col gap-6">
+          <div className="flex items-center gap-3" role="separator">
+            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+              Autre objet · REI, imposition {rei.annee}, pas les comptes
+            </span>
+            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+          </div>
+
+          <Card
+            titre={`Fiscalité directe locale (REI, imposition ${rei.annee})`}
+            sousTitre="impositions primitives du rôle général, par taxe et bénéficiaire — distinct des comptes OFGL et de l'IRCOM"
+            droite={
+              <FreshnessBadge
+                dateDonnees={rei.meta.date_donnees}
+                source="DGFiP — REI"
+                frequence={rei.meta.frequence}
+                url={rei.meta.url}
+              />
+            }
+          >
+            <div className="grid gap-3 sm:grid-cols-3">
+              <KpiTile
+                nu
+                label={`Taxe foncière bâtie (${rei.annee})`}
+                valeur={`${formatNombre(rei.tfpbMd, 1)}${ESPACE_FINE}Md€`}
+                perimetre={perimetreTfpb(rei.annee)}
+              />
+              <KpiTile
+                nu
+                label="Fiscalité directe locale"
+                valeur={`${formatNombre(rei.totalFdl / 1e9, 1)}${ESPACE_FINE}Md€`}
+                perimetre={perimetreFdl(rei.annee)}
+              />
+              <KpiTile
+                nu
+                label="Communes occultées (TFPB)"
+                valeur={formatNombre(rei.nTfpbNc, 0)}
+                perimetre="secret statistique DESF · hors de la somme TFPB"
+              />
+            </div>
+            <BarList
+              className="mt-4"
+              items={rei.taxes.map((t) => ({
+                libelle: t.libelle,
+                valeur: t.euros / 1e9,
+              }))}
+              formatValeur={(v) => `${formatNombre(v, 2)}${ESPACE_FINE}Md€`}
+            />
+            <VueTableau>
+              <DataTable
+                colonnes={[
+                  { cle: "dep", entete: "Dép." },
+                  { cle: "nom", entete: "Département" },
+                  {
+                    cle: "md",
+                    entete: "TFPB (Md€)",
+                    type: "montant",
+                    decimales: 2,
+                  },
+                  {
+                    cle: "nc",
+                    entete: "Communes occultées",
+                    type: "nombre",
+                    decimales: 0,
+                  },
+                ]}
+                lignes={rei.departements.map((d) => ({
+                  dep: d.dep,
+                  nom: d.nom,
+                  md: d.tfpb / 1e9,
+                  nc: d.nTfpbNc,
+                }))}
+                cleLigne={(l) => l.dep}
+              />
+            </VueTableau>
+            <p className="mt-3 text-xs text-ink-muted">
+              {rei.etiquette}. {formatNombre(rei.nCommunes, 0)} communes, dont{" "}
+              {formatNombre(rei.nTfpbNc, 0)} dont la TFPB est occultée (secret
+              statistique). Ce total n&apos;est pas l&apos;agrégat comptable
+              « Impôts locaux » des comptes OFGL, et n&apos;inclut pas les
+              compensations de TVA ni les frais d&apos;assiette de l&apos;État.
+            </p>
+            <LienComprendre ancre="rei" />
+          </Card>
+        </div>
+      )}
 
       {/* Première bande de parcours — carte = outil (22 rem), pas un poster ;
           le tableau Grandes communes est l'objet à scanner, au plus près du pli. */}

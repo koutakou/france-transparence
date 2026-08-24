@@ -1122,6 +1122,61 @@ CREATE TABLE ircom_national (
     n_foyers           INTEGER NOT NULL,
     impot_net_euros    REAL    NOT NULL
 );
+-- ---------------------------------------------------------------------------
+-- S48, P25 — REI, fiscalité directe locale. Unité native : euros.
+-- tfpb NULL = occulté (secret statistique), pas un zéro.
+-- IFER régional : une valeur par région, pas la somme des communes.
+-- date_donnees = 31/12 de l'année d'imposition, jamais last_update.
+-- ---------------------------------------------------------------------------
+CREATE TABLE rei_communes (
+    annee           INTEGER NOT NULL,
+    dep_carte       TEXT,
+    dep_source      TEXT    NOT NULL,
+    com_source      TEXT    NOT NULL,
+    libelle         TEXT    NOT NULL,
+    tfpb            REAL,
+    tfpnb           REAL,
+    ths             REAL,
+    thlv            REAL,
+    cfe             REAL,
+    teom            REAL,
+    tascom          REAL,
+    ifer_local      REAL,
+    PRIMARY KEY (annee, dep_source, com_source)
+);
+CREATE INDEX idx_rei_communes_dep ON rei_communes(annee, dep_carte);
+CREATE TABLE rei_departements (
+    annee           INTEGER NOT NULL,
+    dep_carte       TEXT    NOT NULL,
+    n_communes      INTEGER NOT NULL,
+    n_tfpb_nc       INTEGER NOT NULL,
+    tfpb            REAL    NOT NULL,
+    teom            REAL    NOT NULL,
+    cfe             REAL    NOT NULL,
+    ths             REAL    NOT NULL,
+    tfpnb           REAL    NOT NULL,
+    PRIMARY KEY (annee, dep_carte)
+);
+CREATE TABLE rei_national (
+    annee           INTEGER PRIMARY KEY,
+    n_communes      INTEGER NOT NULL,
+    n_tfpb_nc       INTEGER NOT NULL,
+    tfpb            REAL    NOT NULL,
+    tfpnb           REAL    NOT NULL,
+    ths             REAL    NOT NULL,
+    thlv            REAL    NOT NULL,
+    cfe             REAL    NOT NULL,
+    teom            REAL    NOT NULL,
+    teomi           REAL    NOT NULL,
+    tascom          REAL    NOT NULL,
+    ifer_local      REAL    NOT NULL,
+    ifer_reg        REAL    NOT NULL,
+    tse             REAL    NOT NULL,
+    gemapi          REAL    NOT NULL,
+    tasa            REAL    NOT NULL,
+    tafnb           REAL    NOT NULL,
+    tsc             REAL    NOT NULL
+);
 CREATE TABLE partis (
     id               TEXT PRIMARY KEY REFERENCES entites(id),
     code_cnccfp      TEXT NOT NULL UNIQUE,

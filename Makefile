@@ -42,6 +42,10 @@ PY     := $(VENV)/bin/python
 # que ircom_communes / ircom_departements / ircom_national. Distinct
 # de S13 (IR de caisse, cumul YTD). Impôt net SUR RÔLE, année des
 # revenus. Placé avant sirene.
+# rei (S48, REI DGFiP) n'a AUCUNE dépendance d'ordre : il n'écrit
+# que rei_communes / rei_departements / rei_national. Distinct de
+# S16 (comptes OFGL), S13 (caisse État) et S47 (IRCOM). Impositions
+# primitives du rôle général, année d'imposition. Placé avant sirene.
 # sirene (S18) est en DERNIER, et cette place-là n'a rien d'arbitraire : le
 # référentiel Sirene n'est pas ingéré en entier, il est restreint aux SIREN
 # que les autres tables citent (decp, subventions, lobbying, collectivites,
@@ -52,7 +56,7 @@ PIPELINES := referentiels budget_mensuel budget_structure decp boamp approch \
              jorf parlement integrite hatvp_declarations lobbying financement \
              collectivites elections trainvie cada registre_ue \
              dette_maastricht deficit_maastricht dole agregats_apu cge \
-             protection_sociale recettes_plf ircom sirene
+             protection_sociale recettes_plf ircom rei sirene
 
 # NB : ne PAS déclarer les cibles ingest-<x> en .PHONY — make saute la
 # recherche de règles implicites (ingest-%) pour les cibles phony.
