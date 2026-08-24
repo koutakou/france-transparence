@@ -4,6 +4,7 @@ import { BarChart } from "@/components/ui/BarChart";
 import { DataTable } from "@/components/ui/DataTable";
 import { LineChart } from "@/components/ui/LineChart";
 import { Money } from "@/components/ui/Money";
+import { VueTableau } from "@/components/ui/VueTableau";
 import { formatNombre } from "@/lib/format";
 import type { MoisAgg } from "@/lib/queries/marches";
 
@@ -73,32 +74,24 @@ export function SerieMensuelleMarches({ serie }: { serie: MoisAgg[] }) {
           />
         </div>
       </div>
-      <details className="group mt-3">
-        <summary className="cursor-pointer list-none text-xs text-ink-muted transition-colors hover:text-ink-secondary">
-          <span aria-hidden="true" className="mr-1 inline-block transition-transform group-open:rotate-90">
-            ›
-          </span>
-          Vue tableau — 36 mois
-        </summary>
-        <div className="mt-2">
-          <DataTable
-            hauteurMax="320px"
-            colonnes={[
-              { cle: "mois", entete: "Mois", rendu: (m) => moisLong(m.mois) },
-              { cle: "nb_marches", entete: "Marchés", type: "nombre" },
-              {
-                cle: "montant_total",
-                entete: "Montant",
-                type: "montant",
-                rendu: (m) =>
-                  m.montant_total === null ? "—" : <Money valeur={m.montant_total} />,
-              },
-            ]}
-            lignes={serie}
-            cleLigne={(m) => m.mois}
-          />
-        </div>
-      </details>
+      <VueTableau resume="Vue tableau — 36 mois">
+        <DataTable
+          hauteurMax="320px"
+          colonnes={[
+            { cle: "mois", entete: "Mois", rendu: (m) => moisLong(m.mois) },
+            { cle: "nb_marches", entete: "Marchés", type: "nombre" },
+            {
+              cle: "montant_total",
+              entete: "Montant",
+              type: "montant",
+              rendu: (m) =>
+                m.montant_total === null ? "—" : <Money valeur={m.montant_total} />,
+            },
+          ]}
+          lignes={serie}
+          cleLigne={(m) => m.mois}
+        />
+      </VueTableau>
     </>
   );
 }

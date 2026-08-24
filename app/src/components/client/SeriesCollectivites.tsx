@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { LineChart } from "@/components/ui/LineChart";
 import { PuceOfficielle } from "@/components/ui/LienOfficiel";
+import { VueTableau } from "@/components/ui/VueTableau";
 import { formatEuros, formatNombre } from "@/lib/format";
 import { urlAnnuaireEntreprise } from "@/lib/urlOfficielle";
 import { urlSite } from "@/lib/basePath";
@@ -123,23 +124,18 @@ function BlocSerie({
               Épargne brute négative sur certains exercices : donnée réelle, affichée signée.
             </p>
           )}
-          <details className="mt-2">
-            <summary className="cursor-pointer text-xs text-ink-muted transition-colors hover:text-ink-secondary">
-              Vue tableau
-            </summary>
-            <div className="mt-2">
-              <DataTable
-                colonnes={[
-                  { cle: "exercice", entete: "Exercice" },
-                  { cle: "fonctionnement_meur", entete: "Fonctionnement (M€)", type: "montant", decimales: 1 },
-                  { cle: "investissement_meur", entete: "Investissement (M€)", type: "montant", decimales: 1 },
-                  { cle: "epargne_meur", entete: "Épargne brute (M€)", type: "montant", decimales: 1 },
-                ]}
-                lignes={lignes}
-                cleLigne={(l) => l.exercice}
-              />
-            </div>
-          </details>
+          <VueTableau>
+            <DataTable
+              colonnes={[
+                { cle: "exercice", entete: "Exercice" },
+                { cle: "fonctionnement_meur", entete: "Fonctionnement (M€)", type: "montant", decimales: 1 },
+                { cle: "investissement_meur", entete: "Investissement (M€)", type: "montant", decimales: 1 },
+                { cle: "epargne_meur", entete: "Épargne brute (M€)", type: "montant", decimales: 1 },
+              ]}
+              lignes={lignes}
+              cleLigne={(l) => l.exercice}
+            />
+          </VueTableau>
         </>
       )}
     </div>

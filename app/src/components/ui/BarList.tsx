@@ -1,4 +1,5 @@
 import { formatNombre } from "@/lib/format";
+import { TooltipGraphique } from "./TooltipGraphique";
 
 /**
  * Barres horizontales (comparaison de magnitudes à noms longs — la forme
@@ -66,8 +67,7 @@ export function BarList({
         return (
           <li
             key={`${item.libelle}-${i}`}
-            className="flex items-start gap-3"
-            title={`${item.libelle} : ${valeurs[i]}`}
+            className="group relative flex items-start gap-3"
           >
             <span
               className="shrink-0 whitespace-normal text-[13px] leading-snug text-ink-secondary"
@@ -90,7 +90,7 @@ export function BarList({
             </span>
             <span className="flex min-w-0 flex-1 items-center self-center gap-2 text-[13px]">
               <span
-                className="block shrink-0 transition-[filter] hover:brightness-[1.18]"
+                className="block shrink-0 transition-[filter] hover:brightness-[1.18] motion-reduce:transition-none motion-reduce:hover:brightness-100"
                 style={{
                   // part × (100% − place de la valeur − gap-2) : la valeur
                   // au bout de la barre la plus longue reste entière
@@ -106,6 +106,17 @@ export function BarList({
                 {valeurs[i]}
               </span>
             </span>
+            <TooltipGraphique
+              lignes={[
+                {
+                  nom: item.libelle,
+                  valeur: valeurs[i],
+                  couleur: item.couleur ?? "var(--viz-serie-1)",
+                },
+              ]}
+              className="bottom-full left-1/2 mb-1 -translate-x-1/2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+              style={{ visibility: "visible", position: "absolute" }}
+            />
           </li>
         );
       })}

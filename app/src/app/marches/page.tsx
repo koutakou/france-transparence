@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
 import { AlertItem, type Gravite } from "@/components/ui/AlertItem";
 import { AppelsOffres } from "@/components/client/AppelsOffres";
 import { BarChart } from "@/components/ui/BarChart";
@@ -17,6 +16,7 @@ import { SerieMensuelleMarches } from "@/components/client/SerieMensuelleMarches
 import { Sparkline } from "@/components/ui/Sparkline";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { TableTronquee } from "@/components/client/TableTronquee";
+import { VueTableau } from "@/components/ui/VueTableau";
 import {
   ESPACE_FINE,
   formatDateFr,
@@ -130,21 +130,6 @@ function graviteAlerte(gravite: string): { gravite: Gravite; libelle: string } {
 /* ------------------------------------------------------------------ */
 /* Petits composants locaux (Server Components, zéro JS client)        */
 /* ------------------------------------------------------------------ */
-
-/** Vue tableau jumelle dépliable (toggle « Tableau », DATAVIZ §7/§9). */
-function VueTableau({ children, resume = "Vue tableau" }: { children: ReactNode; resume?: string }) {
-  return (
-    <details className="group mt-3">
-      <summary className="cursor-pointer list-none text-xs text-ink-muted transition-colors hover:text-ink-secondary">
-        <span aria-hidden="true" className="mr-1 inline-block transition-transform group-open:rotate-90">
-          ›
-        </span>
-        {resume}
-      </summary>
-      <div className="mt-2">{children}</div>
-    </details>
-  );
-}
 
 /** Un quantile du délai de publication : valeur au-dessus, libellé dessous. */
 function Quantile({ libelle, valeur }: { libelle: string; valeur: number | null }) {

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { LineChart } from "@/components/ui/LineChart";
 import { PuceOfficielle } from "@/components/ui/LienOfficiel";
+import { VueTableau } from "@/components/ui/VueTableau";
 import { formatEuros, formatNombre } from "@/lib/format";
 import { urlAnnuaireEntreprise } from "@/lib/urlOfficielle";
 import { urlSite } from "@/lib/basePath";
@@ -191,24 +192,19 @@ function BlocSerieCommune({
           s&apos;interrompt, rien n&apos;est compté à 0.
         </p>
       )}
-      <details className="mt-2">
-        <summary className="cursor-pointer text-xs text-ink-muted transition-colors hover:text-ink-secondary">
-          Vue tableau (« — » = donnée non disponible)
-        </summary>
-        <div className="mt-2">
-          <DataTable
-            colonnes={[
-              { cle: "exercice", entete: "Exercice" },
-              { cle: "fonct_hab", entete: "Fonct. (€/hab)", type: "montant" },
-              { cle: "fonct_mediane", entete: "Médiane strate (€/hab)", type: "montant" },
-              { cle: "inv_hab", entete: "Inv. (€/hab)", type: "montant" },
-              { cle: "inv_mediane", entete: "Médiane strate (€/hab)", type: "montant" },
-            ]}
-            lignes={lignesTableau}
-            cleLigne={(l) => l.exercice}
-          />
-        </div>
-      </details>
+      <VueTableau resume="Vue tableau (« — » = donnée non disponible)">
+        <DataTable
+          colonnes={[
+            { cle: "exercice", entete: "Exercice" },
+            { cle: "fonct_hab", entete: "Fonct. (€/hab)", type: "montant" },
+            { cle: "fonct_mediane", entete: "Médiane strate (€/hab)", type: "montant" },
+            { cle: "inv_hab", entete: "Inv. (€/hab)", type: "montant" },
+            { cle: "inv_mediane", entete: "Médiane strate (€/hab)", type: "montant" },
+          ]}
+          lignes={lignesTableau}
+          cleLigne={(l) => l.exercice}
+        />
+      </VueTableau>
     </div>
   );
 }

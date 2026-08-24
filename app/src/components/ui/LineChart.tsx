@@ -1,5 +1,6 @@
 import { formatNombre } from "@/lib/format";
 import { ecarteEtiquettes, indicesEtiquettesX, ticksRonds } from "./echelle";
+import { cssSurvolColonnes, TooltipGraphique } from "./TooltipGraphique";
 
 /**
  * Courbes (tendance dans le temps) — SVG maison, 1 à 3 séries MAX.
@@ -17,7 +18,9 @@ import { ecarteEtiquettes, indicesEtiquettesX, ticksRonds } from "./echelle";
  * - étiquetage sélectif : valeur en FIN de ligne (§4) ;
  * - survol §5 : le réticule trouve le X (filet 1px `--viz-crosshair` aimanté
  *   par colonne), marqueurs ≥ 8px à anneau 2px `--surface-card`, et UN
- *   tooltip natif (`<title>`) listant TOUTES les séries à ce X.
+ *   tooltip HTML (pas le `<title>` SVG) listant TOUTES les séries à ce X,
+ *   valeur d'abord. Un seul arrêt clavier sur le graphe (`tabIndex={0}`),
+ *   pas un par point. Vue tableau jumelle à fournir par la page (§9).
  *
  * `valeurs[i] === null` = trou de donnée (la ligne s'interrompt — jamais de
  * donnée fabriquée). Vue tableau jumelle à fournir par la page (§9).
@@ -122,6 +125,38 @@ export function LineChart({
   const visiblesX = indicesEtiquettesX(labels.length, 7);
   const largeurColonne = labels.length === 1 ? traceL : traceL / (labels.length - 1);
 
+  let iDernier = labels.length - 1;
+  for (let i = labels.length - 1; i >= 0; i--) {
+    if (tracees.some((s) => s.valeurs[i] !== null && Number.isFinite(s.valeurs[i] as number))) {
+      iDernier = i;
+      break;
+    }
+  }
+
+  const lignesAu = (i: number) =>
+    tracees.map((s) => {
+      const v = s.valeurs[i];
+      return {
+        nom: s.nom,
+        valeur: v === null || v === undefined || !Number.isFinite(v) ? "donnée manquante" : formatValeur(v),
+        couleur: s.couleur,
+      };
+    });
+
+  const posTip = (i: number) => {
+    const pct = (x(i) / largeur) * 100;
+    const ys = tracees
+      .map((s) => s.valeurs[i])
+      .filter((v): v is number => v !== null && Number.isFinite(v))
+      .map((v) => y(v));
+    const top = ys.length > 0 ? Math.min(...ys) : margeHaut;
+    return {
+      left: `${pct}%`,
+      top: `${(top / hauteur) * 100}%`,
+      transform: pct < 18 ? "translate(0, calc(-100% - 8px))" : pct > 82 ? "translate(-100%, calc(-100% - 8px))" : "translate(-50%, calc(-100% - 8px))",
+    };
+  };
+
   return (
     <figure className={className}>
       {tracees.length >= 2 && (
@@ -134,11 +169,16 @@ export function LineChart({
           ))}
         </figcaption>
       )}
+      <div
+        className="ft-lc relative"
+        tabIndex={ariaLabel ? 0 : undefined}
+        aria-label={ariaLabel}
+      >
+      <style>{cssSurvolColonnes(".ft-lc", "ft-lc-col", labels.length)}</style>
       <svg
         viewBox={`0 0 ${largeur} ${hauteur}`}
         style={{ width: "100%", height: "auto" }}
-        role={ariaLabel ? "img" : undefined}
-        aria-label={ariaLabel}
+        aria-hidden={ariaLabel ? true : undefined}
       >
         <style>{`
           .ft-lc-col .ft-lc-hover { opacity: 0; }
@@ -205,16 +245,9 @@ export function LineChart({
           ) : null,
         )}
         {/* couche de survol : une colonne par X — réticule + marqueurs + tooltip toutes-séries */}
-        {labels.map((l, i) => {
-          const releve = tracees
-            .map((s) => {
-              const v = s.valeurs[i];
-              return `${s.nom} : ${v === null || v === undefined ? "donnée manquante" : formatValeur(v)}`;
-            })
-            .join("\n");
+        {labels.map((_, i) => {
           return (
-            <g key={`col-${i}`} className="ft-lc-col">
-              <title>{`${l}\n${releve}`}</title>
+            <g key={`col-${i}`} className="ft-lc-col" data-i={i}>
               <rect
                 x={x(i) - largeurColonne / 2}
                 y={margeHaut}
@@ -252,6 +285,17 @@ export function LineChart({
           );
         })}
       </svg>
+        {labels.map((l, i) => (
+          <TooltipGraphique
+            key={`tip-${l}-${i}`}
+            data-i={i}
+            data-dernier={i === iDernier}
+            titre={l}
+            lignes={lignesAu(i)}
+            style={posTip(i)}
+          />
+        ))}
+      </div>
     </figure>
   );
 }

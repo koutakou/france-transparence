@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { StatStrip } from "@/components/ui/StatStrip";
+import { VueTableau } from "@/components/ui/VueTableau";
 import { formatNombre, formatPct } from "@/lib/format";
 import {
   getDepartementsDeputes,
@@ -293,12 +294,8 @@ export default async function PageElus() {
             — calculés depuis l’état civil du répertoire des élus.
           </p>
         )}
-        <details className="mt-2">
-          <summary className="cursor-pointer text-xs text-ink-muted transition-colors hover:text-ink-secondary">
-            Vue tableau
-          </summary>
+        <VueTableau>
           <DataTable
-            className="mt-2"
             colonnes={[
               { cle: "nom", entete: "Groupe" },
               { cle: "sigle", entete: "Sigle" },
@@ -307,7 +304,7 @@ export default async function PageElus() {
             lignes={groupesAn}
             cleLigne={(g) => g.organe_ref}
           />
-        </details>
+        </VueTableau>
         <p className="mt-2 text-[11px] text-ink-muted">
           Couleurs officielles des groupes (données AN) non reproduites : teinte unique du thème,
           validée pour le fond sombre — l’identité est portée par les libellés.
@@ -338,20 +335,18 @@ export default async function PageElus() {
               — calculés depuis les données open data du Sénat.
             </p>
           )}
-          <details className="mt-2 mb-4">
-            <summary className="cursor-pointer text-xs text-ink-muted transition-colors hover:text-ink-secondary">
-              Vue tableau
-            </summary>
-            <DataTable
-              className="mt-2"
-              colonnes={[
-                { cle: "groupe", entete: "Groupe" },
-                { cle: "effectif", entete: "Sièges", type: "nombre" },
-              ]}
-              lignes={groupesSenat}
-              cleLigne={(g) => g.groupe}
-            />
-          </details>
+          <div className="mb-4">
+            <VueTableau>
+              <DataTable
+                colonnes={[
+                  { cle: "groupe", entete: "Groupe" },
+                  { cle: "effectif", entete: "Sièges", type: "nombre" },
+                ]}
+                lignes={groupesSenat}
+                cleLigne={(g) => g.groupe}
+              />
+            </VueTableau>
+          </div>
           <TableParlementaires
             variante="senateurs"
             initiaux={senateurs.slice(0, PREMIER_ECRAN)}

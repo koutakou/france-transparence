@@ -13,6 +13,7 @@ import { CarteDepartements } from "@/components/client/CarteDepartements";
 import { JsonLd } from "@/components/JsonLd";
 import { Money } from "@/components/ui/Money";
 import { StatStrip } from "@/components/ui/StatStrip";
+import { VueTableau } from "@/components/ui/VueTableau";
 import type { MetaSource } from "@/lib/db";
 import { ESPACE_FINE, formatDateFr, formatNombre } from "@/lib/format";
 import {
@@ -434,6 +435,16 @@ export default async function Accueil() {
             formatValeur={(v) => mdE(v, 1)}
             largeurLibelle="45%"
           />
+          <VueTableau>
+            <DataTable
+              colonnes={[
+                { cle: "mission", entete: "Mission" },
+                { cle: "cp", entete: "CP", type: "montant", rendu: (m) => mdE(m.cp, 1) },
+              ]}
+              lignes={missionsPlf2026}
+              cleLigne={(m) => m.mission}
+            />
+          </VueTableau>
           {totalCpPlf2026 !== null && (
             <p className="mt-3 text-xs text-ink-muted">
               Crédits de paiement (crédits budgétaires) — total toutes

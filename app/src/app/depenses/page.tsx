@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import type { ReactNode } from "react";
 import { BarChart } from "@/components/ui/BarChart";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
@@ -11,6 +10,7 @@ import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { KpiTile } from "@/components/ui/KpiTile";
 import { LineChart } from "@/components/ui/LineChart";
 import { StatStrip } from "@/components/ui/StatStrip";
+import { VueTableau } from "@/components/ui/VueTableau";
 import { ESPACE_FINE, formatDateFr, formatEuros, formatNombre } from "@/lib/format";
 import {
   getAgregatApu,
@@ -90,18 +90,6 @@ function MontantMd({ valeur, decimales = 2 }: { valeur: number; decimales?: numb
 function variationPct(v: number | null, n1: number | null): number | null {
   if (v === null || n1 === null || n1 === 0) return null;
   return ((v - n1) / Math.abs(n1)) * 100;
-}
-
-/** Vue tableau jumelle d'un graphique (DATAVIZ §9) — repli natif sans JS. */
-function VueTableau({ children }: { children: ReactNode }) {
-  return (
-    <details className="mt-3">
-      <summary className="w-fit cursor-pointer select-none text-xs text-ink-muted transition-colors hover:text-ink-secondary">
-        Vue tableau
-      </summary>
-      <div className="mt-2">{children}</div>
-    </details>
-  );
 }
 
 /** Lien vers le développement déjà en ligne — la notice de page n'est pas recopiée dans chaque carte. */

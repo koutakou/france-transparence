@@ -1,9 +1,13 @@
+"use client";
+
+import { useState, type PointerEvent } from "react";
 import { formatNombre } from "@/lib/format";
 import {
   projectionFrance,
   type CarteFrancePrecalculee,
   type TraceDepartement,
 } from "@/components/ui/projection-france";
+import { TooltipGraphique } from "./TooltipGraphique";
 
 /**
  * Carte de France des départements — SVG responsive.
@@ -40,8 +44,8 @@ import {
  * (`prefers-reduced-motion` respecté d'office), cible de survol ≥ 24px,
  * tooltip natif nom + poids.
  *
- * Tooltips : `<title>` SVG (natif, sans JS). La vue tableau jumelle (§9)
- * reste à la charge de la page.
+ * Tooltips : HTML (DATAVIZ §5), pas le `<title>` SVG. Un seul arrêt
+ * clavier sur la figure. La vue tableau jumelle (§9) reste à la page.
  *
  * @example
  * <MapFrance carte={carte}
@@ -94,6 +98,12 @@ export function MapFrance({
   ariaLabel = "Carte de France par département",
   className,
 }: MapFranceProps) {
+  const [tip, setTip] = useState<{
+    nom: string;
+    valeur: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const departements = carte.departements;
   if (departements.length === 0) return null;
   const { largeur, hauteur } = carte;
@@ -133,15 +143,33 @@ export function MapFrance({
     return pasRampe[classeDe(v)];
   };
 
+  const poserTip = (
+    e: PointerEvent<SVGElement>,
+    nom: string,
+    valeur: string,
+  ) => {
+    const cadre = e.currentTarget.ownerSVGElement?.parentElement;
+    if (!cadre) return;
+    const box = cadre.getBoundingClientRect();
+    const x = e.clientX - box.left;
+    const y = e.clientY - box.top;
+    setTip({ nom, valeur, x, y });
+  };
+
   return (
-    <figure className={className}>
+    <figure
+      className={`relative ${className ?? ""}`}
+      tabIndex={0}
+      aria-label={ariaLabel}
+    >
       <svg
         viewBox={`0 0 ${largeur} ${hauteur}`}
         style={{ width: "100%", height: "auto" }}
-        role="img"
-        aria-label={ariaLabel}
+        aria-hidden="true"
+        onPointerLeave={() => setTip(null)}
       >
-        <style>{`.ft-map-dep:hover { filter: brightness(1.18); } .ft-map-pt:hover circle { filter: brightness(1.18); }`}</style>
+        <style>{`.ft-map-dep:hover { filter: brightness(1.18); } .ft-map-pt:hover circle { filter: brightness(1.18); }
+          @media (prefers-reduced-motion: reduce) { .ft-map-dep:hover, .ft-map-pt:hover circle { filter: none; } }`}</style>
         <defs>
           {/* halo « lumineux » : même teinte que le point, 0,35 → 0 (§8) */}
           <radialGradient id="ft-map-halo">
@@ -159,6 +187,7 @@ export function MapFrance({
               : v !== undefined && Number.isFinite(v)
                 ? formatValeur(v)
                 : null;
+          const libelle = code ? `${nom} (${code})` : nom;
           return (
             <path
               key={code || i}
@@ -168,9 +197,9 @@ export function MapFrance({
               stroke="var(--map-contour)"
               strokeWidth={1}
               vectorEffect="non-scaling-stroke"
-            >
-              <title>{releve ? `${nom} (${code}) : ${releve}` : `${nom}${code ? ` (${code})` : ""}`}</title>
-            </path>
+              onPointerEnter={(e) => poserTip(e, libelle, releve ?? "—")}
+              onPointerMove={(e) => poserTip(e, libelle, releve ?? "—")}
+            />
           );
         })}
         {/* villes lumineuses */}
@@ -180,8 +209,12 @@ export function MapFrance({
           const [x, y] = projete;
           const r = rayon(p.poids);
           return (
-            <g key={`${p.label}-${i}`} className="ft-map-pt">
-              <title>{`${p.label} : ${formatValeur(p.poids)}`}</title>
+            <g
+              key={`${p.label}-${i}`}
+              className="ft-map-pt"
+              onPointerEnter={(e) => poserTip(e, p.label, formatValeur(p.poids))}
+              onPointerMove={(e) => poserTip(e, p.label, formatValeur(p.poids))}
+            >
               <circle cx={x} cy={y} r={r * 2.5} fill="url(#ft-map-halo)" />
               <circle cx={x} cy={y} r={r} fill="var(--viz-serie-1)" />
               {/* cible de survol ≥ 24px (§5/§8) */}
@@ -190,6 +223,19 @@ export function MapFrance({
           );
         })}
       </svg>
+      {tip && (
+        <TooltipGraphique
+          lignes={[{ nom: tip.nom, valeur: tip.valeur, couleur: "var(--viz-serie-1)" }]}
+          style={{
+            left: tip.x,
+            top: tip.y,
+            transform:
+              tip.x < 80
+                ? "translate(8px, calc(-100% - 8px))"
+                : "translate(-50%, calc(-100% - 8px))",
+          }}
+        />
+      )}
       {/* légende d'échelle obligatoire (§8) */}
       {(choroplethe || (points && points.length > 0)) && (
         <figcaption className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-ink-secondary">
@@ -203,7 +249,7 @@ export function MapFrance({
                     key={i}
                     className="inline-block h-2.5 w-6"
                     style={{ background: c }}
-                    title={`${formatValeur(bornes[i])} – ${formatValeur(bornes[i + 1])}`}
+                    aria-label={`${formatValeur(bornes[i])} – ${formatValeur(bornes[i + 1])}`}
                   />
                 ))}
               </span>

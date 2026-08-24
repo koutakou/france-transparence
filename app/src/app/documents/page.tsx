@@ -12,6 +12,7 @@ import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { KpiTile } from "@/components/ui/KpiTile";
 import { Sparkline } from "@/components/ui/Sparkline";
 import { StatStrip } from "@/components/ui/StatStrip";
+import { VueTableau } from "@/components/ui/VueTableau";
 import { libelleTypeDole } from "@/lib/dole-libelles";
 import { formatDateFr, formatNombre } from "@/lib/format";
 import { libelleNaturePluriel } from "@/lib/jorf-libelles";
@@ -305,18 +306,14 @@ export default async function DocumentsPage() {
             {formatNombre(pic.nb)} textes le {formatDateFr(pic.date_publi)} ·{" "}
             {formatNombre(joursSansJo)} jours sans JO sur la période (trous réels).
           </p>
-          <details className="mt-3">
-            <summary className="cursor-pointer text-xs text-ink-muted transition-colors hover:text-ink-secondary">
-              Vue tableau — textes par JO paru
-            </summary>
+          <VueTableau resume="Vue tableau — textes par JO paru">
             <DataTable
-              className="mt-2"
               hauteurMax="16rem"
               colonnes={colonnesParutions}
               lignes={parutions}
               cleLigne={(l) => l.date_publi}
             />
-          </details>
+          </VueTableau>
         </Card>
 
         <Card
@@ -358,6 +355,16 @@ export default async function DocumentsPage() {
           formatValeur={(v) => formatNombre(v)}
           largeurLibelle="46%"
         />
+        <VueTableau>
+          <DataTable
+            colonnes={[
+              { cle: "ministere", entete: "Ministère" },
+              { cle: "nb", entete: "Nominations", type: "nombre" },
+            ]}
+            lignes={nominations.top}
+            cleLigne={(n) => n.ministere}
+          />
+        </VueTableau>
         {resteMinisteres > 0 && (
           <p className="mt-3 text-[11px] leading-relaxed text-ink-muted">
             {formatNombre(resteMinisteres)} autres ministères totalisent{" "}

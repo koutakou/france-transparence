@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
 import { AlertItem, type Gravite } from "@/components/ui/AlertItem";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
@@ -10,6 +9,7 @@ import { Donut } from "@/components/ui/Donut";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { LineChart } from "@/components/ui/LineChart";
 import { StatStrip } from "@/components/ui/StatStrip";
+import { VueTableau } from "@/components/ui/VueTableau";
 import { formatNombre, formatPct } from "@/lib/format";
 import {
   getDonneesFinancement,
@@ -52,24 +52,6 @@ const BALISAGE = jsonLdPage({
   description: DESCRIPTION,
   ariane: [{ nom: "Accueil", chemin: "/" }, { nom: TITRE }],
 });
-
-/** Toggle « Vue tableau » — la jumelle WCAG de chaque graphique (DATAVIZ §7/§9). */
-function VueTableau({ children }: { children: ReactNode }) {
-  return (
-    <details className="group mt-3">
-      <summary className="cursor-pointer list-none text-xs text-ink-muted transition-colors hover:text-ink-secondary">
-        <span
-          aria-hidden="true"
-          className="mr-1 inline-block transition-transform group-open:rotate-90"
-        >
-          ›
-        </span>
-        Vue tableau
-      </summary>
-      <div className="mt-2">{children}</div>
-    </details>
-  );
-}
 
 /** Gravité base (`haute`/`moyenne`/`info`) → gravité visuelle + libellé affiché. */
 function graviteUi(g: string): { gravite: Gravite; libelle: string } {

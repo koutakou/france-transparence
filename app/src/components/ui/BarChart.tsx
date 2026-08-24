@@ -1,5 +1,6 @@
 import { formatNombre } from "@/lib/format";
 import { indicesEtiquettesX, ticksRonds } from "./echelle";
+import { cssSurvolColonnes, TooltipGraphique } from "./TooltipGraphique";
 
 /**
  * Colonnes verticales SIMPLES (une série) — SVG maison.
@@ -11,8 +12,9 @@ import { indicesEtiquettesX, ticksRonds } from "./echelle";
  * - ticks Y nombres ronds 11px `--ink-muted` ;
  * - une série nominale = UNE couleur (`--viz-serie-1`) — jamais de rampe de
  *   valeur sur des catégories (§3.2) ;
- * - survol : la MARQUE est la cible (brightness 1.18 + tooltip natif
- *   `<title>`) ; valeur au sommet quand ≤ 8 colonnes (étiquetage sélectif).
+ * - survol : la MARQUE est la cible (brightness 1.18 + tooltip HTML, pas
+ *   `<title>` SVG) ; valeur au sommet quand ≤ 8 colonnes (étiquetage
+ *   sélectif). Un seul arrêt clavier sur le graphe, pas un par barre.
  *
  * La hauteur du conteneur INCLUT la bande d'axe X (§4). Vue tableau
  * jumelle : à fournir par la page (toggle « Tableau », §7/§9).
@@ -96,15 +98,38 @@ export function BarChart({
     ].join(" ");
   };
 
+  const iDernier = items.length - 1;
+  const posTip = (i: number) => {
+    const cx = margeGauche + i * bande + bande / 2;
+    const pct = (cx / largeur) * 100;
+    const yV = y(items[i].valeur);
+    const haut = Math.min(yV, yBase);
+    return {
+      left: `${pct}%`,
+      top: `${(haut / hauteur) * 100}%`,
+      transform:
+        pct < 18
+          ? "translate(0, calc(-100% - 8px))"
+          : pct > 82
+            ? "translate(-100%, calc(-100% - 8px))"
+            : "translate(-50%, calc(-100% - 8px))",
+    };
+  };
+
   return (
+    <div
+      className={`ft-bc relative ${className ?? ""}`}
+      tabIndex={ariaLabel ? 0 : undefined}
+      aria-label={ariaLabel}
+    >
+    <style>{cssSurvolColonnes(".ft-bc", "ft-bc-col", items.length)}</style>
     <svg
       viewBox={`0 0 ${largeur} ${hauteur}`}
       style={{ width: "100%", height: "auto" }}
-      role={ariaLabel ? "img" : undefined}
-      aria-label={ariaLabel}
-      className={className}
+      aria-hidden={ariaLabel ? true : undefined}
     >
-      <style>{`.ft-bc-col:hover path { filter: brightness(1.18); }`}</style>
+      <style>{`.ft-bc-col:hover path { filter: brightness(1.18); }
+        @media (prefers-reduced-motion: reduce) { .ft-bc-col:hover path { filter: none; } }`}</style>
       {/* grille horizontale 1px --viz-grid, ticks ronds --ink-muted */}
       {ticks.map((t) => (
         <g key={t}>
@@ -135,8 +160,7 @@ export function BarChart({
         const haut = Math.min(yV, yBase);
         const bas = Math.max(yV, yBase);
         return (
-          <g key={`${item.libelle}-${i}`} className="ft-bc-col">
-            <title>{`${item.libelle} : ${formatValeur(item.valeur)}`}</title>
+          <g key={`${item.libelle}-${i}`} className="ft-bc-col" data-i={i}>
             <rect
               x={margeGauche + i * bande}
               y={margeHaut}
@@ -194,5 +218,21 @@ export function BarChart({
         vectorEffect="non-scaling-stroke"
       />
     </svg>
+      {items.map((item, i) => (
+        <TooltipGraphique
+          key={`tip-${item.libelle}-${i}`}
+          data-i={i}
+          data-dernier={i === iDernier}
+          lignes={[
+            {
+              nom: item.libelle,
+              valeur: formatValeur(item.valeur),
+              couleur: item.couleur ?? "var(--viz-serie-1)",
+            },
+          ]}
+          style={posTip(i)}
+        />
+      ))}
+    </div>
   );
 }

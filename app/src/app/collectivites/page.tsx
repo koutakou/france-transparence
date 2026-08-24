@@ -11,6 +11,7 @@ import { SeriesCollectivites } from "@/components/client/SeriesCollectivites";
 import { SeriesCommunes } from "@/components/client/SeriesCommunes";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { TableTronquee } from "@/components/client/TableTronquee";
+import { VueTableau } from "@/components/ui/VueTableau";
 import { formatEuros, formatNombre } from "@/lib/format";
 import {
   getConseilsDepartementaux,
@@ -81,18 +82,6 @@ function SousTitreBloc({ children }: { children: React.ReactNode }) {
     <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
       {children}
     </h3>
-  );
-}
-
-/** Vue tableau jumelle repliable d'un graphique (DATAVIZ §9). */
-function VueTableau({ resume, children }: { resume: string; children: React.ReactNode }) {
-  return (
-    <details className="mt-2">
-      <summary className="cursor-pointer text-xs text-ink-muted transition-colors hover:text-ink-secondary">
-        {resume}
-      </summary>
-      <div className="mt-2">{children}</div>
-    </details>
   );
 }
 

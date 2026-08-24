@@ -1,4 +1,5 @@
 import { formatNombre, formatPct } from "@/lib/format";
+import { cssSurvolColonnes, TooltipGraphique } from "./TooltipGraphique";
 
 /**
  * Donut de répartition (part-du-tout) — SVG maison.
@@ -15,7 +16,7 @@ import { formatNombre, formatPct } from "@/lib/format";
  * (montant vedette, §3.5). La légende garde une largeur minimale lisible :
  * si la place à droite manque, elle passe SOUS le donut (flex-wrap) plutôt
  * que de tronquer les libellés à quelques caractères ; le libellé complet
- * reste accessible au survol (`title`).
+ * reste accessible au survol (tooltip HTML, pas `title` natif).
  *
  * @example
  * <Donut parts={[
@@ -109,42 +110,48 @@ export function Donut({
   const pleins = segments.filter((s) => s.part > 0);
   const segmentUnique = pleins.length === 1;
 
+  const iDernier = Math.max(0, pleins.length - 1);
+
   return (
-    <div className={`flex flex-wrap items-center gap-x-6 gap-y-4 ${className ?? ""}`}>
+    <div
+      className={`ft-donut relative flex flex-wrap items-center gap-x-6 gap-y-4 ${className ?? ""}`}
+      tabIndex={ariaLabel ? 0 : undefined}
+      aria-label={ariaLabel}
+    >
+      <style>{cssSurvolColonnes(".ft-donut", "ft-donut-seg", pleins.length)}</style>
       <svg
         width={taille}
         height={taille}
         viewBox={`0 0 ${taille} ${taille}`}
-        role={ariaLabel ? "img" : undefined}
-        aria-label={ariaLabel}
-        className="shrink-0"
+        aria-hidden={ariaLabel ? true : undefined}
+        className="relative shrink-0"
       >
-        <style>{`.ft-donut-seg:hover { filter: brightness(1.18); }`}</style>
+        <style>{`.ft-donut-seg:hover { filter: brightness(1.18); }
+          @media (prefers-reduced-motion: reduce) { .ft-donut-seg:hover { filter: none; } }`}</style>
         {segmentUnique ? (
           <circle
+            className="ft-donut-seg"
+            data-i={0}
             cx={cx}
             cy={cy}
             r={(rExt + rInt) / 2}
             fill="none"
             stroke={pleins[0].couleur}
             strokeWidth={rExt - rInt}
-          >
-            <title>{`${pleins[0].libelle} : ${formatValeur(pleins[0].valeur)} (100 %)`}</title>
-          </circle>
+          />
         ) : (
-          pleins.map((s) => (
+          pleins.map((s, i) => (
             <path
               key={s.libelle}
               className="ft-donut-seg"
+              data-i={i}
               d={arcAnneau(cx, cy, rExt, rInt, s.a0, s.a1)}
               fill={s.couleur}
               // écart de 2px en couleur de carte entre segments (§4)
               stroke="var(--surface-card)"
               strokeWidth={2}
               strokeLinejoin="round"
-            >
-              <title>{`${s.libelle} : ${formatValeur(s.valeur)} (${formatPct(s.part * 100)})`}</title>
-            </path>
+            />
           ))
         )}
         {/* total au centre — chiffres proportionnels, --montant si vedette */}
@@ -162,6 +169,25 @@ export function Donut({
           {libelleTotal}
         </text>
       </svg>
+      {pleins.map((s, i) => (
+        <TooltipGraphique
+          key={`tip-${s.libelle}`}
+          data-i={i}
+          data-dernier={i === iDernier}
+          lignes={[
+            {
+              nom: s.libelle,
+              valeur: `${formatValeur(s.valeur)} (${formatPct(s.part * 100)})`,
+              couleur: s.couleur,
+            },
+          ]}
+          style={{
+            left: taille / 2,
+            top: 8,
+            transform: "translate(-50%, 0)",
+          }}
+        />
+      ))}
       {/* légende : pastille + libellé + valeur + % (jamais la couleur seule).
           min-width lisible : plutôt que d'écraser les libellés, la légende
           descend sous le donut quand la place à droite manque (flex-wrap). */}
@@ -173,7 +199,7 @@ export function Donut({
               className="inline-block size-3 shrink-0 translate-y-px rounded-[3px]"
               style={{ background: s.couleur }}
             />
-            <span className="min-w-0 text-ink-secondary" title={s.libelle}>
+            <span className="min-w-0 text-ink-secondary">
               {s.libelle}
             </span>
             <span className="ml-auto shrink-0 font-medium text-ink [font-variant-numeric:tabular-nums]">
