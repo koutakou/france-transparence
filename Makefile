@@ -38,6 +38,10 @@ PY     := $(VENV)/bin/python
 # AUCUNE dépendance d'ordre : il n'écrit que recettes_plf_etat_a.
 # Distinct de S13 (exécution nette, cumul YTD). Recettes BRUTES du
 # projet, pas la LFI. Placé avant sirene.
+# ircom (S47, IRCOM DGFiP) n'a AUCUNE dépendance d'ordre : il n'écrit
+# que ircom_communes / ircom_departements / ircom_national. Distinct
+# de S13 (IR de caisse, cumul YTD). Impôt net SUR RÔLE, année des
+# revenus. Placé avant sirene.
 # sirene (S18) est en DERNIER, et cette place-là n'a rien d'arbitraire : le
 # référentiel Sirene n'est pas ingéré en entier, il est restreint aux SIREN
 # que les autres tables citent (decp, subventions, lobbying, collectivites,
@@ -48,7 +52,7 @@ PIPELINES := referentiels budget_mensuel budget_structure decp boamp approch \
              jorf parlement integrite hatvp_declarations lobbying financement \
              collectivites elections trainvie cada registre_ue \
              dette_maastricht deficit_maastricht dole agregats_apu cge \
-             protection_sociale recettes_plf sirene
+             protection_sociale recettes_plf ircom sirene
 
 # NB : ne PAS déclarer les cibles ingest-<x> en .PHONY — make saute la
 # recherche de règles implicites (ingest-%) pour les cibles phony.

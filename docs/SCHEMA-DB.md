@@ -27,6 +27,9 @@
 # Puis table recettes_plf_etat_a (S46, État A du PLF, recettes du budget
 # général) — CREATE recopié du pipeline P23 (avec IF NOT EXISTS : table
 # neuve, pas une migration).
+# Puis tables ircom_communes / ircom_departements / ircom_national (S47,
+# IRCOM DGFiP) — CREATE recopié du pipeline P24 (avec IF NOT EXISTS :
+# tables neuves, pas une migration). Un index idx_ircom_communes_dep.
 
 > **Extrait daté.** Ce document décrit **82 tables**, **6 vues** et **58 index**, et cette
 > couverture est sa propriété essentielle : une table de la base absente d'ici est un trou de
@@ -1083,6 +1086,41 @@ CREATE TABLE recettes_plf_etat_a (
     libelle        TEXT NOT NULL,
     montant_euros  REAL NOT NULL CHECK (montant_euros >= 0),
     PRIMARY KEY (annee, code)
+);
+-- ---------------------------------------------------------------------------
+-- S47, P24 — IRCOM, impôt net SUR RÔLE par commune de résidence.
+-- Unité native : milliers d'euros ; stockée en euros (× 1000).
+-- impot_net_euros NULL = n.c. (secret statistique), pas un zéro.
+-- Un négatif est une restitution. Tranches de RFR non stockées.
+-- date_donnees = 31/12 de l'année des revenus, jamais last_update.
+-- ---------------------------------------------------------------------------
+CREATE TABLE ircom_communes (
+    annee              INTEGER NOT NULL,
+    dep_carte          TEXT,
+    dep_source         TEXT    NOT NULL,
+    com_source         TEXT    NOT NULL,
+    libelle            TEXT    NOT NULL,
+    n_foyers           INTEGER NOT NULL,
+    impot_net_euros    REAL,
+    n_foyers_imposes   INTEGER,
+    PRIMARY KEY (annee, dep_source, com_source)
+);
+CREATE INDEX idx_ircom_communes_dep ON ircom_communes(annee, dep_carte);
+CREATE TABLE ircom_departements (
+    annee              INTEGER NOT NULL,
+    dep_carte          TEXT    NOT NULL,
+    n_communes         INTEGER NOT NULL,
+    n_communes_nc      INTEGER NOT NULL,
+    n_foyers           INTEGER NOT NULL,
+    impot_net_euros    REAL    NOT NULL,
+    PRIMARY KEY (annee, dep_carte)
+);
+CREATE TABLE ircom_national (
+    annee              INTEGER PRIMARY KEY,
+    n_communes         INTEGER NOT NULL,
+    n_communes_nc      INTEGER NOT NULL,
+    n_foyers           INTEGER NOT NULL,
+    impot_net_euros    REAL    NOT NULL
 );
 CREATE TABLE partis (
     id               TEXT PRIMARY KEY REFERENCES entites(id),

@@ -523,6 +523,7 @@ const SOMMAIRE: { href: string; libelle: string }[] = [
   { href: "#protection-sociale", libelle: "Prestations de protection sociale" },
   { href: "#recettes", libelle: "Recettes de l’État" },
   { href: "#recettes-plf", libelle: "Recettes non fiscales du PLF" },
+  { href: "#ircom", libelle: "Impôt sur le revenu par territoire (IRCOM)" },
   { href: "#collectivites", libelle: "Finances locales" },
   { href: "#frais", libelle: "Frais et train de vie" },
   { href: "#documents", libelle: "Documents officiels" },
@@ -1299,7 +1300,13 @@ export default function PageComprendre() {
             budget général : les fractions affectées à d’autres
             administrations n’y figurent pas. Les recettes non fiscales
             d’exécution restent un seul total : le détail ci-dessous est
-            un projet, pas cette exécution.
+            un projet, pas cette exécution. L’impôt net IRCOM (par
+            commune de résidence, année des revenus) est un autre objet —
+            voir{" "}
+            <a href="#ircom" className={LIEN}>
+              Impôt sur le revenu par territoire
+            </a>
+            .
           </p>
         </div>
       </Card>
@@ -1339,6 +1346,42 @@ export default function PageComprendre() {
             se comparent pas aux nettes S13 et ne sont pas additionnées
             ici. Les prélèvements sur recettes (collectivités, Union
             européenne) sont un autre objet.
+          </p>
+        </div>
+      </Card>
+
+      <Card titre="Impôt sur le revenu par territoire (IRCOM)">
+        <div id="ircom" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+          <p>
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
+            L&apos;IRCOM localise l&apos;impôt net <em>sur rôle</em> des
+            foyers fiscaux, pour l&apos;année des revenus, à la commune de
+            résidence. Un foyer = une déclaration. Un montant négatif est
+            une restitution. Voir{" "}
+            <LienPage href="/recettes/#ircom">Recettes</LienPage>.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">D&apos;où ça vient.</strong>{" "}
+            DGFiP / DESF, jeu{" "}
+            <code className="rounded bg-raised px-1.5 py-0.5">
+              limpot-sur-le-revenu-par-collectivite-territoriale-ircom
+            </code>
+            {" "}
+            sur data.gouv.fr. Licence Ouverte / Open Licence. Millésime
+            mesuré le 24 août 2026 : revenus 2024, déclarés en 2025,
+            fichier publié le 26 mai 2026 (campagne IRCOM 2025).
+          </p>
+          <p>
+            <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
+            Ce n&apos;est pas l&apos;IR de caisse de la situation mensuelle
+            (S13, net, cumul depuis le 1<sup>er</sup> janvier). Ce n&apos;est
+            pas le crédit d&apos;impôt relatif au PFU, exclu par la notice
+            DESF. La CEHR est incluse. <code className="rounded bg-raised px-1.5 py-0.5">n.c.</code>{" "}
+            est le secret statistique, pas un zéro : le total affiché est
+            la somme des communes publiées. Les tranches de revenu fiscal
+            de référence, les salaires et les pensions ne sont pas
+            repris : ce ne sont pas de l&apos;argent public. Aucune page
+            par commune.
           </p>
         </div>
       </Card>

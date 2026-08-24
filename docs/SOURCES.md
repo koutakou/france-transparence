@@ -73,6 +73,12 @@
 > la LFI votée, pas 2026. Pipeline sans dépendance d'ordre, placé avant
 > `sirene`.
 >
+> **Mise à jour du 24/08/2026, soir.** **S47** (IRCOM, impôt sur le revenu
+> par collectivité territoriale, DGFiP/DESF, via `pipelines/ingest_ircom.py`)
+> s'ajoute. L'ingestion compte donc **26 pipelines** et **38 sources**.
+> Distinct de S13 (IR de caisse, cumul YTD). Impôt net **sur rôle**, année
+> des **revenus**. Tranches de RFR, salaires et pensions non ingérés.
+>
 > **Document daté.** Les fraîcheurs et volumétries amont relevées ici l'ont été par appels réels le
 > 19/08/2026 (et le 20/08 pour S38 et S40, le 22/08 soir ~22:30 CEST pour S43, le 23/08 pour S44, S22 et S45) : elles décrivent ces jours-là et **ont dérivé depuis**.
 > Le catalogue vivant, avec la date réellement ingérée de chaque source, est la page `/donnees`
@@ -413,6 +419,16 @@ Tous téléchargés/dépouillés le 19/08/2026 (05-frais-indemnites.md) :
 - **Relevé daté du 24/08/2026** (export CSV HTTP 200) : non fiscales 20 548 548 212 € dont 2110 = 1 467 M€, 2116 = 4 472 M€, 2199 = 15 M€. Ces montants décrivent ce jour-là et **dérivent**.
 - **Modules** : `/recettes` (bloc cloisonné). **INGÉRÉE** — pipeline P23 `pipelines/ingest_recettes_plf.py`.
 
+#### S47. IRCOM — impôt sur le revenu par collectivité territoriale (évalué le 24/08/2026)
+- **Producteur** : DGFiP / DESF (ministères économiques et financiers). Jeu data.gouv `limpot-sur-le-revenu-par-collectivite-territoriale-ircom` (id `536998cba3a729239d20505e`). **URL dataset** : `https://www.data.gouv.fr/datasets/limpot-sur-le-revenu-par-collectivite-territoriale-ircom` (HTTP 200 le 24/08/2026). Ressource zip du millésime courant (IRCOM 2025 = revenus 2024, 18 181 698 o, last_modified 2026-05-26), fichier `ircom_communes_complet_revenus_2024.xlsx`. Le miroir data.economie `limpot-sur-le-revenu-par-collectivite-territoriale0` est **figé** (modified 2018-12-13, 0 enregistrement) : ce n'est pas la source.
+- **Licence relue** (24/08/2026) : fiche data.gouv identifiant `fr-lo`, libellé affiché « Licence Ouverte / Open Licence », HTTP 200. Libellé `meta_sources` : `Licence Ouverte / Open Licence`.
+- **Fréquence** : annuelle (campagne IRCOM N+1 sur les revenus N, publication ~mai N+2). **Date des données** = 31 décembre de l'année des revenus (**2024-12-31** au 24/08/2026), **jamais** `last_update` data.gouv (2026-05-26). Seuils **650/750** jours calendaires, comme S22/S45.
+- **Objet** : impôt net **sur rôle** des foyers fiscaux, par commune de résidence. Notice DESF (4 p., 26/05/2026) : payé ou restitué, hors crédit d'impôt PFU, CEHR incluse. `n.c.` = secret statistique. Un négatif est une restitution. `source_id` = **S47**, jamais `'S13'`.
+- **Ce que la page affiche** : somme des communes dont l'impôt net n'est pas n.c., nombre de foyers, départements (Paris/Lyon/Marseille = arrondissements ramenés à 75/69/13). Tranches de RFR, salaires et pensions **non ingérés**. 0 page communale.
+- **Pièges** : unité native = milliers d'euros (stockée en euros, × 1000) ; B31 (Autres / DINR / SPM) dans le total national, pas sur la carte ; codes B 754/757 pour Paris 1er/16e — le code commune (101–120) tranche ; ce n'est pas l'IR de caisse S13 (87,99 Md€ d'exécution 2024 vs ~91,7 Md€ d'impôt net publié IRCOM le 24/08 — deux objets, on n'additionne pas).
+- **Relevé daté du 24/08/2026** (xlsx HTTP 200) : 35 156 lignes Total, 162 n.c. sur l'impôt net, 158 restitutions (négatifs), 41 634 350 foyers, somme des communes publiées 91,679 Md€. Ces montants décrivent ce jour-là et **dérivent**.
+- **Modules** : `/recettes` (bloc cloisonné). **INGÉRÉE** — pipeline P24 `pipelines/ingest_ircom.py`.
+
 ### Groupe E — Sources écartées (raison prouvée le 19/08/2026)
 
 | Source écartée | Raison constatée | Rapport |
@@ -497,7 +513,7 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 - **Contenu concret** : compteur « dépenses de l'État depuis le 1er janvier » (cumul mensuel, ex. réel : 195,0 Md€ de dépenses nettes du BG au 31/05/2026, 01) avec variation vs même période 2025 ; donut par grands postes (titres, S13) ; top missions (S20, annuel, mention PLF) ; carte de France des marchés notifiés sur 30 jours (S1, lat/lng natives) ; flux « derniers marchés notifiés » (J-1) et « derniers textes au JO » (jour même) ; « X appels d'offres en cours » ; bandeau : marchés notifiés/12 mois, ~500 000 mandats d'élus (S17), 6 829 lobbyistes enregistrés (S4), 12 930 dossiers déclaratifs HATVP (S14).
 
 ### Dépenses de l'État
-- **Sources** : S13 (mensuel), S20 + S21 (structure mission→action), S23 (subventions aux associations), S41 (encours APU Maastricht, bloc cloisonné), S42 (déficit public APU Maastricht, bloc cloisonné), S44 (agrégats ESA TE/TR, bloc TE sur `/depenses` et bloc TR sur `/recettes`), S22 (bilan patrimonial CGE, bloc cloisonné), S45 (prestations de protection sociale DREES, bloc cloisonné), **S46** (État A du PLF, recettes non fiscales, bloc cloisonné sur `/recettes`), S24 (performance, non ingéré), S30 (missions mensuelles PDF, non ingéré), S39 (référentiel des opérateurs, non ingéré).
+- **Sources** : S13 (mensuel), S20 + S21 (structure mission→action), S23 (subventions aux associations), S41 (encours APU Maastricht, bloc cloisonné), S42 (déficit public APU Maastricht, bloc cloisonné), S44 (agrégats ESA TE/TR, bloc TE sur `/depenses` et bloc TR sur `/recettes`), S22 (bilan patrimonial CGE, bloc cloisonné), S45 (prestations de protection sociale DREES, bloc cloisonné), **S46** (État A du PLF, recettes non fiscales, bloc cloisonné sur `/recettes`), **S47** (IRCOM, impôt net sur rôle par territoire, bloc cloisonné sur `/recettes`), S24 (performance, non ingéré), S30 (missions mensuelles PDF, non ingéré), S39 (référentiel des opérateurs, non ingéré).
 - **Fraîcheur affichable** : « Exécution mensuelle : données au 30/06/2026, ~6 semaines de décalage » (01) · « Structure du budget : PLF 2026 (déposé oct. 2025) et exécution 2024 » (01) · « Subventions aux associations : versements 2023 (dernier millésime publié) » (01).
 - **Contenu concret** : courbes 2013-2026 dépenses/recettes/solde, N vs N-1 par titre ; treemap mission → programme → action (comparateur exéc. 2024 / LFI 2025 / PLF 2026 + cotation budget vert) ; recherche parmi 112 722 subventions (SIREN, programme, commune). **Avertissements obligatoires** : PLF ≠ LFI 2026 (jamais publiée en données) ; aucune donnée de paiement en temps réel n'existe (01).
 
@@ -675,6 +691,7 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 | S44 Recettes et dépenses des APU (agrégats ESA) | Annuelle (31/12 du TIME max, jamais `updated` ; 520/600) | décision 2011/833/UE (23/08/2026) | Dépenses (bloc TE) / Recettes (bloc TR) | **ingérée** (P20) |
 | S45 Prestations de protection sociale (DREES CPS) | Annuelle (31/12 de l'année max, jamais last_update ; millésime 2024 au 23/08/2026) | LO 2.0 (Etalab) | Dépenses de l'État (bloc cloisonné) | **ingérée** (P22) |
 | S46 Recettes du budget général au PLF (État A) | Annuelle (publication open data du millésime, pas le dépôt AN ; 2025 → 2024-10-11) | LO 2.0 (Etalab) | Recettes (bloc cloisonné, non fiscales) | **ingérée** (P23) |
+| S47 IRCOM (impôt net sur rôle par commune) | Annuelle (31/12 de l'année des revenus ; 2024 → 2024-12-31 ; publication 26/05/2026) | Licence Ouverte / Open Licence | Recettes (bloc cloisonné) | **ingérée** (P24) |
 
 ---
 

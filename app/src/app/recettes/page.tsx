@@ -29,6 +29,11 @@ import {
   perimetreNonFiscales,
   perimetreParticipations,
 } from "@/lib/queries/recettes-plf";
+import {
+  getIrcom,
+  perimetreFoyersIrcom,
+  perimetreIrcom,
+} from "@/lib/queries/ircom";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
 // Rendu statique : la donnée ne change qu'à l'ingestion, le site est
@@ -40,7 +45,7 @@ import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 const CHEMIN = "/recettes/";
 const TITRE = "Recettes de l'État";
 const DESCRIPTION =
-  "Recettes nettes du budget général de l'État (DGFiP, situations mensuelles) : recettes fiscales par grand impôt, recettes non fiscales, fonds de concours — séries depuis 2013. Le détail des non fiscales est celui du PLF, projet, pas l'exécution.";
+  "Recettes nettes du budget général de l'État (DGFiP, situations mensuelles) : recettes fiscales par grand impôt, recettes non fiscales, fonds de concours — séries depuis 2013. Le détail des non fiscales est celui du PLF, projet, pas l'exécution. L'impôt sur le revenu par territoire (IRCOM) est un autre objet : impôt net sur rôle, année des revenus.";
 
 export const metadata: Metadata = metadonneesPage({
   chemin: CHEMIN,
@@ -122,6 +127,7 @@ export default async function PageRecettes() {
   const longues = getSeriesLonguesRecettes();
   const recettesApu = getAgregatApu("TR");
   const nonFiscalesPlf = getRecettesPlfNonFiscales();
+  const ircom = getIrcom();
 
   // Les mois infra-annuels de la DGFiP sont provisoires : la mention
   // accompagne chaque badge tant que l'année en cours est incomplète.
@@ -410,6 +416,103 @@ export default async function PageRecettes() {
         </div>
       )}
 
+      {ircom && (
+        <div id="ircom" className="flex scroll-mt-32 flex-col gap-6">
+          <div className="flex items-center gap-3" role="separator">
+            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+              Autre objet · IRCOM, revenus {ircom.annee}, pas la caisse
+            </span>
+            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+          </div>
+
+          <Card
+            titre={`Impôt sur le revenu par territoire (IRCOM, revenus ${ircom.annee})`}
+            sousTitre="impôt net sur rôle des foyers fiscaux, par commune de résidence — distinct de l'IR de caisse de la situation mensuelle"
+            droite={
+              <FreshnessBadge
+                dateDonnees={ircom.meta.date_donnees}
+                source="DGFiP — IRCOM"
+                frequence={ircom.meta.frequence}
+                url={ircom.meta.url}
+              />
+            }
+          >
+            <div className="grid gap-3 sm:grid-cols-3">
+              <KpiTile
+                nu
+                label={`Impôt net publié (revenus ${ircom.annee})`}
+                valeur={`${formatNombre(ircom.impotMd, 1)}${ESPACE_FINE}Md€`}
+                perimetre={perimetreIrcom(ircom.annee)}
+              />
+              <KpiTile
+                nu
+                label="Foyers fiscaux"
+                valeur={formatNombre(ircom.nFoyers, 0)}
+                perimetre={perimetreFoyersIrcom(ircom.annee)}
+              />
+              <KpiTile
+                nu
+                label="Communes en n.c."
+                valeur={formatNombre(ircom.nCommunesNc, 0)}
+                perimetre="secret statistique DESF · hors de la somme d'impôt net"
+              />
+            </div>
+            <BarList
+              className="mt-4"
+              items={ircom.departements.slice(0, 8).map((d) => ({
+                libelle: d.nom,
+                valeur: d.impotEuros / 1e9,
+              }))}
+              formatValeur={(v) => `${formatNombre(v, 2)}${ESPACE_FINE}Md€`}
+            />
+            <VueTableau>
+              <DataTable
+                colonnes={[
+                  { cle: "dep", entete: "Dép." },
+                  { cle: "nom", entete: "Département" },
+                  {
+                    cle: "md",
+                    entete: "Impôt net (Md€)",
+                    type: "montant",
+                    decimales: 2,
+                  },
+                  {
+                    cle: "foyers",
+                    entete: "Foyers",
+                    type: "nombre",
+                    decimales: 0,
+                  },
+                  {
+                    cle: "nc",
+                    entete: "Communes n.c.",
+                    type: "nombre",
+                    decimales: 0,
+                  },
+                ]}
+                lignes={ircom.departements.map((d) => ({
+                  dep: d.dep,
+                  nom: d.nom,
+                  md: d.impotEuros / 1e9,
+                  foyers: d.nFoyers,
+                  nc: d.nCommunesNc,
+                }))}
+                cleLigne={(l) => l.dep}
+              />
+            </VueTableau>
+            <p className="mt-3 text-xs text-ink-muted">
+              {ircom.etiquette}. {formatNombre(ircom.nCommunes, 0)} communes
+              Total, dont {formatNombre(ircom.nCommunesNc, 0)} dont l&apos;impôt
+              net est n.c. (secret statistique). Un montant négatif, s&apos;il
+              apparaît, est une restitution. Ce total n&apos;est pas
+              l&apos;IR de la situation mensuelle, et n&apos;inclut pas le
+              crédit d&apos;impôt relatif au PFU.
+            </p>
+            <LienComprendre ancre="ircom" />
+          </Card>
+        </div>
+      )}
+
       <div className="flex flex-col gap-3">
         <NoticeLecture
           ancre="recettes"
@@ -438,7 +541,9 @@ export default async function PageRecettes() {
               Un impôt «&nbsp;net&nbsp;» n’est pas le montant mis à la
               charge du contribuable. Le détail des recettes non fiscales
               est celui du PLF (projet, recettes brutes), pas de
-              l’exécution.
+              l’exécution. L’IRCOM (impôt net sur rôle, par commune de
+              résidence) est un autre objet, distinct de la ligne Impôt
+              sur le revenu de cette situation mensuelle.
             </p>
           }
         />
