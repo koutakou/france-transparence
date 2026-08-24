@@ -44,8 +44,9 @@ import { TooltipGraphique } from "./TooltipGraphique";
  * (`prefers-reduced-motion` respecté d'office), cible de survol ≥ 24px,
  * tooltip natif nom + poids.
  *
- * Tooltips : HTML (DATAVIZ §5), pas le `<title>` SVG. Un seul arrêt
- * clavier sur la figure. La vue tableau jumelle (§9) reste à la page.
+ * Tooltips : HTML (DATAVIZ §5), pas le `<title>` SVG. Pas d'arrêt
+ * clavier sur les 96 départements : le jumeau tableau de la page est
+ * le chemin clavier (§9).
  *
  * @example
  * <MapFrance carte={carte}
@@ -157,15 +158,12 @@ export function MapFrance({
   };
 
   return (
-    <figure
-      className={`relative ${className ?? ""}`}
-      tabIndex={0}
-      aria-label={ariaLabel}
-    >
+    <figure className={`relative ${className ?? ""}`}>
       <svg
         viewBox={`0 0 ${largeur} ${hauteur}`}
         style={{ width: "100%", height: "auto" }}
-        aria-hidden="true"
+        role="img"
+        aria-label={ariaLabel}
         onPointerLeave={() => setTip(null)}
       >
         <style>{`.ft-map-dep:hover { filter: brightness(1.18); } .ft-map-pt:hover circle { filter: brightness(1.18); }
