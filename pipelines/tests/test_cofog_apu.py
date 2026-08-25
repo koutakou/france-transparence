@@ -137,9 +137,19 @@ def test_assembler_joint_sur_code_et_annee(mio, pc):
 def test_date_donnees_vient_du_time_max_pas_de_updated(observations):
     payload = _payload("MIO_EUR")
     assert payload["updated"].startswith("2026-01-01")
+    assert "2025" in payload["dimension"]["time"]["category"]["index"]
+    latest = [
+        a["title"]
+        for a in payload["extension"]["annotation"]
+        if a.get("type") == "OBS_PERIOD_OVERALL_LATEST"
+    ]
+    assert latest == ["2025"]
     time_max = max(o["annee"] for o in observations if o["cofog99"] == "TOTAL")
+    assert time_max == 2024
+    assert 2025 not in {o["annee"] for o in observations}
     assert date_fin_annee(time_max) == "2024-12-31"
     assert str(time_max) != payload["updated"][:4]
+    assert str(time_max) != latest[0]
 
 
 @pytest.mark.parametrize(
