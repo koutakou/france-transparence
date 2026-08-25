@@ -617,7 +617,7 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 ### Élus & Institutions
 - **Sources** : S5 (députés, votes nominaux, questions), S6 (sénateurs), S7 (scores Datan, crédités), S17 (RNE : tous les élus locaux), S14/S15 (déclarations HATVP), S10/S11 (fiches institutions), S26/S19 (élections, Europe ; S19 non ingéré).
 - **Fraîcheur affichable** : « Données parlementaires : mises à jour quotidiennes (open data AN/Sénat) » (03) · « Répertoire des élus : 11/08/2026, post-municipales 2026 » (04) · « Dernier scrutin AN : n° 8434 du 21/07/2026 (vacances parlementaires) » (03).
-- **Contenu concret** : fiches députés (mandats, groupe, commission, déports, lien direct `uri_hatvp`, scores de participation/loyauté Datan) ; votes nominaux des 8 434 scrutins ; sénateurs ; scrutins Sénat non ingérés (Dosleg) ; annuaire des ~500 000 mandats locaux avec démographie (âge, sexe, CSP) ; questions au gouvernement et questions écrites — **les délais de réponse par ministère ne se mesurent que sur les questions écrites** (les QAG ont réponse immédiate, 03 §2.4 ; 10-critique M4) ; **volet documentaire pantouflage** : chiffres agrégés du rapport annuel HATVP (641 avis de mobilité public-privé en 2025, constantes cf. S31), pas d'export open data des avis — veille active (10-critique I7). **Architecture** : paramètre `legislature`, renouvellement Sénat 27/09/2026, table des intitulés ministériels par période (03).
+- **Contenu concret** : fiches députés (mandats, groupe, commission, déports, lien direct `uri_hatvp`, scores de participation/loyauté Datan) ; votes nominaux des 8 434 scrutins ; sénateurs ; scrutins publics et votes nominaux Sénat (Dosleg `scr` + `votsen`, fenêtre nominale, taux calculé ici — pas un score Datan) ; annuaire des ~500 000 mandats locaux avec démographie (âge, sexe, CSP) ; questions au gouvernement et questions écrites — **les délais de réponse par ministère ne se mesurent que sur les questions écrites** (les QAG ont réponse immédiate, 03 §2.4 ; 10-critique M4) ; **volet documentaire pantouflage** : chiffres agrégés du rapport annuel HATVP (641 avis de mobilité public-privé en 2025, constantes cf. S31), pas d'export open data des avis — veille active (10-critique I7). **Architecture** : paramètre `legislature`, renouvellement Sénat 27/09/2026, table des intitulés ministériels par période (03).
 
 ### Lobbying
 - **Sources** : S4 (AGORA quotidien) ; à surveiller : RIE (aucun open data au 19/08/2026, 04).
@@ -723,7 +723,7 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 ### Non ingéré à ce jour — documenté et motivé
 
 1. **S30 SME PDF** (headless + parsing) → le seul mission/programme mensuel (01).
-2. **Sénat approfondi** : Dosleg (dump SQL 126,3 Mo → scrutins nominaux depuis 2006) + Ameli 154 Mo (03).
+2. **Sénat** : Ameli 154 Mo (amendements) — Dosleg `scr` + `votsen` ingéré (S6-DOSLEG, 25/08) (03).
 3. **AN approfondi** : amendements 296,7 Mo/j ; questions écrites 45,8 Mo ; Agenda 7,8 Mo (reconstruction de la présence en commission — plus rien d'autre ne la fournit depuis la mort de NosDéputés) (03).
 4. **S28 balances collectivités** (requêtes ciblées par SIREN) + **S33 comptes individuels** (strates) + **S32 subventions SCDL** (panel Paris/Lyon/départements conformes, jamais « national ») (06).
 5. **S19 HowTheyVote** (68,6 Mo hebdo, ODbL) + Europarl (09).
@@ -742,7 +742,7 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 | S3 DILA JORFSIMPLE | JO du jour à ~00h30 (07) | LO (fr-lo) | Documents/JO, Accueil | **ingéré** |
 | S4 HATVP AGORA (lobbying) | Quotidienne (00h04) (04) | LO Etalab | Lobbying, Alertes | **ingéré** |
 | S5 Open data AN (AMO, scrutins, questions) | Quotidienne (jour même) (03) | LO | Élus & Institutions | **ingéré** (amendements/agenda non ingérés) |
-| S6 Open data Sénat (ODSEN, questions) | Quotidienne (jour même) (03) | LO | Élus & Institutions | **ingéré** (Dosleg/Ameli non ingérés) |
+| S6 Open data Sénat (ODSEN, questions) | Quotidienne (jour même) (03) | LO | Élus & Institutions | **ingéré** (Dosleg `scr`+`votsen` ; Ameli non ingéré) |
 | S7 Datan (scores députés) | Quotidienne (CSV du 19/08/2026) (03) | fr-lo | Élus & Institutions | **ingéré** |
 | S8 DECP data.economie (DAJ) | J-2 (02) | LO 2.0 | Commande publique (contrôle) | **ingéré** |
 | S9 APProch (projets d'achats) | Continue (maj 15/08) (02) | LO 2.0 | Commande publique | **ingéré** |

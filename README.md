@@ -87,7 +87,7 @@ Onze onglets, dans l'ordre de la navigation (`MainNav`) — libellés complets, 
 | `/recettes` | Recettes | Même source S13 que les dépenses : recettes nettes du budget général (fiscales, non fiscales, fonds de concours à part), cumuls depuis le 1er janvier, séries depuis 2013. Sections cloisonnées : détail non fiscal du PLF (S46, projet, pas l'exécution) ; IRCOM (S47, impôt net sur rôle par territoire, année des revenus, pas l'IR de caisse) ; agrégats ESA des APU (S44) ; prélèvements obligatoires INSEE (S50, pas taxag) — ce n'est pas le budget de l'État. |
 | `/marches` | Marchés publics | Marchés consolidés sur 24 mois glissants comptés à la date de notification initiale (quotidien, notifications J-1, consolidation légale ≤ 2 mois), appels d'offres en cours (BOAMP, jour même), achats à venir (APProch). Les comptes bougent chaque jour : voir `/donnees`. |
 | `/elus` | Élus & Institutions | Environ 36 000 élus (RNE, trimestriel) dont 577 députés et 348 sénateurs (open data AN/Sénat/Datan, quotidien). Les conseillers municipaux n'entrent dans aucun chiffre de cette page. |
-| `/elus/[id]` | Fiche élu | Pas un onglet. Plus de 1 000 fiches statiques (parlementaires et présidences d'exécutifs départementaux/régionaux — les autres élus restent dans les listes et agrégats) : mandats, 30 derniers votes sur les quelque 8 400 scrutins AN (le scrutin le plus récent est daté : hors session, il peut avoir plusieurs semaines), scores Datan crédités, lien HATVP. |
+| `/elus/[id]` | Fiche élu | Pas un onglet. Plus de 1 000 fiches statiques (parlementaires et présidences d'exécutifs départementaux/régionaux — les autres élus restent dans les listes et agrégats) : mandats, 30 derniers votes sur les quelque 8 400 scrutins AN (le scrutin le plus récent est daté : hors session, il peut avoir plusieurs semaines) ; sur les fiches sénateurs, votes nominaux Dosleg (fenêtre des derniers scrutins publics, taux calculé ici — ce n'est pas un score Datan) ; scores Datan crédités (députés), lien HATVP. |
 | `/lobbying` | Lobbying | Répertoire HATVP des représentants d'intérêts (quotidien) : entités inscrites, activités déclarées, dépenses par exercice annuel en fourchettes, croisement avec les marchés publics. Puis, dans un bloc **cloisonné** en fin de page, le registre de transparence de l'Union européenne (quotidien) : organisations inscrites, dont celles à siège en France. Deux registres, deux cadres juridiques — jamais fusionnés, jamais comparés. |
 | `/financement` | Financement | Comptes des partis, exercice 2024 (publié le 10/02/2026 — le dernier possible) ; comptes de campagne des législatives 2024, 4 010 candidats (municipales 2026 : aucun compte publié à ce jour, instruction CNCCFP en cours). |
 | `/frais` | Frais | 56 faits chiffrés sourcés (barèmes au 01/01/2026, contrôles exercice 2024, Élysée audité 2024) + 8 opacités documentées — pas de notes de frais : elles ne sont ni publiées ni communicables. **Carte des verrous** : avis et conseils de la CADA de 1984 à 2024, dépouillés en agrégats (qui refuse, sur quel fondement, et dans quel sens la commission tranche), avec le retard de versement de la source affiché en clair. |
@@ -121,7 +121,7 @@ Sources majeures (le catalogue **complet et daté** des 43 sources est la page `
 | HATVP — répertoire des représentants d'intérêts AGORA | quotidienne | Licence Ouverte Etalab |
 | HATVP — liste des déclarations publiées | hebdomadaire | Licence Ouverte Etalab |
 | Open data Assemblée nationale (députés, scrutins) | quotidienne | Licence Ouverte |
-| Open data Sénat (sénateurs) | quotidienne | Licence Ouverte |
+| Open data Sénat (sénateurs, scrutins publics Dosleg) | quotidienne | Licence Ouverte |
 | Datan — scores de participation/loyauté des députés | quotidienne | Licence Ouverte (fr-lo) |
 | DGFiP — situations mensuelles budgétaires (data.economie) | mensuelle | Licence Ouverte 2.0 |
 | PLF 2026 budget vert, PLF 2025, jaune associations (data.economie) | annuelle | Licence Ouverte 2.0 |
@@ -147,7 +147,7 @@ Assumées et affichées dans l'interface — l'honnêteté est le principe produ
 - **Lobbying** : la donnée HATVP ne sépare pas AN et Sénat (« Parlement » agrégé) et les dépenses sont déclarées par exercice annuel. Le registre européen, lui, ne publie aucun identifiant national d'entreprise (ni SIREN, ni TVA) : aucun rapprochement automatique n'est possible entre les deux registres, et aucun n'est tenté.
 - **Comptes locaux 2025** : provisoires (chargés en juillet 2026, ~97 communes manquantes).
 - **Outre-mer** : hors rendu de la carte (présent dans les tableaux et agrégats).
-- **Scrutins du Sénat** : non ingérés à ce jour (le dump Dosleg n'est pas exploité).
+- **Scrutins du Sénat** : dump Dosleg `scr` + `votsen` ingéré (tous les scrutins publics ; fenêtre nominale des derniers). Le taux affiché sur la fiche est calculé ici sur les votes exprimés — ce n'est pas une présence en séance, pas un score Datan. Ameli (amendements) n'est pas ingéré.
 
 ## Contribuer
 
