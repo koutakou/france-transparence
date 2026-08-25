@@ -98,8 +98,16 @@ endif
 ingest-%: venv
 	$(PY) -m pipelines.ingest_$*
 
+# PYTEST_ARGS laisse l'appelant restreindre la SÉLECTION sans dupliquer la recette.
+# La CI s'en sert pour jouer les tests à CHAQUE poussée sans dépendre du réseau :
+# `-m 'not reseau'` (601 tests, ~10 s, aucune sortie vers l'amont) sur tous les
+# événements, et `-m reseau` (20 tests) seulement sur les cycles qui ont déjà
+# téléchargé l'amont. Sans cette variable, le seul moyen d'obtenir la sélection
+# rapide était de court-circuiter make — ce que `ft-deploy` fait déjà de son côté.
+PYTEST_ARGS ?=
+
 test: venv
-	$(PY) -m pytest pipelines/tests -q
+	$(PY) -m pytest pipelines/tests -q $(PYTEST_ARGS)
 
 app-install:
 	cd app && npm install

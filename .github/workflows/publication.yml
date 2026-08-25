@@ -100,8 +100,13 @@ jobs:
           restore-keys: |
             france-db-${{ hashFiles('pipelines/*.py') }}-
 
+      # INCONDITIONNEL depuis le 25/08/2026 : les tests tournent désormais à chaque
+      # événement (voir l'étape « Tests pipelines »), y compris quand l'ingestion est
+      # sautée. Sans cette étape, `make venv` retomberait sur le python3 de l'image
+      # (3.12 sur ubuntu-24.04) et les tests d'une proposition de fusion ne
+      # tourneraient pas sur le même interpréteur que ceux du cycle quotidien.
+      # Le coût est nul : l'étape est mesurée à 0 s quand la version est déjà en cache.
       - uses: actions/setup-python@v5
-        if: steps.mode.outputs.ingestion == 'oui' || steps.cache-db.outputs.cache-matched-key == ''
         with:
           python-version: "3.14"
 
@@ -112,9 +117,35 @@ jobs:
           make venv PYTHON=python3
           make ingest PYTHON=python3
 
+      # LE GARDE-FOU. Cette étape portait `if: steps.ingestion.outcome == 'success'`,
+      # ce qui liait les tests au REMPLISSAGE DU CACHE et non au contenu proposé :
+      # dès que la base du jour était restaurée, l'ingestion était sautée et pytest
+      # avec elle. Mesuré par l'API le 25/08/2026 : 35 des 51 poussées sur main
+      # depuis le 22/08 (69 %) portaient `Tests pipelines (pytest) -> skipped`, et
+      # les 51 runs étaient pourtant conclus `success` — une CI verte ne prouvait
+      # rien. Les propositions de fusion étaient touchées dans la même proportion
+      # (39 sur 56), donc le trou était AVANT la fusion autant qu'après.
+      #
+      # Le lien n'avait aucune raison technique : aucun test n'a besoin de la base
+      # servie. Les 33 fichiers de `pipelines/tests` construisent chacun leur base
+      # dans `tmp_path`, et `pipelines/db.py` lit `FT_DB_PATH`, détourné par les
+      # tests qui font tourner un pipeline entier. Vérifié sur un arbre SANS
+      # `data/france.db` : 600 passed, 1 skipped, 20 deselected en 9 s, et la suite
+      # ne crée aucune base. Seul saut : un test de lobbying qui veut un CSV brut.
+      #
+      # `-m 'not reseau'` écarte les 20 tests qui appellent les sources amont. Ils
+      # sont joués juste en dessous, mais seulement quand l'ingestion a tourné : les
+      # faire jouer à chaque proposition de fusion rendrait la fusion tributaire de
+      # la disponibilité d'API tierces. `ft-deploy` applique déjà la même règle.
       - name: Tests pipelines (pytest)
+        run: make test PYTHON=python3 PYTEST_ARGS="-m 'not reseau'"
+
+      # Les 20 tests marqués `reseau` interrogent réellement l'amont. Ils gardent
+      # l'ancienne condition : quand l'ingestion vient de tourner, le réseau a déjà
+      # été sollicité et une panne amont est justement ce qu'on veut apprendre ici.
+      - name: Tests réseau (sources amont)
         if: steps.ingestion.outcome == 'success'
-        run: make test PYTHON=python3
+        run: make test PYTHON=python3 PYTEST_ARGS="-m reseau"
 
       - name: Consolider la base (checkpoint WAL → fichier unique)
         if: steps.ingestion.outcome == 'success'
