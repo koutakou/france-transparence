@@ -42,7 +42,11 @@
  * aucun dénominateur.
  *
  * BOAMP : ao_en_cours est un instantané quotidien — on re-filtre TOUJOURS
- * annulee = 0 ET date_limite_reponse > datetime('now') à la requête.
+ * annulee = 0 ET datetime(date_limite_reponse) > datetime('now') à la
+ * requête (`datetime()` normalise l'ISO `T` / `+00:00` : une comparaison
+ * chaîne laisse passer toutes les clôtures du jour, `T` > espace).
+ * Même prédicat que accueil.ts — les deux tuiles doivent dire le même
+ * stock.
  * APProch : acheteur = SIREN seul (nom résolu à la requête sur entites puis
  * sur le référentiel Sirene), montants en tranches TEXTE non sommables.
  *
@@ -905,7 +909,7 @@ export function chargerDonneesMarches(
   const aoEnCours = db
     .prepare(
       `SELECT COUNT(*) AS nb FROM ao_en_cours
-       WHERE annulee = 0 AND date_limite_reponse > datetime('now')`,
+       WHERE annulee = 0 AND datetime(date_limite_reponse) > datetime('now')`,
     )
     .get() as { nb: number };
 
@@ -1047,7 +1051,7 @@ export function chargerDonneesMarches(
     db
       .prepare(
         `SELECT famille, famille_libelle, COUNT(*) AS nb FROM ao_en_cours
-         WHERE annulee = 0 AND date_limite_reponse > datetime('now')
+         WHERE annulee = 0 AND datetime(date_limite_reponse) > datetime('now')
            AND famille IS NOT NULL
          GROUP BY famille, famille_libelle ORDER BY nb DESC`,
       )
@@ -1067,7 +1071,7 @@ export function chargerDonneesMarches(
     .prepare(
       `SELECT COUNT(*) AS nb, COALESCE(SUM(montant_estime IS NULL), 0) AS sans
        FROM ao_en_cours
-       WHERE annulee = 0 AND date_limite_reponse > datetime('now')
+       WHERE annulee = 0 AND datetime(date_limite_reponse) > datetime('now')
          AND (? IS NULL OR famille = ?)`,
     )
     .get(familleActive, familleActive) as { nb: number; sans: number };
@@ -1078,7 +1082,7 @@ export function chargerDonneesMarches(
       `SELECT idweb, objet, acheteur, montant_estime, date_limite_reponse,
               url_avis
        FROM ao_en_cours
-       WHERE annulee = 0 AND date_limite_reponse > datetime('now')
+       WHERE annulee = 0 AND datetime(date_limite_reponse) > datetime('now')
          AND (? IS NULL OR famille = ?)
        ORDER BY date_limite_reponse ASC LIMIT 20`,
     )
@@ -1179,7 +1183,7 @@ export function getAoParFamille(): AoParFamille | null {
   const familles = db
     .prepare(
       `SELECT famille, famille_libelle, COUNT(*) AS nb FROM ao_en_cours
-       WHERE annulee = 0 AND date_limite_reponse > datetime('now')
+       WHERE annulee = 0 AND datetime(date_limite_reponse) > datetime('now')
          AND famille IS NOT NULL
        GROUP BY famille, famille_libelle ORDER BY nb DESC`,
     )
@@ -1190,7 +1194,7 @@ export function getAoParFamille(): AoParFamille | null {
       .prepare(
         `SELECT COUNT(*) AS nb, COALESCE(SUM(montant_estime IS NULL), 0) AS sans
          FROM ao_en_cours
-         WHERE annulee = 0 AND date_limite_reponse > datetime('now')
+         WHERE annulee = 0 AND datetime(date_limite_reponse) > datetime('now')
            AND (? IS NULL OR famille = ?)`,
       )
       .get(famille, famille) as { nb: number; sans: number };
@@ -1199,7 +1203,7 @@ export function getAoParFamille(): AoParFamille | null {
         `SELECT idweb, objet, acheteur, montant_estime, date_limite_reponse,
                 url_avis
          FROM ao_en_cours
-         WHERE annulee = 0 AND date_limite_reponse > datetime('now')
+         WHERE annulee = 0 AND datetime(date_limite_reponse) > datetime('now')
            AND (? IS NULL OR famille = ?)
          ORDER BY date_limite_reponse ASC LIMIT 20`,
       )
