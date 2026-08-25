@@ -39,6 +39,11 @@
 # Puis table comptes_odac_insee (S51, INSEE tableau 3.204, ODAC S13112) —
 # CREATE recopié du pipeline P28 (avec IF NOT EXISTS : table neuve,
 # pas une migration). Unité native Md€. B9 non ingéré.
+# et le 25/08/2026 : tables votes_recents_archive, votes_senat_archive,
+# jorf_textes_archive, annonces_recentes_archive — CREATE recopié des
+# pipelines P9/P6/P4 (avec IF NOT EXISTS : tables neuves, pas une
+# migration, pas un ALTER de votes_recents). Non servies. Copie avant
+# DELETE de fenêtre (100 scrutins, 30 JO, 30 j BOAMP).
 
 > **Extrait daté.** Ce document décrit **83 tables**, **6 vues** et **58 index**, et cette
 > couverture est sa propriété essentielle : une table de la base absente d'ici est un trou de
@@ -553,6 +558,24 @@ CREATE TABLE annonces_recentes (
 );
 CREATE INDEX idx_annonces_parution ON annonces_recentes(date_parution);
 CREATE INDEX idx_annonces_nature   ON annonces_recentes(nature);
+CREATE TABLE annonces_recentes_archive (
+    idweb               TEXT PRIMARY KEY,
+    objet               TEXT,
+    acheteur            TEXT,
+    nature              TEXT,
+    nature_libelle      TEXT,
+    famille             TEXT,
+    famille_libelle     TEXT,
+    type_marche         TEXT CHECK (type_marche IS NULL OR json_valid(type_marche)),
+    titulaires          TEXT CHECK (titulaires IS NULL OR json_valid(titulaires)),
+    departements        TEXT CHECK (departements IS NULL OR json_valid(departements)),
+    date_parution       TEXT NOT NULL,
+    date_limite_reponse TEXT,
+    url_avis            TEXT,
+    archive_le          TEXT NOT NULL
+);
+CREATE INDEX idx_annonces_archive_parution
+    ON annonces_recentes_archive(date_parution);
 CREATE TABLE annonces_par_famille (
     famille         TEXT,
     famille_libelle TEXT,
@@ -603,6 +626,25 @@ CREATE TABLE jorf_textes (
 CREATE INDEX idx_jorf_textes_date       ON jorf_textes(date_publi);
 CREATE INDEX idx_jorf_textes_nature     ON jorf_textes(nature);
 CREATE INDEX idx_jorf_textes_nomination ON jorf_textes(is_nomination);
+CREATE TABLE jorf_textes_archive (
+    texte_id        TEXT PRIMARY KEY,
+    conteneur_id    TEXT,
+    num_jo          TEXT,
+    date_publi      TEXT NOT NULL,
+    date_texte      TEXT,
+    nature          TEXT,
+    nor             TEXT,
+    titre           TEXT NOT NULL,
+    ministere       TEXT,
+    rubrique        TEXT,
+    is_nomination   INTEGER NOT NULL DEFAULT 0,
+    lien_legifrance TEXT NOT NULL,
+    id_eli          TEXT,
+    num_sequence    INTEGER,
+    archive_le      TEXT NOT NULL
+);
+CREATE INDEX idx_jorf_textes_archive_date
+    ON jorf_textes_archive(date_publi);
 CREATE TABLE jorf_par_jour_nature (
     date_publi TEXT NOT NULL,
     nature     TEXT NOT NULL,
@@ -703,6 +745,19 @@ CREATE TABLE votes_recents (
     PRIMARY KEY (scrutin_uid, uid_an)
 );
 CREATE INDEX idx_votes_recents_acteur ON votes_recents(uid_an);
+CREATE TABLE votes_recents_archive (
+    scrutin_uid     TEXT NOT NULL,
+    scrutin_numero  INTEGER NOT NULL,
+    uid_an          TEXT NOT NULL,
+    position        TEXT NOT NULL CHECK (position IN
+                      ('pour','contre','abstention','nonVotant')),
+    par_delegation  INTEGER NOT NULL DEFAULT 0,
+    cause_position  TEXT,
+    archive_le      TEXT NOT NULL,
+    PRIMARY KEY (scrutin_uid, uid_an)
+);
+CREATE INDEX idx_votes_recents_archive_acteur
+    ON votes_recents_archive(uid_an);
 CREATE TABLE scrutins_senat (
     sesann             INTEGER NOT NULL,
     numero             INTEGER NOT NULL,
@@ -728,6 +783,18 @@ CREATE TABLE votes_senat (
     PRIMARY KEY (sesann, numero, matricule)
 );
 CREATE INDEX idx_votes_senat_acteur ON votes_senat(matricule);
+CREATE TABLE votes_senat_archive (
+    sesann          INTEGER NOT NULL,
+    numero          INTEGER NOT NULL,
+    matricule       TEXT NOT NULL,
+    position        TEXT NOT NULL CHECK (position IN
+                      ('pour','contre','abstention','nonVotant')),
+    par_delegation  INTEGER NOT NULL DEFAULT 0,
+    archive_le      TEXT NOT NULL,
+    PRIMARY KEY (sesann, numero, matricule)
+);
+CREATE INDEX idx_votes_senat_archive_acteur
+    ON votes_senat_archive(matricule);
 CREATE TABLE participation_senat (
     matricule              TEXT PRIMARY KEY,
     taux_participation_12m REAL,
@@ -1661,6 +1728,7 @@ CREATE INDEX idx_sirene_etat
 - annonces_par_famille : 19 lignes
 - annonces_par_jour : 31 lignes
 - annonces_recentes : 9426 lignes
+- annonces_recentes_archive : 0 jusqu'à la première sortie de fenêtre (30 j) ; non servie
 - ao_en_cours : 9011 lignes
 - budget_destination_2025 : 2404 lignes
 - budget_mensuel : 4212 lignes
@@ -1715,6 +1783,7 @@ CREATE INDEX idx_sirene_etat
 - jorf_nominations_ministere : 19 lignes
 - jorf_par_jour_nature : 216 lignes
 - jorf_textes : 2778 lignes
+- jorf_textes_archive : 0 jusqu'à la première sortie de fenêtre (30 JO) ; non servie
 - lobby_activites : 41601 lignes
 - lobby_agg_budgets : 23 lignes
 - lobby_agg_institutions : 9 lignes
@@ -1741,6 +1810,7 @@ CREATE INDEX idx_sirene_etat
 - senateurs : 348 lignes
 - scrutins_senat : tous les scrutins publics Dosleg (`scr`) ; volume = dump du jour
 - votes_senat : détail nominal des ~100 derniers scrutins (`votsen`)
+- votes_senat_archive : 0 jusqu'à la première sortie de fenêtre (100 scrutins) ; non servie
 - participation_senat : une ligne par sénateur en exercice (taux 12 mois)
 - subventions_associations : 112722 lignes
 - trainvie_faits : 56 lignes
@@ -1753,6 +1823,7 @@ CREATE INDEX idx_sirene_etat
   inscrits au registre moins 235 personnes physiques non nommées ;
   +4 427 776 octets en base, index compris)
 - votes_recents : 13796 lignes
+- votes_recents_archive : 0 jusqu'à la première sortie de fenêtre (100 scrutins) ; non servie
 
 ## Conventions de valeurs — ce que le DDL ne dit pas
 

@@ -15,7 +15,11 @@ Source (docs/SOURCES.md S3, docs/recherche/07-documents-juridique.md) :
 
 Tables créées (CREATE TABLE IF NOT EXISTS, réexécution sans doublons) :
 
-- jorf_textes — un texte publié au JO (fenêtre : les ~30 derniers JO parus)
+- jorf_textes — un texte publié au JO (fenêtre : les ~30 derniers JO parus).
+  Les textes hors fenêtre sont copiés vers jorf_textes_archive (table
+  NOUVELLE, non servie) avant le DELETE.
+- jorf_textes_archive — même grain + archive_le ; pas un ALTER de
+  jorf_textes.
     texte_id        TEXT PK   id JORFTEXT… (clé d'idempotence)
     conteneur_id    TEXT      id JORFCONT… du JO porteur
     num_jo          TEXT      numéro du JO (ex. '0192')
@@ -54,11 +58,13 @@ import sys
 import tarfile
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 
 import requests
 
 from pipelines import db
+from pipelines.archive_fenetre import archiver_sortie_fenetre
 from pipelines.common import obtenir_logger, session_http, telecharger
 
 log = obtenir_logger("jorf")
@@ -98,6 +104,26 @@ CREATE TABLE IF NOT EXISTS jorf_textes (
 CREATE INDEX IF NOT EXISTS idx_jorf_textes_date       ON jorf_textes(date_publi);
 CREATE INDEX IF NOT EXISTS idx_jorf_textes_nature     ON jorf_textes(nature);
 CREATE INDEX IF NOT EXISTS idx_jorf_textes_nomination ON jorf_textes(is_nomination);
+
+CREATE TABLE IF NOT EXISTS jorf_textes_archive (
+    texte_id        TEXT PRIMARY KEY,
+    conteneur_id    TEXT,
+    num_jo          TEXT,
+    date_publi      TEXT NOT NULL,
+    date_texte      TEXT,
+    nature          TEXT,
+    nor             TEXT,
+    titre           TEXT NOT NULL,
+    ministere       TEXT,
+    rubrique        TEXT,
+    is_nomination   INTEGER NOT NULL DEFAULT 0,
+    lien_legifrance TEXT NOT NULL,
+    id_eli          TEXT,
+    num_sequence    INTEGER,
+    archive_le      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_jorf_textes_archive_date
+    ON jorf_textes_archive(date_publi);
 
 CREATE TABLE IF NOT EXISTS jorf_par_jour_nature (
     date_publi TEXT NOT NULL,
@@ -336,6 +362,30 @@ def ingerer_tarball(chemin_tar: Path, conn) -> tuple[int, list[str]]:
 # ---------------------------------------------------------------------------
 
 
+COLONNES_JORF_TEXTES = (
+    "texte_id", "conteneur_id", "num_jo", "date_publi", "date_texte",
+    "nature", "nor", "titre", "ministere", "rubrique", "is_nomination",
+    "lien_legifrance", "id_eli", "num_sequence",
+)
+
+
+def archiver_et_purger_jorf(conn, debut_fenetre: str, archive_le: str) -> int:
+    """Copie puis DELETE les textes dont date_publi < début de fenêtre."""
+    n = archiver_sortie_fenetre(
+        conn,
+        source="jorf_textes",
+        archive="jorf_textes_archive",
+        colonnes=COLONNES_JORF_TEXTES,
+        where="date_publi < ?",
+        params=(debut_fenetre,),
+        archive_le=archive_le,
+    )
+    conn.execute(
+        "DELETE FROM jorf_textes WHERE date_publi < ?", (debut_fenetre,)
+    )
+    return n
+
+
 def reconstruire_agregats(conn) -> None:
     """Reconstruit les deux tables d'agrégats depuis jorf_textes (déterministe)."""
     conn.execute("DELETE FROM jorf_par_jour_nature")
@@ -429,11 +479,14 @@ def main(argv: list[str] | None = None) -> int:
 
     # Fenêtre glissante : la table ne garde que les JO couverts par ce run.
     debut_fenetre = min(toutes_dates)
-    purge = conn.execute(
-        "DELETE FROM jorf_textes WHERE date_publi < ?", (debut_fenetre,)
-    ).rowcount
-    if purge:
-        log.info("fenêtre %s → : %d textes plus anciens purgés", debut_fenetre, purge)
+    n_arch = archiver_et_purger_jorf(
+        conn, debut_fenetre, date.today().isoformat()
+    )
+    if n_arch:
+        log.info(
+            "fenêtre %s → : %d textes plus anciens archivés puis purgés",
+            debut_fenetre, n_arch,
+        )
 
     reconstruire_agregats(conn)
 

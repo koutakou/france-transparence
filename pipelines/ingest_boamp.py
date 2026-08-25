@@ -16,7 +16,10 @@ Tables produites (réécriture complète à chaque run, en transaction) :
     non publié), devise, date_parution, date_limite_reponse, url_avis,
     annulee (0/1), rectifiee_par (idweb du dernier rectificatif lié).
 - annonces_recentes — flux des annonces parues sur FENETRE_JOURS jours,
-  attributions incluses :
+  attributions incluses. Les lignes hors fenêtre sont copiées vers
+  annonces_recentes_archive (table NOUVELLE, non servie) avant le
+  DELETE ALL de réécriture.
+- annonces_recentes_archive — même grain + archive_le. Pas un ALTER.
     idweb (PK), objet, acheteur, nature, nature_libelle, famille,
     famille_libelle, type_marche (JSON), titulaires (JSON), departements
     (JSON), date_parution, date_limite_reponse, url_avis.
@@ -50,6 +53,7 @@ from datetime import date, timedelta
 from urllib.parse import quote, urlencode
 
 from pipelines import db
+from pipelines.archive_fenetre import archiver_sortie_fenetre
 from pipelines.common import obtenir_logger, telecharger
 
 log = obtenir_logger("ingest_boamp")
@@ -130,6 +134,25 @@ CREATE TABLE IF NOT EXISTS annonces_recentes (
 CREATE INDEX IF NOT EXISTS idx_annonces_parution ON annonces_recentes(date_parution);
 CREATE INDEX IF NOT EXISTS idx_annonces_nature   ON annonces_recentes(nature);
 
+CREATE TABLE IF NOT EXISTS annonces_recentes_archive (
+    idweb               TEXT PRIMARY KEY,
+    objet               TEXT,
+    acheteur            TEXT,
+    nature              TEXT,
+    nature_libelle      TEXT,
+    famille             TEXT,
+    famille_libelle     TEXT,
+    type_marche         TEXT CHECK (type_marche IS NULL OR json_valid(type_marche)),
+    titulaires          TEXT CHECK (titulaires IS NULL OR json_valid(titulaires)),
+    departements        TEXT CHECK (departements IS NULL OR json_valid(departements)),
+    date_parution       TEXT NOT NULL,
+    date_limite_reponse TEXT,
+    url_avis            TEXT,
+    archive_le          TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_annonces_archive_parution
+    ON annonces_recentes_archive(date_parution);
+
 CREATE TABLE IF NOT EXISTS annonces_par_famille (
     famille         TEXT,
     famille_libelle TEXT,
@@ -144,6 +167,28 @@ CREATE TABLE IF NOT EXISTS annonces_par_jour (
     nb_attributions  INTEGER NOT NULL
 );
 """
+
+COLONNES_ANNONCES_RECENTES = (
+    "idweb", "objet", "acheteur", "nature", "nature_libelle",
+    "famille", "famille_libelle", "type_marche", "titulaires",
+    "departements", "date_parution", "date_limite_reponse", "url_avis",
+)
+
+
+def archiver_annonces_hors_fenetre(
+    conn, debut_fenetre: str, archive_le: str
+) -> int:
+    """Copie les annonces dont date_parution < début de fenêtre (30 j)."""
+    return archiver_sortie_fenetre(
+        conn,
+        source="annonces_recentes",
+        archive="annonces_recentes_archive",
+        colonnes=COLONNES_ANNONCES_RECENTES,
+        where="date_parution < ?",
+        params=(debut_fenetre,),
+        archive_le=archive_le,
+    )
+
 
 # ---------------------------------------------------------------------------
 # Parsing (fonctions pures, testées sur enregistrements réels)
@@ -427,6 +472,14 @@ def _executer() -> None:
     try:
         conn.executescript(SCHEMA)
         # Réécriture idempotente en une transaction.
+        n_arch = archiver_annonces_hors_fenetre(
+            conn, debut_fenetre, aujourdhui.isoformat()
+        )
+        if n_arch:
+            log.info(
+                "annonces_recentes : %d lignes sorties de fenêtre archivées",
+                n_arch,
+            )
         conn.execute("DELETE FROM ao_en_cours")
         conn.executemany(
             """

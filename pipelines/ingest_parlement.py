@@ -48,13 +48,18 @@ Tables écrites (CREATE TABLE IF NOT EXISTS, run idempotent) :
 - votes_recents : scrutin_uid + uid_an (PK composite), scrutin_numero,
   position (pour/contre/abstention/nonVotant), par_delegation,
   cause_position — détail nominal conservé pour les ~100 derniers scrutins
-  seulement (les plus anciens sont purgés à chaque run).
+  seulement (les plus anciens sont copiés vers votes_recents_archive
+  puis purgés). Table d'archive NOUVELLE, non servie.
+- votes_recents_archive : même grain que votes_recents + archive_le ;
+  INSERT OR IGNORE avant le DELETE de fenêtre. Pas un ALTER.
 - scrutins_senat : (sesann, numero) PK, date_scrutin, titre, totaux
   pour/contre/votants/exprimés/abstentions, adopte/sort. TOUS les scrutins
   publics Dosleg depuis 2006. Tables NOUVELLES — pas une colonne chambre
   sur `scrutins`.
 - votes_senat : (sesann, numero, matricule) PK, position, par_delegation
-  (senmatdel renseigné). ~100 derniers scrutins seulement.
+  (senmatdel renseigné). ~100 derniers scrutins seulement. Les votes
+  qui sortent de ces 100 sont copiés vers votes_senat_archive (table
+  NOUVELLE, non servie) avant le DELETE ALL.
 - participation_senat : matricule PK, taux 12 mois (même formule que
   l'AN : exprimés pour+contre+abstention / scrutins depuis l'entrée en
   mandat). Table dédiée : ODSEN fait INSERT OR REPLACE sur senateurs.
@@ -105,6 +110,7 @@ from pathlib import Path
 import requests
 
 from pipelines import db
+from pipelines.archive_fenetre import archiver_sortie_fenetre
 from pipelines.common import (
     assainir_texte,
     obtenir_logger,
@@ -139,6 +145,13 @@ URL_API_DATASET_DATAN = ("https://www.data.gouv.fr/api/1/datasets/"
 
 # Détail nominal conservé pour les N derniers scrutins (task/SOURCES.md).
 NB_SCRUTINS_DETAIL = 100
+COLONNES_VOTES_RECENTS = (
+    "scrutin_uid", "scrutin_numero", "uid_an",
+    "position", "par_delegation", "cause_position",
+)
+COLONNES_VOTES_SENAT = (
+    "sesann", "numero", "matricule", "position", "par_delegation",
+)
 # Fenêtre des agrégats de participation.
 FENETRE_JOURS = 365
 
@@ -241,6 +254,22 @@ CREATE TABLE IF NOT EXISTS votes_recents (
 );
 CREATE INDEX IF NOT EXISTS idx_votes_recents_acteur ON votes_recents(uid_an);
 
+-- Archive locale, NON servie. Table NOUVELLE : pas un ALTER de
+-- votes_recents (CREATE TABLE IF NOT EXISTS ne migre pas france.db).
+CREATE TABLE IF NOT EXISTS votes_recents_archive (
+    scrutin_uid     TEXT NOT NULL,
+    scrutin_numero  INTEGER NOT NULL,
+    uid_an          TEXT NOT NULL,
+    position        TEXT NOT NULL CHECK (position IN
+                      ('pour','contre','abstention','nonVotant')),
+    par_delegation  INTEGER NOT NULL DEFAULT 0,
+    cause_position  TEXT,
+    archive_le      TEXT NOT NULL,
+    PRIMARY KEY (scrutin_uid, uid_an)
+);
+CREATE INDEX IF NOT EXISTS idx_votes_recents_archive_acteur
+    ON votes_recents_archive(uid_an);
+
 -- Scrutins / votes Sénat : TABLES NOUVELLES. Ne pas ajouter de colonne
 -- `chambre` à scrutins / votes_recents (CREATE TABLE IF NOT EXISTS ne
 -- migre pas france.db persistante ; votes_recents.uid_an n'est pas un
@@ -272,6 +301,19 @@ CREATE TABLE IF NOT EXISTS votes_senat (
 );
 CREATE INDEX IF NOT EXISTS idx_votes_senat_acteur ON votes_senat(matricule);
 
+CREATE TABLE IF NOT EXISTS votes_senat_archive (
+    sesann          INTEGER NOT NULL,
+    numero          INTEGER NOT NULL,
+    matricule       TEXT NOT NULL,
+    position        TEXT NOT NULL CHECK (position IN
+                      ('pour','contre','abstention','nonVotant')),
+    par_delegation  INTEGER NOT NULL DEFAULT 0,
+    archive_le      TEXT NOT NULL,
+    PRIMARY KEY (sesann, numero, matricule)
+);
+CREATE INDEX IF NOT EXISTS idx_votes_senat_archive_acteur
+    ON votes_senat_archive(matricule);
+
 -- Agrégats 12 mois : table dédiée (ODSEN fait INSERT OR REPLACE sur
 -- senateurs — des colonnes ajoutées là seraient écrasées chaque run).
 CREATE TABLE IF NOT EXISTS participation_senat (
@@ -283,6 +325,55 @@ CREATE TABLE IF NOT EXISTS participation_senat (
     participation_maj      TEXT
 );
 """
+
+def archiver_votes_recents_sous_seuil(
+    conn, seuil_detail: int, archive_le: str
+) -> int:
+    """Copie vers votes_recents_archive les nominaux sous le seuil (100)."""
+    return archiver_sortie_fenetre(
+        conn,
+        source="votes_recents",
+        archive="votes_recents_archive",
+        colonnes=COLONNES_VOTES_RECENTS,
+        where="scrutin_numero < ?",
+        params=(seuil_detail,),
+        archive_le=archive_le,
+    )
+
+
+def archiver_votes_senat_hors_cles(
+    conn, cles_detail: set[tuple[int, int]], archive_le: str
+) -> int:
+    """Copie les votes_senat dont (sesann, numero) n'est plus dans les 100."""
+    conn.execute("DROP TABLE IF EXISTS _cles_votes_senat_gardes")
+    conn.execute(
+        """CREATE TEMP TABLE _cles_votes_senat_gardes (
+               sesann INTEGER NOT NULL,
+               numero INTEGER NOT NULL,
+               PRIMARY KEY (sesann, numero)
+           )"""
+    )
+    if cles_detail:
+        conn.executemany(
+            "INSERT INTO _cles_votes_senat_gardes(sesann, numero) VALUES (?, ?)",
+            list(cles_detail),
+        )
+    n = archiver_sortie_fenetre(
+        conn,
+        source="votes_senat",
+        archive="votes_senat_archive",
+        colonnes=COLONNES_VOTES_SENAT,
+        where=(
+            "NOT EXISTS (SELECT 1 FROM _cles_votes_senat_gardes g "
+            "WHERE g.sesann = votes_senat.sesann "
+            "AND g.numero = votes_senat.numero)"
+        ),
+        params=(),
+        archive_le=archive_le,
+    )
+    conn.execute("DROP TABLE IF EXISTS _cles_votes_senat_gardes")
+    return n
+
 
 # ---------------------------------------------------------------------------
 # Helpers de parsing (purs, testés dans tests/test_parlement.py)
@@ -877,6 +968,14 @@ def ingerer_scrutins(conn, session: requests.Session) -> None:
             metas,
         )
         # Détail nominal : fenêtre glissante des ~100 derniers scrutins.
+        # Copier AVANT le DELETE : sinon la ligne n'existe plus nulle part.
+        n_arch = archiver_votes_recents_sous_seuil(
+            conn, seuil_detail, date.today().isoformat()
+        )
+        if n_arch:
+            log.info(
+                "votes_recents : %d lignes sorties de fenêtre archivées", n_arch
+            )
         conn.execute("DELETE FROM votes_recents WHERE scrutin_numero < ?",
                      (seuil_detail,))
         lignes_votes = []
@@ -1123,6 +1222,13 @@ def ingerer_dosleg(conn, session: requests.Session) -> None:
     n_detail = min(NB_SCRUTINS_DETAIL, len(scrutins))
 
     with conn:
+        n_arch = archiver_votes_senat_hors_cles(
+            conn, cles_detail, date.today().isoformat()
+        )
+        if n_arch:
+            log.info(
+                "votes_senat : %d lignes sorties de fenêtre archivées", n_arch
+            )
         conn.execute("DELETE FROM votes_senat")
         conn.execute("DELETE FROM scrutins_senat")
         conn.execute("DELETE FROM participation_senat")

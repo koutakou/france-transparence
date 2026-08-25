@@ -403,8 +403,16 @@ export default function PageDonneesPersonnelles() {
               Données
             </Link>
             . La base est reconstruite régulièrement à partir de ces seules
-            publications : les durées de conservation sont alignées sur les
-            publications amont.
+            publications. Les pages du site n&apos;affichent que la fenêtre
+            encore servie : les 100 derniers scrutins nominaux (Assemblée et
+            Sénat), les 30 derniers JO, les 30 derniers jours d&apos;annonces
+            BOAMP. Les lignes qui sortent de cette fenêtre restent dans la
+            base, dans des tables d&apos;archive que le site ne sert pas —
+            votes nominatifs des élus, textes du JO y compris les mesures
+            nominatives, annonces de marchés. Cette conservation locale
+            commence le jour où la ligne sort de la fenêtre ; elle ne
+            reconstitue pas les lignes déjà purgées avant la mise en service
+            de ces tables, et elle ne crée pas de page d&apos;archives.
           </p>
           <p>
             <strong className="text-ink">
