@@ -86,6 +86,14 @@
 > primitives du rôle général, année d'**imposition**. Taux, compensations
 > TVA et pages communales non ingérés.
 >
+> **Mise à jour du 25/08/2026.** **S49** (dépenses des APU par fonction,
+> Eurostat `gov_10a_exp`, CFAP / COFOG-99, na_item=TE, via
+> `pipelines/ingest_cofog_apu.py`) s'ajoute. L'ingestion compte donc
+> **28 pipelines** et **40 sources**. Distinct de S13 (budget de l'État),
+> de S44 (TE `gov_10a_main`, table distincte) et de S45 (prestations
+> DREES). TOTAL + GF01–GF10. TIME 2025 listé, 0 valeur FR au 25/08 :
+> millésime 2024. Groupes et taxag non ingérés.
+>
 > **Document daté.** Les fraîcheurs et volumétries amont relevées ici l'ont été par appels réels le
 > 19/08/2026 (et le 20/08 pour S38 et S40, le 22/08 soir ~22:30 CEST pour S43, le 23/08 pour S44, S22 et S45) : elles décrivent ces jours-là et **ont dérivé depuis**.
 > Le catalogue vivant, avec la date réellement ingérée de chaque source, est la page `/donnees`
@@ -401,7 +409,7 @@ Tous téléchargés/dépouillés le 19/08/2026 (05-frais-indemnites.md) :
 - **Objet** : `na_item=TE` = « Total des dépenses des administrations publiques » ; `na_item=TR` = « Total des recettes des administrations publiques ». Secteur ESA S13 FR = « Administrations publiques ». Ce n'est **pas** l'exécution YTD du budget général (S13, DGFiP, flux de l'État). Ce n'est **pas** l'encours de dette (S41, na_item=GD). Ce n'est **pas** le déficit (S42, na_item=B9). TE et TR **ne sont pas** des agrégats Maastricht — Maastricht est réservé à GD/B9. `source_id` = **S44**, jamais `'S13'` ni `'S41'` ni `'S42'`.
 - **Piège S13** : le secteur ESA **S13** = administrations publiques (APU : État, Odac, APUL, ASSO). La source France Transparence **S13** = situations mensuelles budgétaires DGFiP (État, flux). Ne pas écrire « dette de l'État » pour un chiffre APU : ce n'est pas le sous-secteur S.1311, et ce n'est pas une ligne DGFiP.
 - **Piège d'unité** : native **MIO_EUR** (millions d'euros). Conversion Md€ = MIO_EUR **÷ 1000** à la lecture. Jamais ÷ 1e9 (unité des flux S13, en euros). `PC_GDP` est le pourcentage du PIB, lu à part. Pas de montant par habitant, pas de sous-secteur S.1311.
-- **Hors périmètre** : COFOG `gov_10a_exp` 2025 = 0 observation (millésime 2024 seulement) — **non ingéré**. `taxag` 2025 = 0 — **non ingéré**, et **ne pas l'appeler prélèvements obligatoires**.
+- **Hors périmètre de S44** : la ventilation CFAP est **S49** (`gov_10a_exp`, millésime 2024 au 25/08/2026 ; TIME 2025 listé, 0 valeur FR). `taxag` 2025 = 0 — **non ingéré**, et **ne pas l'appeler prélèvements obligatoires**. S44 n'ingère pas COFOG.
 - **Recomposition** : le site **ne recalcule pas B9**. Le 23/08/2026, TR 2025 − TE 2025 = 1 561 626,1 − 1 714 137,2 = −152 511,1 ≈ S42 B9 −152 511,0 (arrondi). **S42 reste la source du déficit**.
 - **Relevé daté du 23/08/2026** (re-fetch HTTP 200 ; `n_values` 31 par extrait ; TIME 1975–2025 dans la dimension, observations à partir de 1995) : TE 2025 = 1 714 137,2 MIO_EUR / 57,2 PC_GDP ; TE 2024 = 1 672 708,2 / 57,0 ; TR 2025 = 1 561 626,1 MIO_EUR / 52,1 PC_GDP ; TR 2024 = 1 503 590,1 / 51,2. Ces montants décrivent ce jour-là et **dérivent** : ce n'est pas une constante du document.
 - **Modules** : `/depenses` (bloc TE) et `/recettes` (bloc TR). **INGÉRÉE** — pipeline P20 `pipelines/ingest_agregats_apu.py`.
@@ -445,6 +453,17 @@ Tous téléchargés/dépouillés le 19/08/2026 (05-frais-indemnites.md) :
 - **Pièges** : IFERREG répliqué sur chaque commune d'une région (une valeur par LIBREG) ; P33 est le total CFE intercommunal (P33_1/P33_2 non additionnés) ; F13 est le TEOM total (F23–F83 **et** TIEOM* non additionnés — TIEOM = 10–45 % de F13, CGI 1522 bis) ; cellule vide = secret statistique, pas un zéro ; compensations/fractions de TVA **non ingérées** ; chambres **non ingérées** ; TFPB publié ≠ 55,1 Md€ « dus y compris annexes et frais d'État » ; FDL REI ≠ agrégat comptable « Impôts locaux » OFGL (54,9 Md€ communes BP). Unité native = euros. Md€ = euros ÷ 1e9.
 - **Relevé daté du 24/08/2026** (CSV HTTP 200, 34 907 communes) : TFPB 42,961 Md€ ; TEOM F13 9,164 Md€ ; CFE 8,221 Md€ ; THS 2,583 Md€. Ces montants décrivent ce jour-là et **dérivent**.
 - **Modules** : `/collectivites` (bloc cloisonné). **INGÉRÉE** — pipeline P25 `pipelines/ingest_rei.py`.
+
+#### S49. Dépenses des APU par fonction (Eurostat `gov_10a_exp`, CFAP / COFOG-99, évalué le 25/08/2026)
+- **Producteur** : Eurostat (ESTAT). Datacode `gov_10a_exp`. Label FR : *Dépenses des administrations publiques par fonction (CFAP)*. **URL** (DOI, stable) : `https://doi.org/10.2908/GOV_10A_EXP` → `https://ec.europa.eu/eurostat/databrowser/product/page/GOV_10A_EXP`. API filtrée : `geo=FR`, `sector=S13`, `na_item=TE`, `cofog99` ∈ {TOTAL, GF01…GF10}, `unit=MIO_EUR` et `unit=PC_GDP`, `lang=FR`. Re-fetch HTTP 200 le 25/08/2026.
+- **Licence relue** (copyright-notice Eurostat `https://ec.europa.eu/eurostat/web/main/help/copyright-notice`, HTTP 200 le 25/08/2026) : **décision 2011/833/UE** du 12 décembre 2011 — « Reuse of statistical data … commercial or non-commercial … source is acknowledged ». Libellé `meta_sources` : `Décision 2011/833/UE (réutilisation des données statistiques Eurostat)`. **Pas CC BY 4.0** (le CC BY 4.0 de la même page couvre le contenu éditorial du site, pas les données statistiques). EUR-Lex CELEX:32011D0833 a répondu HTTP 202 vide depuis cette machine : seconde porte = copyright-notice, comme S41/S42/S44.
+- **Fréquence** : annuelle (TIME = année civile). **Date des données** = 31 décembre du TIME max de TOTAL (**2024-12-31** au 25/08/2026), **jamais** le champ JSON-stat `updated` (2026-07-21T11:00:00+0200) ni OBS_PERIOD_OVERALL_LATEST (2025 listé, **0 valeur FR**). Seuils **650/750** jours calendaires, comme S45 : millésime 2024 encore servi en 2026. 520/600 (S44) sonnerait dès que 2025 manque, alors que S44 porte déjà 2025.
+- **Objet** : `na_item=TE` ventilé en TOTAL + dix divisions CFAP (GF01–GF10), ordre du producteur. Secteur ESA S13 FR = administrations publiques. Ce n'est **pas** l'exécution YTD du budget général (S13). Ce n'est **pas** le total TE de `gov_10a_main` (S44, table distincte). Ce n'est **pas** les prestations DREES (S45). `source_id` = **S49**.
+- **Piège S44** : jusqu'en 2022 les totaux coïncident à l'arrondi près ; en 2024, TE `gov_10a_main` = 1 672 708,2 MIO_EUR et TOTAL CFAP = 1 671 793,8 MIO_EUR (écart 914,4 M€, 0,055 %, mesuré le 25/08/2026, même `updated` 21/07). On n'additionne pas, on ne « ventile » pas S44. TIME max S49 = 2024, TIME max S44 = 2025.
+- **Piège d'unité** : native **MIO_EUR**. Md€ = MIO_EUR **÷ 1000**. Jamais ÷ 1e9. `PC_GDP` lu à part, **non additif** (somme des divisions 57,2 vs TOTAL 57,3 en 2024). Pas de montant par habitant, pas de sous-secteur S.1311.
+- **Additivité** : somme GF01–GF10 = TOTAL à 0,2 M€ près en 2024 (tolérance d'ingestion 1 M€). Les groupes (GF0101…) recouvrent les divisions : **non ingérés**.
+- **Relevé daté du 25/08/2026** (re-fetch HTTP 200, 330 observations TE MIO, 1995–2024) : TOTAL 2024 = 1 671 793,8 MIO_EUR / 57,3 PC_GDP. GF10 Protection sociale 693 028,8 / 23,7 ; GF07 Santé 261 156,3 / 8,9 ; GF01 Services généraux 181 103,2 / 6,2 ; GF04 Affaires économiques 166 072,8 / 5,7 ; GF09 Enseignement 148 639,6 / 5,1. 2025 : 0 valeur FR. Ces montants décrivent ce jour-là et **dérivent**.
+- **Modules** : `/depenses` (bloc cloisonné). **INGÉRÉE** — pipeline P26 `pipelines/ingest_cofog_apu.py`.
 
 ### Groupe E — Sources écartées (raison prouvée le 19/08/2026)
 
@@ -530,7 +549,7 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 - **Contenu concret** : compteur « dépenses de l'État depuis le 1er janvier » (cumul mensuel, ex. réel : 195,0 Md€ de dépenses nettes du BG au 31/05/2026, 01) avec variation vs même période 2025 ; donut par grands postes (titres, S13) ; top missions (S20, annuel, mention PLF) ; carte de France des marchés notifiés sur 30 jours (S1, lat/lng natives) ; flux « derniers marchés notifiés » (J-1) et « derniers textes au JO » (jour même) ; « X appels d'offres en cours » ; bandeau : marchés notifiés/12 mois, ~500 000 mandats d'élus (S17), 6 829 lobbyistes enregistrés (S4), 12 930 dossiers déclaratifs HATVP (S14).
 
 ### Dépenses de l'État
-- **Sources** : S13 (mensuel), S20 + S21 (structure mission→action), S23 (subventions aux associations), S41 (encours APU Maastricht, bloc cloisonné), S42 (déficit public APU Maastricht, bloc cloisonné), S44 (agrégats ESA TE/TR, bloc TE sur `/depenses` et bloc TR sur `/recettes`), S22 (bilan patrimonial CGE, bloc cloisonné), S45 (prestations de protection sociale DREES, bloc cloisonné), **S46** (État A du PLF, recettes non fiscales, bloc cloisonné sur `/recettes`), **S47** (IRCOM, impôt net sur rôle par territoire, bloc cloisonné sur `/recettes`), S24 (performance, non ingéré), S30 (missions mensuelles PDF, non ingéré), S39 (référentiel des opérateurs, non ingéré).
+- **Sources** : S13 (mensuel), S20 + S21 (structure mission→action), S23 (subventions aux associations), S41 (encours APU Maastricht, bloc cloisonné), S42 (déficit public APU Maastricht, bloc cloisonné), S44 (agrégats ESA TE/TR, bloc TE sur `/depenses` et bloc TR sur `/recettes`), **S49** (dépenses des APU par fonction, CFAP, bloc cloisonné sur `/depenses`), S22 (bilan patrimonial CGE, bloc cloisonné), S45 (prestations de protection sociale DREES, bloc cloisonné), **S46** (État A du PLF, recettes non fiscales, bloc cloisonné sur `/recettes`), **S47** (IRCOM, impôt net sur rôle par territoire, bloc cloisonné sur `/recettes`), S24 (performance, non ingéré), S30 (missions mensuelles PDF, non ingéré), S39 (référentiel des opérateurs, non ingéré).
 - **Fraîcheur affichable** : « Exécution mensuelle : données au 30/06/2026, ~6 semaines de décalage » (01) · « Structure du budget : PLF 2026 (déposé oct. 2025) et exécution 2024 » (01) · « Subventions aux associations : versements 2023 (dernier millésime publié) » (01).
 - **Contenu concret** : courbes 2013-2026 dépenses/recettes/solde, N vs N-1 par titre ; treemap mission → programme → action (comparateur exéc. 2024 / LFI 2025 / PLF 2026 + cotation budget vert) ; recherche parmi 112 722 subventions (SIREN, programme, commune). **Avertissements obligatoires** : PLF ≠ LFI 2026 (jamais publiée en données) ; aucune donnée de paiement en temps réel n'existe (01).
 
@@ -710,6 +729,7 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 | S46 Recettes du budget général au PLF (État A) | Annuelle (publication open data du millésime, pas le dépôt AN ; 2025 → 2024-10-11) | LO 2.0 (Etalab) | Recettes (bloc cloisonné, non fiscales) | **ingérée** (P23) |
 | S47 IRCOM (impôt net sur rôle par commune) | Annuelle (31/12 de l'année des revenus ; 2024 → 2024-12-31 ; publication 26/05/2026) | Licence Ouverte / Open Licence | Recettes (bloc cloisonné) | **ingérée** (P24) |
 | S48 REI (fiscalité directe locale) | Annuelle (31/12 de l'année d'imposition ; 2025 → 2025-12-31 ; publication 22/06/2026) | Licence Ouverte / Open Licence version 2.0 | Finances locales (bloc cloisonné) | **ingérée** (P25) |
+| S49 Dépenses des APU par fonction (CFAP) | Annuelle (31/12 du TIME max de TOTAL, jamais `updated` ; millésime 2024 au 25/08/2026 ; 650/750) | décision 2011/833/UE (25/08/2026) | Dépenses (bloc cloisonné) | **ingérée** (P26) |
 
 ---
 

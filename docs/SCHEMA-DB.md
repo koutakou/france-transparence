@@ -30,6 +30,9 @@
 # Puis tables ircom_communes / ircom_departements / ircom_national (S47,
 # IRCOM DGFiP) — CREATE recopié du pipeline P24 (avec IF NOT EXISTS :
 # tables neuves, pas une migration). Un index idx_ircom_communes_dep.
+# Puis table cofog_apu_esa (S49, Eurostat gov_10a_exp, CFAP TE) —
+# CREATE recopié du pipeline P26 (avec IF NOT EXISTS : table neuve,
+# pas une migration).
 
 > **Extrait daté.** Ce document décrit **82 tables**, **6 vues** et **58 index**, et cette
 > couverture est sa propriété essentielle : une table de la base absente d'ici est un trou de
@@ -1176,6 +1179,27 @@ CREATE TABLE rei_national (
     tasa            REAL    NOT NULL,
     tafnb           REAL    NOT NULL,
     tsc             REAL    NOT NULL
+);
+-- ---------------------------------------------------------------------------
+-- S49, P26 — Dépenses des APU par fonction (Eurostat gov_10a_exp, CFAP).
+-- na_item=TE seulement. TOTAL + GF01–GF10. ESA S13 = APU, pas la source S13.
+-- Distinct de S44 (TE gov_10a_main) et de S45 (prestations DREES).
+-- Unité native MIO_EUR ; Md€ à la lecture (÷ 1000), jamais ÷ 1e9.
+-- date_donnees = 31/12 du TIME max de TOTAL, jamais JSON-stat updated.
+-- ---------------------------------------------------------------------------
+CREATE TABLE cofog_apu_esa (
+    geo            TEXT NOT NULL CHECK (geo = 'FR'),
+    sector         TEXT NOT NULL CHECK (sector = 'S13'),
+    cofog99        TEXT NOT NULL CHECK (cofog99 IN (
+                       'TOTAL','GF01','GF02','GF03','GF04','GF05',
+                       'GF06','GF07','GF08','GF09','GF10'
+                   )),
+    libelle        TEXT NOT NULL,
+    annee          INTEGER NOT NULL,
+    valeur_mio_eur REAL NOT NULL CHECK (valeur_mio_eur > 0),
+    valeur_pc_gdp  REAL NOT NULL CHECK (valeur_pc_gdp > 0),
+    statut         TEXT,
+    PRIMARY KEY (geo, sector, cofog99, annee)
 );
 CREATE TABLE partis (
     id               TEXT PRIMARY KEY REFERENCES entites(id),

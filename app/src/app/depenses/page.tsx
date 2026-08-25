@@ -17,6 +17,10 @@ import {
   perimetreAgregat,
 } from "@/lib/queries/agregats-apu";
 import {
+  getCofogApu,
+  perimetreCofog,
+} from "@/lib/queries/cofog-apu";
+import {
   getBilanCge,
   perimetreCge,
 } from "@/lib/queries/cge";
@@ -111,9 +115,10 @@ function LienComprendre({ ancre }: { ancre: string }) {
 /**
  * Dépenses de l'État — exécution mensuelle (S13), budget par mission
  * (S20, PLF 2026), destination 2025 (S21), subventions aux associations
- * (S23), et blocs cloisonnés S41/S42/S44/S22/S45. Server Component : les
+ * (S23), et blocs cloisonnés S41/S42/S44/S49/S22/S45. Server Component : les
  * lectures S13/S20/S21/S23 viennent de `@/lib/queries/depenses` ; S22
- * vient de `@/lib/queries/cge` ; S45 de `@/lib/queries/protection-sociale`.
+ * vient de `@/lib/queries/cge` ; S45 de `@/lib/queries/protection-sociale` ;
+ * S49 de `@/lib/queries/cofog-apu`.
  * Aucune donnée n'est fabriquée.
  */
 export default async function PageDepenses() {
@@ -140,6 +145,7 @@ export default async function PageDepenses() {
   const dette = getDetteMaastricht();
   const deficit = getDeficitMaastricht();
   const depensesApu = getAgregatApu("TE");
+  const cofogApu = getCofogApu();
   const bilanCge = getBilanCge();
   const protectionSociale = getProtectionSociale();
   const missions = getMissionsPlf2026(10);
@@ -740,6 +746,86 @@ export default async function PageDepenses() {
               />
             </VueTableau>
             <LienComprendre ancre="depenses-apu-esa" />
+          </Card>
+        </div>
+      )}
+
+      {/* S49 CFAP — ventilation par fonction, table distincte de S44. */}
+      {cofogApu && (
+        <div id="depenses-apu-cfap" className="scroll-mt-32">
+          <Card
+            titre="Dépenses des APU par fonction (CFAP)"
+            sousTitre="Flux annuel des APU par fonction — table Eurostat distincte du total ESA (S44)"
+            droite={
+              <FreshnessBadge
+                dateDonnees={cofogApu.meta.date_donnees}
+                source="Eurostat — gov_10a_exp"
+                frequence={cofogApu.meta.frequence}
+                url={cofogApu.meta.url}
+              />
+            }
+          >
+            <KpiTile
+              nu
+              label="Dépenses des APU par fonction (CFAP)"
+              valeur={`${formatNombre(cofogApu.montantMd, 1)}${ESPACE_FINE}Md€`}
+              perimetre={perimetreCofog(cofogApu.dernier)}
+              delta={
+                cofogApu.deltaPct === null
+                  ? undefined
+                  : {
+                      valeur: cofogApu.deltaPct,
+                      vs: cofogApu.precedent
+                        ? `année ${cofogApu.precedent.annee}`
+                        : "année précédente",
+                    }
+              }
+            />
+            <p className="mt-3 text-xs leading-relaxed text-ink-muted">
+              Classification des fonctions des administrations publiques
+              (CFAP / COFOG-99), na_item=TE. Les dix fonctions, dans
+              l&apos;ordre du producteur, recomposent ce total. Ce n&apos;est
+              pas le total TE de la table gov_10a_main (S44), pas
+              l&apos;exécution du budget général, pas les prestations DREES.
+            </p>
+            <BarList
+              className="mt-4"
+              items={cofogApu.divisions.map((d) => ({
+                libelle: d.libelle,
+                valeur: d.valeur_mio_eur / 1000,
+              }))}
+              formatValeur={(v) => `${formatNombre(v, 1)}${ESPACE_FINE}Md€`}
+            />
+            <p className="mt-2 text-xs text-ink-muted">
+              Ordre CFAP GF01 à GF10, année {cofogApu.dernier.annee}. Ce
+              n&apos;est pas un classement.
+            </p>
+            <VueTableau>
+              <DataTable
+                colonnes={[
+                  { cle: "annee", entete: "Année" },
+                  {
+                    cle: "totalmd",
+                    entete: "TOTAL (Md€)",
+                    type: "montant",
+                    decimales: 1,
+                  },
+                  {
+                    cle: "pc",
+                    entete: "% du PIB",
+                    type: "nombre",
+                    decimales: 1,
+                  },
+                ]}
+                lignes={cofogApu.serie.slice(-12).map((o) => ({
+                  annee: o.annee,
+                  totalmd: o.valeur_mio_eur / 1000,
+                  pc: o.valeur_pc_gdp,
+                }))}
+                cleLigne={(l) => String(l.annee)}
+              />
+            </VueTableau>
+            <LienComprendre ancre="depenses-apu-cfap" />
           </Card>
         </div>
       )}

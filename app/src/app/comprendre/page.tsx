@@ -429,13 +429,34 @@ const GLOSSAIRE: EntreeGlossaire[] = [
       <>
         Total des dépenses (TE) et total des recettes (TR) des
         administrations publiques, flux d’année civile. Ce n’est pas
-        Maastricht (B9, GD), pas l’exécution du budget de l’État. Voir{" "}
+        Maastricht (B9, GD), pas l’exécution du budget de l’État, pas
+        la ventilation CFAP. Voir{" "}
         <a href="#depenses-apu-esa" className={LIEN}>
           Dépenses des APU
-        </a>{" "}
-        et{" "}
+        </a>
+        ,{" "}
         <a href="#recettes-apu-esa" className={LIEN}>
           Recettes des APU
+        </a>{" "}
+        et{" "}
+        <a href="#depenses-apu-cfap" className={LIEN}>
+          Dépenses des APU par fonction
+        </a>
+        .
+      </>
+    ),
+  },
+  {
+    terme: "CFAP",
+    id: "cfap",
+    def: (
+      <>
+        Classification des fonctions des administrations publiques
+        (COFOG-99). Ventilation du flux annuel des dépenses des APU en
+        dix divisions. Ce n’est pas le total TE de gov_10a_main, pas le
+        budget de l’État, pas un classement. Voir{" "}
+        <a href="#depenses-apu-cfap" className={LIEN}>
+          Dépenses des APU par fonction
         </a>
         .
       </>
@@ -518,6 +539,7 @@ const SOMMAIRE: { href: string; libelle: string }[] = [
   { href: "#dette-maastricht", libelle: "Dette des APU (Maastricht)" },
   { href: "#deficit-maastricht", libelle: "Déficit des APU (Maastricht)" },
   { href: "#depenses-apu-esa", libelle: "Dépenses des APU (ESA)" },
+  { href: "#depenses-apu-cfap", libelle: "Dépenses des APU par fonction (CFAP)" },
   { href: "#recettes-apu-esa", libelle: "Recettes des APU (ESA)" },
   { href: "#cge", libelle: "Situation nette de l’État (CGE)" },
   { href: "#protection-sociale", libelle: "Prestations de protection sociale" },
@@ -1146,10 +1168,54 @@ export default function PageComprendre() {
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
             Ce n’est pas l’exécution du budget général (flux de l’État,
             cumul depuis le 1<sup>er</sup> janvier). Ce n’est pas une
-            ventilation COFOG. Ce n’est pas la dépense de l’État seul
-            (sous-secteur S.1311). Ce n’est pas un montant par habitant.
-            Ce n’est pas le déficit (B9) ni l’encours (GD) au sens de
-            Maastricht.
+            ventilation CFAP : celle-ci est une table Eurostat distincte
+            (S49). Ce n’est pas la dépense de l’État seul (sous-secteur
+            S.1311). Ce n’est pas un montant par habitant. Ce n’est pas
+            le déficit (B9) ni l’encours (GD) au sens de Maastricht.
+          </p>
+        </div>
+      </Card>
+
+      <Card titre="Dépenses des APU par fonction (CFAP)">
+        <div id="depenses-apu-cfap" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+          <p>
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
+            Les dépenses des APU par fonction sont le flux annuel TE,
+            ventilé selon la Classification des fonctions des
+            administrations publiques (CFAP, COFOG-99). Dix divisions
+            (services généraux, défense, ordre public, affaires
+            économiques, environnement, logements, santé, loisirs-culture-culte,
+            enseignement, protection sociale) recomposent le total, dans
+            l’ordre du producteur — ce n’est pas un classement. C’est un
+            flux d’année civile, pas un cumul depuis le
+            1<sup>er</sup> janvier, pas un stock. L’unité native Eurostat
+            est le million d’euros (MIO_EUR) ; le milliard affiché est ce
+            million divisé par 1&nbsp;000. Le pourcentage du PIB vient de
+            la même série et n’est pas additif. Un delta d’une année sur
+            l’autre n’est ni «&nbsp;bon&nbsp;» ni «&nbsp;mauvais&nbsp;». Voir{" "}
+            <LienPage href="/depenses/#depenses-apu-cfap">Dépenses</LienPage>.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
+            Eurostat, datacode gov_10a_exp, DOI 10.2908/GOV_10A_EXP.
+            Extraits geo=FR, sector=S13 (ESA), na_item=TE, cofog99 =
+            TOTAL et GF01 à GF10, unit=MIO_EUR et unit=PC_GDP.
+            Publication annuelle des GFS (juillet). Réutilisation :
+            décision 2011/833/UE (données statistiques Eurostat). Le
+            secteur ESA S13 n’est pas la source S13 de ce site. Le
+            millésime est le TIME max de TOTAL, pas le champ
+            JSON-stat updated, pas OBS_PERIOD_OVERALL_LATEST.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
+            Ce n’est pas l’exécution du budget général. Ce n’est pas le
+            total TE de la table gov_10a_main (S44) : deux tables
+            Eurostat distinctes, dont les totaux ne coïncident pas. Ce
+            n’est pas la dépense de l’État seul (S.1311). Ce n’est pas
+            les prestations de protection sociale DREES (S45, tous
+            régimes). Ce n’est pas un montant par habitant. Les groupes
+            (GF0101…) ne sont pas ingérés : ils recouvrent les
+            divisions. taxag n’est pas ingéré.
           </p>
         </div>
       </Card>
@@ -1258,7 +1324,8 @@ export default function PageComprendre() {
             Ce n’est pas la LFSS. Ce n’est pas l’exécution du budget
             général (source S13, caisse, cumul depuis le 1<sup>er</sup>{" "}
             janvier). Ce n’est pas le total des dépenses des APU (S44,
-            TE). Ce n’est pas « la dette de l’État ». Ce n’est pas un
+            TE). Ce n’est pas la fonction CFAP « protection sociale »
+            (S49, GF10). Ce n’est pas « la dette de l’État ». Ce n’est pas un
             montant par habitant. Ce n’est pas les recettes. Les niveaux
             2 et 3 de l’arbre ne sont pas affichés : ils recouvrent les
             niveaux 0 et 1. S13141 n’est pas toute la sécurité sociale

@@ -1,0 +1,153 @@
+{
+  "version": "2.0",
+  "class": "dataset",
+  "label": "Dépenses des administrations publiques par fonction (CFAP) (fixture minimale inventée, TE/MIO_EUR)",
+  "source": "ESTAT",
+  "updated": "2026-01-01T00:00:00+0100",
+  "value": {
+    "0": 1000.0,
+    "1": 1100.0,
+    "2": 100.0,
+    "3": 110.0,
+    "4": 100.0,
+    "5": 110.0,
+    "6": 100.0,
+    "7": 110.0,
+    "8": 100.0,
+    "9": 110.0,
+    "10": 100.0,
+    "11": 110.0,
+    "12": 100.0,
+    "13": 110.0,
+    "14": 100.0,
+    "15": 110.0,
+    "16": 100.0,
+    "17": 110.0,
+    "18": 100.0,
+    "19": 110.0,
+    "20": 100.0,
+    "21": 110.0
+  },
+  "status": {
+    "1": "p"
+  },
+  "id": [
+    "freq",
+    "unit",
+    "sector",
+    "cofog99",
+    "na_item",
+    "geo",
+    "time"
+  ],
+  "size": [
+    1,
+    1,
+    1,
+    11,
+    1,
+    1,
+    2
+  ],
+  "dimension": {
+    "freq": {
+      "label": "Time frequency",
+      "category": {
+        "index": {
+          "A": 0
+        },
+        "label": {
+          "A": "Annuelle"
+        }
+      }
+    },
+    "unit": {
+      "label": "Unité de mesure",
+      "category": {
+        "index": {
+          "MIO_EUR": 0
+        },
+        "label": {
+          "MIO_EUR": "MIO_EUR"
+        }
+      }
+    },
+    "sector": {
+      "label": "Secteur",
+      "category": {
+        "index": {
+          "S13": 0
+        },
+        "label": {
+          "S13": "Administrations publiques"
+        }
+      }
+    },
+    "cofog99": {
+      "label": "Classification of the functions of government (COFOG 1999)",
+      "category": {
+        "index": {
+          "TOTAL": 0,
+          "GF01": 1,
+          "GF02": 2,
+          "GF03": 3,
+          "GF04": 4,
+          "GF05": 5,
+          "GF06": 6,
+          "GF07": 7,
+          "GF08": 8,
+          "GF09": 9,
+          "GF10": 10
+        },
+        "label": {
+          "TOTAL": "Total",
+          "GF01": "Services généraux des administrations publiques",
+          "GF02": "Défense",
+          "GF03": "Ordre et sécurité publics",
+          "GF04": "Affaires économiques",
+          "GF05": "Protection de l'environnement",
+          "GF06": "Logements et équipements collectifs",
+          "GF07": "Santé",
+          "GF08": "Loisirs, culture et culte",
+          "GF09": "Enseignement",
+          "GF10": "Protection sociale"
+        }
+      }
+    },
+    "na_item": {
+      "label": "National accounts indicator (ESA 2010)",
+      "category": {
+        "index": {
+          "TE": 0
+        },
+        "label": {
+          "TE": "Total des dépenses des administrations publiques"
+        }
+      }
+    },
+    "geo": {
+      "label": "Entité géopolitique",
+      "category": {
+        "index": {
+          "FR": 0
+        },
+        "label": {
+          "FR": "France"
+        }
+      }
+    },
+    "time": {
+      "label": "Temps",
+      "category": {
+        "index": {
+          "2023": 0,
+          "2024": 1
+        },
+        "label": {
+          "2023": "2023",
+          "2024": "2024"
+        }
+      }
+    }
+  }
+}

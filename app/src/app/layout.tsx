@@ -125,7 +125,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 publié au JORF » parmi les exceptions confondait S3 avec
                 S37 (décret d'aide publique, libellé « Texte officiel
                 (JORF) »). Hors Licence Ouverte : S31 (publications
-                officielles hors open data), S37, S40/S41/S42/S44 (décision
+                officielles hors open data), S37, S40/S41/S42/S44/S49 (décision
                 2011/833/UE), S11 (open data DILA, mention DILA). S2
                 (etalab-2.0) est la famille Licence Ouverte, sous un id
                 SPDX. meta_sources.licence fait foi ; ne pas réintroduire

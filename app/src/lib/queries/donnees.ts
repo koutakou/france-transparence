@@ -3,7 +3,7 @@
  * statiques (/api/meta.json, /api/elus.json, /api/marches-agregats.json,
  * /api/budget-mensuel.json) — générés au build, servis en fichiers.
  *
- * La table pivot est `meta_sources` (39 sources tracées) : chaque source y
+ * La table pivot est `meta_sources` (40 sources tracées) : chaque source y
  * porte sa date de données réelle, sa date d'ingestion, sa fréquence déclarée,
  * sa licence et ses notes — c'est le « moniteur de fraîcheur » du projet
  * (docs/SOURCES.md, alerte A11).
@@ -80,7 +80,7 @@ type SeuilSource = { unite: UniteAge; retard: number; alerte: number };
  * seuils dans `meta_sources` (colonnes dédiées) via les pipelines.
  *
  * Ordre et valeurs repris ligne à ligne de `fraicheur.conf`.
- * Dernière synchronisation : 24/08/2026, 39 sources (ajout de S48).
+ * Dernière synchronisation : 25/08/2026, 40 sources (ajout de S49).
  */
 const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // Quotidiennes strictes, calendrier ouvré
@@ -131,6 +131,13 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // jamais `updated`. 400/440 sonnerait dès février, avant la
   // publication de juillet. 520/600 = 17/20 mois, comme S42 EDP.
   S44: { unite: "jc", retard: 520, alerte: 600 },
+  // Annuelle GFS détaillée (juillet N+1). TIME 2025 listé, 0 valeur FR
+  // au 25/08/2026 : date_donnees = 31/12 du TIME max de TOTAL (2024 →
+  // 2024-12-31), jamais `updated` ni OBS_PERIOD_OVERALL_LATEST.
+  // 650/750 comme S45 : millésime 2024 encore servi en 2026. 520/600
+  // (S44) sonnerait dès que 2025 manque, alors que la table S44, elle,
+  // porte déjà 2025.
+  S49: { unite: "jc", retard: 650, alerte: 750 },
   // Annuelle CGE : millésime = 31/12 de la pièce de synthèse (xlsx),
   // jamais modified du catalogue. Les balances ligne à ligne peuvent
   // porter N+1 avant que la pièce ne l'ajoute ; 650/750 = 21,5/25 mois
@@ -313,7 +320,7 @@ export function evalueFraicheur(
 
 export type SourceCataloguee = MetaSource & { fraicheur: Fraicheur };
 
-/** Les 39 sources tracées, avec leur fraîcheur calculée. */
+/** Les 40 sources tracées, avec leur fraîcheur calculée. */
 export function getCatalogueSources(): SourceCataloguee[] | null {
   const db = getDb();
   if (!db) return null;

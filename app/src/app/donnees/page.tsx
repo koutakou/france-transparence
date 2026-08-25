@@ -646,9 +646,10 @@ export default async function PageDonnees() {
             l’État et compte général de l’État&nbsp;: DGFiP
             (data.economie.gouv.fr) ; populations de référence 2023 et stock
             Sirene&nbsp;: INSEE ; prestations de protection sociale&nbsp;:
-            DREES ; encours et déficit des APU au sens de Maastricht, et
-            agrégats ESA (recettes et dépenses)&nbsp;: Eurostat (décision
-            2011/833/UE) ; avis et conseils&nbsp;: CADA ; registre de
+            DREES ; encours et déficit des APU au sens de Maastricht,
+            agrégats ESA (recettes et dépenses) et dépenses par fonction
+            (CFAP)&nbsp;: Eurostat (décision 2011/833/UE) ; avis et
+            conseils&nbsp;: CADA ; registre de
             transparence de l’Union européenne (décision 2011/833/UE) ; fond de
             carte&nbsp;: france-geojson (contours IGN/Etalab).
           </p>
