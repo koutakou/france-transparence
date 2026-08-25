@@ -30,6 +30,10 @@ import {
   perimetreParticipations,
 } from "@/lib/queries/recettes-plf";
 import {
+  getPrelevementsObligatoires,
+  perimetrePo,
+} from "@/lib/queries/comptes-apu-insee";
+import {
   getIrcom,
   perimetreFoyersIrcom,
   perimetreIrcom,
@@ -128,6 +132,7 @@ export default async function PageRecettes() {
   const recettesApu = getAgregatApu("TR");
   const nonFiscalesPlf = getRecettesPlfNonFiscales();
   const ircom = getIrcom();
+  const prelevements = getPrelevementsObligatoires();
 
   // Les mois infra-annuels de la DGFiP sont provisoires : la mention
   // accompagne chaque badge tant que l'année en cours est incomplète.
@@ -683,6 +688,70 @@ export default async function PageRecettes() {
               </Link>
               .
             </p>
+          </Card>
+        </div>
+      )}
+
+      {/* S50 PO — tableau 3.216, pas taxag, pas TR. */}
+      {prelevements && (
+        <div id="prelevements-obligatoires" className="flex scroll-mt-32 flex-col gap-6">
+          <div className="flex items-center gap-3" role="separator">
+            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+              Autre objet · prélèvements obligatoires, pas TR
+            </span>
+            <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+          </div>
+
+          <Card
+            titre="Prélèvements obligatoires (INSEE)"
+            sousTitre="Impôts et cotisations sociales des APU et des institutions de l'UE — distinct du total TR Eurostat et de taxag"
+            droite={
+              <FreshnessBadge
+                dateDonnees={prelevements.meta.date_donnees}
+                source="INSEE — comptes nationaux"
+                frequence={prelevements.meta.frequence}
+                url={prelevements.meta.url}
+              />
+            }
+          >
+            <KpiTile
+              nu
+              label="Prélèvements obligatoires"
+              valeur={`${formatNombre(prelevements.total.valeurMd, 1)}${ESPACE_FINE}Md€`}
+              perimetre={perimetrePo(prelevements.total)}
+              delta={
+                prelevements.deltaPct === null
+                  ? undefined
+                  : {
+                      valeur: prelevements.deltaPct,
+                      vs: prelevements.precedent
+                        ? `année ${prelevements.precedent.annee}`
+                        : "année précédente",
+                    }
+              }
+            />
+            <p className="mt-3 text-xs leading-relaxed text-ink-muted">
+              Tableau 3.216 des comptes nationaux. Ce n&apos;est pas taxag,
+              pas le total TR Eurostat (S44), pas l&apos;impôt sur le revenu
+              de caisse du budget général. S1314 n&apos;est pas «&nbsp;la
+              Sécu&nbsp;».
+            </p>
+            <BarList
+              className="mt-4"
+              items={prelevements.sousSecteurs.map((d) => ({
+                libelle: d.libelle,
+                valeur: d.valeurMd,
+              }))}
+              formatValeur={(v) => `${formatNombre(v, 1)}${ESPACE_FINE}Md€`}
+            />
+            <p className="mt-2 text-xs text-ink-muted">
+              Ordre S1311, S1313, S1314, S212, année {prelevements.annee}.
+              Ces quatre postes recomposent le total S13 et S212. Ce
+              n&apos;est pas un classement, pas les consolidations de la
+              présentation dépenses et recettes.
+            </p>
+            <LienComprendre ancre="prelevements-obligatoires" />
           </Card>
         </div>
       )}

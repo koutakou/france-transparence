@@ -3,7 +3,7 @@
  * statiques (/api/meta.json, /api/elus.json, /api/marches-agregats.json,
  * /api/budget-mensuel.json) — générés au build, servis en fichiers.
  *
- * La table pivot est `meta_sources` (40 sources tracées) : chaque source y
+ * La table pivot est `meta_sources` (41 sources tracées) : chaque source y
  * porte sa date de données réelle, sa date d'ingestion, sa fréquence déclarée,
  * sa licence et ses notes — c'est le « moniteur de fraîcheur » du projet
  * (docs/SOURCES.md, alerte A11).
@@ -80,7 +80,7 @@ type SeuilSource = { unite: UniteAge; retard: number; alerte: number };
  * seuils dans `meta_sources` (colonnes dédiées) via les pipelines.
  *
  * Ordre et valeurs repris ligne à ligne de `fraicheur.conf`.
- * Dernière synchronisation : 25/08/2026, 40 sources (ajout de S49).
+ * Dernière synchronisation : 25/08/2026, 41 sources (ajout de S50).
  */
 const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // Quotidiennes strictes, calendrier ouvré
@@ -138,6 +138,12 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // (S44) sonnerait dès que 2025 manque, alors que la table S44, elle,
   // porte déjà 2025.
   S49: { unite: "jc", retard: 650, alerte: 750 },
+  // Annuelle INSEE comptes des APU (Insee Résultats, mai N+1).
+  // date_donnees = 31/12 de l'année max (2025 → 2025-12-31), jamais
+  // modified Melodi (2026-06-08) ni la date de parution (29/05/2026).
+  // 520/600 comme S44 : millésime 2025 déjà là ; 400/440 sonnerait
+  // dès février, avant la parution de mai.
+  S50: { unite: "jc", retard: 520, alerte: 600 },
   // Annuelle CGE : millésime = 31/12 de la pièce de synthèse (xlsx),
   // jamais modified du catalogue. Les balances ligne à ligne peuvent
   // porter N+1 avant que la pièce ne l'ajoute ; 650/750 = 21,5/25 mois
@@ -320,7 +326,7 @@ export function evalueFraicheur(
 
 export type SourceCataloguee = MetaSource & { fraicheur: Fraicheur };
 
-/** Les 40 sources tracées, avec leur fraîcheur calculée. */
+/** Les 41 sources tracées, avec leur fraîcheur calculée. */
 export function getCatalogueSources(): SourceCataloguee[] | null {
   const db = getDb();
   if (!db) return null;

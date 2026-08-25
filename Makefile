@@ -51,6 +51,11 @@ PY     := $(VENV)/bin/python
 # Distinct de S13 (budget de l'État), S44 (TE gov_10a_main) et S45
 # (prestations DREES). CFAP / COFOG-99, na_item=TE, TOTAL+GF01–GF10.
 # Placé avant sirene.
+# comptes_apu_insee (S50, comptes nationaux INSEE, Insee Résultats
+# 8988845) n'a AUCUNE dépendance d'ordre : il n'écrit que
+# comptes_apu_insee. Distinct de S13 (budget de l'État), S44 (TE/TR
+# Eurostat), S42 (B9, non ingéré) et S49 (CFAP). PO 3.216 ≠ taxag.
+# Placé avant sirene.
 # sirene (S18) est en DERNIER, et cette place-là n'a rien d'arbitraire : le
 # référentiel Sirene n'est pas ingéré en entier, il est restreint aux SIREN
 # que les autres tables citent (decp, subventions, lobbying, collectivites,
@@ -61,7 +66,8 @@ PIPELINES := referentiels budget_mensuel budget_structure decp boamp approch \
              jorf parlement integrite hatvp_declarations lobbying financement \
              collectivites elections trainvie cada registre_ue \
              dette_maastricht deficit_maastricht dole agregats_apu cge \
-             protection_sociale recettes_plf ircom rei cofog_apu sirene
+             protection_sociale recettes_plf ircom rei cofog_apu \
+             comptes_apu_insee sirene
 
 # NB : ne PAS déclarer les cibles ingest-<x> en .PHONY — make saute la
 # recherche de règles implicites (ingest-%) pour les cibles phony.

@@ -540,7 +540,9 @@ const SOMMAIRE: { href: string; libelle: string }[] = [
   { href: "#deficit-maastricht", libelle: "Déficit des APU (Maastricht)" },
   { href: "#depenses-apu-esa", libelle: "Dépenses des APU (ESA)" },
   { href: "#depenses-apu-cfap", libelle: "Dépenses des APU par fonction (CFAP)" },
+  { href: "#comptes-apu-insee", libelle: "Dépenses des APU par sous-secteur (INSEE)" },
   { href: "#recettes-apu-esa", libelle: "Recettes des APU (ESA)" },
+  { href: "#prelevements-obligatoires", libelle: "Prélèvements obligatoires (INSEE)" },
   { href: "#cge", libelle: "Situation nette de l’État (CGE)" },
   { href: "#protection-sociale", libelle: "Prestations de protection sociale" },
   { href: "#recettes", libelle: "Recettes de l’État" },
@@ -1169,7 +1171,8 @@ export default function PageComprendre() {
             Ce n’est pas l’exécution du budget général (flux de l’État,
             cumul depuis le 1<sup>er</sup> janvier). Ce n’est pas une
             ventilation CFAP : celle-ci est une table Eurostat distincte
-            (S49). Ce n’est pas la dépense de l’État seul (sous-secteur
+            (S49). Ce n’est pas la décomposition INSEE par sous-secteur
+            (S50). Ce n’est pas la dépense de l’État seul (sous-secteur
             S.1311). Ce n’est pas un montant par habitant. Ce n’est pas
             le déficit (B9) ni l’encours (GD) au sens de Maastricht.
           </p>
@@ -1215,7 +1218,10 @@ export default function PageComprendre() {
             les prestations de protection sociale DREES (S45, tous
             régimes). Ce n’est pas un montant par habitant. Les groupes
             (GF0101…) ne sont pas ingérés : ils recouvrent les
-            divisions. taxag n’est pas ingéré.
+            divisions. taxag n’est pas ingéré. Les prélèvements
+            obligatoires officiels sont le tableau INSEE 3.216 (S50),
+            pas taxag. Ce n’est pas la décomposition INSEE par
+            sous-secteur (S50).
           </p>
         </div>
       </Card>
@@ -1253,7 +1259,89 @@ export default function PageComprendre() {
             la recette de l’État seul (sous-secteur S.1311). Ce n’est pas
             un montant par habitant. Ce n’est pas le déficit (B9) ni
             l’encours (GD) au sens de Maastricht. On ne recalcule pas
-            B9 = TR − TE : le déficit officiel reste S42.
+            B9 = TR − TE : le déficit officiel reste S42. Ce n’est pas
+            les prélèvements obligatoires INSEE (tableau 3.216, S50).
+          </p>
+        </div>
+      </Card>
+
+      <Card titre="Dépenses des APU par sous-secteur (INSEE)">
+        <div id="comptes-apu-insee" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+          <p>
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
+            Les comptes INSEE des APU, dans la présentation «&nbsp;dépenses
+            et recettes&nbsp;», décomposent le secteur S13 en
+            sous-secteurs&nbsp;: administration publique centrale (S1311,
+            État + ODAC), administrations publiques locales (S1313) et
+            administrations de sécurité sociale (S1314). C’est un flux
+            d’année civile. L’unité native des tableaux est le milliard
+            d’euros. Les trois sous-secteurs ne s’additionnent pas au
+            total S13&nbsp;: chaque bloc est consolidé en son sein, le
+            total S13 l’est sur l’ensemble des APU. Un delta d’une année
+            sur l’autre n’est ni «&nbsp;bon&nbsp;» ni «&nbsp;mauvais&nbsp;». Voir{" "}
+            <LienPage href="/depenses/#comptes-apu-insee">Dépenses</LienPage>.
+            Vocabulaire des sous-secteurs&nbsp;:{" "}
+            <a href="#s13-esa" className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary">S13 (ESA)</a>.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
+            INSEE, comptes nationaux annuels base 2020, Insee Résultats
+            «&nbsp;Dépenses et recettes des administrations publiques en
+            2025&nbsp;» (identifiant 8988845, paru le 29 mai 2026). Tableaux
+            3.201 (S13), 3.202 (S1311), 3.203 (État, S13111), 3.205
+            (S1313) et 3.212 (S1314). Cube homologue Melodi&nbsp;:
+            DD_CNA_APU. Réutilisation&nbsp;: Licence Ouverte 2.0 (Etalab).
+            Le millésime est l’année des comptes, pas la date de
+            modification Melodi.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
+            Ce n’est pas l’exécution du budget général (source S13). Ce
+            n’est pas le total TE Eurostat (S44)&nbsp;: table distincte,
+            on ne ventile pas S44. Ce n’est pas la CFAP (S49). Ce n’est
+            pas le déficit Maastricht (S42)&nbsp;: le solde B9NF n’est
+            pas ingéré, et le site n’affiche pas les recettes à côté
+            des dépenses (leur différence serait ce solde). Le total S13
+            n’est pas une ligne du tableau (ce serait un second TE).
+            S13111 (l’État) n’est pas une ligne sœur de S1311&nbsp;: il
+            y est déjà. S1311 n’est pas «&nbsp;la dette de l’État&nbsp;».
+            S1314 n’est pas «&nbsp;la Sécu&nbsp;». Ce n’est pas un
+            montant par habitant.
+          </p>
+        </div>
+      </Card>
+
+      <Card titre="Prélèvements obligatoires (INSEE)">
+        <div id="prelevements-obligatoires" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+          <p>
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
+            Les prélèvements obligatoires sont la somme des recettes
+            d’impôts et de cotisations sociales reçues par les
+            administrations publiques et les institutions européennes,
+            déduction faite des impôts et cotisations dus mais non
+            recouvrables ainsi que des crédits d’impôts (définition
+            INSEE, tableau 3.216). Le taux est ce montant rapporté au
+            PIB. C’est un flux d’année civile. L’unité native est le
+            milliard d’euros ; le pourcentage du PIB vient de la même
+            table. Un delta d’une année sur l’autre n’est ni
+            «&nbsp;bon&nbsp;» ni «&nbsp;mauvais&nbsp;». Voir{" "}
+            <LienPage href="/recettes/#prelevements-obligatoires">Recettes</LienPage>.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
+            INSEE, comptes nationaux annuels base 2020, tableau 3.216
+            de l’Insee Résultats 8988845 (paru le 29 mai 2026). Cube
+            homologue Melodi&nbsp;: DD_CNA_APU. Réutilisation&nbsp;:
+            Licence Ouverte 2.0 (Etalab). Le millésime est l’année des
+            comptes, pas <code>modified</code> Melodi.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
+            Ce n’est pas taxag (non ingéré). Ce n’est pas le total TR
+            Eurostat (S44). Ce n’est pas l’impôt sur le revenu de
+            caisse du budget général (S13) ni l’IRCOM (S47). Ce n’est
+            pas le déficit Maastricht. S1314 n’est pas «&nbsp;la
+            Sécu&nbsp;».
           </p>
         </div>
       </Card>

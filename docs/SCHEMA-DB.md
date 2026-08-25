@@ -33,8 +33,11 @@
 # Puis table cofog_apu_esa (S49, Eurostat gov_10a_exp, CFAP TE) —
 # CREATE recopié du pipeline P26 (avec IF NOT EXISTS : table neuve,
 # pas une migration).
+# Puis table comptes_apu_insee (S50, INSEE Insee Résultats 8988845) —
+# CREATE recopié du pipeline P27 (avec IF NOT EXISTS : table neuve,
+# pas une migration).
 
-> **Extrait daté.** Ce document décrit **82 tables**, **6 vues** et **58 index**, et cette
+> **Extrait daté.** Ce document décrit **83 tables**, **6 vues** et **58 index**, et cette
 > couverture est sa propriété essentielle : une table de la base absente d'ici est un trou de
 > documentation, et une table décrite ici qui n'existe nulle part est une invention. Les **75**
 > tables, les 6 vues et les 55 index sont ceux que `sqlite_master` recense au 22/08/2026 (matin), et le
@@ -1200,6 +1203,27 @@ CREATE TABLE cofog_apu_esa (
     valeur_pc_gdp  REAL NOT NULL CHECK (valeur_pc_gdp > 0),
     statut         TEXT,
     PRIMARY KEY (geo, sector, cofog99, annee)
+);
+-- ---------------------------------------------------------------------------
+-- S50, P27 — Comptes des APU (INSEE, Insee Résultats 8988845).
+-- Totaux DEP/REC par secteur + PO 3.216. Unité native Md€ (PC_PIB pour le PO).
+-- B9NF non ingéré. Distinct de S44 / S42 / S49. date_donnees = 31/12
+-- de l'année max, jamais modified Melodi.
+-- ---------------------------------------------------------------------------
+CREATE TABLE comptes_apu_insee (
+    tableau     TEXT NOT NULL,
+    secteur     TEXT NOT NULL CHECK (secteur IN (
+                    'S13','S1311','S13111','S13112',
+                    'S1313','S1314','S212','S13_S212'
+                )),
+    poste       TEXT NOT NULL CHECK (poste IN (
+                    'DEP_TOTAL','REC_TOTAL','PO','PO_IMPOTS','PO_COTIS'
+                )),
+    libelle     TEXT NOT NULL,
+    annee       INTEGER NOT NULL,
+    valeur_md   REAL NOT NULL CHECK (valeur_md > 0),
+    unite       TEXT NOT NULL CHECK (unite IN ('MdEUR','PC_PIB')),
+    PRIMARY KEY (tableau, secteur, poste, annee, unite)
 );
 CREATE TABLE partis (
     id               TEXT PRIMARY KEY REFERENCES entites(id),

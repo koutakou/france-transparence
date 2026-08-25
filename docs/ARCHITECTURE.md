@@ -2,7 +2,7 @@
 
 **Document de référence technique · Établi le 19/08/2026. Révisé le 25/08/2026.**
 
-État courant : **28 pipelines**, **40 sources**, **11 onglets** + `/comprendre` hors nav, kit `app/src/components/ui/` écrit (G2/G8). Le flux de données et le schéma SQL noyau ci-dessous n'ont pas changé de contrat.
+État courant : **29 pipelines**, **41 sources**, **11 onglets** + `/comprendre` hors nav, kit `app/src/components/ui/` écrit (G2/G8). Le flux de données et le schéma SQL noyau ci-dessous n'ont pas changé de contrat.
 
 Complète `docs/SOURCES.md` (le *quoi* : le périmètre de sources ingérées) et `docs/DATAVIZ.md` (le *comment visuel*). Ici : le *comment technique*.
 
@@ -99,7 +99,7 @@ Règles du flux :
 
 ```sql
 CREATE TABLE meta_sources (           -- fraîcheur : donnée de premier rang
-    source_id      TEXT PRIMARY KEY,  -- 'S1'…'S49', ids composés (S5-AMO10, S27-*, …)
+    source_id      TEXT PRIMARY KEY,  -- 'S1'…'S50', ids composés (S5-AMO10, S27-*, …)
     nom            TEXT NOT NULL,
     url            TEXT NOT NULL,
     licence        TEXT NOT NULL,     -- 'Licence Ouverte 2.0', 'ODbL'…
@@ -187,6 +187,7 @@ Un module par pipeline : `pipelines/ingest_<source>.py`, exécutable par `python
 | `ingest-ircom` | `ingest_ircom.py` | P24 — IRCOM, impôt sur le revenu par collectivité territoriale (S47, DGFiP/DESF). Aucune dépendance d'ordre : n'écrit que `ircom_communes`, `ircom_departements`, `ircom_national`. Distinct de S13 (IR de caisse, cumul YTD). Impôt net SUR RÔLE, année des revenus. Unité native milliers d'euros, stockée en euros (× 1000). Tranches de RFR non ingérées. Placé avant `sirene`. |
 | `ingest-rei` | `ingest_rei.py` | P25 — REI, fiscalité directe locale (S48, DGFiP/DESF). Aucune dépendance d'ordre : n'écrit que `rei_communes`, `rei_departements`, `rei_national`. Distinct de S16 (comptes OFGL), S13 (caisse État) et S47 (IRCOM). Impositions primitives du rôle général, année d'imposition. Unité native euros. IFER régional : une valeur par région. Placé avant `sirene`. |
 | `ingest-cofog_apu` | `ingest_cofog_apu.py` | P26 — Dépenses des APU par fonction (S49, Eurostat `gov_10a_exp`, CFAP / COFOG-99, na_item=TE, TOTAL+GF01–GF10). Aucune dépendance d'ordre : n'écrit que `cofog_apu_esa`. Distinct de S13 (État YTD), S44 (TE `gov_10a_main`) et S45 (prestations DREES). Pas de groupes, pas de taxag, pas de S.1311. Placé avant `sirene`. |
+| `ingest-comptes_apu_insee` | `ingest_comptes_apu_insee.py` | P27 — Comptes des APU (S50, INSEE Insee Résultats 8988845, tableaux 3.201/3.202/3.203/3.205/3.212 et 3.216). Aucune dépendance d'ordre : n'écrit que `comptes_apu_insee`. Distinct de S13 (État YTD), S44 (TE/TR), S42 (B9 non ingéré) et S49 (CFAP). PO ≠ taxag. Sous-secteurs non additifs. Placé avant `sirene`. |
 | `ingest-sirene` | `ingest_sirene.py` | Stock Sirene — attributs des unités légales citées (S18). **Pipeline dérivé** : il lit les SIREN cités par les autres tables et doit donc passer **après** elles ; sur une base neuve il échoue franchement au lieu d'écrire un référentiel vide. À ne pas confondre avec `pipelines/sirene.py`, qui est la résolution unitaire par API de S10. |
 
 Contrat d'un pipeline :

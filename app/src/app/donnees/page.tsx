@@ -648,7 +648,9 @@ export default async function PageDonnees() {
             Sirene&nbsp;: INSEE ; prestations de protection sociale&nbsp;:
             DREES ; encours et déficit des APU au sens de Maastricht,
             agrégats ESA (recettes et dépenses) et dépenses par fonction
-            (CFAP)&nbsp;: Eurostat (décision 2011/833/UE) ; avis et
+            (CFAP)&nbsp;: Eurostat (décision 2011/833/UE) ; comptes des
+            APU (dépenses et recettes par sous-secteur, prélèvements
+            obligatoires)&nbsp;: INSEE (Licence Ouverte 2.0) ; avis et
             conseils&nbsp;: CADA ; registre de
             transparence de l’Union européenne (décision 2011/833/UE) ; fond de
             carte&nbsp;: france-geojson (contours IGN/Etalab).

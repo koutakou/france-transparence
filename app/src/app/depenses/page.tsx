@@ -21,6 +21,10 @@ import {
   perimetreCofog,
 } from "@/lib/queries/cofog-apu";
 import {
+  getComptesApuInsee,
+  perimetreCentrale,
+} from "@/lib/queries/comptes-apu-insee";
+import {
   getBilanCge,
   perimetreCge,
 } from "@/lib/queries/cge";
@@ -115,10 +119,10 @@ function LienComprendre({ ancre }: { ancre: string }) {
 /**
  * Dépenses de l'État — exécution mensuelle (S13), budget par mission
  * (S20, PLF 2026), destination 2025 (S21), subventions aux associations
- * (S23), et blocs cloisonnés S41/S42/S44/S49/S22/S45. Server Component : les
+ * (S23), et blocs cloisonnés S41/S42/S44/S49/S50/S22/S45. Server Component : les
  * lectures S13/S20/S21/S23 viennent de `@/lib/queries/depenses` ; S22
  * vient de `@/lib/queries/cge` ; S45 de `@/lib/queries/protection-sociale` ;
- * S49 de `@/lib/queries/cofog-apu`.
+ * S49 de `@/lib/queries/cofog-apu` ; S50 de `@/lib/queries/comptes-apu-insee`.
  * Aucune donnée n'est fabriquée.
  */
 export default async function PageDepenses() {
@@ -146,6 +150,7 @@ export default async function PageDepenses() {
   const deficit = getDeficitMaastricht();
   const depensesApu = getAgregatApu("TE");
   const cofogApu = getCofogApu();
+  const comptesApuInsee = getComptesApuInsee();
   const bilanCge = getBilanCge();
   const protectionSociale = getProtectionSociale();
   const missions = getMissionsPlf2026(10);
@@ -826,6 +831,82 @@ export default async function PageDepenses() {
               />
             </VueTableau>
             <LienComprendre ancre="depenses-apu-cfap" />
+          </Card>
+        </div>
+      )}
+
+      {/* S50 — comptes INSEE par sous-secteur, pas un second TE, pas B9. */}
+      {comptesApuInsee && (
+        <div id="comptes-apu-insee" className="scroll-mt-32">
+          <Card
+            titre="Dépenses des APU par sous-secteur (INSEE)"
+            sousTitre="Comptes nationaux, présentation dépenses et recettes — distinct du total ESA (S44) et de la CFAP (S49)"
+            droite={
+              <FreshnessBadge
+                dateDonnees={comptesApuInsee.meta.date_donnees}
+                source="INSEE — comptes nationaux"
+                frequence={comptesApuInsee.meta.frequence}
+                url={comptesApuInsee.meta.url}
+              />
+            }
+          >
+            <KpiTile
+              nu
+              label="Administration publique centrale (S1311)"
+              valeur={`${formatNombre(comptesApuInsee.centrale.depensesMd, 1)}${ESPACE_FINE}Md€`}
+              perimetre={perimetreCentrale(comptesApuInsee.annee)}
+              delta={
+                comptesApuInsee.deltaCentralePct === null
+                  ? undefined
+                  : {
+                      valeur: comptesApuInsee.deltaCentralePct,
+                      vs: comptesApuInsee.precedentCentrale
+                        ? `année ${comptesApuInsee.precedentCentrale.annee}`
+                        : "année précédente",
+                    }
+              }
+            />
+            <p className="mt-3 text-xs leading-relaxed text-ink-muted">
+              Présentation INSEE des dépenses et recettes (flux monétaires,
+              imputés limités). Ce n&apos;est pas le budget général, pas le
+              total TE Eurostat (S44), pas une ventilation CFAP, pas la
+              dette de l&apos;État. Les trois sous-secteurs ne
+              s&apos;additionnent pas&nbsp;: chaque bloc est consolidé en
+              son sein. L&apos;État (S13111) est déjà dans S1311 ; il
+              n&apos;est pas une ligne sœur.
+            </p>
+            <BarList
+              className="mt-4"
+              items={comptesApuInsee.sousSecteursDepenses.map((d) => ({
+                libelle: d.libelle,
+                valeur: d.depensesMd,
+              }))}
+              formatValeur={(v) => `${formatNombre(v, 1)}${ESPACE_FINE}Md€`}
+            />
+            <p className="mt-2 text-xs text-ink-muted">
+              Ordre S1311, S1313, S1314, année {comptesApuInsee.annee}. Ce
+              n&apos;est pas un classement. S1314 n&apos;est pas «&nbsp;la
+              Sécu&nbsp;».
+            </p>
+            <VueTableau>
+              <DataTable
+                colonnes={[
+                  { cle: "libelle", entete: "Sous-secteur" },
+                  {
+                    cle: "dep",
+                    entete: "Dépenses (Md€)",
+                    type: "montant",
+                    decimales: 1,
+                  },
+                ]}
+                lignes={comptesApuInsee.sousSecteursDepenses.map((l) => ({
+                  libelle: l.libelle,
+                  dep: l.depensesMd,
+                }))}
+                cleLigne={(l) => String(l.libelle)}
+              />
+            </VueTableau>
+            <LienComprendre ancre="comptes-apu-insee" />
           </Card>
         </div>
       )}
