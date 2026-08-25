@@ -36,6 +36,9 @@
 # Puis table comptes_apu_insee (S50, INSEE Insee Résultats 8988845) —
 # CREATE recopié du pipeline P27 (avec IF NOT EXISTS : table neuve,
 # pas une migration).
+# Puis table comptes_odac_insee (S51, INSEE tableau 3.204, ODAC S13112) —
+# CREATE recopié du pipeline P28 (avec IF NOT EXISTS : table neuve,
+# pas une migration). Unité native Md€. B9 non ingéré.
 
 > **Extrait daté.** Ce document décrit **83 tables**, **6 vues** et **58 index**, et cette
 > couverture est sa propriété essentielle : une table de la base absente d'ici est un trou de
@@ -1223,6 +1226,23 @@ CREATE TABLE comptes_apu_insee (
     annee       INTEGER NOT NULL,
     valeur_md   REAL NOT NULL CHECK (valeur_md > 0),
     unite       TEXT NOT NULL CHECK (unite IN ('MdEUR','PC_PIB')),
+    PRIMARY KEY (tableau, secteur, poste, annee, unite)
+);
+-- ---------------------------------------------------------------------------
+-- S51, P28 — Comptes des ODAC (INSEE, Insee Résultats 8988845, tableau 3.204).
+-- Totaux DEP/REC du sous-secteur S13112. Unité native Md€.
+-- B9 non ingéré. Distinct de S50 (autres tableaux) et de S39 (jaune
+-- opérateurs). date_donnees = 31/12 de l'année max, jamais modified
+-- Melodi. S13111 + S13112 ≠ S1311 (consolidations, note 3.215).
+-- ---------------------------------------------------------------------------
+CREATE TABLE comptes_odac_insee (
+    tableau   TEXT NOT NULL CHECK (tableau = '3.204'),
+    secteur   TEXT NOT NULL CHECK (secteur = 'S13112'),
+    poste     TEXT NOT NULL CHECK (poste IN ('DEP_TOTAL','REC_TOTAL')),
+    libelle   TEXT NOT NULL,
+    annee     INTEGER NOT NULL,
+    valeur_md REAL NOT NULL CHECK (valeur_md > 0),
+    unite     TEXT NOT NULL CHECK (unite = 'MdEUR'),
     PRIMARY KEY (tableau, secteur, poste, annee, unite)
 );
 CREATE TABLE partis (

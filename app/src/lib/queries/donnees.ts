@@ -3,7 +3,7 @@
  * statiques (/api/meta.json, /api/elus.json, /api/marches-agregats.json,
  * /api/budget-mensuel.json) — générés au build, servis en fichiers.
  *
- * La table pivot est `meta_sources` (41 sources tracées) : chaque source y
+ * La table pivot est `meta_sources` (42 sources tracées) : chaque source y
  * porte sa date de données réelle, sa date d'ingestion, sa fréquence déclarée,
  * sa licence et ses notes — c'est le « moniteur de fraîcheur » du projet
  * (docs/SOURCES.md, alerte A11).
@@ -80,7 +80,7 @@ type SeuilSource = { unite: UniteAge; retard: number; alerte: number };
  * seuils dans `meta_sources` (colonnes dédiées) via les pipelines.
  *
  * Ordre et valeurs repris ligne à ligne de `fraicheur.conf`.
- * Dernière synchronisation : 25/08/2026, 41 sources (ajout de S50).
+ * Dernière synchronisation : 25/08/2026, 42 sources (ajout de S51).
  */
 const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // Quotidiennes strictes, calendrier ouvré
@@ -144,6 +144,10 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // 520/600 comme S44 : millésime 2025 déjà là ; 400/440 sonnerait
   // dès février, avant la parution de mai.
   S50: { unite: "jc", retard: 520, alerte: 600 },
+  // Même publication Insee Résultats 8988845 que S50 (tableau 3.204,
+  // S13112) : millésime = 31/12 de l'année max, jamais modified Melodi.
+  // 520/600 comme S50/S44.
+  S51: { unite: "jc", retard: 520, alerte: 600 },
   // Annuelle CGE : millésime = 31/12 de la pièce de synthèse (xlsx),
   // jamais modified du catalogue. Les balances ligne à ligne peuvent
   // porter N+1 avant que la pièce ne l'ajoute ; 650/750 = 21,5/25 mois
@@ -326,7 +330,7 @@ export function evalueFraicheur(
 
 export type SourceCataloguee = MetaSource & { fraicheur: Fraicheur };
 
-/** Les 41 sources tracées, avec leur fraîcheur calculée. */
+/** Les 42 sources tracées, avec leur fraîcheur calculée. */
 export function getCatalogueSources(): SourceCataloguee[] | null {
   const db = getDb();
   if (!db) return null;

@@ -25,6 +25,10 @@ import {
   perimetreCentrale,
 } from "@/lib/queries/comptes-apu-insee";
 import {
+  getOdacInsee,
+  perimetreOdac,
+} from "@/lib/queries/odac-insee";
+import {
   getBilanCge,
   perimetreCge,
 } from "@/lib/queries/cge";
@@ -119,10 +123,11 @@ function LienComprendre({ ancre }: { ancre: string }) {
 /**
  * Dépenses de l'État — exécution mensuelle (S13), budget par mission
  * (S20, PLF 2026), destination 2025 (S21), subventions aux associations
- * (S23), et blocs cloisonnés S41/S42/S44/S49/S50/S22/S45. Server Component : les
+ * (S23), et blocs cloisonnés S41/S42/S44/S49/S50/S51/S22/S45. Server Component : les
  * lectures S13/S20/S21/S23 viennent de `@/lib/queries/depenses` ; S22
  * vient de `@/lib/queries/cge` ; S45 de `@/lib/queries/protection-sociale` ;
- * S49 de `@/lib/queries/cofog-apu` ; S50 de `@/lib/queries/comptes-apu-insee`.
+ * S49 de `@/lib/queries/cofog-apu` ; S50 de `@/lib/queries/comptes-apu-insee` ;
+ * S51 de `@/lib/queries/odac-insee`.
  * Aucune donnée n'est fabriquée.
  */
 export default async function PageDepenses() {
@@ -151,6 +156,7 @@ export default async function PageDepenses() {
   const depensesApu = getAgregatApu("TE");
   const cofogApu = getCofogApu();
   const comptesApuInsee = getComptesApuInsee();
+  const odacInsee = getOdacInsee();
   const bilanCge = getBilanCge();
   const protectionSociale = getProtectionSociale();
   const missions = getMissionsPlf2026(10);
@@ -907,6 +913,76 @@ export default async function PageDepenses() {
               />
             </VueTableau>
             <LienComprendre ancre="comptes-apu-insee" />
+          </Card>
+        </div>
+      )}
+
+      {/* S51 — ODAC INSEE S13112, déjà dans S1311, pas le jaune opérateurs. */}
+      {odacInsee && (
+        <div id="odac-insee" className="scroll-mt-32">
+          <Card
+            titre="Dépenses des ODAC (INSEE)"
+            sousTitre="Organismes divers d'administration centrale, S13112 — déjà dans S1311, distinct du jaune opérateurs"
+            droite={
+              <FreshnessBadge
+                dateDonnees={odacInsee.meta.date_donnees}
+                source="INSEE — comptes nationaux"
+                frequence={odacInsee.meta.frequence}
+                url={odacInsee.meta.url}
+              />
+            }
+          >
+            <KpiTile
+              nu
+              label="Organismes divers d'administration centrale (S13112)"
+              valeur={`${formatNombre(odacInsee.odac.depensesMd, 1)}${ESPACE_FINE}Md€`}
+              perimetre={perimetreOdac(odacInsee.annee)}
+              delta={
+                odacInsee.deltaPct === null
+                  ? undefined
+                  : {
+                      valeur: odacInsee.deltaPct,
+                      vs: odacInsee.precedent
+                        ? `année ${odacInsee.precedent.annee}`
+                        : "année précédente",
+                    }
+              }
+            />
+            <p className="mt-3 text-xs leading-relaxed text-ink-muted">
+              Ce n&apos;est pas le budget général, pas S1311, pas une ligne
+              sœur de l&apos;État, pas les opérateurs du jaune PLF 2026
+              (S39, liste sans €), pas un solde. On n&apos;additionne pas
+              à S13111.
+            </p>
+            <VueTableau>
+              <DataTable
+                colonnes={[
+                  { cle: "annee", entete: "Année" },
+                  {
+                    cle: "dep",
+                    entete: "Dépenses (Md€)",
+                    type: "montant",
+                    decimales: 1,
+                  },
+                ]}
+                lignes={[
+                  ...(odacInsee.precedent
+                    ? [
+                        {
+                          annee: odacInsee.precedent.annee,
+                          dep: odacInsee.precedent.depensesMd,
+                        },
+                      ]
+                    : []),
+                  {
+                    annee: odacInsee.odac.annee,
+                    dep: odacInsee.odac.depensesMd,
+                  },
+                ]}
+                cleLigne={(l) => String(l.annee)}
+              />
+            </VueTableau>
+            <LienComprendre ancre="odac-insee" />
           </Card>
         </div>
       )}

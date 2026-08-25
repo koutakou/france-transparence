@@ -56,6 +56,10 @@ PY     := $(VENV)/bin/python
 # comptes_apu_insee. Distinct de S13 (budget de l'État), S44 (TE/TR
 # Eurostat), S42 (B9, non ingéré) et S49 (CFAP). PO 3.216 ≠ taxag.
 # Placé avant sirene.
+# odac_insee (S51, P28, tableau INSEE 3.204, ODAC S13112) n'a
+# AUCUNE dépendance d'ordre : il n'écrit que comptes_odac_insee.
+# Distinct de S50 (S1311 = État+ODAC en consolidation, sans le
+# 3.204). Placé avant sirene.
 # sirene (S18) est en DERNIER, et cette place-là n'a rien d'arbitraire : le
 # référentiel Sirene n'est pas ingéré en entier, il est restreint aux SIREN
 # que les autres tables citent (decp, subventions, lobbying, collectivites,
@@ -67,7 +71,7 @@ PIPELINES := referentiels budget_mensuel budget_structure decp boamp approch \
              collectivites elections trainvie cada registre_ue \
              dette_maastricht deficit_maastricht dole agregats_apu cge \
              protection_sociale recettes_plf ircom rei cofog_apu \
-             comptes_apu_insee sirene
+             comptes_apu_insee odac_insee sirene
 
 # NB : ne PAS déclarer les cibles ingest-<x> en .PHONY — make saute la
 # recherche de règles implicites (ingest-%) pour les cibles phony.

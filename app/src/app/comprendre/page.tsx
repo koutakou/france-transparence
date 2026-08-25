@@ -393,6 +393,21 @@ const GLOSSAIRE: EntreeGlossaire[] = [
     ),
   },
   {
+    terme: "ODAC",
+    id: "odac",
+    def: (
+      <>
+        Organismes divers d’administration centrale, sous-secteur ESA
+        S13112. Distincts des opérateurs du jaune budgétaire (PLF,
+        source S39). Voir{" "}
+        <a href="#odac-insee" className={LIEN}>
+          Dépenses des ODAC (INSEE)
+        </a>
+        .
+      </>
+    ),
+  },
+  {
     terme: "B9 / déficit Maastricht",
     id: "b9-maastricht",
     def: (
@@ -541,6 +556,7 @@ const SOMMAIRE: { href: string; libelle: string }[] = [
   { href: "#depenses-apu-esa", libelle: "Dépenses des APU (ESA)" },
   { href: "#depenses-apu-cfap", libelle: "Dépenses des APU par fonction (CFAP)" },
   { href: "#comptes-apu-insee", libelle: "Dépenses des APU par sous-secteur (INSEE)" },
+  { href: "#odac-insee", libelle: "Dépenses des ODAC (INSEE)" },
   { href: "#recettes-apu-esa", libelle: "Recettes des APU (ESA)" },
   { href: "#prelevements-obligatoires", libelle: "Prélèvements obligatoires (INSEE)" },
   { href: "#cge", libelle: "Situation nette de l’État (CGE)" },
@@ -814,6 +830,16 @@ export default function PageComprendre() {
               loi de finances (État A, recettes brutes), pas de
               l’exécution mensuelle. Ce n’est pas la LFI votée, pas le
               rapport de l’Agence des participations de l’État.
+            </li>
+            <li>
+              <strong className="font-medium text-ink">
+                25 août 2026 — Dépenses des ODAC (INSEE).
+              </strong>{" "}
+              Le tableau 3.204 (secteur ESA S13112) est une lecture
+              distincte des totaux par sous-secteur (S50) et de la
+              liste des opérateurs du jaune PLF (S39). C’est un flux
+              d’année civile, déjà compris dans S1311&nbsp;: on ne
+              l’additionne ni à l’État (S13111) ni au S13.
             </li>
           </ul>
         </div>
@@ -1304,9 +1330,53 @@ export default function PageComprendre() {
             des dépenses (leur différence serait ce solde). Le total S13
             n’est pas une ligne du tableau (ce serait un second TE).
             S13111 (l’État) n’est pas une ligne sœur de S1311&nbsp;: il
-            y est déjà. S1311 n’est pas «&nbsp;la dette de l’État&nbsp;».
-            S1314 n’est pas «&nbsp;la Sécu&nbsp;». Ce n’est pas un
-            montant par habitant.
+            y est déjà. Le détail des ODAC (S13112) est S51&nbsp;: il
+            est déjà dans S1311, on ne l’additionne pas. S1311 n’est pas
+            «&nbsp;la dette de l’État&nbsp;». S1314 n’est pas
+            «&nbsp;la Sécu&nbsp;». Ce n’est pas un montant par habitant.
+          </p>
+        </div>
+      </Card>
+
+      <Card titre="Dépenses des ODAC (INSEE)">
+        <div id="odac-insee" className="scroll-mt-32 max-w-3xl space-y-3 text-sm leading-relaxed text-ink-secondary">
+          <p>
+            <strong className="font-medium text-ink">Comment ça fonctionne.</strong>{" "}
+            Les organismes divers d’administration centrale (ODAC)
+            forment le sous-secteur ESA S13112. Le tableau INSEE 3.204
+            en donne le total des dépenses, flux d’année civile.
+            L’unité native est le milliard d’euros. Ce total est déjà
+            dans l’administration publique centrale (S1311)&nbsp;: on
+            ne l’additionne ni à l’État (S13111) ni au secteur S13. Un
+            delta d’une année sur l’autre n’est ni «&nbsp;bon&nbsp;» ni
+            «&nbsp;mauvais&nbsp;». Voir{" "}
+            <LienPage href="/depenses/#odac-insee">Dépenses</LienPage>.
+            Vocabulaire&nbsp;:{" "}
+            <a href="#odac" className={LIEN}>
+              ODAC
+            </a>
+            .
+          </p>
+          <p>
+            <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
+            INSEE, comptes nationaux annuels base 2020, Insee Résultats
+            «&nbsp;Dépenses et recettes des administrations publiques en
+            2025&nbsp;» (identifiant 8988845). Tableau 3.204 (S13112).
+            Réutilisation&nbsp;: Licence Ouverte 2.0 (Etalab). Le
+            millésime est l’année des comptes, pas la date de
+            modification Melodi, pas la date de parution.
+          </p>
+          <p>
+            <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
+            Ce n’est pas l’exécution du budget général (source S13). Ce
+            n’est pas le total S1311. Ce n’est pas une ligne sœur de
+            l’État (S13111). Ce n’est pas la liste des opérateurs du
+            jaune PLF (S39)&nbsp;: une liste, 0&nbsp;€, pas ce flux. Ce
+            n’est pas un solde&nbsp;: les recettes sont ingérées, non
+            affichées à côté des dépenses (leur différence serait B9).
+            Ce n’est pas Maastricht, pas la CFAP, pas taxag. Ce n’est
+            pas «&nbsp;la Sécu&nbsp;». Ce n’est pas un montant par
+            habitant.
           </p>
         </div>
       </Card>

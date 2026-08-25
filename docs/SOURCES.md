@@ -102,6 +102,14 @@
 > obligatoires). Distinct de S13, S44, S42 (B9 non ingéré) et S49.
 > PO officiel ≠ taxag. Sous-secteurs non additifs.
 >
+> **Mise à jour du 25/08/2026, soir.** **S51** (dépenses des ODAC INSEE,
+> Insee Résultats 8988845, tableau 3.204, via
+> `pipelines/ingest_odac_insee.py`) s'ajoute. L'ingestion compte
+> donc **30 pipelines** et **42 sources**. Distinct de S50
+> (3.201/3.202/3.203/3.205/3.212 + PO 3.216) et de S39 (jaune
+> opérateurs, liste, 0 €). Sous-secteurs non additifs. B9 non
+> ingéré.
+>
 > **Document daté.** Les fraîcheurs et volumétries amont relevées ici l'ont été par appels réels le
 > 19/08/2026 (et le 20/08 pour S38 et S40, le 22/08 soir ~22:30 CEST pour S43, le 23/08 pour S44, S22 et S45) : elles décrivent ces jours-là et **ont dérivé depuis**.
 > Le catalogue vivant, avec la date réellement ingérée de chaque source, est la page `/donnees`
@@ -483,6 +491,18 @@ Tous téléchargés/dépouillés le 19/08/2026 (05-frais-indemnites.md) :
 - **Relevé daté du 25/08/2026** (xlsx HTTP 200) : S13 dépenses 1 714,2 Md€ / recettes 1 561,7 Md€ ; S1311 681,1 / 550,8 ; S13111 607,7 / 479,6 ; S1313 335,5 / 319,9 ; S1314 803,3 / 796,6 ; PO S13+S212 1 305,067 Md€ / 43,63 % du PIB. Ces montants décrivent ce jour-là et **dérivent**.
 - **Modules** : `/depenses` (sous-secteurs) et `/recettes` (PO). **INGÉRÉE** — pipeline P27 `pipelines/ingest_comptes_apu_insee.py`.
 
+#### S51. Dépenses des ODAC (INSEE, Insee Résultats 8988845, tableau 3.204, évalué le 25/08/2026)
+- **Producteur** : INSEE. Comptes nationaux annuels, base 2020. **URL** : `https://www.insee.fr/fr/statistiques/8988845?sommaire=8988934`. Fichier : `https://www.insee.fr/fr/statistiques/fichier/8988845/t_3204_fr.xlsx` (HTTP 200, 30 573 o. le 25/08/2026). Cube homologue Melodi `DD_CNA_APU` (`https://api.insee.fr/melodi/catalog/DD_CNA_APU`, modified 2026-06-08 — **jamais** `date_donnees`). Re-fetch HTTP 200 le 25/08/2026 (UA projet).
+- **Licence relue** (25/08/2026) : catalogue INSEE `https://www.insee.fr/fr/information/8184173` — « Les jeux de données sont mis à disposition sous les termes de la licence Licence Ouverte / Open License ». Texte légal : `https://www.data.gouv.fr/pages/legal/licences/etalab-2.0/` (HTTP 200). Libellé `meta_sources` : `Licence Ouverte 2.0 (Etalab)`. **Pas** la décision 2011/833/UE.
+- **Fréquence** : annuelle (année des comptes). **Date des données** = 31 décembre de l'année max (**2025-12-31** au 25/08/2026), **jamais** `modified` Melodi ni la parution Insee Résultats (29/05/2026). Seuils **520/600** jours calendaires, comme S50/S44 (millésime 2025 déjà là).
+- **Objet** : totaux de dépenses et de recettes du tableau 3.204, sous-secteur ESA **S13112** (organismes divers d'administration centrale). Unité native **Md€**. `source_id` = **S51**. Distinct de S50 (tableaux 3.201/3.202/3.203/3.205/3.212 et PO 3.216) et de S39 (jaune opérateurs PLF 2026 : liste, 0 €).
+- **Hors périmètre** : solde B9 (**non ingéré**) ; Maastricht ; CFAP ; taxag ; recettes affichées à côté des dépenses (ingérées, non affichées sur `/depenses` — leur différence serait B9) ; tableaux 3.206 (S13131), 3.207–3.210 (communes / départements / régions / syndicats), 3.211 (ODAL), 3.213–3.214 (S13141 et organismes de sécurité sociale), 3.215 (table de consolidation) et 3.217 (impôts par catégorie, recouperait le PO S50). Ces tableaux restent hors périmètre ; ce ne sont pas des sources du Groupe E.
+- **Pièges** : déjà dans S1311 — **ne s'additionne pas** à l'État (S13111) ni au S13. **S13111 + S13112 ≠ S1311** (consolidations, note 3.215). ODAC ≠ opérateurs du jaune (S39). S13112 n'est pas le budget général (source S13), pas une ligne sœur de S13111, pas un montant par habitant.
+- **Relevé daté du 25/08/2026** (xlsx HTTP 200, 48 années 1978–2025) : S13112 dépenses 142,2659 Md€ (affiché 142,3 Md€) ; recettes 140,1141 Md€ (ingérées, non affichées sur `/depenses`). S1311 dépenses 681,1 Md€ ; S13111 607,7 Md€ — non additifs. Ces montants décrivent ce jour-là et **dérivent**.
+- **Modules** : `/depenses` (bloc cloisonné). **INGÉRÉE** — pipeline P28 `pipelines/ingest_odac_insee.py`.
+
+Les tableaux INSEE 3.206–3.211 et 3.213–3.217 de l'Insee Résultats 8988845 restent hors périmètre. S51 n'est pas une source écartée.
+
 ### Groupe E — Sources écartées (raison prouvée le 19/08/2026)
 
 | Source écartée | Raison constatée | Rapport |
@@ -559,7 +579,7 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 
 ## 2. Mapping module → sources
 
-> **Encart de périmètre « argent public » (obligatoire, affiché sur l'Accueil et dans API & Données)** : le dashboard couvre le **budget général de l'État**, le **Parlement et la vie politique** (élus, lobbying, financement), la **commande publique**, les **finances locales**, et les **prestations de protection sociale** (DREES, tous régimes, millésime porté par la tuile — S45). Ce n'est **pas** la LFSS comme loi votée, **pas** la dépense propre des **opérateurs de l'État** (seuls leurs crédits budgétaires apparaissent via S20/S21 ; référentiel S39 non ingéré) et **pas** les **entreprises publiques**. Tout compteur global du budget général porte la mention « budget général de l'État » — jamais « la dépense publique » (10-critique I8) ; le total S45 porte « prestations de protection sociale », jamais « la Sécu » ni « dette de l'État ».
+> **Encart de périmètre « argent public » (obligatoire, affiché sur l'Accueil et dans API & Données)** : le dashboard couvre le **budget général de l'État**, le **Parlement et la vie politique** (élus, lobbying, financement), la **commande publique**, les **finances locales**, et les **prestations de protection sociale** (DREES, tous régimes, millésime porté par la tuile — S45). Ce n'est **pas** la LFSS comme loi votée, **pas** la dépense propre des **opérateurs de l'État** (seuls leurs crédits budgétaires apparaissent via S20/S21 ; référentiel S39 non ingéré — les ODAC INSEE, S51, secteur ESA S13112, ne sont pas ces opérateurs) et **pas** les **entreprises publiques**. Tout compteur global du budget général porte la mention « budget général de l'État » — jamais « la dépense publique » (10-critique I8) ; le total S45 porte « prestations de protection sociale », jamais « la Sécu » ni « dette de l'État ».
 
 ### Accueil synthétique
 - **Sources** : S13 (compteur dépenses État), S1 (flux marchés + carte 30 j), S2 (nb d'AO en cours), S3 (derniers textes JO), S14 (compteur d'alertes HATVP), S17/S4 (bandeau de stats), S20 (top missions).
@@ -567,7 +587,7 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 - **Contenu concret** : compteur « dépenses de l'État depuis le 1er janvier » (cumul mensuel, ex. réel : 195,0 Md€ de dépenses nettes du BG au 31/05/2026, 01) avec variation vs même période 2025 ; donut par grands postes (titres, S13) ; top missions (S20, annuel, mention PLF) ; carte de France des marchés notifiés sur 30 jours (S1, lat/lng natives) ; flux « derniers marchés notifiés » (J-1) et « derniers textes au JO » (jour même) ; « X appels d'offres en cours » ; bandeau : marchés notifiés/12 mois, ~500 000 mandats d'élus (S17), 6 829 lobbyistes enregistrés (S4), 12 930 dossiers déclaratifs HATVP (S14).
 
 ### Dépenses de l'État
-- **Sources** : S13 (mensuel), S20 + S21 (structure mission→action), S23 (subventions aux associations), S41 (encours APU Maastricht, bloc cloisonné), S42 (déficit public APU Maastricht, bloc cloisonné), S44 (agrégats ESA TE/TR, bloc TE sur `/depenses` et bloc TR sur `/recettes`), **S49** (dépenses des APU par fonction, CFAP, bloc cloisonné sur `/depenses`), **S50** (comptes INSEE par sous-secteur sur `/depenses`, PO 3.216 sur `/recettes`), S22 (bilan patrimonial CGE, bloc cloisonné), S45 (prestations de protection sociale DREES, bloc cloisonné), **S46** (État A du PLF, recettes non fiscales, bloc cloisonné sur `/recettes`), **S47** (IRCOM, impôt net sur rôle par territoire, bloc cloisonné sur `/recettes`), S24 (performance, non ingéré), S30 (missions mensuelles PDF, non ingéré), S39 (référentiel des opérateurs, non ingéré).
+- **Sources** : S13 (mensuel), S20 + S21 (structure mission→action), S23 (subventions aux associations), S41 (encours APU Maastricht, bloc cloisonné), S42 (déficit public APU Maastricht, bloc cloisonné), S44 (agrégats ESA TE/TR, bloc TE sur `/depenses` et bloc TR sur `/recettes`), **S49** (dépenses des APU par fonction, CFAP, bloc cloisonné sur `/depenses`), **S50** (comptes INSEE par sous-secteur sur `/depenses`, PO 3.216 sur `/recettes`), **S51** (dépenses des ODAC INSEE, tableau 3.204, bloc cloisonné sur `/depenses`), S22 (bilan patrimonial CGE, bloc cloisonné), S45 (prestations de protection sociale DREES, bloc cloisonné), **S46** (État A du PLF, recettes non fiscales, bloc cloisonné sur `/recettes`), **S47** (IRCOM, impôt net sur rôle par territoire, bloc cloisonné sur `/recettes`), S24 (performance, non ingéré), S30 (missions mensuelles PDF, non ingéré), S39 (référentiel des opérateurs, non ingéré).
 - **Fraîcheur affichable** : « Exécution mensuelle : données au 30/06/2026, ~6 semaines de décalage » (01) · « Structure du budget : PLF 2026 (déposé oct. 2025) et exécution 2024 » (01) · « Subventions aux associations : versements 2023 (dernier millésime publié) » (01).
 - **Contenu concret** : courbes 2013-2026 dépenses/recettes/solde, N vs N-1 par titre ; treemap mission → programme → action (comparateur exéc. 2024 / LFI 2025 / PLF 2026 + cotation budget vert) ; recherche parmi 112 722 subventions (SIREN, programme, commune). **Avertissements obligatoires** : PLF ≠ LFI 2026 (jamais publiée en données) ; aucune donnée de paiement en temps réel n'existe (01).
 
@@ -749,6 +769,7 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 | S48 REI (fiscalité directe locale) | Annuelle (31/12 de l'année d'imposition ; 2025 → 2025-12-31 ; publication 22/06/2026) | Licence Ouverte / Open Licence version 2.0 | Finances locales (bloc cloisonné) | **ingérée** (P25) |
 | S49 Dépenses des APU par fonction (CFAP) | Annuelle (31/12 du TIME max de TOTAL, jamais `updated` ; millésime 2024 au 25/08/2026 ; 650/750) | décision 2011/833/UE (25/08/2026) | Dépenses (bloc cloisonné) | **ingérée** (P26) |
 | S50 Comptes des APU (INSEE) | Annuelle (31/12 de l'année max, jamais `modified` Melodi ; millésime 2025 au 25/08/2026 ; 520/600) | Licence Ouverte 2.0 (Etalab, 25/08/2026) | Dépenses (sous-secteurs) / Recettes (PO) | **ingérée** (P27) |
+| S51 Dépenses des ODAC (INSEE, 3.204) | Annuelle (31/12 de l'année max, jamais `modified` Melodi ; millésime 2025 au 25/08/2026 ; 520/600) | Licence Ouverte 2.0 (Etalab, 25/08/2026) | Dépenses (bloc cloisonné) | **ingérée** (P28) |
 
 ---
 
