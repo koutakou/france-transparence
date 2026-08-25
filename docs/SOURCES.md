@@ -110,6 +110,13 @@
 > opérateurs, liste, 0 €). Sous-secteurs non additifs. B9 non
 > ingéré.
 >
+> **Mise à jour du 25/08/2026, soir.** **S52** (sanctions financières
+> de l'Autorité de la concurrence, CSV 2009+ joint aux métadonnées, via
+> `pipelines/ingest_adlc.py`) s'ajoute. L'ingestion compte donc
+> **31 pipelines** et **44 sources**. Grain = une ligne par
+> `id_decision`. JSON texte intégral non ingéré. Distinct de S13 et
+> de S39. Bloc cloisonné en bas de `/marches`.
+>
 > **Mise à jour du 25/08/2026, fin d'après-midi.** **S6-DOSLEG** (scrutins
 > publics et votes nominaux du Sénat, dump Dosleg `scr` + `votsen`, via
 > `pipelines/ingest_parlement.py`) s'ajoute. L'ingestion compte donc
@@ -520,6 +527,16 @@ Tous téléchargés/dépouillés le 19/08/2026 (05-frais-indemnites.md) :
 
 Les tableaux INSEE 3.206–3.211 et 3.213–3.217 de l'Insee Résultats 8988845 restent hors périmètre. S51 n'est pas une source écartée.
 
+#### S52. Sanctions financières de l'Autorité de la concurrence (évalué le 25/08/2026)
+- **Producteur** : Autorité de la concurrence. Organisation data.gouv `autorite-de-la-concurrence`. **URL** : `https://www.data.gouv.fr/datasets/entreprises-sanctionnees-financierement-par-lautorite-de-la-concurrence-depuis-2009`. Jeu euros : slug `entreprises-sanctionnees-financierement-par-lautorite-de-la-concurrence-depuis-2009`, ressource `sanctions-depuis-2009.csv` (HTTP 200, 63 943 o. le 25/08/2026, SHA-256 `0fd07bdfe58c92ad71dc4a01b8e628f4a557a1389af560b04017bd8b79600ed5`). Jeu métadonnées : slug `decisions-publiees-par-lautorite-de-la-concurrence-depuis-1988`, ressource `metadata-publications-adlc.csv` (HTTP 200, 2 389 925 o., SHA-256 `d1e87f721dfc1a6a01508b60dbb206e784c6600241c56c77dd270dc6aaa724f2`). Licence API : `lov2`. Re-fetch HTTP 200 le 25/08/2026 (UA projet).
+- **Licence relue** (25/08/2026) : texte légal `https://www.data.gouv.fr/pages/legal/licences/etalab-2.0/` (HTTP 200 après 308). Libellé `meta_sources` : `Licence Ouverte 2.0 (Etalab)`.
+- **Fréquence** : mensuelle (jeu euros). **Date des données** = date de la dernière décision **sanctionnée** (**2026-04-16** au 25/08/2026, `26-D-05`), **jamais** `last_modified` du dataset (2026-08-23). Seuils **200/280** jours calendaires : gap max observé entre deux décisions 189 j (2013) ; 65/80 (S13) sonnerait dès l'été.
+- **Objet** : sanctions financières depuis 2009, jointes au titre / date / URL officielle des décisions. `source_id` = **S52**. Grain du héros = `SUM(Montant total)` **une fois par `id_decision`**. Distinct de S13 (exécution du budget général) et de S39 (jaune opérateurs, 0 €).
+- **Hors périmètre** : JSON de texte intégral (~219 Mo) ; xlsx 2021 (couverture 2009–2020) ; jointure par nom ou SIREN (0 SIREN dans le CSV) ; concentrations (DCC) comme amendes ; versement dans `/alertes` ; page `/archives` ; 12ᵉ onglet.
+- **Pièges** : `SUM(Montant individuel)` (31,9 Md€ le 25/08) et la somme naïve des totaux répétés sur chaque ligne d'entreprise (154,6 Md€) sont **interdits** — le seul total défendable est une ligne par décision (10,731 Md€ / 189, puis 10,731 Md€ / 188 après retrait de `18-D-19`). Personnes physiques (préfixe civil + J. Grenot, R. Vecchietti) hors table nominative ; `C. Steinweg` est une raison sociale, conservée. Ce n'est pas un recouvrement (le producteur : « avant éventuels appels et recours »), pas un marché, pas une recette S13. 0 « sondage », 0 « baromètre ».
+- **Relevé daté du 25/08/2026** (CSV HTTP 200) : 1 208 lignes, 189 `id_decision`, 188 conservées ; héros 10 731 280 854 € ; 4 décisions 2026 (148 094 / 3,4 M / 6,5 M / 12,67 M). Ces montants décrivent ce jour-là et **dérivent**.
+- **Modules** : `/marches` (bloc cloisonné) et `/donnees` (card). **INGÉRÉE** — pipeline P29 `pipelines/ingest_adlc.py`.
+
 ### Groupe E — Sources écartées (raison prouvée le 19/08/2026)
 
 | Source écartée | Raison constatée | Rapport |
@@ -610,7 +627,7 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 - **Contenu concret** : courbes 2013-2026 dépenses/recettes/solde, N vs N-1 par titre ; treemap mission → programme → action (comparateur exéc. 2024 / LFI 2025 / PLF 2026 + cotation budget vert) ; recherche parmi 112 722 subventions (SIREN, programme, commune). **Avertissements obligatoires** : PLF ≠ LFI 2026 (jamais publiée en données) ; aucune donnée de paiement en temps réel n'existe (01).
 
 ### Commande publique & appels d'offres
-- **Sources** : S1 (attributions + carte + fiches), S2 (AO en cours), S8 (chiffres officiels DAJ, contrôle), S9 (marchés à venir), S34 (UE, non ingéré).
+- **Sources** : S1 (attributions + carte + fiches), S2 (AO en cours), S8 (chiffres officiels DAJ, contrôle), S9 (marchés à venir), S34 (UE, non ingéré), **S52** (amendes ADLC, bloc cloisonné — ce n'est pas un marché).
 - **Fraîcheur affichable** : « Attributions : consolidation quotidienne (dernière notification : la veille) ; publication légale sous 2 mois — données en cours de consolidation » (02) · « Appels d'offres : annonces du jour même » (02) · « Projets d'achats : mise à jour continue » (02).
 - **Contenu concret** : 8 988 AO ouverts triés par date limite ; flux et carte des attributions (montants rationalisés, écrêtage p99) ; fiches acheteur/titulaire (PME/ETI/GE, NAF, flux géographiques) ; pipeline amont APProch (4 060 projets à venir) ; contexte des seuils 2026 (dispense 40 k€ → **60 k€ au 01/04/2026**, décret 2025-1386 ; BOAMP/JAL ≥ 90 k€ : le bas du spectre est invisible, 02).
 
@@ -788,6 +805,7 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 | S49 Dépenses des APU par fonction (CFAP) | Annuelle (31/12 du TIME max de TOTAL, jamais `updated` ; millésime 2024 au 25/08/2026 ; 650/750) | décision 2011/833/UE (25/08/2026) | Dépenses (bloc cloisonné) | **ingérée** (P26) |
 | S50 Comptes des APU (INSEE) | Annuelle (31/12 de l'année max, jamais `modified` Melodi ; millésime 2025 au 25/08/2026 ; 520/600) | Licence Ouverte 2.0 (Etalab, 25/08/2026) | Dépenses (sous-secteurs) / Recettes (PO) | **ingérée** (P27) |
 | S51 Dépenses des ODAC (INSEE, 3.204) | Annuelle (31/12 de l'année max, jamais `modified` Melodi ; millésime 2025 au 25/08/2026 ; 520/600) | Licence Ouverte 2.0 (Etalab, 25/08/2026) | Dépenses (bloc cloisonné) | **ingérée** (P28) |
+| S52 Sanctions financières ADLC (2009+) | Mensuelle (date de la dernière décision sanctionnée, jamais `last_modified` ; 2026-04-16 au 25/08/2026 ; 200/280) | Licence Ouverte 2.0 (Etalab, 25/08/2026) | Commande publique (bloc cloisonné) | **ingérée** (P29) |
 
 ---
 

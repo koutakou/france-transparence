@@ -39,6 +39,9 @@
 # Puis table comptes_odac_insee (S51, INSEE tableau 3.204, ODAC S13112) —
 # CREATE recopié du pipeline P28 (avec IF NOT EXISTS : table neuve,
 # pas une migration). Unité native Md€. B9 non ingéré.
+# Puis tables adlc_decisions / adlc_lignes (S52, P29, sanctions ADLC) —
+# CREATE recopié du pipeline (avec IF NOT EXISTS : tables neuves, pas
+# une migration). Grain = une ligne par id_decision.
 # et le 25/08/2026 : tables votes_recents_archive, votes_senat_archive,
 # jorf_textes_archive, annonces_recentes_archive — CREATE recopié des
 # pipelines P9/P6/P4 (avec IF NOT EXISTS : tables neuves, pas une
@@ -1344,6 +1347,31 @@ CREATE TABLE comptes_odac_insee (
     valeur_md REAL NOT NULL CHECK (valeur_md > 0),
     unite     TEXT NOT NULL CHECK (unite = 'MdEUR'),
     PRIMARY KEY (tableau, secteur, poste, annee, unite)
+);
+-- ---------------------------------------------------------------------------
+-- S52, P29 — Sanctions financières ADLC (CSV 2009+ joint aux métadonnées).
+-- Grain = une ligne par id_decision (montant_total). Les personnes
+-- physiques sont hors adlc_lignes ; 18-D-19 hors adlc_decisions.
+-- date_donnees = date de la dernière décision sanctionnée, jamais
+-- last_modified. JSON texte intégral non ingéré.
+-- ---------------------------------------------------------------------------
+CREATE TABLE adlc_decisions (
+    id_decision    TEXT PRIMARY KEY,
+    montant_total  REAL NOT NULL CHECK (montant_total >= 0),
+    date_decision  TEXT NOT NULL,
+    annee          INTEGER NOT NULL,
+    sous_titre     TEXT,
+    url_site       TEXT,
+    secteurs       TEXT
+);
+CREATE TABLE adlc_lignes (
+    id_decision          TEXT NOT NULL,
+    n_ligne              INTEGER NOT NULL,
+    denomination         TEXT NOT NULL,
+    montant_individuel   REAL NOT NULL CHECK (montant_individuel >= 0),
+    annee                INTEGER NOT NULL,
+    PRIMARY KEY (id_decision, n_ligne),
+    FOREIGN KEY (id_decision) REFERENCES adlc_decisions(id_decision)
 );
 CREATE TABLE partis (
     id               TEXT PRIMARY KEY REFERENCES entites(id),

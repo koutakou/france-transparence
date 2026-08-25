@@ -3,7 +3,7 @@
  * statiques (/api/meta.json, /api/elus.json, /api/marches-agregats.json,
  * /api/budget-mensuel.json) — générés au build, servis en fichiers.
  *
- * La table pivot est `meta_sources` (43 sources tracées) : chaque source y
+ * La table pivot est `meta_sources` (44 sources tracées) : chaque source y
  * porte sa date de données réelle, sa date d'ingestion, sa fréquence déclarée,
  * sa licence et ses notes — c'est le « moniteur de fraîcheur » du projet
  * (docs/SOURCES.md, alerte A11).
@@ -80,7 +80,7 @@ type SeuilSource = { unite: UniteAge; retard: number; alerte: number };
  * seuils dans `meta_sources` (colonnes dédiées) via les pipelines.
  *
  * Ordre et valeurs repris ligne à ligne de `fraicheur.conf`.
- * Dernière synchronisation : 25/08/2026, 43 sources (ajout de S6-DOSLEG).
+ * Dernière synchronisation : 25/08/2026, 44 sources (ajout de S52).
  */
 const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // Quotidiennes strictes, calendrier ouvré
@@ -198,6 +198,13 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // calendaires et non des jours ouvrés, contrairement à S4 (HATVP), avec
   // une marge suffisante pour absorber un week-end sans export.
   S40: { unite: "jc", retard: 6, alerte: 12 },
+  // Mensuelle événementielle : le dump ADLC est republishé sans
+  // nouvelle amende. date_donnees = date de la dernière décision
+  // sanctionnée, jamais last_modified. Gap max observé entre deux
+  // décisions : 189 j (2013-06-11 → 2013-12-17). 65/80 (S13) sonnerait
+  // dès l'été. 200/280 couvre ce silence ; au-delà, le corpus annuel
+  // (4 à 15 décisions/an depuis 2009) a décroché.
+  S52: { unite: "jc", retard: 200, alerte: 280 },
 };
 
 const JOUR_MS = 86_400_000;
@@ -333,7 +340,7 @@ export function evalueFraicheur(
 
 export type SourceCataloguee = MetaSource & { fraicheur: Fraicheur };
 
-/** Les 43 sources tracées, avec leur fraîcheur calculée. */
+/** Les 44 sources tracées, avec leur fraîcheur calculée. */
 export function getCatalogueSources(): SourceCataloguee[] | null {
   const db = getDb();
   if (!db) return null;

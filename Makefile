@@ -60,6 +60,11 @@ PY     := $(VENV)/bin/python
 # AUCUNE dépendance d'ordre : il n'écrit que comptes_odac_insee.
 # Distinct de S50 (S1311 = État+ODAC en consolidation, sans le
 # 3.204). Placé avant sirene.
+# adlc (S52, P29, sanctions financières ADLC 2009+) n'a AUCUNE
+# dépendance d'ordre : il n'écrit que adlc_decisions / adlc_lignes.
+# Grain = une ligne par id_decision. JSON 219 Mo non ingéré.
+# Distinct de S39 (jaune opérateurs) et de S13 (budget). Placé
+# avant sirene.
 # sirene (S18) est en DERNIER, et cette place-là n'a rien d'arbitraire : le
 # référentiel Sirene n'est pas ingéré en entier, il est restreint aux SIREN
 # que les autres tables citent (decp, subventions, lobbying, collectivites,
@@ -71,7 +76,7 @@ PIPELINES := referentiels budget_mensuel budget_structure decp boamp approch \
              collectivites elections trainvie cada registre_ue \
              dette_maastricht deficit_maastricht dole agregats_apu cge \
              protection_sociale recettes_plf ircom rei cofog_apu \
-             comptes_apu_insee odac_insee sirene
+             comptes_apu_insee odac_insee adlc sirene
 
 # NB : ne PAS déclarer les cibles ingest-<x> en .PHONY — make saute la
 # recherche de règles implicites (ingest-%) pour les cibles phony.

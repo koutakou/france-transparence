@@ -17,7 +17,7 @@ Un run CI rouge n'est **jamais** une panne du site ; un site figé n'est **jamai
 ## 1. Architecture d'exploitation
 
 ```
-43 sources open data officielles (data.gouv.fr, DILA, AN, Sénat, HATVP, DGFiP, OFGL, CNCCFP, Eurostat, DREES, INSEE, Direction du Budget…) — catalogue vivant : `/donnees`
+44 sources open data officielles (data.gouv.fr, DILA, AN, Sénat, HATVP, DGFiP, OFGL, CNCCFP, Eurostat, DREES, INSEE, Direction du Budget…) — catalogue vivant : `/donnees`
         │  re-téléchargées à chaque cycle. Quatre dumps que l'amont peut retirer
         │  (scrutins AN, Dosleg, CADA, Datan) ont en plus une copie datée hors
         │  du cache, sur la machine, non servie — pas Sirene, pas de page /archives.
@@ -91,7 +91,7 @@ Instantané, sans rebuild : c'est une bascule de lien symbolique, atomique comme
 ```bash
 ft-etat              # tableau de bord : révision servie, fraîcheur, dernière sonde, TLS, services, disque
 ft-sonde --verbeux   # rejoue les 10 contrôles de disponibilité et les détaille
-ft-fraicheur         # fraîcheur RÉELLE des 43 sources amont (--json, --silencieux)
+ft-fraicheur         # fraîcheur RÉELLE des 44 sources amont (--json, --silencieux)
 ft-alerte --test     # vérifie que le canal de notification fonctionne vraiment
 ```
 
@@ -172,7 +172,7 @@ Idempotent (chaque étape teste avant d'agir) : génère la clé SSH `~/.ssh/id_
 
 - **Automatique, toutes les 5 minutes** : `ft-sonde` vérifie 10 points — point de santé, page d'accueil et son titre, jours restants sur le certificat, espace disque, inodes, cohérence du lien `current`, **âge des données générées** (c'est lui qui détecte qu'une reconstruction quotidienne a cessé de fonctionner), `nginx.service` actif, `ft-deploy.timer` actif, absence de plantages répétés de workers nginx. Chaque passage écrit une ligne dans `sonde.log`.
 - **Quotidien, une commande** : `ft-etat` — révision servie, issue du dernier déploiement, fraîcheur, TLS, services, sauvegardes, disque, le tout recoupé entre plusieurs sources pour signaler un journal incomplet plutôt que de rassurer à tort.
-- **Fraîcheur réelle des sources** : `ft-fraicheur` compare, pour chacune des 43 sources, la date de la donnée la plus récente en base (`meta_sources.date_donnees`) à un seuil calibré par source. C'est le complément indispensable de la sonde : le site peut être fraîchement régénéré chaque nuit alors qu'une source amont a cessé de publier depuis des semaines.
+- **Fraîcheur réelle des sources** : `ft-fraicheur` compare, pour chacune des 44 sources, la date de la donnée la plus récente en base (`meta_sources.date_donnees`) à un seuil calibré par source. C'est le complément indispensable de la sonde : le site peut être fraîchement régénéré chaque nuit alors qu'une source amont a cessé de publier depuis des semaines.
 - **Alertes** : `ft-alerte` est le point d'extension unique — il écrit **toujours** dans le journal systemd en priorité `err` (`journalctl -t ft-alerte -p err`), puis pousse vers un webhook si l'un est configuré. Un échec du webhook n'est jamais remonté à l'appelant : le journal reste le canal de dernier recours.
 - **Moniteur public de fraîcheur** : la page `/donnees` affiche la date réelle de chaque source — le healthcheck lisible par n'importe qui, sans accès au serveur.
 - **CI** : un run rouge sur `publication.yml` ouvre une issue `publication-echec`. Activer les notifications GitHub sur le dépôt (Watch → Custom → Issues) pour être prévenu.

@@ -24,6 +24,11 @@ import {
   formatNombre,
   formatPct,
 } from "@/lib/format";
+import {
+  getSanctionsAdlc,
+  perimetreAdlc,
+  type SanctionsAdlc,
+} from "@/lib/queries/adlc";
 import { chargerDonneesMarches, type AlerteMarches } from "@/lib/queries/marches";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 import { urlAnnuaireEntreprise } from "@/lib/urlOfficielle";
@@ -120,6 +125,138 @@ function estJourDeConstruction(iso: string): boolean {
   return formatDateFr(iso) === formatDateFr(new Date().toISOString());
 }
 
+/**
+ * Sanctions financières de l'Autorité de la concurrence (S52) — bloc
+ * CLOISONNÉ, rendu après tout ce qui précède et séparé de lui par une
+ * frontière explicite.
+ *
+ * Pourquoi un cloisonnement, et pas un module fusionné : une amende
+ * prononcée par l'ADLC n'est pas un marché public, pas une recette du
+ * budget général, pas un recouvrement. Les mêler aux totaux DECP/BOAMP
+ * produirait un chiffre qui ne mesure rien.
+ *
+ * Grain du héros = somme des montants totaux, une fois par décision.
+ * Ce composant ne somme pas les montants individuels.
+ */
+function SectionAdlc({ donnees }: { donnees: SanctionsAdlc }) {
+  const { meta, totalEuros, nbDecisions, anneeMin, anneeMax, decisionsAnnee } =
+    donnees;
+  const badge = (
+    <FreshnessBadge
+      dateDonnees={meta.date_donnees}
+      source="Autorité de la concurrence"
+      frequence={meta.frequence}
+      url={meta.url}
+      mention="date de la dernière décision, pas celle du dump"
+    />
+  );
+
+  return (
+    <>
+      <div className="mt-4 flex items-center gap-3" role="separator">
+        <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+          Pas un marché public · autre producteur
+        </span>
+        <span className="h-px flex-1 bg-card-border" aria-hidden="true" />
+      </div>
+
+      <div id="adlc" className="scroll-mt-32">
+        <Card
+          titre="Amendes prononcées par l'Autorité de la concurrence"
+          sousTitre={`Sanctions financières publiées depuis 2009, datées du ${formatDateFr(meta.date_donnees)} par la dernière décision — avant appels et recours.`}
+          droite={badge}
+        >
+          <div className="flex flex-col gap-4">
+            <div className="rounded-xl border border-card-border bg-raised p-4">
+              <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+                Pourquoi ce bloc est séparé du reste de la page
+              </h3>
+              <p className="text-xs leading-relaxed text-ink-secondary">
+                Tout ce qui précède décrit la{" "}
+                <strong className="font-medium text-ink">
+                  commande publique
+                </strong>{" "}
+                (marchés notifiés, appels d&apos;offres, achats à venir). Ce
+                bloc reprend le catalogue officiel des{" "}
+                <strong className="font-medium text-ink">
+                  amendes prononcées
+                </strong>{" "}
+                par l&apos;Autorité de la concurrence. Ce n&apos;est pas un
+                marché, pas une recette du budget général, pas un montant
+                recouvré.
+              </p>
+            </div>
+
+            <StatStrip
+              stats={[
+                {
+                  label: "Amendes prononcées depuis 2009",
+                  valeur: formatEuros(totalEuros, "Md"),
+                  perimetre: perimetreAdlc(nbDecisions, anneeMin, anneeMax),
+                },
+                {
+                  label: "Décisions",
+                  valeur: formatNombre(nbDecisions),
+                  perimetre: `une ligne par décision, ${anneeMin}–${anneeMax}`,
+                },
+              ]}
+            />
+
+            {decisionsAnnee.length > 0 && (
+              <VueTableau>
+                <DataTable
+                  colonnes={[
+                    {
+                      cle: "date_decision",
+                      entete: "Décision",
+                      type: "date",
+                    },
+                    {
+                      cle: "id_decision",
+                      entete: "Référence",
+                      rendu: (d: (typeof decisionsAnnee)[number]) =>
+                        d.url_site ? (
+                          <LienOfficiel href={d.url_site} source="ADLC">
+                            {d.id_decision}
+                          </LienOfficiel>
+                        ) : (
+                          d.id_decision
+                        ),
+                    },
+                    {
+                      cle: "montant_total",
+                      entete: "Montant",
+                      type: "euros",
+                    },
+                    {
+                      cle: "sous_titre",
+                      entete: "Objet",
+                      rendu: (d: (typeof decisionsAnnee)[number]) => (
+                        <span title={d.sous_titre ?? undefined}>
+                          {tronque(d.sous_titre, 72)}
+                        </span>
+                      ),
+                    },
+                  ]}
+                  lignes={decisionsAnnee}
+                  cleLigne={(d) => d.id_decision}
+                />
+              </VueTableau>
+            )}
+            {decisionsAnnee.length > 0 && (
+              <p className="text-xs leading-relaxed text-ink-muted">
+                Décisions de {anneeMax}, dans l&apos;ordre de la date — ce
+                n&apos;est pas un classement.
+              </p>
+            )}
+          </div>
+        </Card>
+      </div>
+    </>
+  );
+}
+
 /** Gravités de la table `alertes` (haute/moyenne/info) → jeton AlertItem. */
 function graviteAlerte(gravite: string): { gravite: Gravite; libelle: string } {
   if (gravite === "haute") return { gravite: "critique", libelle: "Haute" };
@@ -174,6 +311,7 @@ function hrefConsultation(url: string | null): string | null {
 
 export default async function PageMarches() {
   const donnees = chargerDonneesMarches(null);
+  const adlc = getSanctionsAdlc();
 
   if (donnees === null) {
     return (
@@ -1398,6 +1536,9 @@ export default async function PageMarches() {
           </div>
         </Card>
       )}
+
+      {/* ── ADLC (S52) — bloc cloisonné, pas un marché ─────────────── */}
+      {adlc && <SectionAdlc donnees={adlc} />}
     </div>
   );
 }

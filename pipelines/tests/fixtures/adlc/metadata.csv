@@ -1,0 +1,9 @@
+id_decision,sous_titre,date_decision_year,date_decision_datetime,liste_secteurs,entreprises_concernees,url_site,Montant sanction
+99-D-01,relative à des pratiques dans le secteur A,2020,2020-06-01,['Industrie'],"['Alpha SA', 'Beta SA']",https://www.autoritedelaconcurrence.fr/fr/decision/99-d-01,150
+99-D-02,relative à des pratiques dans le secteur B,2021,2021-03-15,['Services'],"['Gamma SA']",https://www.autoritedelaconcurrence.fr/fr/decision/99-d-02,100
+18-D-19,relative à M. Grenot,2018,2018-07-07,['Services'],"['J. Grenot']",https://www.autoritedelaconcurrence.fr/fr/decision/18-d-19,19000
+09-D-25,relative à des pratiques ferroviaires,2009,2009-11-01,['Transport'],"['Colas Rail']",https://www.autoritedelaconcurrence.fr/fr/decision/09-d-25,4200000
+16-D-09,relative à des pratiques à La Réunion,2016,2016-07-12,['Distribution'],"['Sermétal Réunion']",https://www.autoritedelaconcurrence.fr/fr/decision/16-d-09,5021000
+26-D-05,relative à des pratiques alimentaires,2026,2026-04-16,['Distribution'],"['Omega SA']",https://www.autoritedelaconcurrence.fr/fr/decision/26-d-05,12670000
+26-D-02,relative à des pratiques de carrière,2026,2026-03-10,['Industrie'],"['Carrière SA']",https://www.autoritedelaconcurrence.fr/fr/decision/26-d-02,148094
+26-DCC-147,relative à une concentration,2026,2026-07-13,['Services'],"['Wojo']",https://www.autoritedelaconcurrence.fr/fr/decision/26-dcc-147,

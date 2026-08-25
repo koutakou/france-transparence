@@ -34,3 +34,4 @@ Décisions numérotées, une ligne chacune. Toute session de reprise lit ce fich
 30. 2026-08-25 — S49 dépenses des APU par fonction (Eurostat gov_10a_exp, CFAP / COFOG-99, TE, millésime 2024) : pipeline P26, bloc cloisonné sur `/depenses`, distinct de S44 (TE gov_10a_main), de S13 (budget général) et de S45 (prestations DREES). Groupes GF0101… et taxag non ingérés.
 31. 2026-08-25 — S50 comptes des APU INSEE (Insee Résultats 8988845, millésime 2025) : pipeline P27, blocs cloisonnés sur `/depenses` (sous-secteurs) et `/recettes` (PO 3.216). Distinct de S13, S44, S42 (B9 non ingéré) et S49. PO officiel ≠ taxag. Sous-secteurs non additifs.
 32. 2026-08-25 — S51 ODAC INSEE 3.204, P28, bloc cloisonné `/depenses`, distinct de S50 et de S39.
+33. 2026-08-25 — S52 sanctions financières ADLC 2009+, P29, bloc cloisonné `/marches`. Grain = une ligne par `id_decision`. JSON 219 Mo non ingéré. Distinct de S13 et de S39.
