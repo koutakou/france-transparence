@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from pipelines.archive_amont import (
+    DEST_DEFAUT,
     SOURCES,
     SourceAmont,
     archiver_sources,
@@ -95,6 +96,13 @@ def test_refuse_d_ecrire_dans_data_raw(tmp_path):
     raw = _raw_minimal(tmp_path)
     with pytest.raises(ValueError, match="cache brut"):
         archiver_sources(raw, raw / "archives")
+
+
+def test_destination_par_defaut_sur_le_volume_data():
+    """Le disque racine fait 39 Go ; /data en fait 427, presque vide."""
+    assert DEST_DEFAUT == Path("/data/france-transparence/amont")
+    assert not str(DEST_DEFAUT).startswith("/var/backups")
+    assert "data/raw" not in str(DEST_DEFAUT)
 
 
 def test_sirene_n_est_pas_dans_le_manifeste():

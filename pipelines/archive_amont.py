@@ -16,7 +16,8 @@ mourir et qui ne sont pas reconstructibles autrement :
 Une nouvelle copie n'est prise que si le SHA-256 change. Pas Sirene
 (705 Mo/nuit). Pas le parquet DECP. Pas le hors-site. Pas une page
 `/archives`, pas un 12ᵉ onglet. Destination par défaut : le coffre
-`/var/backups/france-transparence/amont` (même disque, 0600).
+`/data/france-transparence/amont` (volume data, 0600). Pas le
+disque racine (39 Go) : `data/raw` et les releases y vivent déjà.
 
 Si la destination n'existe pas et n'est pas créable (CI, poste de
 dev), on se tait et on sort 0 : l'archivage est un filet de production,
@@ -39,7 +40,7 @@ from pipelines.common import RAW_DIR, obtenir_logger
 
 log = obtenir_logger("archive_amont")
 
-DEST_DEFAUT = Path("/var/backups/france-transparence/amont")
+DEST_DEFAUT = Path("/data/france-transparence/amont")
 MARGE_DISQUE_OCTETS = 3 * 1024 * 1024 * 1024  # 3 Gio, même ordre que ft-sauvegarde
 CHUNK = 1 << 20
 
