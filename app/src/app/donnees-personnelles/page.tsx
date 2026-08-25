@@ -420,7 +420,9 @@ export default function PageDonneesPersonnelles() {
             serveur conserve aussi des copies datées de quatre fichiers amont,
             pour le cas où le producteur les retire : les scrutins publics de
             l&apos;Assemblée, le dump Dosleg du Sénat, le corpus consolidé de
-            la CADA et le CSV Datan des scores des députés. Une nouvelle copie
+            la CADA et le CSV Datan. Ce dernier porte les scores des
+            députés et d&apos;autres champs amont que le site ne republie
+            pas (courriel parlementaire, identifiants de réseaux). Une nouvelle copie
             n&apos;est prise que si le contenu a changé. Sont conservées au
             plus 14 générations distinctes pour les scrutins, 14 pour Dosleg,
             3 pour la CADA, 30 pour Datan. Ces copies restent sur la même
