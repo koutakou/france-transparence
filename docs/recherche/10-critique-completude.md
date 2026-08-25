@@ -109,6 +109,11 @@
 | Sécurité sociale / PLFSS | **HORS CHAMP JAMAIS DIT** | à assumer dans l'UI (I8) |
 | Opérateurs de l'État | Partiel : jaune 2026 publié mais hors catalogue | à ajouter ou écarter (I4) |
 
+> **Addendum 25/08/2026.** La ligne « Absentéisme / présence — Sénat : rien »
+> décrivait le 19/08. S6-DOSLEG ingère depuis le 25/08 `scr` + `votsen`
+> (taux calculé ici, votes exprimés, pas une présence, pas Datan). Le
+> constat du 19/08 n'est pas réécrit.
+
 ---
 
 ## Annexe — Appels réels de vérification (19/08/2026, curl, tous HTTP 200)

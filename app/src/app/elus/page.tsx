@@ -7,12 +7,13 @@ import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { VueTableau } from "@/components/ui/VueTableau";
-import { formatNombre, formatPct } from "@/lib/format";
+import { formatDateFr, formatNombre, formatPct } from "@/lib/format";
 import {
   getDepartementsDeputes,
   getDepartementsSenat,
   getDeputes,
   getDerniersScrutins,
+  getDerniersScrutinsSenat,
   getGroupesAn,
   getGroupesSenat,
   getSenateurs,
@@ -113,6 +114,7 @@ export default async function PageElus() {
   const deputes = getDeputes() ?? [];
   const senateurs = getSenateurs() ?? [];
   const scrutins = getDerniersScrutins(10) ?? [];
+  const scrutinsSenat = getDerniersScrutinsSenat(10) ?? [];
   const legislature = groupesAn[0]?.legislature;
 
   const colonnesScrutins: Colonne<ScrutinLigne>[] = [
@@ -247,8 +249,9 @@ export default async function PageElus() {
             Une fiche nominative n’existe que pour les mandats nationaux et
             les exécutifs départementaux et régionaux. Les conseillers
             municipaux du RNE n’entrent dans aucun chiffre de cette page.
-            Deux scores de participation cohabitent : l’un calculé ici, l’autre
-            publié par Datan — deux méthodes, étiquetées.
+            Deux scores de participation cohabitent à l’Assemblée : l’un
+            calculé ici, l’autre publié par Datan — deux méthodes, étiquetées.
+            Au Sénat, un seul taux, calculé ici (Datan ne publie pas le Sénat).
           </p>
         }
         provenance={
@@ -314,7 +317,11 @@ export default async function PageElus() {
       <div id="senateurs" className="scroll-mt-32">
         <Card
           titre="Sénat"
-          sousTitre="348 sièges · renouvellement du Sénat le 27/09/2026"
+          sousTitre={
+            stats
+              ? `${formatNombre(stats.senateurs.nb)} sièges · renouvellement du Sénat le 27/09/2026`
+              : "Renouvellement du Sénat le 27/09/2026"
+          }
           droite={<Badge source={sources["S6-ODSEN"]} />}
         >
           <BarList
@@ -355,8 +362,10 @@ export default async function PageElus() {
             departements={departementsSenat}
           />
           <p className="mt-3 text-[11px] leading-relaxed text-ink-muted">
-            Les scrutins publics du Sénat ne sont pas ingérés à ce jour : aucun taux de
-            participation n’est donc affiché pour les sénateurs (rien d’estimé, rien d’inventé).
+            ¹ Calcul France Transparence : votes exprimés (pour, contre, abstention) / scrutins
+            publics du Sénat des 365 derniers jours depuis l’entrée en mandat. Une délégation de
+            vote n’est pas une présence physique. Pas un score Datan (Datan ne publie pas le
+            Sénat).
           </p>
         </Card>
       </div>
@@ -367,6 +376,22 @@ export default async function PageElus() {
         droite={<Badge source={sources["S5-SCRUTINS"]} />}
       >
         <DataTable colonnes={colonnesScrutins} lignes={scrutins} cleLigne={(l) => l.uid} />
+      </Card>
+
+      <Card
+        titre="Scrutins récents au Sénat"
+        sousTitre={
+          scrutinsSenat[0]
+            ? `Les 10 derniers scrutins publics présents en base — dernier du ${formatDateFr(scrutinsSenat[0].date_scrutin)}.`
+            : "Les 10 derniers scrutins publics présents en base — résultat officiel pour/contre."
+        }
+        droite={<Badge source={sources["S6-DOSLEG"]} />}
+      >
+        <DataTable
+          colonnes={colonnesScrutins}
+          lignes={scrutinsSenat}
+          cleLigne={(l) => l.uid}
+        />
       </Card>
 
       {stats && (

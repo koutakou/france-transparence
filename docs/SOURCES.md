@@ -110,6 +110,15 @@
 > opérateurs, liste, 0 €). Sous-secteurs non additifs. B9 non
 > ingéré.
 >
+> **Mise à jour du 25/08/2026, fin d'après-midi.** **S6-DOSLEG** (scrutins
+> publics et votes nominaux du Sénat, dump Dosleg `scr` + `votsen`, via
+> `pipelines/ingest_parlement.py`) s'ajoute. L'ingestion compte donc
+> **30 pipelines** et **43 sources**. COPY parsé sans PostgreSQL. Pas
+> Ameli, pas questions, pas TAP `export_sens`. Tables nouvelles
+> (`scrutins_senat`, `votes_senat`, `participation_senat`) — pas une
+> colonne `chambre` sur les tables AN. Taux calculé ici, même formule
+> que l'AN (votes exprimés, pas une présence). Pas un score Datan.
+>
 > **Document daté.** Les fraîcheurs et volumétries amont relevées ici l'ont été par appels réels le
 > 19/08/2026 (et le 20/08 pour S38 et S40, le 22/08 soir ~22:30 CEST pour S43, le 23/08 pour S44, S22 et S45) : elles décrivent ces jours-là et **ont dérivé depuis**.
 > Le catalogue vivant, avec la date réellement ingérée de chaque source, est la page `/donnees`
@@ -178,8 +187,9 @@ Contexte 2026 à garder en tête : LFI 2026 promulguée tardivement le 19/02/202
 - **Modules** : Élus & Institutions (fiches, votes, cumuls, déports), Alertes (lien HATVP).
 
 #### S6. Open data Sénat (data.senat.fr) — CSV quotidiens + dumps PostgreSQL
-- **URLs testées** (HTTP 200, last-modified du jour) (03) : `https://data.senat.fr/data/senateurs/ODSEN_GENERAL.csv` (427 Ko, 1 965 sénateurs actifs+anciens, groupe, commission) + ~19 CSV `ODSEN_*` ; questions `…/data/questions/questions-depuis-un-an.csv` ; **Dosleg** `…/data/dosleg/dosleg.zip` (16 Mo → dump SQL 126,3 Mo, tables `scr`/`votsen` = **scrutins nominaux depuis 2006**, 337 scrutins session 2025-2026, dernier 22/06/2026) et **Ameli** (154 Mo) : **avec effort** (PostgreSQL).
-- **Licence** : Licence Ouverte. **Pièges** : **ISO-8859-1**, séparateur `;`, lignes `%` d'en-tête ; renouvellement du **27/09/2026** à prévoir (03).
+- **URLs testées** (HTTP 200, last-modified du jour) (03) : `https://data.senat.fr/data/senateurs/ODSEN_GENERAL.csv` (427 Ko, 1 965 sénateurs actifs+anciens, groupe, commission) + ~19 CSV `ODSEN_*` ; questions `…/data/questions/questions-depuis-un-an.csv` (**non ingérées** : 0 table, 0 URL dans `ingest_parlement.py`) ; **Dosleg** `…/data/dosleg/dosleg.zip` (HTTP 200 le 25/08/2026, 15 975 795 o, Last-Modified 25/08 02:21 GMT → dump SQL 126,3 Mo) : tables `scr` (4 764 scrutins publics depuis 2006-10-04 ; session 2025-2026 : 337 ; dernier **2026-07-21**) et `votsen` (1 657 344 votes nominaux). **Ameli** (154 Mo, amendements) : **non ingéré**.
+- **Ingéré** : ODSEN_GENERAL + ODSEN_ELUSEN (`S6-ODSEN`, sénateurs en exercice) ; Dosleg `scr` + `votsen` seulement (`S6-DOSLEG`, COPY sans PostgreSQL). `date_donnees` S6-DOSLEG = date du dernier `scrdat`, jamais Last-Modified du zip.
+- **Licence** : Licence Ouverte (page `/licence/` 200). **Pièges** : ODSEN = **ISO-8859-1**, séparateur `;`, lignes `%` ; Dosleg SQL = **UTF-8** (ne pas mélanger) ; `scrnum` local à `sesann` (clé composite) ; `senmat` `character(6)` paddé ; `senmatdel` = délégation ≠ présence ; `CREATE TABLE IF NOT EXISTS` ne migre pas `scrutins`/`votes_recents` ; renouvellement du **27/09/2026** (dénominateur = `senateurs` du jour, pas 348 en dur).
 - **Modules** : Élus & Institutions.
 
 #### S7. Datan — statistiques de votes des députés (CSV data.gouv.fr)
@@ -560,8 +570,9 @@ curl -O "https://www.hatvp.fr/agora/opendata/csv/Vues_Separees_CSV.zip"
 curl -O "https://data.assemblee-nationale.fr/static/openData/repository/17/amo/deputes_actifs_mandats_actifs_organes/AMO10_deputes_actifs_mandats_actifs_organes.json.zip"
 curl -O "https://data.assemblee-nationale.fr/static/openData/repository/17/loi/scrutins/Scrutins.json.zip"
 
-# Sénat : sénateurs (quotidien, ISO-8859-1) [S6] (03)
+# Sénat : sénateurs (quotidien, ISO-8859-1) + Dosleg scr/votsen [S6] (03)
 curl -O "https://data.senat.fr/data/senateurs/ODSEN_GENERAL.csv"
+curl -O "https://data.senat.fr/data/dosleg/dosleg.zip"
 
 # OFGL : dépenses de fonctionnement, toutes communes 2025 (34 778 lignes, 1,9 Mo) [S16] (06)
 curl "https://data.ofgl.fr/api/explore/v2.1/catalog/datasets/ofgl-base-communes/exports/csv?where=year(exer)%3D2025%20and%20agregat%3D%22D%C3%A9penses%20de%20fonctionnement%22%20and%20type_de_budget%3D%22Budget%20principal%22&select=com_code,com_name,dep_code,montant,euros_par_habitant,ptot"

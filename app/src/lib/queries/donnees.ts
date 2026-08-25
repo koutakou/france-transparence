@@ -3,7 +3,7 @@
  * statiques (/api/meta.json, /api/elus.json, /api/marches-agregats.json,
  * /api/budget-mensuel.json) — générés au build, servis en fichiers.
  *
- * La table pivot est `meta_sources` (42 sources tracées) : chaque source y
+ * La table pivot est `meta_sources` (43 sources tracées) : chaque source y
  * porte sa date de données réelle, sa date d'ingestion, sa fréquence déclarée,
  * sa licence et ses notes — c'est le « moniteur de fraîcheur » du projet
  * (docs/SOURCES.md, alerte A11).
@@ -80,7 +80,7 @@ type SeuilSource = { unite: UniteAge; retard: number; alerte: number };
  * seuils dans `meta_sources` (colonnes dédiées) via les pipelines.
  *
  * Ordre et valeurs repris ligne à ligne de `fraicheur.conf`.
- * Dernière synchronisation : 25/08/2026, 42 sources (ajout de S51).
+ * Dernière synchronisation : 25/08/2026, 43 sources (ajout de S6-DOSLEG).
  */
 const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // Quotidiennes strictes, calendrier ouvré
@@ -97,6 +97,9 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   "S11-annuaire-administration": { unite: "jc", retard: 60, alerte: 120 },
   // Calendrier parlementaire (trêve estivale mi-juillet → début octobre)
   "S5-SCRUTINS": { unite: "jc", retard: 60, alerte: 95 },
+  // Même trêve estivale que l'AN (session ordinaire 1er octobre → fin juin).
+  // date_donnees = date du dernier scrutin Dosleg, jamais Last-Modified du zip.
+  "S6-DOSLEG": { unite: "jc", retard: 60, alerte: 95 },
   // DOLE (DILA) : livraisons du soir jusqu'à 5 fois/semaine selon
   // l'actualité parlementaire. date_donnees = max(DATE_DERNIERE_MODIFICATION),
   // jamais last_update data.gouv. Gap max observé 12 j (listing 22/08/2026).
@@ -330,7 +333,7 @@ export function evalueFraicheur(
 
 export type SourceCataloguee = MetaSource & { fraicheur: Fraicheur };
 
-/** Les 42 sources tracées, avec leur fraîcheur calculée. */
+/** Les 43 sources tracées, avec leur fraîcheur calculée. */
 export function getCatalogueSources(): SourceCataloguee[] | null {
   const db = getDb();
   if (!db) return null;

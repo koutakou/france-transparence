@@ -5,13 +5,17 @@ Fixtures 100 % réelles (extraites des dumps du 19/08/2026, < 50 Ko chacune) :
 - scrutin_VTANR5L17V8434.json : dernier scrutin de la législature (21/07/2026),
   contient à la fois des listes de votants et un votant unique (dict) ;
 - odsen_extrait.csv : lignes réelles d'ODSEN_GENERAL.csv, encodage ISO-8859-1
-  et commentaires « % » conservés tels quels.
+  et commentaires « % » conservés tels quels ;
+- dosleg_extrait.sql : COPY PostgreSQL `scr` + `votsen` au gabarit du dump
+  Dosleg du 25/08/2026 (UTF-8, pas ISO-8859-1).
 
 Le calcul du taux de participation est éprouvé sur un cas construit (c'est un
 test de logique, pas une donnée affichée).
 """
 
+import io
 import json
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -176,6 +180,133 @@ def test_calcul_participation_sans_scrutin_eligible():
 
 
 # ---------------------------------------------------------------------------
+# Dosleg : COPY PostgreSQL sans serveur
+# ---------------------------------------------------------------------------
+
+
+def test_decoder_champ_copy():
+    assert p9.decoder_champ_copy(r"\N") is None
+    assert p9.decoder_champ_copy("abc") == "abc"
+    assert p9.decoder_champ_copy(r"a\tb") == "a\tb"
+    assert p9.decoder_champ_copy(r"a\nb") == "a\nb"
+    assert p9.decoder_champ_copy(r"a\\b") == r"a\b"
+    assert p9.decoder_ligne_copy(b"1\t\\N\tpour") == ["1", None, "pour"]
+
+
+def test_iterer_copy_saute_les_autres_tables():
+    sql = (
+        "COPY posvot (posvotcod, posvotlib) FROM stdin;\n"
+        "1\tpour\n"
+        "\\.\n"
+        "COPY scr (sesann, scrnum, scrdat, scrpou, scrcon) FROM stdin;\n"
+        "2025\t1\t2026-07-21 00:00:00\t10\t5\n"
+        "\\.\n"
+    )
+    rows = list(p9.iterer_copy_postgres(io.BytesIO(sql.encode()), {"scr"}))
+    assert len(rows) == 1
+    table, row = rows[0]
+    assert table == "scr"
+    assert row["sesann"] == "2025"
+    assert row["scrnum"] == "1"
+    assert row["scrdat"].startswith("2026-07-21")
+
+
+def _zip_dosleg(tmp_path: Path) -> Path:
+    sql = (FIXTURES / "dosleg_extrait.sql").read_bytes()
+    chemin = tmp_path / "dosleg.zip"
+    with zipfile.ZipFile(chemin, "w") as z:
+        z.writestr("dosleg.sql", sql)
+    return chemin
+
+
+def test_ingerer_dosleg_extrait(tmp_path, monkeypatch):
+    """Ingestion d'un COPY réel (gabarit Dosleg) sur base jetable.
+
+    Vérifie : tables nouvelles, pas d'écriture sur scrutins/votes_recents,
+    mapping posvot, délégation, padding character(6), fenêtre 365 j,
+    même formule de participation que l'AN.
+    """
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    conn.executemany(
+        """INSERT INTO senateurs (matricule, nom, date_debut_mandat)
+           VALUES (?, ?, ?)""",
+        [
+            ("21071F", "Aeschlimann", "2020-10-01"),
+            ("19489J", "Kerrouche", "2020-10-01"),
+            ("01008M", "Del", "2020-10-01"),
+            ("98046X", "Nonvotant", "2020-10-01"),
+            ("99999Z", "Absent", "2020-10-01"),
+            ("88888Y", "Nouveau", "2026-08-01"),
+        ],
+    )
+    conn.commit()
+    zip_path = _zip_dosleg(tmp_path)
+    monkeypatch.setattr(p9, "telecharger", lambda *a, **k: zip_path)
+    p9.ingerer_dosleg(conn, session=None)
+
+    n_scr = conn.execute("SELECT count(*) FROM scrutins_senat").fetchone()[0]
+    assert n_scr == 4
+    dernier = conn.execute(
+        """SELECT sesann, numero, date_scrutin, pour, contre, abstentions,
+                  suffrages_exprimes, nombre_votants, adopte, sort, titre
+           FROM scrutins_senat
+           ORDER BY date_scrutin DESC, sesann DESC, numero DESC"""
+    ).fetchone()
+    assert tuple(dernier)[:10] == (
+        2025, 340, "2026-07-21", 214, 111, 20, 325, 345, 1, "adopté",
+    )
+    # U+0092 du dump → apostrophe ; abstentions = votants − exprimés
+    assert "ordre public" in conn.execute(
+        "SELECT titre FROM scrutins_senat WHERE numero = 338"
+    ).fetchone()[0]
+    assert "'" in conn.execute(
+        "SELECT titre FROM scrutins_senat WHERE numero = 338"
+    ).fetchone()[0]
+
+    # Tables AN intactes
+    assert conn.execute("SELECT count(*) FROM scrutins").fetchone()[0] == 0
+    assert conn.execute("SELECT count(*) FROM votes_recents").fetchone()[0] == 0
+
+    # 4 scrutins < 100 → tout le détail nominal est conservé
+    n_vot = conn.execute("SELECT count(*) FROM votes_senat").fetchone()[0]
+    assert n_vot == 12
+    delg = conn.execute(
+        """SELECT par_delegation, position FROM votes_senat
+           WHERE matricule = '19489J' AND numero = 339"""
+    ).fetchone()
+    assert tuple(delg) == (1, "pour")
+    # padding character(6) : '98046X ' → 98046X
+    assert conn.execute(
+        "SELECT count(*) FROM votes_senat WHERE matricule = '98046X'"
+    ).fetchone()[0] == 2
+
+    part = {
+        r["matricule"]: (r["nb_votes_12m"], r["nb_scrutins_12m"],
+                         r["taux_participation_12m"])
+        for r in conn.execute("SELECT * FROM participation_senat")
+    }
+    # 3 scrutins dans la fenêtre (2026-07-21) ; 2024-01-10 hors 365 j
+    assert part["21071F"] == (3, 3, 100.0)
+    assert part["19489J"] == (3, 3, 100.0)          # délégation = exprimé
+    assert part["01008M"] == (2, 3, 66.67)          # abstention compte, non-votant non
+    assert part["98046X"] == (0, 3, 0.0)
+    assert part["99999Z"] == (0, 3, 0.0)
+    assert part["88888Y"] == (0, 0, None)           # entré après les scrutins
+
+    meta = conn.execute(
+        "SELECT source_id, date_donnees, lignes FROM meta_sources WHERE source_id = 'S6-DOSLEG'"
+    ).fetchone()
+    assert tuple(meta) == ("S6-DOSLEG", "2026-07-21", 4)
+    notes = conn.execute(
+        "SELECT notes FROM meta_sources WHERE source_id = 'S6-DOSLEG'"
+    ).fetchone()[0].lower()
+    assert "sondage" not in notes
+    assert "baromètre" not in notes and "barometre" not in notes
+    conn.close()
+
+
+# ---------------------------------------------------------------------------
 # Fusion des mandats dans elus (ne pas écraser les autres pipelines)
 # ---------------------------------------------------------------------------
 
@@ -238,5 +369,7 @@ def test_pipeline_complet_reel(tmp_path, monkeypatch):
     assert 300 <= n_sen <= 348               # 348 sièges (vacances possibles)
     assert n_scr >= 8434                     # au moins l'état du 19/08/2026
     metas = {r["source_id"] for r in conn.execute("SELECT source_id FROM meta_sources")}
-    assert {"S5-AMO10", "S5-SCRUTINS", "S6-ODSEN", "S7-DATAN"} <= metas
+    assert {"S5-AMO10", "S5-SCRUTINS", "S6-ODSEN", "S6-DOSLEG", "S7-DATAN"} <= metas
+    n_scr_sen = conn.execute("SELECT count(*) AS n FROM scrutins_senat").fetchone()["n"]
+    assert n_scr_sen >= 4764
     conn.close()

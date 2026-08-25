@@ -7,7 +7,8 @@
  * Jointures exactes (NOTES-FRONT § Élus & intégrité) :
  * - `elus.uid_an ↔ deputes.uid_an ↔ votes_recents.uid_an` ;
  * - `deputes.groupe_ref ↔ groupes_an.organe_ref` ;
- * - `elus.matricule_senat ↔ senateurs.matricule`.
+ * - `elus.matricule_senat ↔ senateurs.matricule ↔ votes_senat.matricule
+ *   ↔ participation_senat.matricule`.
  *
  * Identifiant de fiche : `elus.id` tel quel (clé primaire) — `PAxxxx` pour
  * les députés (= uid_an), `SEN-<matricule>` pour les sénateurs, `rne-<hash>`
@@ -29,6 +30,7 @@ export const SOURCES_ELUS = [
   "S5-AMO10", // AN — députés, mandats, organes (quotidien)
   "S5-SCRUTINS", // AN — scrutins publics et votes nominaux (quotidien)
   "S6-ODSEN", // Sénat — sénateurs en exercice (quotidien)
+  "S6-DOSLEG", // Sénat — scrutins publics et votes nominaux (quotidien)
   "S7-DATAN", // Datan — scores des députés (crédité)
   "S14", // HATVP — liste des déclarations publiées (hebdomadaire)
   "S17", // RNE — répertoire national des élus (trimestriel)
@@ -137,6 +139,10 @@ export const PERIMETRE_ELUS_EN_BASE =
 /** Taux calculé ici : scrutins publics AN, fenêtre glissante. */
 export const PERIMETRE_PARTICIPATION_FT =
   "scrutins publics de l’AN, 12 derniers mois depuis l’entrée en mandat — votes exprimés";
+
+/** Même formule, chambre Sénat. Une délégation n'est pas une présence. */
+export const PERIMETRE_PARTICIPATION_FT_SENAT =
+  "scrutins publics du Sénat, 12 derniers mois depuis l’entrée en mandat — votes exprimés, pas une présence";
 
 /** Même fenêtre que le taux — un tiret n’est pas un zéro. */
 export const PERIMETRE_VOTES_12M =
@@ -269,6 +275,8 @@ export type SenateurLigne = {
   groupe_appartenance: string | null;
   circonscription: string | null;
   commission: string | null;
+  /** Calcul France Transparence, 0–100 (%), 12 derniers mois. Null = pas de scrutin éligible. */
+  taux_participation_12m: number | null;
   /** Fiche producteur Sénat — NULL si absente en base, jamais inventée. */
   url_fiche_senat: string | null;
   /** Fiche HATVP (`elus.hatvp_url`). */
@@ -294,8 +302,11 @@ export function getSenateurs(filtres: FiltresListe = {}): SenateurLigne[] | null
     .prepare(
       `SELECT s.matricule, e.id AS elu_id, s.nom, s.prenom, s.groupe,
               s.groupe_appartenance, s.circonscription, s.commission,
+              p.taux_participation_12m,
               s.url_fiche_senat, e.hatvp_url
-       FROM senateurs s JOIN elus e ON e.matricule_senat = s.matricule
+       FROM senateurs s
+       JOIN elus e ON e.matricule_senat = s.matricule
+       LEFT JOIN participation_senat p ON p.matricule = s.matricule
        ${where}
        ORDER BY s.nom, s.prenom`,
     )
@@ -340,6 +351,21 @@ export function getDerniersScrutins(n = 10): ScrutinLigne[] | null {
       `SELECT uid, numero, date_scrutin, titre, sort, pour, contre, abstentions, adopte
        FROM scrutins
        ORDER BY date_scrutin DESC, numero DESC
+       LIMIT ?`,
+    )
+    .all(n) as ScrutinLigne[];
+}
+
+/** Les N derniers scrutins publics du Sénat (Dosleg), tables nouvelles. */
+export function getDerniersScrutinsSenat(n = 10): ScrutinLigne[] | null {
+  const db = getDb();
+  if (!db) return null;
+  return db
+    .prepare(
+      `SELECT 'SCRSEN-' || sesann || '-' || numero AS uid,
+              numero, date_scrutin, titre, sort, pour, contre, abstentions, adopte
+       FROM scrutins_senat
+       ORDER BY date_scrutin DESC, sesann DESC, numero DESC
        LIMIT ?`,
     )
     .all(n) as ScrutinLigne[];
@@ -423,6 +449,11 @@ export type SenateurDetail = {
   date_debut_mandat: string | null;
   profession: string | null;
   url_fiche_senat: string | null;
+  taux_participation_12m: number | null;
+  nb_votes_12m: number | null;
+  nb_scrutins_12m: number | null;
+  participation_source: string | null;
+  participation_maj: string | null;
 };
 
 export type VoteLigne = {
@@ -466,6 +497,10 @@ export type FicheElu = {
   votes: VoteLigne[] | null;
   /** Total de scrutins présents en base (null hors député). */
   nb_scrutins_base: number | null;
+  /** Positions du sénateur sur les VOTES_FICHE_MAX derniers scrutins Sénat. */
+  votes_senat: VoteLigne[] | null;
+  /** Total de scrutins Sénat présents en détail (null hors sénateur). */
+  nb_scrutins_senat_base: number | null;
   /** Déclarations HATVP appariées par fiche nominative (URL exacte). */
   declarations: DeclarationHatvp[];
 };
@@ -537,16 +572,42 @@ export function getFicheElu(id: string): FicheElu | null {
   }
 
   let senateur: SenateurDetail | null = null;
+  let votesSenat: VoteLigne[] | null = null;
+  let nbScrutinsSenatBase: number | null = null;
   if (elu.matricule_senat) {
     senateur =
       (db
         .prepare(
-          `SELECT matricule, nom, prenom, circonscription, groupe,
-                  groupe_appartenance, commission, date_debut_mandat, profession,
-                  url_fiche_senat
-           FROM senateurs WHERE matricule = ?`,
+          `SELECT s.matricule, s.nom, s.prenom, s.circonscription, s.groupe,
+                  s.groupe_appartenance, s.commission, s.date_debut_mandat,
+                  s.profession, s.url_fiche_senat,
+                  p.taux_participation_12m, p.nb_votes_12m, p.nb_scrutins_12m,
+                  p.participation_source, p.participation_maj
+           FROM senateurs s
+           LEFT JOIN participation_senat p ON p.matricule = s.matricule
+           WHERE s.matricule = ?`,
         )
         .get(elu.matricule_senat) as SenateurDetail | undefined) ?? null;
+    if (senateur) {
+      nbScrutinsSenatBase = (
+        db
+          .prepare("SELECT COUNT(*) AS nb FROM (SELECT DISTINCT sesann, numero FROM votes_senat)")
+          .get() as { nb: number }
+      ).nb;
+      votesSenat = db
+        .prepare(
+          `SELECT 'SCRSEN-' || s.sesann || '-' || s.numero AS scrutin_uid,
+                  s.numero, s.date_scrutin, s.titre, s.sort,
+                  v.position, v.par_delegation
+           FROM (SELECT DISTINCT sesann, numero FROM votes_senat) sc
+           JOIN scrutins_senat s ON s.sesann = sc.sesann AND s.numero = sc.numero
+           LEFT JOIN votes_senat v
+             ON v.sesann = s.sesann AND v.numero = s.numero AND v.matricule = ?
+           ORDER BY s.date_scrutin DESC, s.sesann DESC, s.numero DESC
+           LIMIT ?`,
+        )
+        .all(elu.matricule_senat, VOTES_FICHE_MAX) as VoteLigne[];
+    }
   }
 
   // Appariement HATVP par URL de fiche nominative — clé forte, jamais par
@@ -566,7 +627,52 @@ export function getFicheElu(id: string): FicheElu | null {
       .all(...urls) as DeclarationHatvp[];
   }
 
-  return { elu, mandats, depute, senateur, votes, nb_scrutins_base: nbScrutinsBase, declarations };
+  return {
+    elu,
+    mandats,
+    depute,
+    senateur,
+    votes,
+    nb_scrutins_base: nbScrutinsBase,
+    votes_senat: votesSenat,
+    nb_scrutins_senat_base: nbScrutinsSenatBase,
+    declarations,
+  };
+}
+
+/**
+ * Identifiants des fiches statiques : députés et exécutifs CD/CR depuis
+ * le JSON des mandats ; sénateurs depuis la table `senateurs` (ODSEN
+ * ACTIF), pas depuis `json_extract(type)='senateur'` (353 fusionnés /
+ * 349 SEN-* dont 1 ANCIEN).
+ */
+export function getIdsFichesStatiques(): string[] {
+  const db = getDb();
+  if (!db) return [];
+  const typesHorsSenat = [
+    "depute",
+    "president_conseil_departemental",
+    "president_conseil_regional",
+  ];
+  const marques = typesHorsSenat.map(() => "?").join(", ");
+  const autres = db
+    .prepare(
+      `SELECT DISTINCT e.id
+       FROM elus e, json_each(e.mandats) je
+       WHERE json_extract(je.value, '$.type') IN (${marques})`,
+    )
+    .all(...typesHorsSenat) as { id: string }[];
+  const sen = db
+    .prepare(
+      `SELECT e.id
+       FROM senateurs s
+       JOIN elus e ON e.matricule_senat = s.matricule`,
+    )
+    .all() as { id: string }[];
+  const ids = new Set<string>();
+  for (const r of autres) ids.add(r.id);
+  for (const r of sen) ids.add(r.id);
+  return [...ids].sort();
 }
 
 /* ------------------------------------------------------------------ */

@@ -172,6 +172,12 @@ const COLONNES_SENATEURS: Colonne<SenateurLigne>[] = [
   },
   { cle: "circonscription", entete: "Département" },
   {
+    cle: "taux_participation_12m",
+    entete: "Participation 12 mois ¹",
+    type: "pourcent",
+    decimales: 1,
+  },
+  {
     cle: "commission",
     entete: "Commission",
     rendu: (l) =>

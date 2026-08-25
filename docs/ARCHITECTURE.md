@@ -2,7 +2,7 @@
 
 **Document de référence technique · Établi le 19/08/2026. Révisé le 25/08/2026.**
 
-État courant : **30 pipelines**, **42 sources**, **11 onglets** + `/comprendre` hors nav, kit `app/src/components/ui/` écrit (G2/G8). Le flux de données et le schéma SQL noyau ci-dessous n'ont pas changé de contrat.
+État courant : **30 pipelines**, **43 sources**, **11 onglets** + `/comprendre` hors nav, kit `app/src/components/ui/` écrit (G2/G8). Le flux de données et le schéma SQL noyau ci-dessous n'ont pas changé de contrat.
 
 Complète `docs/SOURCES.md` (le *quoi* : le périmètre de sources ingérées) et `docs/DATAVIZ.md` (le *comment visuel*). Ici : le *comment technique*.
 

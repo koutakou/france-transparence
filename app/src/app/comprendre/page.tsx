@@ -957,9 +957,12 @@ export default function PageComprendre() {
             de participation aux scrutins n’est pas un jugement sur le
             travail d’un élu : la présidence d’une assemblée y figure
             naturellement très bas, parce qu’elle ne vote pas. Deux scores de
-            participation cohabitent sur les fiches : l’un calculé par ce
-            site sur les scrutins publics de l’Assemblée, l’autre publié par
-            Datan. Ce sont deux méthodes, étiquetées comme telles.
+            participation cohabitent sur les fiches de députés : l’un calculé
+            par ce site sur les scrutins publics de l’Assemblée, l’autre
+            publié par Datan. Ce sont deux méthodes, étiquetées comme telles.
+            Sur les fiches de sénateurs, un seul taux, calculé ici sur les
+            scrutins publics du Sénat (votes exprimés, pas une présence).
+            Datan ne publie pas le Sénat.
           </p>
         </div>
       </Card>

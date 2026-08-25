@@ -12,8 +12,10 @@ import { StatStrip } from "@/components/ui/StatStrip";
 import { formatDateFr, formatNombre, formatPct } from "@/lib/format";
 import {
   getFicheElu,
+  getIdsFichesStatiques,
   getSourcesElus,
   PERIMETRE_PARTICIPATION_FT,
+  PERIMETRE_PARTICIPATION_FT_SENAT,
   PERIMETRE_SCORE_DATAN,
   PERIMETRE_VOTES_12M,
   type DeclarationHatvp,
@@ -35,36 +37,17 @@ import {
 
 /**
  * Fiches PRÉ-GÉNÉRÉES au build, limitées aux mandats nationaux et exécutifs
- * (docs/deploiement/DECISION.md) : députés, sénateurs, présidents de conseil
- * départemental et régional (≈ 1 053 fiches — les seules riches : votes
- * nominaux, groupes, HATVP). Les 35 000 autres élus du répertoire (maires,
- * présidents d'EPCI…) n'ont PAS de page dédiée : 404 assumé
- * (`dynamicParams = false`), expliqué sur /elus.
+ * (docs/deploiement/DECISION.md) : députés, sénateurs en exercice (table
+ * `senateurs`), présidents de conseil départemental et régional — les seules
+ * riches : votes nominaux, groupes, HATVP. Les 35 000 autres élus du
+ * répertoire (maires, présidents d'EPCI…) n'ont PAS de page dédiée : 404
+ * assumé (`dynamicParams = false`), expliqué sur /elus.
  */
 export const dynamicParams = false;
 
-/** Types de mandat (JSON `elus.mandats`) ouvrant droit à une fiche statique. */
-const TYPES_FICHE_STATIQUE = [
-  "depute",
-  "senateur",
-  "president_conseil_departemental",
-  "president_conseil_regional",
-] as const;
-
 export function generateStaticParams(): { id: string }[] {
-  const db = getDb();
-  // Base absente (dev sans ingestion) : aucune fiche générée, pas de crash.
-  if (!db) return [];
-  const marques = TYPES_FICHE_STATIQUE.map(() => "?").join(", ");
-  const lignes = db
-    .prepare(
-      `SELECT DISTINCT e.id
-       FROM elus e, json_each(e.mandats) je
-       WHERE json_extract(je.value, '$.type') IN (${marques})
-       ORDER BY e.id`,
-    )
-    .all(...TYPES_FICHE_STATIQUE) as { id: string }[];
-  return lignes.map((l) => ({ id: l.id }));
+  // Sénateurs : table `senateurs` (ODSEN ACTIF), pas le JSON type=senateur.
+  return getIdsFichesStatiques().map((id) => ({ id }));
 }
 
 /** Title « Prénom Nom — Élus » + description factuelle (requête légère). */
@@ -296,7 +279,17 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
   // différemment à l'écran, et aucun des deux ne se dit « rien à déclarer ».
   const interets = getInteretsElu(decodeIdSur(id));
   const sourceDeclarations = getSourceDeclarations();
-  const { elu, mandats, depute, senateur, votes, nb_scrutins_base, declarations } = fiche;
+  const {
+    elu,
+    mandats,
+    depute,
+    senateur,
+    votes,
+    nb_scrutins_base,
+    votes_senat,
+    nb_scrutins_senat_base,
+    declarations,
+  } = fiche;
 
   const nomComplet = `${elu.prenom ?? ""} ${elu.nom}`.trim();
   const age = calculeAge(elu.date_naissance);
@@ -346,16 +339,20 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
   if (urlHatvp) liens.push({ href: urlHatvp, texte: "Fiche HATVP" });
 
   // Décompte des positions sur les scrutins AFFICHÉS (les N derniers).
-  const decomptes = { pour: 0, contre: 0, abstention: 0, nonVotant: 0, sans: 0 };
-  if (votes) {
-    for (const v of votes) {
-      if (v.position === "pour") decomptes.pour += 1;
-      else if (v.position === "contre") decomptes.contre += 1;
-      else if (v.position === "abstention") decomptes.abstention += 1;
-      else if (v.position === "nonVotant") decomptes.nonVotant += 1;
-      else decomptes.sans += 1;
+  function decomptesPositions(lignes: VoteLigne[] | null) {
+    const d = { pour: 0, contre: 0, abstention: 0, nonVotant: 0, sans: 0 };
+    if (!lignes) return d;
+    for (const v of lignes) {
+      if (v.position === "pour") d.pour += 1;
+      else if (v.position === "contre") d.contre += 1;
+      else if (v.position === "abstention") d.abstention += 1;
+      else if (v.position === "nonVotant") d.nonVotant += 1;
+      else d.sans += 1;
     }
+    return d;
   }
+  const decomptes = decomptesPositions(votes);
+  const decomptesSenat = decomptesPositions(votes_senat);
 
   const colonnesVotes: Colonne<VoteLigne>[] = [
     { cle: "date_scrutin", entete: "Date", type: "date" },
@@ -650,10 +647,74 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
               </dd>
             </div>
           </dl>
-          <p className="mt-3 text-[11px] leading-relaxed text-ink-muted">
-            Les scrutins publics du Sénat ne sont pas ingérés à ce jour : aucun taux de
-            participation n’est affiché pour les sénateurs.
-          </p>
+        </Card>
+      )}
+
+      {senateur && (
+        <Card
+          titre="Participation aux scrutins publics du Sénat"
+          sousTitre="Taux calculé ici sur les votes exprimés — ce n’est pas une présence en séance, pas un score Datan."
+          droite={<Badge source={sources["S6-DOSLEG"]} />}
+        >
+          <StatStrip
+            stats={[
+              {
+                label: "Participation 12 mois — calcul France Transparence",
+                valeur:
+                  senateur.taux_participation_12m !== null
+                    ? formatPct(senateur.taux_participation_12m, 2)
+                    : "—",
+                perimetre: PERIMETRE_PARTICIPATION_FT_SENAT,
+              },
+              {
+                label: "Votes exprimés / scrutins du mandat (12 mois)",
+                valeur:
+                  senateur.nb_votes_12m !== null && senateur.nb_scrutins_12m !== null
+                    ? `${formatNombre(senateur.nb_votes_12m)} / ${formatNombre(senateur.nb_scrutins_12m)}`
+                    : "—",
+                perimetre: PERIMETRE_VOTES_12M,
+              },
+            ]}
+          />
+          <div className="mt-3 flex flex-col gap-1 text-[11px] leading-relaxed text-ink-muted">
+            {senateur.participation_source && (
+              <p>
+                Méthode du taux : {senateur.participation_source}
+                {senateur.participation_maj
+                  ? ` — mis à jour le ${formatDateFr(senateur.participation_maj)}.`
+                  : "."}
+              </p>
+            )}
+          </div>
+
+          {votes_senat && votes_senat.length > 0 && (
+            <div className="mt-5">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-secondary">
+                Positions sur les {formatNombre(votes_senat.length)} derniers scrutins
+              </h3>
+              <p className="mt-1 mb-2 text-xs text-ink-muted">
+                {nb_scrutins_senat_base !== null && nb_scrutins_senat_base > votes_senat.length
+                  ? `Affichage des ${formatNombre(votes_senat.length)} derniers scrutins sur ${formatNombre(nb_scrutins_senat_base)} présents en base. `
+                  : ""}
+                Sur ces scrutins&nbsp;: Pour {formatNombre(decomptesSenat.pour)} · Contre{" "}
+                {formatNombre(decomptesSenat.contre)} · Abstention{" "}
+                {formatNombre(decomptesSenat.abstention)} · Non-votant{" "}
+                {formatNombre(decomptesSenat.nonVotant)} · Sans position enregistrée{" "}
+                {formatNombre(decomptesSenat.sans)}
+              </p>
+              <DataTable
+                colonnes={colonnesVotes}
+                lignes={votes_senat}
+                cleLigne={(l) => l.scrutin_uid}
+                hauteurMax="24rem"
+              />
+              <p className="mt-2 text-[11px] leading-relaxed text-ink-muted">
+                « — » : aucune position enregistrée au scrutin public (donnée Sénat telle quelle) ;
+                « non-votant » est un statut officiel distinct (présidence de séance, etc.). Une
+                délégation de vote n’est pas une présence physique.
+              </p>
+            </div>
+          )}
         </Card>
       )}
 

@@ -703,6 +703,39 @@ CREATE TABLE votes_recents (
     PRIMARY KEY (scrutin_uid, uid_an)
 );
 CREATE INDEX idx_votes_recents_acteur ON votes_recents(uid_an);
+CREATE TABLE scrutins_senat (
+    sesann             INTEGER NOT NULL,
+    numero             INTEGER NOT NULL,
+    date_scrutin       TEXT NOT NULL,
+    titre              TEXT,
+    nombre_votants     INTEGER,
+    suffrages_exprimes INTEGER,
+    pour               INTEGER,
+    contre             INTEGER,
+    abstentions        INTEGER,
+    adopte             INTEGER NOT NULL DEFAULT 0,
+    sort               TEXT,
+    PRIMARY KEY (sesann, numero)
+);
+CREATE INDEX idx_scrutins_senat_date ON scrutins_senat(date_scrutin);
+CREATE TABLE votes_senat (
+    sesann          INTEGER NOT NULL,
+    numero          INTEGER NOT NULL,
+    matricule       TEXT NOT NULL,
+    position        TEXT NOT NULL CHECK (position IN
+                      ('pour','contre','abstention','nonVotant')),
+    par_delegation  INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (sesann, numero, matricule)
+);
+CREATE INDEX idx_votes_senat_acteur ON votes_senat(matricule);
+CREATE TABLE participation_senat (
+    matricule              TEXT PRIMARY KEY,
+    taux_participation_12m REAL,
+    nb_votes_12m           INTEGER,
+    nb_scrutins_12m        INTEGER,
+    participation_source   TEXT,
+    participation_maj      TEXT
+);
 CREATE TABLE alertes (
     id          TEXT PRIMARY KEY,
     type        TEXT NOT NULL,
@@ -1706,6 +1739,9 @@ CREATE INDEX idx_sirene_etat
 - rne_cm_agregats : 104 lignes
 - scrutins : 8434 lignes
 - senateurs : 348 lignes
+- scrutins_senat : tous les scrutins publics Dosleg (`scr`) ; volume = dump du jour
+- votes_senat : détail nominal des ~100 derniers scrutins (`votsen`)
+- participation_senat : une ligne par sénateur en exercice (taux 12 mois)
 - subventions_associations : 112722 lignes
 - trainvie_faits : 56 lignes
 - trainvie_opacites : 8 lignes

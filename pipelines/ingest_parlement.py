@@ -8,6 +8,9 @@ détails docs/recherche/03-parlement.md) :
   législature, votes nominaux par député ;
 - S6 ODSEN_GENERAL.csv + ODSEN_ELUSEN.csv (Sénat, quotidien, ISO-8859-1,
   lignes de commentaire « % » en tête) : sénateurs en exercice ;
+- S6 Dosleg dosleg.zip (Sénat, quotidien, UTF-8) : dump PostgreSQL, tables
+  `scr` + `votsen` seulement — COPY parsé sans serveur Postgres ; pas Ameli,
+  pas questions, pas TAP export_sens ;
 - S7 Datan deputes-active.csv (data.gouv.fr, quotidien, fr-lo) : scores de
   participation / loyauté / majorité calculés par Datan (crédités comme tels),
   URL re-résolue via l'API data.gouv à chaque run (convention SOURCES.md §0.3).
@@ -46,6 +49,15 @@ Tables écrites (CREATE TABLE IF NOT EXISTS, run idempotent) :
   position (pour/contre/abstention/nonVotant), par_delegation,
   cause_position — détail nominal conservé pour les ~100 derniers scrutins
   seulement (les plus anciens sont purgés à chaque run).
+- scrutins_senat : (sesann, numero) PK, date_scrutin, titre, totaux
+  pour/contre/votants/exprimés/abstentions, adopte/sort. TOUS les scrutins
+  publics Dosleg depuis 2006. Tables NOUVELLES — pas une colonne chambre
+  sur `scrutins`.
+- votes_senat : (sesann, numero, matricule) PK, position, par_delegation
+  (senmatdel renseigné). ~100 derniers scrutins seulement.
+- participation_senat : matricule PK, taux 12 mois (même formule que
+  l'AN : exprimés pour+contre+abstention / scrutins depuis l'entrée en
+  mandat). Table dédiée : ODSEN fait INSERT OR REPLACE sur senateurs.
 - elus (table noyau, cf. db.py) : UPSERT par uid_an (députés, id = uid_an)
   et par matricule_senat (sénateurs, id = 'SEN-<matricule>') SANS toucher
   aux colonnes des autres pipelines (hatvp_flag notamment) ; la colonne
@@ -57,9 +69,10 @@ Jointures pour le front : elus.uid_an ↔ deputes.uid_an ↔ votes_recents.uid_a
 elus.matricule_senat ↔ senateurs.matricule.
 
 Fraîcheur : upsert_meta() par source — S5-AMO10, S5-SCRUTINS (date_donnees =
-date du dernier scrutin ingéré), S6-ODSEN, S7-DATAN (date_donnees = dateMaj
-du CSV). Législature paramétrable via FT_LEGISLATURE (défaut 17), jamais en
-dur dans les URL.
+date du dernier scrutin ingéré), S6-ODSEN, S6-DOSLEG (date_donnees = date
+du dernier scr.scrdat), S7-DATAN (date_donnees = dateMaj du CSV).
+Législature paramétrable via FT_LEGISLATURE (défaut 17), jamais en dur
+dans les URL.
 
 Robustesse : l'échec d'UNE source n'arrête pas les autres ; le bilan final
 liste les échecs et le processus sort avec un code ≠ 0 s'il y en a eu.
@@ -92,7 +105,12 @@ from pathlib import Path
 import requests
 
 from pipelines import db
-from pipelines.common import obtenir_logger, session_http, telecharger
+from pipelines.common import (
+    assainir_texte,
+    obtenir_logger,
+    session_http,
+    telecharger,
+)
 
 log = obtenir_logger("parlement")
 
@@ -105,6 +123,14 @@ URL_AMO10 = (f"{BASE_AN}/amo/deputes_actifs_mandats_actifs_organes/"
 URL_SCRUTINS = f"{BASE_AN}/loi/scrutins/Scrutins.json.zip"
 URL_ODSEN_GENERAL = "https://data.senat.fr/data/senateurs/ODSEN_GENERAL.csv"
 URL_ODSEN_ELUSEN = "https://data.senat.fr/data/senateurs/ODSEN_ELUSEN.csv"
+URL_DOSLEG = "https://data.senat.fr/data/dosleg/dosleg.zip"
+# posvotcod Dosleg (table posvot) — votes exprimés = 1/2/3, pas le 4.
+POSVOT_SENAT = {
+    "1": "pour",
+    "2": "contre",
+    "3": "abstention",
+    "4": "nonVotant",
+}
 # S7 : l'URL du CSV est horodatée (static.data.gouv.fr) → re-résolution via
 # l'API data.gouv à chaque run (SOURCES.md §0.3).
 URL_API_DATASET_DATAN = ("https://www.data.gouv.fr/api/1/datasets/"
@@ -214,6 +240,48 @@ CREATE TABLE IF NOT EXISTS votes_recents (
     PRIMARY KEY (scrutin_uid, uid_an)
 );
 CREATE INDEX IF NOT EXISTS idx_votes_recents_acteur ON votes_recents(uid_an);
+
+-- Scrutins / votes Sénat : TABLES NOUVELLES. Ne pas ajouter de colonne
+-- `chambre` à scrutins / votes_recents (CREATE TABLE IF NOT EXISTS ne
+-- migre pas france.db persistante ; votes_recents.uid_an n'est pas un
+-- matricule). Clé = (sesann, numero) : scrnum est local à la session.
+CREATE TABLE IF NOT EXISTS scrutins_senat (
+    sesann             INTEGER NOT NULL,
+    numero             INTEGER NOT NULL,
+    date_scrutin       TEXT NOT NULL,
+    titre              TEXT,
+    nombre_votants     INTEGER,
+    suffrages_exprimes INTEGER,
+    pour               INTEGER,
+    contre             INTEGER,
+    abstentions        INTEGER,
+    adopte             INTEGER NOT NULL DEFAULT 0,
+    sort               TEXT,
+    PRIMARY KEY (sesann, numero)
+);
+CREATE INDEX IF NOT EXISTS idx_scrutins_senat_date ON scrutins_senat(date_scrutin);
+
+CREATE TABLE IF NOT EXISTS votes_senat (
+    sesann          INTEGER NOT NULL,
+    numero          INTEGER NOT NULL,
+    matricule       TEXT NOT NULL,
+    position        TEXT NOT NULL CHECK (position IN
+                      ('pour','contre','abstention','nonVotant')),
+    par_delegation  INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (sesann, numero, matricule)
+);
+CREATE INDEX IF NOT EXISTS idx_votes_senat_acteur ON votes_senat(matricule);
+
+-- Agrégats 12 mois : table dédiée (ODSEN fait INSERT OR REPLACE sur
+-- senateurs — des colonnes ajoutées là seraient écrasées chaque run).
+CREATE TABLE IF NOT EXISTS participation_senat (
+    matricule              TEXT PRIMARY KEY,
+    taux_participation_12m REAL,
+    nb_votes_12m           INTEGER,
+    nb_scrutins_12m        INTEGER,
+    participation_source   TEXT,
+    participation_maj      TEXT
+);
 """
 
 # ---------------------------------------------------------------------------
@@ -415,6 +483,168 @@ def calculer_participation(
         taux = round(100.0 * votes / eligibles, 2) if eligibles else None
         resultat[uid] = (votes, eligibles, taux)
     return resultat
+
+
+# ---------------------------------------------------------------------------
+# Dosleg (dump PostgreSQL) — COPY sans serveur Postgres
+# ---------------------------------------------------------------------------
+
+
+def decoder_champ_copy(champ: str) -> str | None:
+    """Décode un champ COPY PostgreSQL (format texte).
+
+    Un champ égal à ``\\N`` est NULL. Les séquences ``\\t`` ``\\n`` ``\\r``
+    ``\\\\`` et l'octal ``\\nnn`` sont rétablies. Le dump Dosleg est UTF-8
+    (pas l'ISO-8859-1 d'ODSEN).
+    """
+    if champ == r"\N":
+        return None
+    out: list[str] = []
+    i = 0
+    n = len(champ)
+    while i < n:
+        ch = champ[i]
+        if ch != "\\":
+            out.append(ch)
+            i += 1
+            continue
+        i += 1
+        if i >= n:
+            out.append("\\")
+            break
+        nxt = champ[i]
+        if nxt == "N":
+            out.append("N")
+        elif nxt == "t":
+            out.append("\t")
+        elif nxt == "n":
+            out.append("\n")
+        elif nxt == "r":
+            out.append("\r")
+        elif nxt == "b":
+            out.append("\b")
+        elif nxt == "f":
+            out.append("\f")
+        elif nxt == "v":
+            out.append("\v")
+        elif nxt == "\\":
+            out.append("\\")
+        elif nxt.isdigit():
+            j = i
+            while j < n and j < i + 3 and champ[j].isdigit():
+                j += 1
+            out.append(chr(int(champ[i:j], 8)))
+            i = j
+            continue
+        else:
+            out.append(nxt)
+        i += 1
+    return "".join(out)
+
+
+def decoder_ligne_copy(raw: bytes) -> list[str | None]:
+    """Une ligne COPY (tabulation, UTF-8) → champs décodés."""
+    return [decoder_champ_copy(p) for p in raw.decode("utf-8").split("\t")]
+
+
+def _lignes_binaires(fp) -> object:
+    """Itère les lignes d'un flux binaire sans tout charger."""
+    buf = b""
+    while True:
+        chunk = fp.read(1 << 20)
+        if not chunk:
+            if buf:
+                yield buf
+            return
+        buf += chunk
+        while True:
+            i = buf.find(b"\n")
+            if i < 0:
+                break
+            yield buf[:i]
+            buf = buf[i + 1:]
+
+
+_COPY_ENTETE = re.compile(r"^COPY (\w+) \((.*)\) FROM stdin;$")
+
+
+def iterer_copy_postgres(fp, tables: set[str]):
+    """Lit un dump PostgreSQL et cède ``(table, {colonne: valeur})``.
+
+    Les autres tables COPY sont sautées (on n'ingère pas Ameli, dossiers,
+    rapports). ``\\.`` termine un bloc. Pas de serveur Postgres.
+    """
+    courant: str | None = None
+    colonnes: list[str] = []
+    for raw in _lignes_binaires(fp):
+        if courant is None:
+            if not raw.startswith(b"COPY "):
+                continue
+            m = _COPY_ENTETE.match(raw.decode("utf-8"))
+            if not m:
+                continue
+            nom = m.group(1)
+            if nom in tables:
+                courant = nom
+                colonnes = [c.strip() for c in m.group(2).split(",")]
+            else:
+                courant = "__skip__"
+                colonnes = []
+            continue
+        if raw == b"\\.":
+            courant = None
+            colonnes = []
+            continue
+        if courant == "__skip__":
+            continue
+        champs = decoder_ligne_copy(raw)
+        if len(champs) != len(colonnes):
+            raise RuntimeError(
+                f"Dosleg COPY {courant} : {len(champs)} champs "
+                f"pour {len(colonnes)} colonnes"
+            )
+        yield courant, dict(zip(colonnes, champs))
+
+
+def _entier_copy(valeur: str | None) -> int | None:
+    if valeur is None or valeur == "":
+        return None
+    try:
+        return int(valeur)
+    except ValueError:
+        return None
+
+
+def _date_copy(valeur: str | None) -> str | None:
+    """Timestamp COPY → ISO date (YYYY-MM-DD)."""
+    if not valeur:
+        return None
+    return valeur[:10]
+
+
+def _titre_dosleg(brut: str | None) -> str | None:
+    """Intitulé Dosleg : U+0092 du dump (apostrophe Windows) → apostrophe."""
+    if brut is None:
+        return None
+    return assainir_texte(brut.replace("\u0092", "'").replace("\u0085", "…"))
+
+
+def _matricule_dosleg(brut: str | None) -> str | None:
+    """character(6) PostgreSQL : espaces de padding à droite."""
+    if brut is None:
+        return None
+    m = brut.strip()
+    return m or None
+
+
+def _sort_scrutin_senat(
+    pour: int | None, contre: int | None
+) -> tuple[int, str | None]:
+    """Résultat officiel : pour > contre → adopté. Pas un score de loyauté."""
+    if pour is None or contre is None:
+        return 0, None
+    adopte = 1 if pour > contre else 0
+    return adopte, "adopté" if adopte else "rejeté"
 
 
 # ---------------------------------------------------------------------------
@@ -792,6 +1022,177 @@ def ingerer_senat(conn, session: requests.Session) -> None:
     log.info("Sénat : %d sénateurs écrits", len(actifs))
 
 
+def ingerer_dosleg(conn, session: requests.Session) -> None:
+    """Dosleg `scr` + `votsen` → scrutins_senat + votes_senat (~100
+    derniers) + participation_senat (365 jours, même formule que l'AN).
+
+    Pas Ameli, pas questions, pas TAP export_sens, pas de score de
+    loyauté. Tables nouvelles — on ne touche pas à scrutins/votes_recents.
+    """
+    chemin = telecharger(
+        URL_DOSLEG, "parlement/dosleg.zip",
+        max_age_heures=MAX_AGE_H, session=session,
+    )
+    z = zipfile.ZipFile(chemin)
+    noms = z.namelist()
+    if "dosleg.sql" not in noms:
+        raise RuntimeError(f"Dosleg : zip sans dosleg.sql ({noms!r})")
+
+    date_min_fenetre = (date.today() - timedelta(days=FENETRE_JOURS)).isoformat()
+    scrutins: list[dict] = []
+    cles_detail: set[tuple[int, int]] = set()
+    fenetre_exprimes: dict[tuple[int, int], set[str]] = {}
+    dates_par_cle: dict[tuple[int, int], str] = {}
+    lignes_votes: list[tuple] = []
+    votes_prets = False
+
+    def _cloturer_scr() -> None:
+        nonlocal votes_prets, cles_detail, fenetre_exprimes, dates_par_cle
+        if votes_prets:
+            return
+        if not scrutins:
+            raise RuntimeError("Dosleg : aucun scrutin dans COPY scr")
+        scrutins.sort(key=lambda s: (s["date_scrutin"], s["sesann"], s["numero"]))
+        n_detail = min(NB_SCRUTINS_DETAIL, len(scrutins))
+        cles_detail = {
+            (s["sesann"], s["numero"]) for s in scrutins[-n_detail:]
+        }
+        dates_par_cle = {
+            (s["sesann"], s["numero"]): s["date_scrutin"] for s in scrutins
+        }
+        fenetre_exprimes = {
+            cle: set()
+            for cle, d in dates_par_cle.items()
+            if d >= date_min_fenetre
+        }
+        votes_prets = True
+
+    # Un seul passage : COPY scr précède COPY votsen dans le dump.
+    with z.open("dosleg.sql") as fp:
+        for table, row in iterer_copy_postgres(fp, {"scr", "votsen"}):
+            if table == "scr":
+                sesann = _entier_copy(row.get("sesann"))
+                numero = _entier_copy(row.get("scrnum"))
+                date_scrutin = _date_copy(row.get("scrdat"))
+                if sesann is None or numero is None or not date_scrutin:
+                    continue
+                pour = _entier_copy(row.get("scrpou"))
+                contre = _entier_copy(row.get("scrcon"))
+                votants = _entier_copy(row.get("scrvot"))
+                exprimes = _entier_copy(row.get("scrsuf"))
+                abstentions = None
+                if votants is not None and exprimes is not None:
+                    abstentions = votants - exprimes
+                adopte, sort = _sort_scrutin_senat(pour, contre)
+                scrutins.append({
+                    "sesann": sesann,
+                    "numero": numero,
+                    "date_scrutin": date_scrutin,
+                    "titre": _titre_dosleg(row.get("scrint")),
+                    "nombre_votants": votants,
+                    "suffrages_exprimes": exprimes,
+                    "pour": pour,
+                    "contre": contre,
+                    "abstentions": abstentions,
+                    "adopte": adopte,
+                    "sort": sort,
+                })
+            elif table == "votsen":
+                _cloturer_scr()
+                sesann = _entier_copy(row.get("sesann"))
+                numero = _entier_copy(row.get("scrnum"))
+                matricule = _matricule_dosleg(row.get("senmat"))
+                if sesann is None or numero is None or not matricule:
+                    continue
+                cle = (sesann, numero)
+                position = POSVOT_SENAT.get((row.get("posvotcod") or "").strip())
+                if position is None:
+                    continue
+                if cle in fenetre_exprimes and position in (
+                    "pour", "contre", "abstention"
+                ):
+                    fenetre_exprimes[cle].add(matricule)
+                if cle in cles_detail:
+                    delg = _matricule_dosleg(row.get("senmatdel"))
+                    lignes_votes.append(
+                        (sesann, numero, matricule, position, 1 if delg else 0)
+                    )
+
+    _cloturer_scr()
+    dernier = scrutins[-1]
+    n_detail = min(NB_SCRUTINS_DETAIL, len(scrutins))
+
+    with conn:
+        conn.execute("DELETE FROM votes_senat")
+        conn.execute("DELETE FROM scrutins_senat")
+        conn.execute("DELETE FROM participation_senat")
+        conn.executemany(
+            """INSERT INTO scrutins_senat
+                 (sesann, numero, date_scrutin, titre, nombre_votants,
+                  suffrages_exprimes, pour, contre, abstentions, adopte, sort)
+               VALUES (:sesann, :numero, :date_scrutin, :titre,
+                       :nombre_votants, :suffrages_exprimes, :pour, :contre,
+                       :abstentions, :adopte, :sort)""",
+            scrutins,
+        )
+        conn.executemany(
+            """INSERT INTO votes_senat
+                 (sesann, numero, matricule, position, par_delegation)
+               VALUES (?, ?, ?, ?, ?)""",
+            lignes_votes,
+        )
+
+    senateurs = conn.execute(
+        "SELECT matricule, date_debut_mandat FROM senateurs"
+    ).fetchall()
+    if senateurs:
+        debuts = {s["matricule"]: s["date_debut_mandat"] for s in senateurs}
+        fenetre = [
+            (dates_par_cle[cle], participants)
+            for cle, participants in fenetre_exprimes.items()
+        ]
+        taux = calculer_participation(fenetre, debuts)
+        maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        source = (
+            "calcul France Transparence — scrutins publics du Sénat des "
+            f"{FENETRE_JOURS} derniers jours (votes exprimés / scrutins "
+            "depuis l'entrée en mandat ; une délégation n'est pas une "
+            "présence physique)"
+        )
+        with conn:
+            conn.executemany(
+                """INSERT INTO participation_senat
+                     (matricule, taux_participation_12m, nb_votes_12m,
+                      nb_scrutins_12m, participation_source, participation_maj)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                [(uid, t, v, e, source, maintenant)
+                 for uid, (v, e, t) in taux.items()],
+            )
+        log.info("participation Sénat 12 mois : %d sénateurs, %d scrutins en fenêtre",
+                 len(taux), len(fenetre_exprimes))
+    else:
+        log.warning("senateurs vide : agrégats de participation Sénat non calculés")
+
+    db.upsert_meta(
+        conn, source_id="S6-DOSLEG",
+        nom="Sénat — scrutins publics et votes nominaux (Dosleg scr + votsen)",
+        url=URL_DOSLEG, licence="Licence Ouverte",
+        frequence="quotidienne", date_donnees=dernier["date_scrutin"],
+        lignes=len(scrutins),
+        notes=(
+            f"dernier scrutin session {dernier['sesann']} n° {dernier['numero']} "
+            f"du {dernier['date_scrutin']} ; {len(lignes_votes)} votes nominaux "
+            f"conservés pour les {n_detail} derniers scrutins ; agrégats de "
+            f"participation sur {len(fenetre_exprimes)} scrutins depuis le "
+            f"{date_min_fenetre} ; COPY sans PostgreSQL ; pas Ameli, pas "
+            "questions, pas TAP export_sens"
+        ),
+    )
+    log.info("Dosleg : %d scrutins, dernier session %s n° %s du %s",
+             len(scrutins), dernier["sesann"], dernier["numero"],
+             dernier["date_scrutin"])
+
+
 def ingerer_datan(conn, session: requests.Session) -> None:
     """Datan deputes-active.csv → colonnes datan_* de deputes (scores crédités)."""
     r = session.get(URL_API_DATASET_DATAN, timeout=60)
@@ -870,6 +1271,7 @@ def main() -> int:
         ("AN AMO10 (députés/groupes)", ingerer_amo10),
         ("AN Scrutins (méta+votes+participation)", ingerer_scrutins),
         ("Sénat ODSEN (sénateurs)", ingerer_senat),
+        ("Sénat Dosleg (scrutins+votes)", ingerer_dosleg),
         ("Datan (scores députés)", ingerer_datan),
     ]
     echecs: list[tuple[str, str]] = []

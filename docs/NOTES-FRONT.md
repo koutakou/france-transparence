@@ -38,9 +38,9 @@ Condensé des avertissements « pour le front » remontés par chaque pipeline a
 - Table absente = `getDole()` null, section non rendue, jamais un zéro inventé. Les volumes dérivent à chaque ingestion.
 
 ## Élus & intégrité (S5, S6, S7, S14, S17)
-- Jointures : `elus.uid_an ↔ deputes.uid_an ↔ votes_recents.uid_an` ; `deputes.groupe_ref ↔ groupes_an.organe_ref` ; `elus.matricule_senat ↔ senateurs.matricule`.
-- 577 députés, 348 sénateurs, ~36 000 élus au total (maires, présidents CD/CR/EPCI ; conseillers municipaux = agrégats `rne_cm_agregats` seulement).
-- Scores : taux de participation calculé (12 mois) ET scores Datan — **les deux étiquetés avec leur méthode** ; créditer datan.fr ; Braun-Pivet 0,63 % = normal (préside).
+- Jointures : `elus.uid_an ↔ deputes.uid_an ↔ votes_recents.uid_an` ; `deputes.groupe_ref ↔ groupes_an.organe_ref` ; `elus.matricule_senat ↔ senateurs.matricule ↔ votes_senat.matricule ↔ participation_senat.matricule`.
+- 577 députés, sénateurs = table `senateurs` du jour (pas le JSON type=senateur), ~36 000 élus au total (maires, présidents CD/CR/EPCI ; conseillers municipaux = agrégats `rne_cm_agregats` seulement). Fiches `SEN-*` générées depuis `senateurs`.
+- Scores : taux de participation calculé (12 mois) ET scores Datan sur l'AN — **les deux étiquetés avec leur méthode** ; créditer datan.fr ; Braun-Pivet 0,63 % = normal (préside). Sénat : un seul taux, calculé ici (votes exprimés, pas une présence ; Datan ne publie pas le Sénat).
 - `deputes.url_hatvp` fourni par l'AN ; `elus.hatvp_flag`/`hatvp_url` posés par le pipeline intégrité.
 - Alertes A1 : `A1_hatvp_non_deposee` = 4 cas nominatifs (constats natifs HATVP) ; `A1_hatvp_retard_presume` = agrégats NON nominatifs, libellé « présumé » + réserve (RNE trimestriel). Ne jamais nominaliser les présumés.
 - Renouvellement du Sénat le 27/09/2026 → à mentionner sur le module Sénat.
