@@ -119,6 +119,13 @@
 > colonne `chambre` sur les tables AN. Taux calculé ici, même formule
 > que l'AN (votes exprimés, pas une présence). Pas un score Datan.
 >
+> **Mise à jour du 25/08/2026, soir.** Copies datées d'amont en production
+> (`pipelines/archive_amont.py`) : zip Scrutins AN, zip Dosleg, CSV CADA
+> consolidé, CSV Datan. Hors `data/raw` (le cache reste un cache : purge
+> 23 h / cache-long, fichier remplacé pas versionné). Pas Sirene. Pas le
+> hors-site. Pas de page `/archives`. Une copie n'est prise que si le
+> SHA-256 change. Rétention : 14 / 14 / 3 / 30 générations distinctes.
+>
 > **Document daté.** Les fraîcheurs et volumétries amont relevées ici l'ont été par appels réels le
 > 19/08/2026 (et le 20/08 pour S38 et S40, le 22/08 soir ~22:30 CEST pour S43, le 23/08 pour S44, S22 et S45) : elles décrivent ces jours-là et **ont dérivé depuis**.
 > Le catalogue vivant, avec la date réellement ingérée de chaque source, est la page `/donnees`

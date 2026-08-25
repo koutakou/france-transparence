@@ -347,10 +347,14 @@ export default function PageDonneesPersonnelles() {
           <p>
             <strong className="text-ink">Avis et conseils de la CADA</strong>{" "}
             — cette source, ajoutée le même jour, n&apos;apporte{" "}
-            <strong className="text-ink">aucune donnée nominative</strong> :
-            seuls des dénombrements par administration, année et sens de
-            l&apos;avis sont conservés. Le texte des décisions, qui nomme des
-            responsables publics dans ses motifs, n&apos;est jamais ingéré.
+            <strong className="text-ink">aucune donnée nominative</strong>{" "}
+            dans la base ni sur les pages : seuls des dénombrements par
+            administration, année et sens de l&apos;avis y sont versés. Le
+            texte des décisions, qui nomme des responsables publics dans ses
+            motifs, n&apos;est jamais versé dans la base ni servi. Une copie
+            datée du fichier amont — qui contient ce texte — est conservée
+            sur la machine, hors du cache de téléchargement, dans la limite
+            de trois générations distinctes ; le site ne la sert pas.
           </p>
           {/*
             Troisième occasion de commettre la même faute, évitée cette fois :
@@ -412,7 +416,17 @@ export default function PageDonneesPersonnelles() {
             nominatives, annonces de marchés. Cette conservation locale
             commence le jour où la ligne sort de la fenêtre ; elle ne
             reconstitue pas les lignes déjà purgées avant la mise en service
-            de ces tables, et elle ne crée pas de page d&apos;archives.
+            de ces tables, et elle ne crée pas de page d&apos;archives. Le
+            serveur conserve aussi des copies datées de quatre fichiers amont,
+            pour le cas où le producteur les retire : les scrutins publics de
+            l&apos;Assemblée, le dump Dosleg du Sénat, le corpus consolidé de
+            la CADA et le CSV Datan des scores des députés. Une nouvelle copie
+            n&apos;est prise que si le contenu a changé. Sont conservées au
+            plus 14 générations distinctes pour les scrutins, 14 pour Dosleg,
+            3 pour la CADA, 30 pour Datan. Ces copies restent sur la même
+            machine, hors du cache de téléchargement ; elles ne sont ni dans
+            le dépôt public, ni servies, et elles ne créent pas de page
+            d&apos;archives. Le répertoire Sirene n&apos;en fait pas partie.
           </p>
           <p>
             <strong className="text-ink">

@@ -18,7 +18,9 @@ Un run CI rouge n'est **jamais** une panne du site ; un site figé n'est **jamai
 
 ```
 43 sources open data officielles (data.gouv.fr, DILA, AN, Sénat, HATVP, DGFiP, OFGL, CNCCFP, Eurostat, DREES, INSEE, Direction du Budget…) — catalogue vivant : `/donnees`
-        │  re-téléchargées à chaque cycle — rien n'est hébergé chez nous
+        │  re-téléchargées à chaque cycle. Quatre dumps que l'amont peut retirer
+        │  (scrutins AN, Dosleg, CADA, Datan) ont en plus une copie datée hors
+        │  du cache, sur la machine, non servie — pas Sirene, pas de page /archives.
         ▼
 SERVEUR DÉDIÉ (Scaleway Dedibox, Ubuntu 22.04) — ft-deploy.timer, tous les jours 05:17 Paris
         git pull → ft-localiser (55 contrôles d'identité de déploiement, ne modifie rien)
