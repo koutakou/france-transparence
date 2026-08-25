@@ -367,6 +367,171 @@ def test_index_elus_restreint_aux_fiches_et_sans_homonyme(conn):
     assert (p15.normaliser_identite("Martin"), "CAMILLE", "1965-05-05") not in index
 
 
+def _souple(fiches):
+    """Index souple bâti à la main : [(id, nom, prénom, naissance)]."""
+    index = {}
+    for ident, nom, prenom, naissance in fiches:
+        fiche = {"id": ident, "naissance": naissance,
+                 "prenom": p15.composantes_identite(prenom)}
+        for composante in p15.composantes_identite(nom):
+            index.setdefault((naissance[:4], composante), []).append(fiche)
+    return index
+
+
+@pytest.mark.parametrize("motif, nom_fiche, prenom_fiche, naissance_fiche", [
+    # L'Assemblée écrit « Borchio Fontimp » là où `declarations.xml` écrit « FONTIMP ».
+    ("nom composé porté en entier d'un seul côté", "Nosbé-Durand", "Sandrine", "1972-10-29"),
+    # « Ricourt Vaginay » / « Vaginay » : la composante commune est en FIN de nom.
+    ("composante commune en fin de nom", "Ricourt Nosbé", "Sandrine", "1972-10-29"),
+    # L'Assemblée désambiguïse ses homonymes par le département.
+    ("suffixe entre parenthèses", "Nosbé (Gironde)", "Sandrine", "1972-10-29"),
+    # « K/Bidi » / « KBIDI » : ponctuation interne divergente.
+    ("ponctuation interne", "No/sbé", "Sandrine", "1972-10-29"),
+    # « Robert Wienie » / « Robert » : prénom composé tronqué à la source.
+    ("prénom composé tronqué", "Nosbé", "Sandrine-Claire", "1972-10-29"),
+    # Deux sources officielles qui divergent d'un chiffre sur l'état civil.
+    ("date : le mois diverge", "Nosbé", "Sandrine", "1972-03-29"),
+    ("date : le jour diverge", "Nosbé", "Sandrine", "1972-10-28"),
+])
+def test_repli_rattache_les_orthographes_divergentes(
+        motif, nom_fiche, prenom_fiche, naissance_fiche):
+    """Chaque écart d'écriture mesuré entre `declarations.xml` et l'amont.
+
+    Sans le repli, la déclaration est JETÉE en silence (`non_apparie`) alors
+    que la personne a une fiche sur le site.
+    """
+    souple = _souple([("elu-souple", nom_fiche, prenom_fiche, naissance_fiche)])
+    # Clé exacte vide : seul le repli peut rattacher.
+    donnees = p15.parcourir(EXTRAIT_REEL, {}, souple)
+    assert donnees["stats"]["rattachees_par_repli"] >= 1, f"non rattaché : {motif}"
+    assert {e["elu_id"] for e in donnees["entetes"]} == {"elu-souple"}
+
+
+def test_repli_est_strictement_additif_jamais_prioritaire():
+    """La clé exacte gagne toujours. Le repli n'est consulté qu'après son échec.
+
+    C'est ce qui garantit qu'activer le repli ne DÉPLACE aucune déclaration
+    déjà rattachée : il ne peut qu'en ajouter.
+    """
+    souple = _souple([("elu-souple", "Nosbé-Durand", "Sandrine", "1972-10-29")])
+    donnees = p15.parcourir(EXTRAIT_REEL, {ELU_UN: "elu-un"}, souple)
+    entetes = [e for e in donnees["entetes"] if e["elu_id"] in ("elu-un", "elu-souple")]
+    assert entetes, "la fixture doit rattacher au moins une déclaration"
+    assert all(e["elu_id"] == "elu-un" for e in entetes)
+
+
+def test_repli_rejette_une_date_a_deux_composantes_decart():
+    """L'année seule ne suffit pas : la date doit AUSSI être voisine.
+
+    Test né d'un mutation-testing : retirer l'appel à `dates_voisines` de
+    `apparier_souple` ne faisait tomber AUCUN test, parce que l'année est
+    portée par la clé d'index et que les autres cas ne varient que d'une
+    composante. Ici la fiche a la même année mais le mois ET le jour
+    diffèrent — seul `dates_voisines` peut la rejeter.
+    """
+    souple = _souple([("elu-souple", "Nosbé-Durand", "Sandrine", "1972-03-28")])
+    donnees = p15.parcourir(EXTRAIT_REEL, {}, souple)
+    assert donnees["stats"]["rattachees_par_repli"] == 0
+    assert donnees["entetes"] == []
+
+
+def test_repli_dans_lautre_sens_xml_composé_fiche_simple():
+    """Le nom composé peut être du côté de la DÉCLARATION, pas de la fiche.
+
+    Huit des trente-deux cas réels sont dans ce sens — « TACHE DE LA PAGERIE »,
+    « GILLES EPOUSE VASSAL », « JULIEN EMMANUEL LUREL », « DE MARCO TRUEL » —
+    et aucun test ne l'exerçait : les fixtures mettaient toujours le nom
+    composé du côté de la fiche. L'intersection de composantes est symétrique,
+    ce test le verrouille.
+    """
+    # La fiche porte le nom SIMPLE ; c'est la déclaration qui est composée.
+    # `EXTRAIT_REEL` déclare « Nosbé / Sandrine », donc on inverse en donnant à
+    # la fiche un nom dont « NOSBE » n'est qu'une composante.
+    souple = _souple([("elu-simple", "Nosbé de la Pagerie", "Sandrine", "1972-10-29")])
+    donnees = p15.parcourir(EXTRAIT_REEL, {}, souple)
+    assert donnees["stats"]["rattachees_par_repli"] >= 1
+    assert {e["elu_id"] for e in donnees["entetes"]} == {"elu-simple"}
+
+
+def test_le_repli_reste_un_appoint_mesure():
+    """Le repli doit rester marginal — sinon c'est la clé exacte qui est tombée.
+
+    Contre-épreuve mesurée le 26/08/2026 sur `declarations.xml` : clé exacte
+    anéantie, le repli SEUL rattache 2 308 déclarations, très au-dessus du
+    plancher de 1 000 de `main()`. Sans le garde-fou de proportion, une panne
+    totale de l'appariement passerait donc inaperçue. Ce test verrouille le
+    seuil pour que personne ne le desserre sans le vouloir.
+    """
+    souple = _souple([("elu-souple", "Nosbé-Durand", "Sandrine", "1972-10-29")])
+    donnees = p15.parcourir(EXTRAIT_REEL, {}, souple)
+    stats = donnees["stats"]
+    # Sur cette fixture, tout passe par le repli : la proportion vaut 100 %,
+    # donc très au-dessus du seuil que `main()` refuse.
+    assert stats["rattachees"] > 0
+    assert stats["rattachees_par_repli"] == stats["rattachees"]
+    assert stats["rattachees_par_repli"] > 0.15 * stats["rattachees"]
+
+
+def test_repli_refuse_de_trancher_une_homonymie():
+    """Deux fiches également plausibles : on renonce, on n'en choisit pas une.
+
+    Attribuer la déclaration d'intérêts d'une personne à son homonyme est la
+    faute la plus grave que ce pipeline puisse commettre.
+    """
+    souple = _souple([("elu-a", "Nosbé-Durand", "Sandrine", "1972-10-29"),
+                      ("elu-b", "Nosbé-Martin", "Sandrine", "1972-10-29")])
+    donnees = p15.parcourir(EXTRAIT_REEL, {}, souple)
+    assert donnees["stats"]["rattachees_par_repli"] == 0
+    assert donnees["entetes"] == []
+
+
+def test_repli_exige_lannee_de_naissance():
+    """Même nom, même prénom, autre ANNÉE : deux personnes, pas une.
+
+    C'est ce qui empêche la tolérance de dégénérer en appariement par le seul
+    patronyme, sur un vivier où 4 200 déclarations non appariées frottent
+    contre un millier de fiches.
+    """
+    souple = _souple([("elu-souple", "Nosbé-Durand", "Sandrine", "1975-10-29")])
+    donnees = p15.parcourir(EXTRAIT_REEL, {}, souple)
+    assert donnees["stats"]["rattachees_par_repli"] == 0
+
+
+def test_repli_exige_une_composante_de_prenom_commune():
+    """Le nom seul ne suffit jamais : deux frères ne sont pas la même personne."""
+    souple = _souple([("elu-souple", "Nosbé", "Bertrand", "1972-10-29")])
+    donnees = p15.parcourir(EXTRAIT_REEL, {}, souple)
+    assert donnees["stats"]["rattachees_par_repli"] == 0
+
+
+def test_composantes_identite_et_dates_voisines():
+    """Les deux primitives du repli, sur les écritures réellement mesurées."""
+    ci = p15.composantes_identite
+    assert {"FAVENNEC", "BECOT"} <= ci("Favennec-Bécot")
+    # Le suffixe de désambiguïsation de l'AN n'appartient pas au patronyme.
+    assert ci("Martin (Alpes-Maritimes)") == ci("MARTIN")
+    # La forme recollée absorbe une ponctuation interne divergente.
+    assert ci("K/Bidi") & ci("KBIDI")
+    # Une composante commune en FIN de nom compte autant qu'en tête.
+    assert ci("Ricourt Vaginay") & ci("VAGINAY")
+    assert ci("") == frozenset()
+    # Les particules ne sont JAMAIS appariantes : « LE » est porté par 18 fiches
+    # servies et « DE » par 14. Sans ce filtre, « LE MEUR Marie » pourrait
+    # s'apparier à « LE GAC Marie » de la même année sur la seule syllabe.
+    assert "LE" not in ci("Le Meur") and "MEUR" in ci("Le Meur")
+    assert "DE" not in ci("de Courson") and "COURSON" in ci("de Courson")
+    assert not (ci("Le Meur") & ci("Le Gac"))
+    # Un nom d'un seul mot, fût-il court, reste apparaissant tel quel.
+    assert ci("Vos") == frozenset({"VOS"})
+
+    assert p15.dates_voisines("1969-09-29", "1969-03-29")    # le mois diverge
+    assert p15.dates_voisines("1981-10-21", "1981-10-20")    # le jour diverge
+    assert not p15.dates_voisines("1969-09-29", "1972-09-29")    # l'année, jamais
+    assert not p15.dates_voisines("1969-09-29", "1969-03-28")    # deux composantes
+    assert not p15.dates_voisines("1969-09-29", None)
+    assert not p15.dates_voisines("1969-09-29", "29/09/1969")    # format non ISO
+
+
 def test_appariement_exige_la_date_de_naissance():
     """Même nom, même prénom, autre date de naissance = pas d'appariement.
 

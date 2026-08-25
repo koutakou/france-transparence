@@ -108,7 +108,7 @@ import re
 import sys
 import unicodedata
 import xml.etree.ElementTree as ET
-from collections import Counter
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import date
 from email.utils import parsedate_to_datetime
@@ -389,6 +389,63 @@ def normaliser_identite(valeur: str | None) -> str:
     return " ".join(s.split()).upper()
 
 
+_PARENTHESES = re.compile(r"\([^)]*\)")
+_NON_ALPHANUM = re.compile(r"[^A-Z0-9]+")
+_LONGUEUR_PARTICULE = 2      # « LE », « DE », « EL », « DU »… jamais appariantes
+
+
+def composantes_identite(valeur: str | None) -> frozenset[str]:
+    """Mots d'un nom ou d'un prénom, plus la forme recollée sans séparateur.
+
+    Sert au SEUL repli de `construire_index_souple`, jamais à la clé exacte.
+    Le contenu entre parenthèses est retiré : l'Assemblée désambiguïse ses
+    députés homonymes par le département (« Martin (Gironde) »), ce qui
+    n'appartient pas au patronyme. La forme recollée rattrape les graphies que
+    les sources coupent différemment (« K/Bidi » côté Assemblée, « KBIDI »
+    côté RNE).
+
+    ⚠️ Ni le retrait des parenthèses, ni la forme recollée, ni le filtre des
+    particules ne rattrapent quoi que ce soit AUJOURD'HUI : mesuré le
+    26/08/2026, les 71 rattachements sortent tous de la seule intersection de
+    mots, et retirer l'un de ces trois mécanismes n'en fait perdre aucun. Ils
+    sont là par prophylaxie — le premier deviendra utile à la fusion des
+    doublons, le troisième ferme une faille réelle (voir _LONGUEUR_PARTICULE).
+    Ne pas les présenter comme des correctifs mesurés.
+    """
+    t = _NON_ALPHANUM.sub(" ", normaliser_identite(_PARENTHESES.sub(" ", valeur or "")))
+    mots = t.split()
+    if not mots:
+        return frozenset()
+    recolle = "".join(mots)
+    if len(mots) == 1:
+        return frozenset(mots)
+    # Les PARTICULES ne sont jamais appariantes. Mesuré sur les fiches servies :
+    # « LE » est porté par 18 d'entre elles et « DE » par 14 ; sans ce filtre,
+    # une déclaration « LE MEUR Marie » pourrait s'apparier à une fiche
+    # « LE GAC Marie » de la même année sur la seule syllabe « LE ». Elles
+    # restent dans la forme recollée, qui, elle, discrimine.
+    return frozenset(m for m in mots if len(m) > _LONGUEUR_PARTICULE) | {recolle}
+
+
+def dates_voisines(a: str | None, b: str | None) -> bool:
+    """Même ANNÉE, et au plus une des trois composantes qui diverge.
+
+    Deux sources officielles se contredisent parfois d'un chiffre sur l'état
+    civil d'une même personne — mesuré entre `declarations.xml` et l'AN :
+    Gisèle Lelouis, 1952-05-10 contre 1952-03-10 ; Nicolas Metzdorf,
+    1988-02-20 contre 1988-05-20 ; Daniel Chasseing, 1945-04-19 contre
+    1945-04-10. L'année reste EXIGÉE : c'est elle qui empêche la tolérance de
+    dégénérer en appariement par le seul patronyme.
+    """
+    a, b = (a or "").strip(), (b or "").strip()
+    if len(a) != 10 or len(b) != 10:
+        return False
+    pa, pb = a.split("-"), b.split("-")
+    if len(pa) != 3 or len(pb) != 3 or pa[0] != pb[0]:
+        return False
+    return sum(1 for x, y in zip(pa, pb) if x != y) <= 1
+
+
 _RE_DATE_FR = re.compile(r"(\d{2})/(\d{2})/(\d{4})")
 
 
@@ -619,12 +676,118 @@ def construire_index_elus(conn) -> dict[tuple[str, str, str], str]:
     return index
 
 
+def construire_index_souple(conn) -> dict[tuple[str, str], list[dict]]:
+    """{(année de naissance, composante de nom) → [fiches]} — REPLI SEULEMENT.
+
+    POURQUOI ce repli existe. La clé exacte `(nom, prénom, naissance)` est
+    juste et doit le rester : elle est ce qui empêche d'attribuer la
+    déclaration d'une personne à son homonyme. Mais elle exige que
+    `declarations.xml` écrive l'état civil exactement comme la source qui a
+    posé la fiche — l'Assemblée et le Sénat via P9, le RNE via P7 — et mesuré
+    sur le fichier servi, ce n'est pas le cas. **71 déclarations d'intérêts,
+    portant 875 lignes et concernant 32 parlementaires, étaient jetées en
+    silence** pour cette seule raison.
+
+    Les écarts mesurés le 26/08/2026, tous entre deux graphies d'une même
+    personne, avec les cas que le repli rattrape RÉELLEMENT :
+      · nom composé porté en entier par la chambre, tronqué par la HATVP
+        (« Borchio Fontimp » / « FONTIMP », « Parmentier-Lecocq » / « LECOCQ »,
+        « Vermorel-Marques » / « VERMOREL », « Dogor-Such » / « DOGOR ») —
+        c'est le motif dominant ;
+      · composante commune en FIN de nom (« Corbière Naminzo » / « CORBIERE »,
+        « Berthet » / « BERTHET COTTAREL ») ;
+      · nom d'épouse ajouté d'un seul côté (« Féret » / « FERET EPOUSE
+        EL ADNANI », « Jacques » / « BLANCHARD EPOUSE JACQUES ») ;
+      · prénoms inversés ou composés tronqués à la source (« Carlos Martens »
+        / « MARTENS CARLOS », « Charles » / « CHARLES AMEDEE », « Marie-Do »
+        / « MARIE DOMINIQUE ») ;
+      · date de naissance divergeant d'une composante — 3 cas seulement
+        (Chasseing, Lelouis, Metzdorf), et pour deux d'entre eux
+        `declarations.xml` porte lui-même les DEUX dates sous le même nom :
+        c'est une coquille de la source, pas deux personnes.
+
+    Ce que le repli NE fait PAS aujourd'hui, contrairement à ce qu'on pourrait
+    croire : il ne traite pas les fiches en double `rne-*` / `PA*` (Favennec,
+    Vaginay, K/Bidi, Xowie…). Pour celles-là la clé exacte réussit déjà, sur
+    le jumeau `rne-*`. Le repli est en revanche ce qui rendra leur fusion SANS
+    PERTE le jour où elle sera faite : mesuré sur une fusion simulée,
+    2 247 par clé exacte + 85 par repli = **2 332, le même total qu'ici**.
+    Livrer cette fusion sans ce repli détruirait 14 déclarations.
+
+    Trois garde-fous, sans lesquels le remède serait pire que le mal :
+      1. l'index ne contient que les élus AYANT une fiche, comme la clé
+         exacte — le vivier reste celui des personnes que le site publie ;
+      2. il faut une composante de NOM **et** une de PRÉNOM en commun,
+         l'année identique, et au plus une composante de date divergente ;
+      3. **un seul candidat**, sinon on renonce. Deux candidats, c'est une
+         homonymie, et la trancher au hasard serait la faute la plus grave
+         que ce pipeline puisse commettre.
+
+    ⚠️ Limite connue du garde-fou n° 3 : « un seul candidat » se mesure sur
+    l'état de `elus` du jour. Six des 32 appariements ne tiennent que par
+    l'unicité de leur patronyme dans le vivier — MARTIN/Élisa (9 fiches
+    portent « MARTIN »), PETIT/Maud, ROUSSET/Alain, TACHE/Emmanuel (contre
+    Aurélien Taché, 1984), CORBIERE/Evelyne (contre Alexis Corbière, 1968) et
+    JACQUES/Micheline. Le jour où un homonyme de la MÊME ANNÉE entre dans
+    `elus`, leur déclaration se détache SANS BRUIT. Aucun contrôle ne le
+    verrait : les garde-fous de `main()` sont un plancher et une proportion,
+    pas un delta.
+
+    Ce repli n'écrase JAMAIS la clé exacte : il n'est consulté qu'après son
+    échec. Il est donc strictement additif — il rattache des déclarations
+    aujourd'hui jetées, il n'en déplace aucune.
+    """
+    marques = ", ".join("?" for _ in TYPES_FICHE)
+    index: dict[tuple[str, str], list[dict]] = defaultdict(list)
+    vus: set[str] = set()
+    for r in conn.execute(
+        f"""SELECT DISTINCT e.id, e.nom, e.prenom, e.date_naissance
+            FROM elus e, json_each(e.mandats) je
+            WHERE json_extract(je.value, '$.type') IN ({marques})""",
+        TYPES_FICHE,
+    ):
+        naissance = (r["date_naissance"] or "").strip()
+        if len(naissance) != 10 or r["id"] in vus:
+            continue
+        vus.add(r["id"])
+        fiche = {"id": r["id"], "naissance": naissance,
+                 "prenom": composantes_identite(r["prenom"])}
+        for composante in composantes_identite(r["nom"]):
+            index[(naissance[:4], composante)].append(fiche)
+    return index
+
+
+def apparier_souple(index_souple: dict, nom: str | None, prenom: str | None,
+                    naissance: str | None) -> str | None:
+    """Un identifiant d'élu, ou None si aucun candidat — ou plus d'un."""
+    naissance = (naissance or "").strip()
+    if len(naissance) != 10:
+        return None
+    composantes_prenom = composantes_identite(prenom)
+    if not composantes_prenom:
+        return None
+    candidats: dict[str, dict] = {}
+    for composante in composantes_identite(nom):
+        for fiche in index_souple.get((naissance[:4], composante), ()):
+            if fiche["id"] in candidats:
+                continue
+            if not dates_voisines(naissance, fiche["naissance"]):
+                continue
+            if not (composantes_prenom & fiche["prenom"]):
+                continue
+            candidats[fiche["id"]] = fiche
+    if len(candidats) != 1:            # garde-fou n° 3 : homonymie non tranchée
+        return None
+    return next(iter(candidats))
+
+
 # ---------------------------------------------------------------------------
 # Parcours EN FLUX du fichier
 # ---------------------------------------------------------------------------
 
 
-def parcourir(chemin: str | Path, index_elus: dict[tuple[str, str, str], str]) -> dict:
+def parcourir(chemin: str | Path, index_elus: dict[tuple[str, str, str], str],
+              index_souple: dict | None = None) -> dict:
     """Lit declarations.xml EN FLUX et retourne les lignes prêtes à écrire.
 
     POURQUOI iterparse et pas ET.parse : le fichier pèse 88,8 Mo et grossit
@@ -658,6 +821,12 @@ def parcourir(chemin: str | Path, index_elus: dict[tuple[str, str, str], str]) -
         if not naissance:
             stats["sans_date_naissance"] += 1
         elu_id = index_elus.get((nom, prenom, naissance or ""))
+        if elu_id is None and index_souple is not None:
+            # Repli : les deux sources n'écrivent pas l'état civil pareil.
+            # Voir construire_index_souple pour le pourquoi et les garde-fous.
+            elu_id = apparier_souple(index_souple, nom, prenom, naissance)
+            if elu_id is not None:
+                stats["rattachees_par_repli"] += 1
         if elu_id is None:
             stats["non_apparie"] += 1
             element.clear()
@@ -817,7 +986,7 @@ def executer(chemin_db=None, max_age_heures: float | None = 6.0) -> dict:
             raise ValueError(
                 f"appariement impossible : {len(index_elus)} élus avec fiche et date "
                 "de naissance (≥ 500 attendus) — P7/P9 ont-ils tourné ? Abandon")
-        donnees = parcourir(chemin, index_elus)
+        donnees = parcourir(chemin, index_elus, construire_index_souple(conn))
         stats = donnees["stats"]
 
         # Garde-fous de plausibilité : mieux vaut ne rien écrire qu'écrire une
@@ -825,6 +994,19 @@ def executer(chemin_db=None, max_age_heures: float | None = 6.0) -> dict:
         if stats["declarations_lues"] < 5_000:
             raise ValueError(f"declarations.xml : {stats['declarations_lues']} "
                              "déclarations lues (≥ 5 000 attendues) — source suspecte")
+        # Le repli ne doit rester qu'un APPOINT. S'il devient la voie
+        # principale, ce n'est pas qu'il travaille bien : c'est que la clé
+        # exacte est tombée — et le plancher ci-dessous ne le verrait pas.
+        # Mesuré le 26/08/2026 : 71 rattachements par repli sur 2 332, soit
+        # 3,0 %. Contre-épreuve, clé exacte anéantie : le repli seul en
+        # rattache 2 308, très au-dessus du plancher de 1 000 — la panne
+        # serait donc MUETTE sans ce garde-fou.
+        if stats["rattachees"] and \
+                stats["rattachees_par_repli"] > 0.15 * stats["rattachees"]:
+            raise ValueError(
+                f"appariement suspect : {stats['rattachees_par_repli']} déclarations "
+                f"sur {stats['rattachees']} rattachées par le repli d'orthographe "
+                f"(> 15 %) — la clé exacte est-elle tombée ? Abandon")
         if stats["rattachees"] < 1_000:
             raise ValueError(f"appariement anormal : {stats['rattachees']} déclarations "
                              "rattachées (≥ 1 000 attendues)")
@@ -858,11 +1040,12 @@ def executer(chemin_db=None, max_age_heures: float | None = 6.0) -> dict:
         log.info(
             "P15 terminé : %d déclarations lues, %d refusées par type, %d blocs "
             "patrimoniaux refusés par balise ; %d rattachées à %d élus (%.1f %%), "
-            "%d lignes, %d montants, %d rubriques « néant »",
+            "dont %d par le repli d'orthographe ; %d lignes, %d montants, "
+            "%d rubriques « néant »",
             stats["declarations_lues"], stats["refus_type_declaration"],
             stats["refus_balise_patrimoine"], stats["rattachees"],
-            stats["elus_apparies"], taux, stats["lignes"], stats["montants"],
-            stats["rubriques_neant"])
+            stats["elus_apparies"], taux, stats["rattachees_par_repli"],
+            stats["lignes"], stats["montants"], stats["rubriques_neant"])
         stats["date_donnees"] = date_donnees
         stats["fiches"] = len(index_elus)
         return dict(stats)
