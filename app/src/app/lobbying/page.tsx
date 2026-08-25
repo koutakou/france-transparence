@@ -989,7 +989,7 @@ export default async function LobbyingPage() {
       {/* ── Activités par institution visée ─────────────────────────── */}
       <Card
         titre="Activités par institution visée"
-        sousTitre="Cumul historique des activités déclarées, par catégorie de responsables publics visés. La donnée source ne sépare pas l'Assemblée nationale du Sénat : ils forment la seule catégorie « Parlement (AN + Sénat) »."
+        sousTitre="Cumul historique des activités déclarées, par catégorie de responsables publics visés. Une même activité peut viser plusieurs catégories : ces lignes ne s’additionnent pas, leur somme dépasse le total des activités déclarées. La donnée source ne sépare pas l'Assemblée nationale du Sénat : ils forment la seule catégorie « Parlement (AN + Sénat) »."
         droite={badge}
       >
         <BarList

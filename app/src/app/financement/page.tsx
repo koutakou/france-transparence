@@ -594,9 +594,21 @@ export default async function FinancementPage() {
         </VueTableau>
       </Card>
 
+      {/* Classement NOMINATIF de personnes physiques : ses deux limites sont
+          au contact du tableau. La première ne pouvait PAS être « dépliée » d'un
+          <details> existant comme le prévoyait la qualification : mesuré sur la
+          release 20260825-205334, les 5 occurrences servies de « pas une
+          infraction » portent toutes sur l'alerte A4 (structure de financement
+          d'un PARTI), aucune sur un compte de campagne. Elle est donc écrite.
+          Aucun MONTANT de plafond n'est avancé, et aucun article du code qui ne
+          soit déjà servi : le dépôt porte 136 occurrences de « plafond », dont
+          zéro sur les dépenses de campagne (les autres sont l'écrêtage DECP à
+          100 M€ et les indemnités d'élus locaux). La seconde phrase ne qualifie
+          pas la décision en droit — elle dit seulement de QUI elle émane, ce que
+          la colonne « Décision » du tableau ne dit pas. */}
       <Card
         titre="Dépenses de campagne les plus élevées"
-        sousTitre="Top 10 des comptes de campagne par dépenses retenues par la CNCCFP — législatives 2024, sans nuance politique."
+        sousTitre="Top 10 des comptes de campagne par dépenses retenues par la CNCCFP — législatives 2024, sans nuance politique. Les dépenses de chaque candidat sont plafonnées, d’un montant fixé selon la circonscription : ces montants ne sont pas rapportés au plafond applicable. La colonne « Décision » est celle de la Commission, pas celle d’un juge."
         droite={badgeCampagnes}
       >
         <DataTable<CampagneTopDepense>

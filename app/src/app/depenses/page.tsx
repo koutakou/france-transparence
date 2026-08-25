@@ -249,7 +249,18 @@ export default async function PageDepenses() {
                 {
                   label: `Solde budgétaire au ${formatDateFr(kpis.dateFinMois)}`,
                   valeur: <MontantMd valeur={kpis.solde} />,
-                  perimetre: "budget général, cumul depuis le 1er janvier",
+                  // Les deux tuiles voisines portaient la MÊME borne que celle-ci,
+                  // ce qui invitait à les soustraire. La soustraction ne tombe pas
+                  // juste : recettes moins dépenses = −55,99 Md€ quand le solde
+                  // servi vaut −106,77 Md€, soit 50,79 Md€ d'écart. La cause est
+                  // établie, et dans `budget_mensuel` que cette page lit déjà —
+                  // décomposition rejouée sur la base du 25/08, résidu 3 centièmes
+                  // de centime : (recettes BG − dépenses BG) − PSR 36,32 Md€
+                  // + solde des comptes spéciaux −17,61 Md€ + budgets annexes 0
+                  // + fonds de concours 3,14 Md€ = le solde servi. Le solde n'est
+                  // donc pas borné au budget général : la borne le dit.
+                  perimetre:
+                    "solde budgétaire de l’État, cumul depuis le 1er janvier — au-delà du budget général : prélèvements sur recettes, solde des comptes spéciaux et fonds de concours compris",
                   delta: deltaSolde === null ? undefined : { valeur: deltaSolde, vs: vsN1 },
                 },
               ]),

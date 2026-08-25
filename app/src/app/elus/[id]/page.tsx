@@ -60,7 +60,9 @@ export async function generateMetadata({
   // Chemin de la FICHE (jamais celui de l'accueil) : relatif, que Next
   // compose avec metadataBase — basePath compris. Slash final imposé par
   // `trailingSlash: true`. Ce seul chemin alimente la canonique ET l'og:url
-  // des 1 053 fiches, via `metadonneesPage()`.
+  // de chaque fiche, via `metadonneesPage()`. Pas de volumétrie en dur ici :
+  // le nombre de fiches rote à chaque ingestion (1 049 servies le 25/08/2026,
+  // contre 1 053 écrites dans ce commentaire depuis sa rédaction).
   const chemin = `/elus/${encodeURIComponent(decodeIdSur(id))}/`;
   const db = getDb();
   // Base absente ou élu inconnu : la fiche garde son identité d'URL, mais on
@@ -777,9 +779,11 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
           />
         ) : (
           <p className="text-sm text-ink-muted">
-            Aucune déclaration HATVP appariée à cette fiche dans la base. L’appariement se fait
-            uniquement par URL de fiche nominative HATVP (jamais par homonymie) : l’absence
-            d’appariement ne signifie pas l’absence de déclaration.
+            Aucune déclaration HATVP appariée à cette fiche dans la base.{" "}
+            <strong className="text-ink-secondary">Dans ce bloc</strong>, l’appariement se fait
+            uniquement par URL de fiche nominative HATVP, jamais par homonymie ; le bloc
+            « Intérêts déclarés » ci-dessous procède autrement, et l’absence d’appariement ici ne
+            signifie pas l’absence de déclaration.
           </p>
         )}
       </Card>
@@ -836,7 +840,8 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
               {" "}
               Cela ne veut pas dire que cette personne n’a rien déclaré.
             </strong>{" "}
-            L’appariement se fait sur le nom, le prénom et la date de naissance : une déclaration
+            <strong className="text-ink-secondary">Dans ce bloc</strong>, l’appariement se fait sur
+            le nom, le prénom et la date de naissance — pas par URL comme au bloc précédent : une déclaration
             déposée mais non publiée, une publication faite en préfecture, ou une identité
             orthographiée autrement dans le fichier amont suffisent à l’empêcher. Le
             bloc « Déclarations HATVP » ci-dessus indique, le cas échéant, le statut publié par

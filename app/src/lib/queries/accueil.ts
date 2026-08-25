@@ -25,6 +25,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { FeatureCollection, Geometry } from "geojson";
 import { getDb, type MetaSource } from "@/lib/db";
+import { getIdsFichesStatiques } from "@/lib/queries/elus";
 
 /* ------------------------------------------------------------------ */
 /* GeoJSON départements (fond de carte, lu côté serveur uniquement)    */
@@ -106,6 +107,7 @@ export type CompteursSuivi = {
   marchesSuivis: number;
   entitesPubliques: number;
   elusSuivis: number;
+  elusAvecFiche: number;
 };
 
 export type MinistereCp = {
@@ -342,6 +344,16 @@ export function getDonneesAccueil(): DonneesAccueil | null {
     elusSuivis: (
       db.prepare(`SELECT COUNT(*) AS n FROM elus`).get() as { n: number }
     ).n,
+    // Nombre d'élus qui ont RÉELLEMENT une fiche. Compté par la fonction qui
+    // génère les routes statiques `/elus/<id>/`, jamais en dur : le chiffre
+    // rote à chaque ingestion RNE/ODSEN, et toute constante recopiée ici
+    // divergerait des pages réellement produites au build suivant.
+    // Écart assumé à la règle « un fichier de requêtes par module » : recopier
+    // ici la définition d'« avoir une fiche » créerait une SECONDE définition,
+    // libre de diverger de celle qui produit les routes — soit exactement le
+    // défaut que cette borne corrige. Import en lecture seule, sans cycle
+    // (`queries/elus` n'importe que `lib/db`).
+    elusAvecFiche: getIdsFichesStatiques().length,
   };
 
   /* --- Tableau : CP bruts PLF 2025 par ministère (top 8) --- */

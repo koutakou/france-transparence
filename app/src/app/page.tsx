@@ -344,7 +344,7 @@ export default async function Accueil() {
           <KpiTile
             label="Marchés notifiés (30 j)"
             valeur={formatNombre(kpis.marches30j)}
-            perimetre="notification initiale, 30 derniers jours — ce n’est pas le stock total"
+            perimetre="notification initiale, 30 derniers jours — ce n’est pas le stock total ; publication légale jusqu’à 2 mois, fenêtre incomplète"
           />
           <KpiTile
             label="Appels d'offres en cours (BOAMP)"
@@ -380,8 +380,7 @@ export default async function Accueil() {
           {
             label: "Élus suivis nominativement",
             valeur: formatNombre(suivi.elusSuivis),
-            perimetre:
-              "maires, présidences d’exécutifs et parlementaires — hors conseillers municipaux",
+            perimetre: `maires, présidences d’exécutifs et parlementaires — hors conseillers municipaux ; les ${formatNombre(suivi.elusAvecFiche)} fiches sont celles des parlementaires et des présidences de département et de région`,
           },
         ]}
       />

@@ -523,19 +523,39 @@ export default async function PageMarches() {
           {
             label: "Marchés notifiés (30 derniers jours)",
             valeur: formatNombre(kpis.nbMarches30j),
+            // Même 6 544 que la tuile de l'accueil : les deux bornes disent
+            // désormais la même chose, stock ET latence. Sans cela une page
+            // prévenait d'un défaut dont l'autre ne prévenait pas.
             perimetre:
-              "notification initiale, 30 derniers jours — ce n’est pas le stock total",
+              "notification initiale, 30 derniers jours — ce n’est pas le stock total ; publication légale jusqu’à 2 mois, fenêtre incomplète",
           },
+          // Les deux tuiles qui suivent NE VIENNENT PAS des DECP. La seule
+          // pastille servie au-dessus du bandeau (`badgeS1`, chapeau) est celle
+          // des DECP consolidées : mesurée sur la release 20260825-205334, elle
+          // les datait toutes les deux du 24/08 alors que le BOAMP était au
+          // 25/08 et APProch au 22/08, et leurs vraies pastilles vivent
+          // respectivement 271 000 et 305 000 caractères plus bas. Chacune
+          // porte donc sa date AU CONTACT de sa valeur, avec le nom de sa
+          // source. Les trois premières tuiles n'en reçoivent pas : le chapeau
+          // les date justement ET nomme leur source.
           {
             label: "Appels d’offres en cours (BOAMP)",
             valeur: formatNombre(kpis.aoEnCours),
-            perimetre:
-              "annonces BOAMP non annulées, date limite encore ouverte — stock du jour, pas un flux 30 j",
+            // « stock du jour » et « au <date fixe> » se contredisaient. Et les
+            // deux dates sont bien distinctes : `aoEnCours` est re-filtré à
+            // CHAQUE construction (`datetime(date_limite_reponse) > 'now'`),
+            // tandis que `meta.s2.date_donnees` date la SOURCE. Elles coïncident
+            // aujourd'hui ; le jour où le BOAMP prendra du retard, elles non.
+            perimetre: meta.s2
+              ? `annonces BOAMP non annulées, date limite encore ouverte — instantané BOAMP du ${formatDateFr(meta.s2.date_donnees)}, re-filtré à la construction ; pas un flux 30 j`
+              : "annonces BOAMP non annulées, date limite encore ouverte — stock du jour, pas un flux 30 j",
           },
           {
             label: "Achats annoncés (APProch)",
             valeur: formatNombre(kpis.marchesAVenir),
-            perimetre: "projets à publication prévue — stock du jour, pas une fenêtre de 12 mois",
+            perimetre: meta.s9
+              ? `projets à publication prévue — stock APProch au ${formatDateFr(meta.s9.date_donnees)}, pas une fenêtre de 12 mois`
+              : "projets à publication prévue — stock du jour, pas une fenêtre de 12 mois",
           },
         ]}
       />

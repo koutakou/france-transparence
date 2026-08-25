@@ -226,8 +226,14 @@ export default async function PageRecettes() {
                 {
                   label: "Recettes non fiscales",
                   valeur: <MontantMd valeur={kpis.nonFiscales} />,
+                  // « S13 » a DEUX sens sur cette page : le secteur ESA S13
+                  // (administrations publiques, famille S1311/S1313/S1314/S212) et
+                  // la source S13 de ce site (situations mensuelles DGFiP). C'est
+                  // ici, première apparition du second sens au contact d'une valeur,
+                  // qu'il se nomme — même partage que celui déjà servi sur
+                  // /comprendre : « n'est pas la source S13 de ce site ».
                   perimetre:
-                    "exécution S13, un seul total — le détail du PLF (projet) est plus bas",
+                    "exécution de la source S13 (situations mensuelles DGFiP), un seul total — le détail du PLF (projet) est plus bas",
                   delta:
                     deltaNonFiscales === null ? undefined : { valeur: deltaNonFiscales, vs: vsN1 },
                 },
