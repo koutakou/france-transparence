@@ -64,6 +64,7 @@ import csv
 import hashlib
 import json
 import re
+import sqlite3
 import sys
 import unicodedata
 from collections import Counter, defaultdict
@@ -206,6 +207,125 @@ CREATE TABLE rne_cm_agregats (
     age_moyen           REAL
 );
 """
+
+
+def instructions_schema(script: str = SCHEMA_P7) -> list[str]:
+    """Découpe un script SQL en instructions, pour les passer UNE À UNE.
+
+    POURQUOI ne plus confier ce travail à `executescript`, qui le faisait :
+    il VALIDE implicitement la transaction en cours avant de lancer son
+    script. Comme `SCHEMA_P7` porte trois `DROP TABLE`, la destruction de
+    `hatvp_declarations`, `hatvp_agregats` et `rne_cm_agregats` partait sur
+    disque d'emblée, et le `rollback()` du bloc `except` de `main()` — qui
+    n'annule que les insertions — ne pouvait pas la reprendre. Passées une à
+    une à `conn.execute`, les mêmes instructions restent dans la transaction
+    ouverte par `appliquer_schema()` : SQLite fait du DDL transactionnel,
+    `DROP TABLE` compris, index et lignes revenant ensemble (mesuré).
+
+    POURQUOI `sqlite3.complete_statement` ALORS QUE `split(";")` SUFFIRAIT
+    AUJOURD'HUI — la mesure, faite sur ce littéral-ci et non recopiée de P15 :
+    `SCHEMA_P7` porte 10 points-virgules, **zéro** ligne de commentaire `--`
+    et **zéro** apostrophe. Les deux pièges qui condamnent le découpage naïf
+    dans `ingest_hatvp_declarations.py` (des `;` en commentaire, des
+    apostrophes impaires) **n'existent pas ici** : il ne faut pas prétendre
+    l'inverse. `complete_statement` est retenu quand même pour deux raisons
+    mesurables : il est l'outil de la bibliothèque standard pour cela — celui
+    du shell `sqlite3` — et il ignore les commentaires, si bien que le jour
+    où quelqu'un annotera ce schéma comme l'autre est annoté, le découpage
+    ne se cassera pas. Or il se casserait AU PIRE ENDROIT : après les trois
+    `DROP`. 10 instructions, mesuré (3 `DROP TABLE`, 4 `CREATE TABLE`,
+    3 `CREATE INDEX`).
+
+    Lève `ValueError` sur un script qui se termine hors instruction : mieux
+    vaut un échec bruyant AVANT le `BEGIN` qu'un schéma appliqué à moitié.
+    """
+    instructions: list[str] = []
+    tampon = ""
+    for ligne in script.splitlines(keepends=True):
+        tampon += ligne
+        if sqlite3.complete_statement(tampon):
+            instructions.append(tampon.strip())
+            tampon = ""
+    reste = [l for l in tampon.splitlines()
+             if l.strip() and not l.strip().startswith("--")]
+    if reste:
+        raise ValueError(
+            "script SQL mal formé : la dernière instruction n'est pas terminée "
+            f"par « ; » — {reste[0].strip()[:60]!r}")
+    return instructions
+
+
+def appliquer_schema(conn, script: str = SCHEMA_P7) -> None:
+    """Applique `SCHEMA_P7` DANS une transaction, au lieu de la valider.
+
+    C'EST LA LIGNE QUI REND LE CYCLE ATOMIQUE. Ce qu'il ne faut jamais
+    remettre à sa place, c'est `conn.executescript(SCHEMA_P7)`.
+
+    Ce qui était exposé, re-mesuré le 26/08/2026 sur la base SERVIE
+    (`data/france.db`, Python 3.14.6 et SQLite 3.37.2, ceux de la production) :
+    **13 277** lignes de `hatvp_declarations`, **37** de `hatvp_agregats`,
+    **104** de `rne_cm_agregats`. Entre l'ancien `executescript` et le
+    `conn.commit()` de `main()` tiennent **65 lignes**, dont
+    `agreger_conseillers_municipaux`, qui lit et parse le CSV des conseillers
+    municipaux du RNE (65 Mo, 2,13 s, 511 225 conseillers mesurés) et peut
+    lever. Reproduit à l'identique : avec
+    `executescript`, une panne à cet endroit puis `rollback()` laisse une
+    connexion neuve relire **0 / 0 / 0** ; avec ce correctif, elle relit les
+    trois comptes d'avant l'incident.
+
+    ⚠️ LA TRANSACTION NE VA PAS JUSQU'AU `conn.commit()` DE `main()`, et il
+    faut le savoir : `db.upsert_meta` valide lui-même (`pipelines/db.py`,
+    `conn.commit()` en fin de fonction) et `main()` l'appelle DEUX fois, pour
+    S14 puis S17, avant son propre `commit`. La transaction ouverte ici se
+    referme donc au premier `upsert_meta`. Ce n'est pas un défaut résiduel :
+    tout ce qui peut détruire des données — les trois `DROP`, les trois
+    remplissages, `upsert_elus`, le parsing du CSV RNE, les alertes — est en
+    amont de ce point. Ce qui reste après lui est l'écriture de deux lignes
+    de `meta_sources`, dont l'échec laisse la base complète et à jour, avec
+    une date de source non rafraîchie. Ne pas « corriger » `upsert_meta` au
+    passage : il est partagé par les 31 pipelines.
+
+    ⚠️ `BEGIN IMMEDIATE` ET NON `BEGIN` — la réserve laissée ouverte par P15
+    (« un SQLITE_BUSY tardif n'a pas été mesuré ») a été mesurée ici, et elle
+    mord. Un `BEGIN` nu est *deferred*, et les deux premières instructions de
+    `SCHEMA_P7` sont `CREATE TABLE IF NOT EXISTS alertes` et son
+    `CREATE INDEX IF NOT EXISTS` : dans le cas nominal, où la table existe,
+    ce sont des NO-OP. Mesuré, avec un écrivain concurrent sur la base :
+    `BEGIN` nu → le premier `DROP` échoue « database is locked » en **0,00 s**,
+    le busy handler n'étant PAS appelé, donc sans rien devoir au `timeout=30`
+    de `db.connexion()` ; `BEGIN IMMEDIATE` → le verrou est pris d'emblée et
+    le `DROP` passe. Vérifié dans les DEUX modes de journalisation, `wal` et
+    `delete`. En `wal` le mécanisme est visible à l'œil nu : après les deux
+    NO-OP la transaction ne tient aucun verrou d'écriture, l'écrivain
+    concurrent valide, et la montée lecture→écriture n'est plus possible.
+    ⚠️ ET C'EST EN `wal` QUE CE PIPELINE TOURNE : `db.connexion()` bascule la
+    base à chaque ouverture (mesuré, y compris sur une base au repos en
+    `delete`). Le `delete` qu'on lit sur `data/france.db` entre deux cycles est
+    posé APRÈS l'ingestion, délibérément, par `ft-deploy` (« Consolidation de
+    la base », `wal_checkpoint(TRUNCATE)` puis `journal_mode=DELETE`) pour que
+    l'export parte en fichier unique. Ne pas conclure du mode au repos que le
+    cas `wal` serait théorique : c'est l'inverse.
+
+    ⚠️ À NE PAS SUR-VENDRE : sur le chemin réel, aucun écrivain concurrent
+    n'existe — `make ingest` enchaîne les 31 pipelines en série et rien
+    d'autre n'écrit `france.db`. `IMMEDIATE` est donc ici une prophylaxie
+    gratuite, pas la correction d'une panne observée en production. Elle
+    compte parce que l'ancien `executescript` n'avait pas cette fenêtre : sans
+    elle, le correctif d'atomicité aurait AJOUTÉ un mode d'échec.
+    ⚠️ La réserve NE se transpose PAS telle quelle à `SCHEMA_P15`, dont la
+    première instruction est un `DROP TABLE` : là, le `BEGIN` nu écrit tout de
+    suite. Ne pas « corriger » P15 sans refaire la mesure.
+
+    ⚠️ Si l'appelant a DÉJÀ une transaction ouverte, on s'y greffe : un second
+    `BEGIN` lèverait « cannot start a transaction within a transaction »
+    (mesuré). Sur le chemin réel le cas ne se présente pas — `db.init_db()`
+    valide, et entre lui et cet appel `main()` ne fait que télécharger et
+    parser, sans toucher la base.
+    """
+    if not conn.in_transaction:
+        conn.execute("BEGIN IMMEDIATE")
+    for instruction in instructions_schema(script):
+        conn.execute(instruction)
 
 # ---------------------------------------------------------------------------
 # Normalisation (règle de matching documentée — garde-fou n° 2 de A1)
@@ -807,6 +927,80 @@ def resoudre_ressources_rne(session) -> dict[str, dict]:
 # ---------------------------------------------------------------------------
 
 
+def ecrire(conn, dossiers: list[dict], rne: dict, chemins: dict,
+           aujourd_hui: date, date_hatvp: str, date_rne: str) -> dict:
+    """Écrit TOUT le cycle P7, dans UNE transaction, sans la valider.
+
+    POURQUOI CETTE FONCTION EXISTE — elle a été extraite de `main()` le
+    26/08/2026, et ce n'est pas de la cosmétique. Tant que ces lignes vivaient
+    au milieu de `main()`, qui télécharge, aucun test ne pouvait les exécuter :
+    la promesse d'atomicité n'était éprouvée que sur une RÉPLIQUE écrite à la
+    main dans le fichier de test, et deux revues adversariales ont montré la
+    même faille — un `conn.commit()` d'une seule ligne ajouté ici restaurait
+    intégralement le défaut d'origine en laissant les tests verts. C'est
+    `test_un_echec_apres_le_drop_laisse_la_base_intacte` qui tient la promesse,
+    et il ne la tient que parce qu'il appelle CETTE fonction.
+
+    Ce que `ecrire()` ne fait pas : valider. Elle laisse la transaction
+    ouverte, comme `ecrire()` de `ingest_hatvp_declarations.py`. C'est `main()`
+    qui écrit `meta_sources` puis valide — et `db.upsert_meta` validant
+    lui-même, la transaction se referme en pratique au premier des deux appels.
+    Tout ce qui peut détruire des données (les trois `DROP`, les trois
+    remplissages, `upsert_elus`, le parsing du CSV RNE, le `DELETE FROM
+    alertes`) est en amont de ce point ; ce qui suit est l'écriture de deux
+    lignes de `meta_sources`, dont l'échec laisse la base complète et à jour
+    avec une date de source non rafraîchie. Ne pas « corriger » `upsert_meta`
+    au passage : il est partagé par les 31 pipelines.
+
+    Retourne de quoi renseigner `meta_sources` sans relire la base.
+    """
+    # --- Schéma et tables HATVP ----------------------------------------
+    appliquer_schema(conn)
+    conn.executemany(
+        "INSERT INTO hatvp_declarations (civilite, prenom, nom, classement,"
+        " type_mandat, qualite, type_document, departement, date_publication,"
+        " date_depot, statut_publication, nom_fichier, url_dossier, url_fiche,"
+        " open_data, id_origine, url_photo)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [(d["civilite"], d["prenom"], d["nom"], d["classement"], d["type_mandat"],
+          d["qualite"], d["type_document"], d["departement"],
+          d["date_publication"] or None, d["date_depot"] or None,
+          d["statut_publication"], d["nom_fichier"] or None, d["url_dossier"] or None,
+          (URL_HATVP_SITE + d["url_dossier"]) if d["url_dossier"] else None,
+          d["open_data"] or None, d["id_origine"] or None, d["url_photo"] or None)
+         for d in dossiers])
+    conn.executemany("INSERT INTO hatvp_agregats (categorie, cle, nb) VALUES (?, ?, ?)",
+                     agreger_hatvp(dossiers, aujourd_hui))
+
+    # --- elus : upsert prudent + croisement HATVP ----------------------
+    personnes = preparer_personnes(rne)
+    inseres, maj = upsert_elus(conn, personnes)
+    flags = croiser_hatvp_flag(conn, dossiers)
+    log.info("elus : %d insérés, %d complétés (fusion mandats), %d hatvp_flag posés",
+             inseres, maj, flags)
+
+    # --- Conseillers municipaux : agrégats seulement -------------------
+    lignes_cm, total_cm = agreger_conseillers_municipaux(chemins["cm"], aujourd_hui)
+    conn.executemany(
+        "INSERT INTO rne_cm_agregats (code_departement, libelle_departement,"
+        " nb_conseillers, nb_femmes, nb_hommes, age_moyen) VALUES (?, ?, ?, ?, ?, ?)",
+        lignes_cm)
+    log.info("conseillers municipaux : %d lignes agrégées en %d départements",
+             total_cm, len(lignes_cm))
+
+    # --- Alerte A1 ------------------------------------------------------
+    index = construire_index_rne(rne)
+    nominatives, retards, stats = calculer_a1(dossiers, index, aujourd_hui)
+    lignes_alertes = construire_alertes(nominatives, retards, aujourd_hui,
+                                        date_hatvp, date_rne)
+    ecrire_alertes(conn, lignes_alertes)
+    log.info("A1 : %d constats nominatifs « non déposée », %d retards présumés "
+             "(agrégés en %d alertes) ; tri : %s", len(nominatives), len(retards),
+             len(lignes_alertes) - len(nominatives), dict(stats))
+
+    return {"total_cm": total_cm, "nb_alertes": len(lignes_alertes)}
+
+
 def main() -> int:
     aujourd_hui = date.today()
     session = session_http()
@@ -850,49 +1044,9 @@ def main() -> int:
                  " %d cons. comm. (données du %s)", len(rne["deputes"]), len(rne["senateurs"]),
                  len(rne["maires"]), len(rne["cd"]), len(rne["cr"]), len(rne["epci"]), date_rne)
 
-        # --- Schéma et tables HATVP ----------------------------------------
-        conn.executescript(SCHEMA_P7)
-        conn.executemany(
-            "INSERT INTO hatvp_declarations (civilite, prenom, nom, classement,"
-            " type_mandat, qualite, type_document, departement, date_publication,"
-            " date_depot, statut_publication, nom_fichier, url_dossier, url_fiche,"
-            " open_data, id_origine, url_photo)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [(d["civilite"], d["prenom"], d["nom"], d["classement"], d["type_mandat"],
-              d["qualite"], d["type_document"], d["departement"],
-              d["date_publication"] or None, d["date_depot"] or None,
-              d["statut_publication"], d["nom_fichier"] or None, d["url_dossier"] or None,
-              (URL_HATVP_SITE + d["url_dossier"]) if d["url_dossier"] else None,
-              d["open_data"] or None, d["id_origine"] or None, d["url_photo"] or None)
-             for d in dossiers])
-        conn.executemany("INSERT INTO hatvp_agregats (categorie, cle, nb) VALUES (?, ?, ?)",
-                         agreger_hatvp(dossiers, aujourd_hui))
-
-        # --- elus : upsert prudent + croisement HATVP ----------------------
-        personnes = preparer_personnes(rne)
-        inseres, maj = upsert_elus(conn, personnes)
-        flags = croiser_hatvp_flag(conn, dossiers)
-        log.info("elus : %d insérés, %d complétés (fusion mandats), %d hatvp_flag posés",
-                 inseres, maj, flags)
-
-        # --- Conseillers municipaux : agrégats seulement -------------------
-        lignes_cm, total_cm = agreger_conseillers_municipaux(chemins["cm"], aujourd_hui)
-        conn.executemany(
-            "INSERT INTO rne_cm_agregats (code_departement, libelle_departement,"
-            " nb_conseillers, nb_femmes, nb_hommes, age_moyen) VALUES (?, ?, ?, ?, ?, ?)",
-            lignes_cm)
-        log.info("conseillers municipaux : %d lignes agrégées en %d départements",
-                 total_cm, len(lignes_cm))
-
-        # --- Alerte A1 ------------------------------------------------------
-        index = construire_index_rne(rne)
-        nominatives, retards, stats = calculer_a1(dossiers, index, aujourd_hui)
-        lignes_alertes = construire_alertes(nominatives, retards, aujourd_hui,
-                                            date_hatvp, date_rne)
-        ecrire_alertes(conn, lignes_alertes)
-        log.info("A1 : %d constats nominatifs « non déposée », %d retards présumés "
-                 "(agrégés en %d alertes) ; tri : %s", len(nominatives), len(retards),
-                 len(lignes_alertes) - len(nominatives), dict(stats))
+        resume = ecrire(conn, dossiers, rne, chemins, aujourd_hui,
+                        date_hatvp, date_rne)
+        total_cm = resume["total_cm"]
 
         # --- meta_sources ----------------------------------------------------
         nb_mandats_ingeres = (len(rne["deputes"]) + len(rne["senateurs"]) + len(rne["maires"])
@@ -918,13 +1072,26 @@ def main() -> int:
                   "département (rne_cm_agregats), non ingérés nominativement")
         conn.commit()
         log.info("P7 terminé : %d dossiers HATVP, %d mandats RNE, %d alertes A1",
-                 len(dossiers), nb_mandats_ingeres, len(lignes_alertes))
+                 len(dossiers), nb_mandats_ingeres, resume["nb_alertes"])
         return 0
     except Exception:
         if conn is not None:
             conn.rollback()
-        log.exception("P7 en échec (le prochain run réussi remet toutes les tables "
-                      "d'aplomb : remplacement complet idempotent)")
+        # Ce message a longtemps dit « le prochain run réussi remet toutes les
+        # tables d'aplomb : remplacement complet idempotent ». Deux défauts,
+        # relevés par une revue adversariale le 26/08/2026 : il laissait croire
+        # que la base était cassée — ce qui était vrai, et ne l'est plus — et
+        # « toutes les tables » était faux de toute façon, `elus` étant
+        # complétée et jamais écrasée (en-tête du module) et `hatvp_flag`
+        # jamais remis à 0. Ce qui tient la promesse ci-dessous est le
+        # `BEGIN IMMEDIATE` de `appliquer_schema()` et les tests qui
+        # l'éprouvent, jamais cette phrase.
+        log.exception(
+            "P7 en échec. La base n'est PAS modifiée : l'écriture est atomique, "
+            "le cycle précédent reste servi entier. Les tables remplacées "
+            "(hatvp_declarations, hatvp_agregats, rne_cm_agregats, et les "
+            "alertes A1) gardent leur contenu de la veille ; `elus` n'est de "
+            "toute façon jamais écrasée, seulement complétée")
         return 1
     finally:
         if conn is not None:
