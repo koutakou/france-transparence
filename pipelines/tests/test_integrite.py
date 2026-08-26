@@ -11,6 +11,7 @@ La règle A1 étant calée sur des dates réelles de 2026, les tests la jouent a
 Les tests réseau sont marqués `@pytest.mark.reseau` (désélection : -m "not reseau").
 """
 
+import ast
 import json
 import sqlite3
 from collections import Counter
@@ -345,3 +346,273 @@ def test_controler_dates_hatvp_ne_corrige_rien():
     avant = [dict(d) for d in dossiers]
     p7.controler_dates_hatvp(dossiers, date(2026, 8, 20))
     assert dossiers == avant
+
+
+# ---------------------------------------------------------------------------
+# Atomicité de l'écriture (SCHEMA_P7 appliqué DANS la transaction)
+# ---------------------------------------------------------------------------
+
+TABLES_DROPPEES_P7 = ("hatvp_declarations", "hatvp_agregats", "rne_cm_agregats")
+
+
+def compteurs_sur_disque(chemin):
+    """Compte les lignes depuis une connexion NEUVE, donc ce qui est validé.
+
+    Relire par la connexion de travail ne prouverait rien : elle voit sa propre
+    transaction. Le seul témoin utile de « ce qui survit à l'incident » est une
+    seconde connexion, et le fichier de test n'en avait aucune avant celle-ci.
+    """
+    neuve = sqlite3.connect(chemin)
+    try:
+        return {t: neuve.execute(f"SELECT count(*) FROM {t}").fetchone()[0]
+                for t in TABLES_DROPPEES_P7}
+    finally:
+        neuve.close()
+
+
+def test_le_schema_se_decoupe_en_dix_instructions():
+    """Le découpage rend bien les 10 instructions, dont les 3 `DROP`.
+
+    ⚠️ Cette mesure est celle de CE littéral, pas celle de `SCHEMA_P15` : elle
+    n'a pas été recopiée. Les deux assertions du bas figent l'ABSENCE des deux
+    pièges qui condamnent un découpage naïf dans l'autre pipeline (des `;` en
+    commentaire, des apostrophes impaires). Elles sont là pour que la docstring
+    d'`instructions_schema` ne devienne pas fausse en silence : le jour où l'on
+    annotera ce schéma, ce test tombera, et il faudra relire cette docstring —
+    pas la contourner.
+    """
+    instructions = p7.instructions_schema()
+    debuts = [" ".join(i.split()[:2]) for i in instructions]
+    assert len(instructions) == 10
+    assert debuts.count("DROP TABLE") == 3
+    assert debuts.count("CREATE TABLE") == 4
+    assert debuts.count("CREATE INDEX") == 3
+    # `alertes` est PARTAGÉE avec ingest_financement ET ingest_lobbying, qui
+    # portent chacun leur propre `CREATE TABLE IF NOT EXISTS alertes` et ne
+    # suppriment que leurs propres types : aucun DROP ne doit jamais la viser.
+    assert not any("alertes" in i for i in instructions if i.startswith("DROP"))
+    assert sum(1 for l in p7.SCHEMA_P7.splitlines() if l.strip().startswith("--")) == 0
+    assert p7.SCHEMA_P7.count("'") == 0
+
+
+def test_le_decoupage_ignore_un_point_virgule_en_commentaire():
+    """La raison d'être de `complete_statement` plutôt que `split(";")`.
+
+    Le piège n'existe pas dans `SCHEMA_P7` aujourd'hui — c'est mesuré et écrit.
+    Ce test éprouve donc le CONTRAT de la fonction, pas le littéral : sans lui,
+    un retour au découpage naïf resterait vert, et ne casserait qu'après les
+    trois `DROP`, le jour où l'on annoterait le schéma.
+    """
+    # ⚠️ Le « ; » est en FIN de ligne, et c'est tout l'enjeu : avec un « ; »
+    # au MILIEU du commentaire, un découpeur naïf `endswith(";")` rend le même
+    # résultat que `complete_statement`, et le test ne discrimine rien. C'est
+    # une revue adversariale qui l'a montré, sur ce test-ci, écrit d'abord
+    # avec un « ; » médian. La forme ci-dessous est celle que porte
+    # réellement `SCHEMA_P15` (« … (un FAIT, affichable) ; »).
+    script = "-- attention au point-virgule ;\nCREATE TABLE t (x);\n"
+    assert p7.instructions_schema(script) == [script.strip()]
+    # Et rien ne se perd au découpage : recollées, les instructions rendent le
+    # littéral entier. Sans cela, un découpeur qui en avalerait une resterait
+    # vert sur les comptes du test voisin.
+    assert "".join("".join(i.split()) for i in p7.instructions_schema()) == \
+        "".join(p7.SCHEMA_P7.split())
+
+
+def test_un_schema_non_termine_leve_avant_toute_ecriture():
+    """Une instruction non close échoue bruyamment, elle ne saute pas en silence."""
+    with pytest.raises(ValueError, match="pas terminée"):
+        p7.instructions_schema("DROP TABLE t;\nCREATE TABLE t (x)")
+
+
+def test_appliquer_schema_ne_valide_pas(tmp_path):
+    """Après le schéma, la transaction est OUVERTE — c'est toute la différence.
+
+    `executescript` la validait : `in_transaction` retombait à False et les
+    trois `DROP` étaient sur disque. Ce test est le témoin le plus direct du
+    retour en arrière.
+    """
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    try:
+        assert not conn.in_transaction
+        p7.appliquer_schema(conn)
+        assert conn.in_transaction
+    finally:
+        conn.close()
+
+
+def test_appliquer_schema_prend_le_verrou_des_le_debut(tmp_path):
+    """`BEGIN IMMEDIATE`, pas `BEGIN` — et voici pourquoi c'est testable.
+
+    Les deux premières instructions de `SCHEMA_P7` sont des
+    `... IF NOT EXISTS` : dans le cas nominal ce sont des NO-OP. Avec un
+    `BEGIN` nu (*deferred*), la transaction ne tiendrait alors AUCUN verrou
+    d'écriture, un écrivain concurrent pourrait valider, et la montée
+    lecture→écriture du premier `DROP` échouerait « database is locked » en
+    0,00 s — sans appeler le busy handler, donc sans rien devoir au
+    `timeout=30` de `db.connexion()`. Mesuré dans les deux modes de
+    journalisation.
+
+    Le test applique un script réduit aux seuls NO-OP pour observer la fenêtre
+    de l'intérieur : après lui, le verrou doit DÉJÀ être tenu.
+    """
+    conn = db.connexion(tmp_path / "t.db")
+    autre = sqlite3.connect(tmp_path / "t.db")
+    try:
+        p7.appliquer_schema(conn)          # crée `alertes`…
+        conn.commit()                      # …et la valide, pour que le NO-OP en soit un
+        p7.appliquer_schema(
+            conn, "CREATE TABLE IF NOT EXISTS alertes (id TEXT PRIMARY KEY);\n")
+        autre.execute("PRAGMA busy_timeout=0")
+        with pytest.raises(sqlite3.OperationalError, match="locked"):
+            autre.execute("INSERT INTO alertes (id) VALUES ('x')")
+            autre.commit()
+        conn.rollback()
+    finally:
+        conn.close()
+        autre.close()
+
+
+def test_appliquer_schema_se_greffe_sur_une_transaction_deja_ouverte(tmp_path):
+    """Un `BEGIN` de plus ferait échouer le cycle pour rien.
+
+    Mesuré : un `BEGIN` inconditionnel lève « cannot start a transaction within
+    a transaction ». Sur le chemin réel de `main()` le cas ne se présente pas —
+    `db.init_db()` valide, puis rien ne touche la base avant l'appel — mais rien
+    n'interdit à un futur appelant d'ouvrir la sienne.
+    """
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    try:
+        conn.execute("CREATE TABLE t_temoin (x)")
+        conn.execute("INSERT INTO t_temoin VALUES (1)")
+        assert conn.in_transaction
+        p7.appliquer_schema(conn)
+        assert conn.execute("SELECT count(*) FROM hatvp_declarations").fetchone()[0] == 0
+    finally:
+        conn.close()
+
+
+def test_appliquer_schema_cree_reellement_les_dix_objets(tmp_path):
+    """Le schéma est APPLIQUÉ, pas seulement découpé.
+
+    Le test voisin éprouve le découpeur ; celui-ci éprouve l'exécution. Sans
+    lui, une boucle qui sauterait des instructions — `instructions_schema()[2:]`
+    suffit, et fait disparaître la table PARTAGÉE `alertes` — laisserait toute
+    la suite verte. C'est une revue adversariale qui a trouvé ce trou.
+    """
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    try:
+        p7.appliquer_schema(conn)
+        objets = {r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type IN ('table', 'index')")}
+        assert {"alertes", "hatvp_declarations", "hatvp_agregats",
+                "rne_cm_agregats"} <= objets
+        assert {"idx_alertes_type", "idx_hatvp_decl_statut",
+                "idx_hatvp_decl_nom"} <= objets
+    finally:
+        conn.close()
+
+
+def test_un_echec_apres_le_drop_laisse_la_base_intacte(tmp_path, dossiers):
+    """C'EST LE TEST QUI TIENT LA PROMESSE, et il appelle le VRAI `ecrire()`.
+
+    Il n'aurait pas pu passer avant : le cycle commençait par
+    `conn.executescript(SCHEMA_P7)`, qui valide implicitement, si bien que les
+    trois `DROP TABLE` étaient sur disque avant le premier `INSERT`. Un échec
+    plus loin laissait `hatvp_declarations`, `hatvp_agregats` et
+    `rne_cm_agregats` existantes et VIDES — le `rollback()` du bloc `except`
+    n'annulant que les insertions. Rejoué le 26/08/2026 sur une COPIE de la
+    base servie : 13 277 / 37 / 104 lignes devenaient 0 / 0 / 0.
+
+    ⚠️ CE TEST A ÉTÉ RÉÉCRIT APRÈS DEUX REVUES ADVERSARIALES. Sa première
+    version rejouait les écritures par une réplique de `main()` écrite à la
+    main dans ce fichier : elle prouvait que SQLite fait du DDL transactionnel
+    — ce que personne ne contestait — et PAS que le cycle P7 est atomique. Les
+    deux revues ont trouvé la même faille : un `conn.commit()` d'UNE ligne
+    ajouté dans `main()` juste après le schéma restaurait intégralement le
+    défaut, tests verts. C'est pour ce test-ci que `ecrire()` a été extraite de
+    `main()`. Ne pas revenir à une réplique.
+
+    Le déclencheur n'est pas théorique : `agreger_conseillers_municipaux` est
+    appelée APRÈS le schéma et lève sur un CSV RNE dont les colonnes ont
+    dérivé. C'est cette levée-là que le test provoque, dans la vraie fonction.
+    """
+    chemin = tmp_path / "test_integrite.db"
+    conn = db.init_db(chemin=chemin)
+    rne = charger_rne()
+    reels = {"cm": FIXTURES / "rne_cm_extrait.csv"}
+    try:
+        # --- cycle précédent, réussi -----------------------------------
+        p7.ecrire(conn, dossiers, rne, reels, AUJOURD_HUI, "2026-08-14", "2026-08-11")
+        conn.commit()
+        avant = compteurs_sur_disque(chemin)
+        assert all(c > 0 for c in avant.values()), avant
+
+        # --- cycle suivant, qui échoue APRÈS le schéma -----------------
+        derive = tmp_path / "rne_cm_derive.csv"
+        derive.write_text("Code du departement;Nom\n01;Ain\n", encoding="utf-8")
+        with pytest.raises(ValueError, match="colonnes attendues absentes"):
+            p7.ecrire(conn, dossiers, rne, {"cm": derive},
+                      AUJOURD_HUI, "2026-08-14", "2026-08-11")
+        conn.rollback()
+
+        assert compteurs_sur_disque(chemin) == avant
+        # Les index reviennent AVEC les tables : une base entière mais
+        # désindexée passerait sinon, et rien ne le dirait.
+        neuve = sqlite3.connect(chemin)
+        try:
+            index = {r[0] for r in neuve.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'index'"
+                " AND name LIKE 'idx_hatvp%'")}
+        finally:
+            neuve.close()
+        assert index == {"idx_hatvp_decl_statut", "idx_hatvp_decl_nom"}
+    finally:
+        conn.close()
+
+
+def test_ecrire_ne_valide_pas_la_transaction(tmp_path, dossiers):
+    """`ecrire()` laisse la transaction OUVERTE : c'est son contrat.
+
+    Un `conn.commit()` glissé n'importe où dans `ecrire()` — la mutation d'une
+    ligne que les deux revues ont trouvée — referme la transaction et rend le
+    `DROP` irréversible. Ce test le voit tout de suite, là où l'inspection de
+    la source ne voyait que le mot `executescript`.
+    """
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    try:
+        p7.ecrire(conn, dossiers, charger_rne(),
+                  {"cm": FIXTURES / "rne_cm_extrait.csv"},
+                  AUJOURD_HUI, "2026-08-14", "2026-08-11")
+        assert conn.in_transaction
+    finally:
+        conn.close()
+
+
+def test_le_module_n_appelle_plus_jamais_executescript():
+    """Ceinture : dans CE module, aucun `executescript` n'est légitime.
+
+    ⚠️ CE TEST NE SUFFIT PAS, ET SA PREMIÈRE VERSION PRÉTENDAIT LE CONTRAIRE.
+    Elle affirmait garder « le seul endroit où la régression peut revenir » :
+    c'était faux, et les deux revues adversariales l'ont montré de la même
+    façon — un `conn.commit()`, ou un `db.init_db(conn)` (qui valide dans
+    `db.py`, hors de ce module, donc invisible à l'AST), produit exactement le
+    même effet que `executescript` et passait ce contrôle sans broncher. Ce
+    n'était pas un garde-fou de site d'appel, c'était un garde-fou d'un MOT.
+
+    Ce qui tient réellement la promesse, c'est
+    `test_un_echec_apres_le_drop_laisse_la_base_intacte`, qui appelle la vraie
+    `ecrire()`, et `test_ecrire_ne_valide_pas_la_transaction`. Ce test-ci ne
+    garde plus qu'une chose, et c'est écrit sans l'exagérer : le mot
+    `executescript` ne revient pas dans le module.
+    """
+    arbre = ast.parse(Path(p7.__file__).read_text(encoding="utf-8"))
+    appels = [f"l.{n.lineno}" for n in ast.walk(arbre)
+              if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+              and n.func.attr == "executescript"]
+    assert appels == [], appels
+    # Et le remplaçant est bien appelé, sinon le schéma ne serait plus posé
+    # du tout et le contrôle ci-dessus resterait vert sur un module cassé.
+    appliques = [n.lineno for n in ast.walk(arbre)
+                 if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                 and n.func.id == "appliquer_schema"]
+    assert len(appliques) == 1, appliques
