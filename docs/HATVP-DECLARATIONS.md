@@ -137,10 +137,22 @@ vérifie que le contenu patrimonial fuit alors — c'est la preuve que le test
 principal n'est pas creux.
 
 Un **troisième** garde-fou, `controler_absence_patrimoine()`, relit la base
-après écriture et fait échouer le pipeline (avec rollback) si une rubrique
-hors liste blanche s'y trouve. Il ne protège pas du chemin nominal, déjà
-couvert : il protège du chemin qu'on n'a pas prévu — migration, reprise
-partielle, écriture manuelle.
+après écriture et fait échouer le pipeline si une rubrique hors liste blanche
+s'y trouve. Il ne protège pas du chemin nominal, déjà couvert : il protège du
+chemin qu'on n'a pas prévu — migration, reprise partielle, écriture manuelle.
+
+⚠️ **Ce document écrivait « avec rollback ». C'est faux, et la correction
+compte.** `ecrire()` commence par `conn.executescript(SCHEMA_P15)`,
+et `executescript` valide implicitement la transaction en cours. Un échec
+survenant **après** `ecrire()` laisse donc les quatre tables **vidées et
+validées sur disque** : le `conn.rollback()` de `executer()` n'annule que les
+insertions, pas le `DROP`. Mesuré le 26/08/2026 sur base jetable, Python 3.14.6
+comme en production : 2 déclarations en base, échec simulé après `ecrire()`,
+**0 déclaration après réouverture du fichier**. Pour ce garde-fou-ci le
+résultat reste conforme à l'intention (« mieux vaut pas de données du tout
+qu'une ligne patrimoniale »), mais la garantie générale « la base reste dans
+son état précédent » ne vaut que pour les contrôles posés **avant**
+`ecrire()` — ce qui est le cas de tous les autres, §4.1 compris.
 
 Les fixtures de test qui portent des blocs patrimoniaux sont **entièrement
 fabriquées** (`fixtures/hatvp/declarations_patrimoine_fabrique.xml`). Copier
@@ -179,6 +191,13 @@ réduits à des espaces, majuscules) + date de naissance.**
 | Fiches appariées | **949 / 1 053 = 90,1 %** |
 | Déclarations DI/DIA rattachées | **2 263** (2,38 par élu apparié, max 9) |
 
+**Ces deux dernières valeurs datent du 20/08/2026 et ont changé depuis.** Le
+repli d'orthographe (§ 4.1) a rattaché 71 déclarations de plus : mesuré le
+26/08/2026 sur le fichier servi, **978 fiches appariées sur 1 055 (92,7 %)** et
+**2 332 déclarations rattachées**, dont 71 par le repli. Le décompte des fiches
+non appariées ci-dessous (96 / 8 / 48 / 7) est celui du 20/08 et n'a **pas** été
+re-mesuré : il décrit un état où le repli n'existait pas.
+
 **Pourquoi la date de naissance est indispensable.** Sans elle, la clé
 nom + prénom gagnerait **8 fiches** (+0,8 point) et rouvrirait l'homonymie :
 **588 couples nom + prénom** sont partagés par au moins deux personnes dans
@@ -210,6 +229,90 @@ RGPD. La liste des types de mandat est dupliquée entre le pipeline
 (`TYPES_FICHE`) et `app/src/app/elus/[id]/page.tsx` (`TYPES_FICHE_STATIQUE`) ;
 si les deux divergent, il **manque** de la donnée — cas déjà géré à l'écran —
 jamais l'inverse.
+
+### 4.1 Ce qui empêche une déclaration de disparaître en silence
+
+Le pipeline refuse d'écrire — donc le cycle entier échoue, l'ingestion étant
+tout-ou-rien : `hatvp_declarations` est le 10ᵉ des 31 pipelines, une levée
+arrête les 21 suivants et tout le rafraîchissement du site jusqu'à
+intervention humaine. C'est cher, et c'est assumé ; c'est aussi pourquoi
+chacun des cas ci-dessous est calibré pour ne pas se déclencher à tort.
+Le refus intervient dans six cas — plus un septième, `controler_absence_patrimoine`
+(§ 3.2), le seul adossé à une sanction pénale et le seul posé APRÈS l'écriture. Quatre sont des seuils calculés sur le seul
+passage courant : moins de 500 entrées dans l'index de la clé exacte (fiches
+portant une date de naissance et une clé non partagée), moins de 5 000 déclarations
+lues, plus de 15 % de rattachements dus au repli d'orthographe, moins de 1 000
+déclarations rattachées.
+
+**Le cinquième est le seul qui compare au passage précédent, et il n'a pas de
+seuil.** Il existe parce qu'aucun seuil ne pouvait faire ce travail. Deux
+événements, mesurés :
+
+| | XML amont | Rattachées | Variation | Lignes |
+|---|---|---|---|---|
+| 21/08/2026 — la HATVP **retire** 3 déclarations | 6 611 → 6 608 | 2 263 → 2 261 | **−0,088 %** | 27 731 → 27 711 |
+| Homonyme de la même année entrant dans `elus` | inchangé | 2 332 → 2 330 | **−0,086 %** | 28 586 → 28 578 |
+
+Le premier est légitime : la donnée n'existe plus en amont. Le second est une
+**régression** : deux déclarations toujours publiées quittent la fiche de leur
+élu, parce que le troisième garde-fou du repli (« un seul candidat, sinon on
+renonce ») refuse de trancher une homonymie nouvelle. En volume, les deux sont
+le même événement — et les quatre seuils ci-dessus, comme la rupture de volume
+de la supervision (−20 % sur le nombre de lignes de S15), les laissent passer
+tous les deux.
+
+Ce qui les sépare n'est pas l'ampleur, c'est la **présence en amont**. D'où la
+règle, sans tolérance :
+
+> une **perte de rattachement** est une déclaration qui était rattachée, que
+> `declarations.xml` publie **toujours**, qui n'est plus rattachée à personne,
+> et dont l'élu **figure encore parmi les fiches publiées**.
+
+Le vivier est celui de la requête qui définit les fiches (`TYPES_FICHE`), sans
+aucun des filtres de l'appariement. La nuance a été une faute, corrigée après
+mesure : le vivier avait d'abord été tiré de l'index d'appariement souple, qui
+écarte les élus dont `date_naissance` n'est pas une date ISO — or `P9` réécrit
+cette colonne à chaque cycle et peut y mettre `NULL`. Sur copie de la base
+servie, 200 dates mises à `NULL` avec les fiches conservées faisaient
+disparaître **419 déclarations et 4 409 lignes (−15,4 %) dans un cycle en
+SUCCÈS**, sous un message qui parlait de « fin de mandat » — et sans qu'aucun
+autre contrôle ne morde, la rupture de volume de la supervision comprise.
+
+Une seule suffit à faire échouer le cycle. Le message nomme au plus huit uuid
+et huit élus, le dit, et **la liste complète part sur la sortie d'erreur** —
+sans quoi, au-delà de huit, l'acquittement serait impossible. L'acquittement
+n'est d'ailleurs pas une réparation mais un **abandon assumé** : un uuid
+acquitté quitte l'état précédent et le contrôle se taira sur lui ensuite.
+C'est pourquoi le contrôle de rubrique ci-dessous, qui n'est jamais
+acquittable, est évalué **avant** celui-ci : un message acquittable ne doit
+jamais masquer une rupture de lecture qui ne l'est pas. Sont **volontairement** laissés passer : la déclaration retirée
+de la source ; l'élu qui perd sa fiche en fin de mandat — journalisé en
+avertissement, jamais muet ; et la déclaration qui **change** d'élu sans
+disparaître, ce que produira la fusion des fiches `rne-*` en double (fusion
+simulée le 26/08/2026 : 14 déclarations déplacées, **0 perdue**).
+
+**Le sixième** ferme le trou que le cinquième laisse ouvert : le cinquième
+raisonne sur des en-têtes, et les 2 332 déclarations peuvent rester rattachées
+pendant que leur CONTENU s'effondre — il n'existe aucun plancher sur le nombre
+de lignes. Perdre toute la rubrique `participation_financiere` coûterait 3 726
+lignes sur 28 586, soit −13,0 %, sous le seuil de rupture de −20 % ; les quatre
+plus petites rubriques réunies, −17,5 %, encore dessous. La cause probable est
+le renommage d'une balise amont hors de la liste blanche `RUBRIQUES`, qui est
+indexée sur des noms de balise (`participationFinanciereDto`…). Le contrôle est
+là encore sans seuil : **une rubrique qui portait des lignes et n'en porte plus
+aucune** fait échouer le cycle. Une érosion partielle, elle, reste non
+couverte — c'est écrit dans le code, ce n'est pas un oubli.
+
+Ces deux contrôles ne vivent que sur le serveur : sur une base neuve — celle de
+l'intégration continue, qui repart de zéro à chaque cycle nocturne comme à
+chaque proposition de fusion touchant `pipelines/*.py` — il n'y a aucun passage
+précédent : le contrôle se tait plutôt que de
+deviner. ⚠️ Un cycle mort **en cours d'écriture** laisse au contraire les tables
+présentes et vides (voir l'encadré du § 3.2) : cette mémoire-là est perdue, le
+contrôle est sans effet pour un cycle, et il le **journalise** au lieu de
+laisser croire qu'il a regardé. En dernier recours, une perte examinée s'acquitte **uuid par uuid**
+(`FT_P15_PERTES_ACQUITTEES`), jamais en desserrant un seuil. La conduite à
+tenir est au § 4 du `docs/deploiement/RUNBOOK.md`.
 
 ---
 

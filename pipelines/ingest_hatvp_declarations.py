@@ -99,11 +99,16 @@ meta_sources : S15 (date_donnees = Last-Modified HTTP réel).
 
 Exécution : `python -m pipelines.ingest_hatvp_declarations`
 (`FT_DB_PATH` pour rediriger la base). Échec net (exit ≠ 0) si la source est
-indisponible, difforme ou invraisemblable.
+indisponible, difforme ou invraisemblable — ou si une déclaration TOUJOURS
+publiée en amont cesse d'être rattachée à un élu qui porte encore une fiche
+(voir `pertes_de_rattachement` : c'est le seul contrôle du lot qui compare au
+cycle précédent). Après examen, une telle perte s'acquitte uuid par uuid :
+`FT_P15_PERTES_ACQUITTEES=<uuid,uuid> python -m pipelines.ingest_hatvp_declarations`.
 """
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 import unicodedata
@@ -803,6 +808,19 @@ def parcourir(chemin: str | Path, index_elus: dict[tuple[str, str, str], str],
     entetes: list[dict] = []
     rubriques: list[tuple] = []
     lignes: list[dict] = []
+    # Les uuid de TOUTES les déclarations que la source publie encore et que la
+    # barrière de type accepte — rattachées ou non. C'est l'observable qui
+    # sépare un retrait amont légitime d'une perte d'appariement : voir
+    # `pertes_de_rattachement`. Coût mesuré le 26/08/2026 sur le fichier servi :
+    # 6 527 uuid distincts (6 608 déclarations lues, 75 refusées par type, et
+    # 6 uuid que la source publie en double), soit ≈ 1 Mo retenu jusqu'au
+    # contrôle — 0,5 Mo de `set` et 0,5 Mo de chaînes que `element.clear()`
+    # libérerait sans lui, contre 131 Mo de RSS pour le processus.
+    # Les trois relectures du cycle précédent coûtent 1,9 ms (2 332
+    # rattachements), 9,7 ms (28 586 lignes groupées) et 108 ms (le vivier des
+    # fiches) — contre 5,4 s de parcours cache chaud, 12,9 s au premier accès
+    # au fichier de 88,8 Mo. Toutes ces valeurs sont mesurées le 26/08/2026.
+    uuids_vus: set[str] = set()
     stats: Counter = Counter()
 
     for evenement, element in contexte:
@@ -816,6 +834,7 @@ def parcourir(chemin: str | Path, index_elus: dict[tuple[str, str, str], str],
             racine.clear()
             continue
         stats["refus_balise_patrimoine"] += extrait["refus_patrimoine"]
+        uuids_vus.add(extrait["entete"]["uuid"])
 
         nom, prenom, naissance = lire_identite(element)
         if not naissance:
@@ -855,7 +874,8 @@ def parcourir(chemin: str | Path, index_elus: dict[tuple[str, str, str], str],
 
     stats["lignes"] = len(lignes)
     stats["elus_apparies"] = len({e["elu_id"] for e in entetes})
-    return {"entetes": entetes, "rubriques": rubriques, "lignes": lignes, "stats": stats}
+    return {"entetes": entetes, "rubriques": rubriques, "lignes": lignes,
+            "uuids_vus": uuids_vus, "stats": stats}
 
 
 # ---------------------------------------------------------------------------
@@ -871,10 +891,35 @@ _COLONNES_LIGNE = (
 
 
 def ecrire(conn, donnees: dict) -> None:
-    """Remplacement complet des quatre tables, dans une transaction.
+    """Remplacement complet des quatre tables. ⚠️ PAS atomique — mesuré.
 
     Le schéma DROPpe puis recrée : rejouer le pipeline sur la même base
     redonne exactement les mêmes compteurs, jamais des lignes en double.
+
+    🛑 « Dans une transaction » était écrit ici, et c'était FAUX.
+    `executescript` valide implicitement la transaction en cours avant de
+    lancer son script, et les `DROP`/`CREATE` qui suivent sont donc validés
+    d'emblée. Un échec survenant entre cette ligne et le `conn.commit()` de
+    `executer()` laisse les quatre tables **existantes, vides, et validées sur
+    disque** — le `rollback()` n'annule que les `INSERT`. Mesuré le 26/08/2026
+    sur Python 3.14.6, celui de la production : 2 déclarations en base, un uuid
+    rattaché deux fois (la source en publie 6 en double) fait lever
+    `UNIQUE constraint failed`, et une connexion neuve relit 0 déclaration.
+
+    Conséquences à connaître avant de s'appuyer sur cette fonction :
+      · les contrôles qui veulent laisser la base intacte doivent être posés
+        AVANT elle — c'est le cas des six ;
+      · `controler_absence_patrimoine`, qui est posé APRÈS, ne rend PAS la base
+        à son état antérieur : il la laisse vide (ce qui reste conforme à son
+        intention, mais pas à ce qu'il annonçait) ;
+      · la mémoire des deux contrôles inter-cycles est détruite par le même
+        incident, et ils le journalisent.
+
+    Le remède existe et n'est pas celui-ci : ouvrir une transaction explicite
+    (`BEGIN`) et passer les instructions du schéma une à une — SQLite sait
+    faire du DDL transactionnel. C'est un chantier à part, qui touche le chemin
+    d'écriture de la source, et il n'a PAS été fait ici : ce qui a été fait,
+    c'est cesser d'annoncer une garantie que le code ne tient pas.
     """
     conn.executescript(SCHEMA_P15)
 
@@ -913,9 +958,13 @@ def controler_absence_patrimoine(conn) -> None:
     POURQUOI un contrôle APRÈS écriture, alors que deux barrières filtrent
     déjà en amont : les barrières protègent le chemin nominal, celui-ci
     protège du chemin qu'on n'a pas prévu (écriture manuelle, migration,
-    reprise partielle). Il échoue franc, et le rollback rend la base à son
-    état antérieur : mieux vaut pas de données du tout qu'une ligne
-    patrimoniale publiée sous le nom de quelqu'un.
+    reprise partielle). Il échoue franc — et il faut être exact sur ce qui se
+    passe alors : il est posé APRÈS `ecrire()`, dont le `DROP` est déjà validé
+    (voir sa docstring), si bien que le `rollback()` ne rend PAS la base à son
+    état antérieur mais la laisse **vide**. C'est conforme à l'intention — mieux
+    vaut pas de données du tout qu'une ligne patrimoniale publiée sous le nom de
+    quelqu'un — mais ce n'est pas ce qui était écrit ici, et un exploitant qui
+    diagnostique a besoin du vrai.
     """
     autorisees = {r.cle for r in RUBRIQUES.values()}
     trouvees = {r["rubrique"] for r in
@@ -964,6 +1013,238 @@ def date_derniere_modification(session, url: str) -> str | None:
 
 
 # ---------------------------------------------------------------------------
+# Garde-fou de rattachement : ce qu'aucun seuil de volume ne peut voir
+# ---------------------------------------------------------------------------
+
+# Variable d'environnement d'acquittement, en dernier recours. Elle ne
+# « desserre » aucun seuil : elle nomme, un par un, les uuid qu'un exploitant a
+# ouverts et dont il assume la perte. Ce qui est acquitté est donc TRACÉ dans la
+# commande, pas effacé du code.
+#
+# ⚠️ POURQUOI CETTE ISSUE EXISTE — l'asymétrie du coût, à connaître avant de
+# toucher au garde-fou. `hatvp_declarations` est le 10ᵉ des 31 pipelines de la
+# variable `PIPELINES` du Makefile ; la règle `ingest-%` n'avale aucune erreur
+# et `ft-deploy` n'appelle pas `make -k`. Une levée arrête donc les 21 pipelines
+# en aval ET tout le rafraîchissement du site, chaque nuit, jusqu'à intervention
+# humaine — pour protéger l'exactitude de quelques fiches d'élus. Le choix
+# assumé est celui de la maison (« l'ingestion est tout-ou-rien »), mais il
+# fallait une sortie utilisable en une commande plutôt qu'un correctif de code
+# à écrire dans l'urgence.
+ENV_PERTES_ACQUITTEES = "FT_P15_PERTES_ACQUITTEES"
+
+
+def pertes_de_rattachement(
+    precedents: dict[str, str], uuids_vus: set[str],
+    rattachements: dict[str, str], fiches: set[str],
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    """Les déclarations qui étaient rattachées, le sont TOUJOURS publiées, et ne le sont plus.
+
+    Rend DEUX listes : celles qui font échouer le cycle, et celles qui sont
+    seulement journalisées parce que leur élu a perdu sa fiche. La seconde
+    n'est pas un détail de présentation : sans elle, la restriction aux élus
+    qui portent encore une fiche rouvrirait un chemin MUET, celui-là même que
+    ce garde-fou existe pour fermer — un pipeline amont qui laisse `elus`
+    amputé sans faire échouer le cycle détacherait des centaines de
+    déclarations sans un mot (le plancher de 1 000 rattachées ne mord pas à
+    600 fiches, et la rupture de `ft-fraicheur` n'alerte que le lendemain).
+
+    POURQUOI CE CONTRÔLE N'EST PAS UN DELTA DE VOLUME, ET NE PEUT PAS L'ÊTRE.
+    Les deux événements suivants sont, en volume, LE MÊME ÉVÉNEMENT :
+
+      · 21/08/2026, retrait amont LÉGITIME. La HATVP retire 3 déclarations du
+        fichier (6 611 → 6 608). Effet mesuré dans le journal de P15 :
+        2 263 → 2 261 rattachées (**−0,088 %**), 27 731 → 27 711 lignes
+        (−0,072 %). Rien à signaler : la donnée n'existe plus en amont.
+      · Un homonyme de la même année entre dans `elus` et fait renoncer le
+        garde-fou n° 3 du repli (voir `construire_index_souple`). Mesuré le
+        26/08/2026 en injectant une fiche jumelle de Martin/Élisa dans l'index :
+        2 332 → 2 330 rattachées (**−0,086 %**), 28 586 → 28 578 lignes
+        (−0,03 %). Deux déclarations toujours publiées disparaissent des
+        fiches du site.
+
+    Un seuil en pourcentage ne peut pas séparer −0,088 % de −0,086 %. Et les
+    quatre contrôles qui existaient étaient tous aveugles à ce cas, vérifié :
+    plancher `rattachees ≥ 1 000` → 2 330 passe ; proportion du repli ≤ 15 %
+    → 69/2 330 = 3,0 % passe ; `declarations_lues ≥ 5 000` → 6 608 passe ; et
+    la rupture de volume de `ft-fraicheur` (S15, seuil −20 % sur `lignes`,
+    `fraicheur.conf` l. 87) → −0,03 % passe. La perte serait donc MUETTE de
+    bout en bout, ce que la docstring de `construire_index_souple` annonçait
+    déjà : « leur déclaration se détache SANS BRUIT ».
+
+    L'observable qui sépare les deux n'est pas l'AMPLEUR, c'est la PRÉSENCE EN
+    AMONT : dans le premier cas la déclaration a quitté `declarations.xml`,
+    dans le second elle y est toujours. D'où la règle, sans seuil ni tolérance :
+
+        perte = uuid déjà rattaché  ∩  uuid encore publié  −  uuid rattaché
+
+    restreinte aux élus qui PORTENT ENCORE UNE FICHE (`fiches`) : un
+    parlementaire dont le mandat s'achève sort de `elus`, ses déclarations
+    cessent d'être rattachables, et ce n'est pas une régression.
+
+    Ce que ce contrôle laisse VOLONTAIREMENT passer, pour ne pas hurler à tort :
+      · la déclaration retirée de la source (cas 1 ci-dessus) ;
+      · l'élu qui perd sa fiche (fin de mandat) ;
+      · la déclaration qui CHANGE d'élu sans disparaître — c'est exactement ce
+        que produira la fusion des fiches `rne-*` en double : mesuré le
+        26/08/2026 sur une fusion simulée des six jumelles (FAVENNEC, VAGINAY,
+        XOWIE, MARTIN, LUCAS, K/BIDI), **14 déclarations déplacées, 0 perdue**,
+        total inchangé à 2 332. Ce garde-fou ne bloquera donc pas cette fusion.
+
+    DEUX LIMITES CONNUES, mesurées, à ne pas confondre avec des oublis :
+
+      · `uuids_vus` ne contient que les déclarations acceptées par la barrière
+        de type (DI/DIA). Une déclaration re-typée en amont serait lue comme un
+        retrait, donc tolérée en silence.
+      · **Ce contrôle raisonne sur des en-têtes, pas sur du contenu.** Les
+        2 332 déclarations peuvent rester rattachées pendant que leurs lignes
+        s'effondrent, et le pipeline n'a AUCUN plancher sur `lignes`. Mesuré le
+        26/08/2026 sur la base servie : perdre toute la rubrique
+        `participation_financiere` — celle qui porte `evaluation`,
+        `capital_detenu`, `nombre_parts` — coûterait 3 726 lignes sur 28 586,
+        soit **−13,0 %**, sous le seuil de rupture de −20 % de la supervision ;
+        les quatre plus petites rubriques réunies font 5 005 lignes, **−17,5 %**,
+        encore dessous. Le cas le plus probable est le renommage d'une balise
+        amont hors de la liste blanche `RUBRIQUES` : il est fermé par
+        `rubriques_effondrees` ci-dessous. Une érosion PARTIELLE des lignes,
+        elle, reste non couverte.
+    """
+    detachees = sorted(
+        (uuid, elu_id)
+        for uuid, elu_id in precedents.items()
+        if uuid in uuids_vus and uuid not in rattachements
+    )
+    perdues = [(u, e) for u, e in detachees if e in fiches]
+    hors_fiche = [(u, e) for u, e in detachees if e not in fiches]
+    return perdues, hors_fiche
+
+
+def elus_avec_fiche(conn) -> set[str]:
+    """Les élus qui PORTENT une fiche publiée. Rien d'autre — surtout pas
+    « ceux que P15 sait apparier ».
+
+    🛑 La nuance a été une faute, corrigée le 26/08/2026 après mesure. Le
+    vivier avait d'abord été tiré de `index_souple`, qui écarte tout élu dont
+    `date_naissance` ne fait pas exactement dix caractères — or
+    `ingest_parlement.upsert_elu` réécrit cette colonne à CHAQUE cycle et ses
+    deux extracteurs amont peuvent rendre `None`. Un cycle amont abîmé aurait
+    donc rangé des centaines de déclarations dans la liste « l'élu a perdu sa
+    fiche », qui ne fait qu'avertir. Rejoué le 26/08/2026 sur copie de la base
+    servie, 200 dates de naissance mises à NULL, fiches conservées :
+    **419 déclarations et 4 409 lignes (−15,4 %) disparaissaient dans un cycle
+    en SUCCÈS**, sous un message qui parlait de « fin de mandat » — et aucun
+    autre contrôle ne mordait (1 913 rattachées contre un plancher de 1 000,
+    repli à 3,3 %, aucune rubrique à zéro, et −15,4 % reste sous le seuil de
+    rupture de −20 % de la supervision). Avec le vivier corrigé, le même dégât
+    rend 419 pertes et fait échouer le cycle. L'écart entre les deux viviers est
+    nul aujourd'hui (1 055 = 1 055, mesuré) : c'était un trou latent, pas
+    ouvert — et c'est exactement le régime d'incident que ce garde-fou couvre.
+
+    La requête est celle des deux index d'appariement, sans AUCUN de leurs
+    filtres : c'est la population que le site publie.
+    """
+    marques = ", ".join("?" for _ in TYPES_FICHE)
+    return {r["id"] for r in conn.execute(
+        f"""SELECT DISTINCT e.id
+            FROM elus e, json_each(e.mandats) je
+            WHERE json_extract(je.value, '$.type') IN ({marques})""",
+        TYPES_FICHE)}
+
+
+def rubriques_effondrees(precedentes: dict[str, int],
+                         nouvelles: dict[str, int]) -> list[tuple[str, int]]:
+    """Les rubriques qui portaient des lignes et n'en portent plus AUCUNE.
+
+    Symétrique de `controler_absence_patrimoine`, qui vérifie qu'aucune
+    rubrique INTRUSE n'entre : celui-ci vérifie qu'aucune rubrique ATTENDUE ne
+    sort. Le trou qu'il ferme est réel et chiffré (voir
+    `pertes_de_rattachement`) : la liste blanche `RUBRIQUES` est indexée sur des
+    NOMS DE BALISE amont (`participationFinanciereDto`…) ; qu'une seule soit
+    renommée et la rubrique disparaît entièrement, sans qu'un seul uuid bouge
+    et sans qu'aucun seuil de volume ne morde.
+
+    Pas de seuil ici non plus : **zéro** est sans ambiguïté. Les sept rubriques
+    portent aujourd'hui de 256 (`consultant`) à 13 552 lignes (`dirigeant`) sur
+    2 332 déclarations ; qu'une d'elles tombe exactement à 0 n'est pas une
+    variation, c'est une rupture de lecture. Une rubrique qui n'avait déjà
+    aucune ligne au cycle précédent n'est pas signalée.
+    """
+    return sorted((rubrique, avant) for rubrique, avant in precedentes.items()
+                  if avant > 0 and nouvelles.get(rubrique, 0) == 0)
+
+
+def lignes_par_rubrique_precedentes(conn) -> dict[str, int]:
+    """`{rubrique: nombre de lignes}` du cycle précédent, `{}` s'il n'y en a pas.
+
+    Même talon d'Achille que `rattachements_precedents`, et il faut le dire
+    ici aussi : les DEUX contrôles perdent la mémoire au même incident, et le
+    silence de l'un ne doit pas passer pour un contrôle qui a regardé.
+    """
+    existe = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='hatvp_decl_lignes'"
+    ).fetchone()
+    if not existe:
+        return {}
+    compte = {r[0]: r[1] for r in conn.execute(
+        "SELECT rubrique, count(*) FROM hatvp_decl_lignes GROUP BY rubrique")}
+    if not compte:
+        log.warning(
+            "hatvp_decl_lignes existe mais est VIDE : le contrôle de rubrique "
+            "effondrée n'a aucune mémoire pour ce cycle-ci et ne verra rien.")
+    return compte
+
+
+def _libelle_elu(conn, elu_id: str) -> str:
+    """« NOM Prénom » d'un élu : le message d'échec doit être lisible tel quel.
+
+    Appelée au plus 8 fois (les huit premiers élus touchés), et seulement sur
+    le chemin d'échec — jamais dans le cycle nominal.
+    """
+    ligne = conn.execute(
+        "SELECT nom, prenom FROM elus WHERE id = ?", (elu_id,)).fetchone()
+    if ligne is None:
+        return "absent de elus"
+    return " ".join(str(c) for c in ligne if c) or "sans nom"
+
+
+def rattachements_precedents(conn) -> dict[str, str]:
+    """`{uuid: elu_id}` du cycle précédent, `{}` s'il n'y en a pas.
+
+    Lisible tant que `ecrire()` n'a pas tourné : c'est lui, et lui seul, qui
+    DROPpe les quatre tables (`SCHEMA_P15`). Sur une base neuve — celle de la
+    CI à chaque fois que `pipelines/*.py` change — la table est absente et le
+    contrôle n'a rien à comparer : il se tait, il ne devine pas.
+
+    🛑 MAIS « VIDE » N'EST PAS « ABSENTE », ET LA DIFFÉRENCE EST LE TALON
+    D'ACHILLE DE CE GARDE-FOU. `ecrire()` commence par `executescript`, qui
+    VALIDE implicitement la transaction en cours : un échec survenant entre le
+    `DROP` et le `conn.commit()` laisse les quatre tables **existantes, vides,
+    et validées sur disque** — le `rollback()` de `executer()` n'annule que les
+    insertions. Mesuré le 26/08/2026 (Python 3.14.6, celui de la production) :
+    2 déclarations en base, un uuid rattaché deux fois — la source en publie
+    déjà **6 en double** — fait lever `UNIQUE constraint failed`, et une
+    connexion neuve relit **0 déclaration**. Le cycle suivant n'aurait alors
+    aucune mémoire, et ce garde-fou serait muet **au lendemain d'un incident**,
+    c'est-à-dire au moment où il sert le plus. On ne peut pas reconstruire
+    cette mémoire, mais on refuse qu'elle disparaisse en silence : le cas est
+    journalisé en avertissement, distinctement de la base neuve.
+    """
+    existe = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='hatvp_decl_interets'"
+    ).fetchone()
+    if not existe:
+        return {}
+    precedents = {r[0]: r[1] for r in
+                  conn.execute("SELECT uuid, elu_id FROM hatvp_decl_interets")}
+    if not precedents:
+        log.warning(
+            "hatvp_decl_interets existe mais est VIDE : le cycle précédent est "
+            "mort entre le DROP de `ecrire` et son commit. Le contrôle de perte "
+            "de rattachement n'a aucune mémoire pour ce cycle-ci et ne verra "
+            "rien ; il redeviendra opérant au cycle suivant.")
+    return precedents
+
+
+# ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
 
@@ -986,7 +1267,11 @@ def executer(chemin_db=None, max_age_heures: float | None = 6.0) -> dict:
             raise ValueError(
                 f"appariement impossible : {len(index_elus)} élus avec fiche et date "
                 "de naissance (≥ 500 attendus) — P7/P9 ont-ils tourné ? Abandon")
-        donnees = parcourir(chemin, index_elus, construire_index_souple(conn))
+        index_souple = construire_index_souple(conn)
+        # Lu AVANT `ecrire()`, seul endroit du fichier qui DROPpe les tables.
+        precedents = rattachements_precedents(conn)
+        lignes_avant = lignes_par_rubrique_precedentes(conn)
+        donnees = parcourir(chemin, index_elus, index_souple)
         stats = donnees["stats"]
 
         # Garde-fous de plausibilité : mieux vaut ne rien écrire qu'écrire une
@@ -1010,6 +1295,70 @@ def executer(chemin_db=None, max_age_heures: float | None = 6.0) -> dict:
         if stats["rattachees"] < 1_000:
             raise ValueError(f"appariement anormal : {stats['rattachees']} déclarations "
                              "rattachées (≥ 1 000 attendues)")
+        # ORDRE VOULU — la rupture de lecture d'abord. Elle n'est JAMAIS
+        # acquittable (c'est un correctif de pipeline), alors qu'une perte de
+        # rattachement l'est. Dans l'ordre inverse, un cycle qui cumule les deux
+        # ne montrerait que la perte ; l'exploitant acquitterait des uuid — donc
+        # abandonnerait des déclarations, irréversiblement, puisqu'un uuid
+        # acquitté quitte `precedents` au cycle suivant — pour découvrir ensuite
+        # que le vrai défaut était ailleurs. Le message bénin masquerait le grave.
+        lignes_apres: Counter = Counter(l["rubrique"] for l in donnees["lignes"])
+        effondrees = rubriques_effondrees(lignes_avant, lignes_apres)
+        if effondrees:
+            raise ValueError(
+                "rubrique effondrée : " + ", ".join(
+                    f"{rubrique} passe de {avant} lignes à 0"
+                    for rubrique, avant in effondrees) +
+                " — une balise amont a-t-elle été renommée hors de RUBRIQUES ? "
+                "Base NON modifiée.")
+
+        # Le seul contrôle du lot qui ne soit ni un plancher ni une proportion :
+        # il compare au cycle précédent, déclaration par déclaration. Voir
+        # `pertes_de_rattachement` pour la mesure qui rend les seuils inopérants.
+        rattachements = {e["uuid"]: e["elu_id"] for e in donnees["entetes"]}
+        fiches = elus_avec_fiche(conn)
+        perdues, hors_fiche = pertes_de_rattachement(
+            precedents, donnees["uuids_vus"], rattachements, fiches)
+        stats["pertes_hors_fiche"] = len(hors_fiche)
+        if hors_fiche:
+            # L'élu ne figure plus du tout parmi les fiches publiées : fin de
+            # mandat, cas légitime et fréquent, donc pas un échec — mais jamais
+            # muet. Les uuid sont nommés, pas seulement les élus : sans eux
+            # l'anomalie n'est pas instruisible depuis le journal.
+            log.warning(
+                "%d déclaration(s) toujours publiées se détachent de %d élu(s) "
+                "qui ne figurent plus parmi les fiches publiées (fin de mandat "
+                "attendue) — %s",
+                len(hors_fiche), len({e for _, e in hors_fiche}),
+                "; ".join(f"{u} ({e})" for u, e in hors_fiche))
+        acquittees = {u.strip() for u in
+                      os.environ.get(ENV_PERTES_ACQUITTEES, "").split(",") if u.strip()}
+        stats["pertes_acquittees"] = sum(1 for u, _ in perdues if u in acquittees)
+        perdues = [(u, e) for u, e in perdues if u not in acquittees]
+        if perdues:
+            elus_touches = sorted({e for _, e in perdues})
+            # La liste COMPLÈTE part au journal avant la levée : le message
+            # d'exception tronque à huit, et l'acquittement exige de nommer
+            # chaque uuid. Sans cette ligne, au-delà de huit pertes l'issue de
+            # secours serait inutilisable — les uuid manquants ne seraient
+            # écrits nulle part.
+            log.error("perte de rattachement, liste complète (%d) : %s",
+                      len(perdues), " ".join(u for u, _ in perdues))
+            noms = ", ".join(f"{e} ({_libelle_elu(conn, e)})"
+                             for e in elus_touches[:8])
+            raise ValueError(
+                f"perte de rattachement : {len(perdues)} déclaration(s) toujours "
+                f"publiées par la HATVP ne sont plus rattachées, sur "
+                f"{len(elus_touches)} élu(s) qui portent pourtant encore une fiche "
+                f"— {noms}{' …' if len(elus_touches) > 8 else ''}. "
+                f"uuid : {', '.join(u for u, _ in perdues[:8])}"
+                f"{' …' if len(perdues) > 8 else ''}. Base NON modifiée. "
+                f"Cause probable : l'état civil de ces élus a changé dans `elus`, "
+                f"ou un homonyme de la même année y est entré et fait renoncer le "
+                f"repli. Après examen, acquitter uuid par uuid avec "
+                f"{ENV_PERTES_ACQUITTEES}=<uuid,uuid> — la liste complète est "
+                f"dans le journal, ligne « perte de rattachement, liste "
+                f"complète ».")
 
         ecrire(conn, donnees)
         controler_absence_patrimoine(conn)
@@ -1041,11 +1390,13 @@ def executer(chemin_db=None, max_age_heures: float | None = 6.0) -> dict:
             "P15 terminé : %d déclarations lues, %d refusées par type, %d blocs "
             "patrimoniaux refusés par balise ; %d rattachées à %d élus (%.1f %%), "
             "dont %d par le repli d'orthographe ; %d lignes, %d montants, "
-            "%d rubriques « néant »",
+            "%d rubriques « néant » ; %d perte(s) de rattachement acquittée(s), "
+            "%d détachement(s) d'élus sans fiche",
             stats["declarations_lues"], stats["refus_type_declaration"],
             stats["refus_balise_patrimoine"], stats["rattachees"],
             stats["elus_apparies"], taux, stats["rattachees_par_repli"],
-            stats["lignes"], stats["montants"], stats["rubriques_neant"])
+            stats["lignes"], stats["montants"], stats["rubriques_neant"],
+            stats["pertes_acquittees"], stats["pertes_hors_fiche"])
         stats["date_donnees"] = date_donnees
         stats["fiches"] = len(index_elus)
         return dict(stats)
@@ -1060,9 +1411,17 @@ def main() -> int:
     try:
         executer()
     except Exception:
-        log.exception("P15 en échec (aucune écriture partielle : le remplacement "
-                      "complet est transactionnel, le prochain run réussi remet "
-                      "les tables d'aplomb)")
+        # Ce message a longtemps promis « aucune écriture partielle : le
+        # remplacement complet est transactionnel ». C'est faux (voir `ecrire`),
+        # et c'était le mensonge servi à l'exploitant au moment précis où il
+        # diagnostique. Il dit désormais ce qui est vrai dans les deux cas.
+        log.exception(
+            "P15 en échec. Si l'échec vient d'un contrôle POSÉ AVANT l'écriture "
+            "(les six : fiches, lues, repli, rattachées, rubrique effondrée, "
+            "perte de rattachement), la base est intacte. S'il vient d'`ecrire` "
+            "ou d'après, les quatre tables hatvp_decl_* sont VIDES sur disque — "
+            "le prochain cycle réussi les remet d'aplomb, mais les deux "
+            "contrôles inter-cycles seront sans mémoire pour ce cycle-là")
         return 1
     return 0
 
