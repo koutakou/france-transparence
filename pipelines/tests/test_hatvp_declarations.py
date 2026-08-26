@@ -641,6 +641,143 @@ def test_neant_distingue_le_rien_declare_de_la_donnee_absente(conn, index_deux_e
 
 
 # ---------------------------------------------------------------------------
+# Atomicité de l'écriture
+# ---------------------------------------------------------------------------
+
+
+TABLES_P15 = ("hatvp_decl_interets", "hatvp_decl_rubriques",
+              "hatvp_decl_lignes", "hatvp_decl_montants")
+
+
+def compteurs_sur_disque(chemin) -> dict[str, int]:
+    """Compteurs des quatre tables, lus par une connexion NEUVE.
+
+    C'est la seule lecture qui prouve quelque chose ici : la connexion de
+    travail montre ce que sa transaction en cours donne à voir, pas ce qui est
+    validé sur le fichier.
+    """
+    neuve = sqlite3.connect(chemin)
+    try:
+        return {t: neuve.execute(f"SELECT count(*) FROM {t}").fetchone()[0]
+                for t in TABLES_P15}
+    finally:
+        neuve.close()
+
+
+def test_le_schema_se_decoupe_sans_trebucher_sur_les_commentaires():
+    """Le découpage du schéma ne doit pas se laisser piéger par la ponctuation.
+
+    `SCHEMA_P15` porte 13 points-virgules, dont DEUX dans des commentaires
+    `--`, et 20 apostrophes, toutes en commentaire, dont deux impaires
+    (« n'avons », « d'apparition »). Un `split(";")` en ferait des fragments
+    invalides ; un découpeur qui suivrait l'état « dans une chaîne » sans
+    retirer d'abord les commentaires fusionnerait deux `CREATE TABLE`. Dans les
+    deux cas l'échec surviendrait APRÈS les quatre `DROP` — c'est-à-dire au
+    pire endroit possible.
+    """
+    instructions = p15.instructions_schema()
+    debuts = [" ".join(next(l for l in i.splitlines()
+                            if l.strip() and not l.strip().startswith("--"))
+                       .split()[:2])
+              for i in instructions]
+    assert debuts.count("DROP TABLE") == 4
+    assert debuts.count("CREATE TABLE") == 4
+    assert debuts.count("CREATE INDEX") == 3
+    assert len(instructions) == 11
+    # Et le piège dont ce test protège existe bien dans le schéma : sans cette
+    # ligne, le test resterait vert le jour où les commentaires changeraient.
+    assert sum(1 for l in p15.SCHEMA_P15.splitlines()
+               if l.strip().startswith("--") and ";" in l) == 2
+
+
+def test_un_schema_non_termine_leve_avant_toute_ecriture():
+    """Une instruction non close échoue bruyamment, elle ne saute pas en silence."""
+    with pytest.raises(ValueError, match="pas terminée"):
+        p15.instructions_schema("DROP TABLE t;\nCREATE TABLE t (x)")
+
+
+def test_un_echec_apres_le_drop_laisse_la_base_intacte(conn, tmp_path, index_deux_elus):
+    """L'écriture est atomique : un échec ne laisse pas quatre tables vides.
+
+    C'EST LE TEST QUI TIENT LA PROMESSE, et il n'aurait pas pu passer avant le
+    26/08/2026 : `ecrire()` commençait alors par `executescript`, qui valide
+    implicitement, si bien que les quatre `DROP TABLE` étaient sur disque avant
+    le premier `INSERT` et qu'un échec en cours d'écriture laissait les tables
+    existantes et VIDES — le `rollback()` n'annulant que les insertions.
+    Le déclencheur n'a rien de théorique : la source publie six uuid en double,
+    et un uuid rattaché deux fois suffit à lever `UNIQUE constraint failed`.
+    """
+    chemin = tmp_path / "test_hatvp_declarations.db"
+    donnees = p15.parcourir(EXTRAIT_REEL, index_deux_elus)
+    p15.ecrire(conn, donnees)
+    conn.commit()
+    avant = compteurs_sur_disque(chemin)
+    assert all(compte > 0 for compte in avant.values()), avant
+
+    fautives = dict(donnees, entetes=[*donnees["entetes"], donnees["entetes"][0]])
+    with pytest.raises(sqlite3.IntegrityError, match="UNIQUE constraint failed"):
+        p15.ecrire(conn, fautives)
+    conn.rollback()
+
+    assert compteurs_sur_disque(chemin) == avant
+    # Les index reviennent AVEC les tables. Sans cette vérification, une base
+    # entière mais désindexée passerait le test : le site serait servi, lent,
+    # et rien ne le dirait.
+    neuve = sqlite3.connect(chemin)
+    try:
+        index = {r[0] for r in neuve.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'index'"
+            " AND name LIKE 'idx_hatvp%'")}
+    finally:
+        neuve.close()
+    assert index == {"idx_hatvp_decl_interets_elu",
+                     "idx_hatvp_decl_lignes_elu",
+                     "idx_hatvp_decl_lignes_decl"}
+
+
+def test_le_controle_de_sortie_qui_leve_rend_la_base_a_son_etat(
+        conn, tmp_path, index_deux_elus):
+    """`controler_absence_patrimoine` est posé APRÈS l'écriture, sans dommage.
+
+    Tant que `ecrire()` validait son `DROP` d'emblée, ce contrôle — le seul
+    adossé à une sanction pénale (art. LO 135-2) — laissait la base VIDE quand
+    il levait. Conforme à son intention, mais l'exploitant perdait le cycle
+    précédent par-dessus le marché, et les deux contrôles inter-cycles avec.
+    """
+    chemin = tmp_path / "test_hatvp_declarations.db"
+    p15.ecrire(conn, p15.parcourir(EXTRAIT_REEL, index_deux_elus))
+    conn.commit()
+    avant = compteurs_sur_disque(chemin)
+
+    p15.ecrire(conn, p15.parcourir(EXTRAIT_REEL, index_deux_elus))
+    conn.execute(
+        "INSERT INTO hatvp_decl_lignes (declaration_uuid, elu_id, rubrique,"
+        " rubrique_ordre, rang, libelle) VALUES ('x', 'y', 'immeuble', 90, 1, 'z')")
+    with pytest.raises(ValueError, match="LO 135-2"):
+        p15.controler_absence_patrimoine(conn)
+    conn.rollback()
+
+    assert compteurs_sur_disque(chemin) == avant
+
+
+def test_ecrire_se_greffe_sur_une_transaction_deja_ouverte(conn, index_deux_elus):
+    """Un `BEGIN` de plus ferait échouer le cycle pour rien.
+
+    `ecrire()` n'ouvre sa transaction que si l'appelant n'en a pas déjà une :
+    mesuré, un `BEGIN` inconditionnel lève « cannot start a transaction within
+    a transaction ». Sur le chemin réel le cas ne se présente pas — `executer()`
+    ne fait que des `SELECT` avant l'appel — mais ce test tient la ceinture,
+    parce que rien n'interdit à un futur appelant d'ouvrir la sienne.
+    """
+    conn.execute("CREATE TABLE t_temoin (x)")
+    conn.execute("INSERT INTO t_temoin VALUES (1)")
+    assert conn.in_transaction
+    p15.ecrire(conn, p15.parcourir(EXTRAIT_REEL, index_deux_elus))
+    assert conn.execute(
+        "SELECT count(*) FROM hatvp_decl_interets").fetchone()[0] == 2
+
+
+# ---------------------------------------------------------------------------
 # Perte de rattachement : le seul contrôle qui compare au cycle précédent
 # ---------------------------------------------------------------------------
 
@@ -909,12 +1046,12 @@ def test_gardefou_rubrique_effondree_laisse_la_base_intacte(tmp_path, monkeypatc
 def test_memoire_vide_apres_incident_est_journalisee(conn, caplog):
     """Table présente mais VIDE : le garde-fou est aveugle, et il le dit.
 
-    `ecrire()` passe par `executescript`, qui valide implicitement : un échec
-    entre le DROP et le commit laisse les tables existantes et vides sur
-    disque. Mesuré le 26/08/2026 — un uuid rattaché deux fois (la source en
-    publie 6 en double) fait lever `UNIQUE constraint failed`, et une connexion
-    neuve relit 0 déclaration. Le cycle suivant n'a alors aucune mémoire ; ce
-    silence-là ne doit pas se confondre avec celui d'une base neuve.
+    L'état est fabriqué ici par un `DELETE`, et c'est désormais la seule façon
+    de l'obtenir : depuis que `ecrire()` est atomique
+    (`test_un_echec_apres_le_drop_laisse_la_base_intacte`), un cycle mort en
+    cours d'écriture ne vide plus les tables. Restent une restauration
+    partielle, une écriture manuelle, une migration — et ce silence-là ne doit
+    pas se confondre avec celui d'une base neuve.
     """
     import logging
     p15.ecrire(conn, p15.parcourir(EXTRAIT_REEL, {ELU_UN: "PA1", ELU_DEUX: "PA2"}))
@@ -1117,11 +1254,12 @@ def test_lavertissement_hors_fiche_compte_les_ELUS_pas_les_declarations(
 
 
 def test_memoire_des_lignes_vide_apres_incident_est_journalisee(conn, caplog):
-    """Les DEUX contrôles inter-cycles perdent la mémoire au même incident.
+    """Les DEUX contrôles inter-cycles sont aveugles sur une table vidée.
 
     `rattachements_precedents` le disait déjà ; son jumeau se taisait, et le
     silence d'un contrôle ne doit jamais se confondre avec un contrôle qui a
-    regardé.
+    regardé. Depuis que `ecrire()` est atomique, un cycle en échec n'est plus
+    une cause possible de cet état — l'avertissement, lui, reste utile.
     """
     import logging
     p15.ecrire(conn, p15.parcourir(EXTRAIT_REEL, {ELU_UN: "PA1", ELU_DEUX: "PA2"}))

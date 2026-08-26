@@ -110,6 +110,7 @@ from __future__ import annotations
 
 import os
 import re
+import sqlite3
 import sys
 import unicodedata
 import xml.etree.ElementTree as ET
@@ -352,6 +353,49 @@ CREATE TABLE hatvp_decl_montants (
     PRIMARY KEY (ligne_id, annee)
 );
 """
+
+
+def instructions_schema(script: str = SCHEMA_P15) -> list[str]:
+    """Découpe un script SQL en instructions, pour les passer UNE À UNE.
+
+    POURQUOI ne plus confier ce travail à `executescript`, qui le faisait : il
+    VALIDE implicitement la transaction en cours avant de lancer son script.
+    Comme `SCHEMA_P15` commence par quatre `DROP TABLE`, la destruction partait
+    sur disque d'emblée et aucun `rollback()` ne pouvait la reprendre. Passées
+    une à une à `conn.execute`, les mêmes instructions restent dans la
+    transaction ouverte par `ecrire()` : SQLite fait du DDL transactionnel,
+    `DROP TABLE` compris, index et lignes revenant ensemble (mesuré).
+
+    POURQUOI `sqlite3.complete_statement` plutôt qu'un découpage à la main :
+    le littéral porte 13 points-virgules dont DEUX vivent dans un commentaire
+    `--` (« un FAIT, affichable ; », « 0 = rubrique renseignée ; NULL = … ») —
+    un `split(";")` en ferait des fragments invalides, et l'échec surviendrait
+    APRÈS les quatre `DROP`. Suivre l'état « dans une chaîne » sans retirer
+    d'abord les commentaires serait pire : le littéral porte 20 apostrophes,
+    toutes en commentaire, dont deux impaires (« n'avons », « d'apparition »),
+    entre lesquelles un tel découpeur avalerait deux fins d'instruction et
+    fusionnerait `hatvp_decl_rubriques` avec `hatvp_decl_lignes`.
+    `complete_statement` est l'outil de la bibliothèque standard pour cela —
+    celui du shell `sqlite3` — et il ignore les commentaires : 11 instructions,
+    mesuré (4 `DROP`, 4 `CREATE TABLE`, 3 `CREATE INDEX`).
+
+    Lève `ValueError` sur un script qui se termine hors instruction : mieux
+    vaut un échec bruyant AVANT le `BEGIN` qu'un schéma appliqué à moitié.
+    """
+    instructions: list[str] = []
+    tampon = ""
+    for ligne in script.splitlines(keepends=True):
+        tampon += ligne
+        if sqlite3.complete_statement(tampon):
+            instructions.append(tampon.strip())
+            tampon = ""
+    reste = [l for l in tampon.splitlines()
+             if l.strip() and not l.strip().startswith("--")]
+    if reste:
+        raise ValueError(
+            "script SQL mal formé : la dernière instruction n'est pas terminée "
+            f"par « ; » — {reste[0].strip()[:60]!r}")
+    return instructions
 
 # ---------------------------------------------------------------------------
 # Hygiène des chaînes
@@ -897,37 +941,45 @@ _COLONNES_LIGNE = (
 
 
 def ecrire(conn, donnees: dict) -> None:
-    """Remplacement complet des quatre tables. ⚠️ PAS atomique — mesuré.
+    """Remplacement complet des quatre tables, dans UNE transaction — mesuré.
 
     Le schéma DROPpe puis recrée : rejouer le pipeline sur la même base
     redonne exactement les mêmes compteurs, jamais des lignes en double.
 
-    🛑 « Dans une transaction » était écrit ici, et c'était FAUX.
-    `executescript` valide implicitement la transaction en cours avant de
-    lancer son script, et les `DROP`/`CREATE` qui suivent sont donc validés
-    d'emblée. Un échec survenant entre cette ligne et le `conn.commit()` de
-    `executer()` laisse les quatre tables **existantes, vides, et validées sur
-    disque** — le `rollback()` n'annule que les `INSERT`. Mesuré le 26/08/2026
-    sur Python 3.14.6, celui de la production : 2 déclarations en base, un uuid
-    rattaché deux fois (la source en publie 6 en double) fait lever
-    `UNIQUE constraint failed`, et une connexion neuve relit 0 déclaration.
+    🛑 CE FICHIER A ANNONCÉ TROIS FOIS UNE ATOMICITÉ QU'IL N'AVAIT PAS ; les
+    deux lignes ci-dessous sont ce qui la lui donne. Ce qu'il ne faut jamais
+    remettre à leur place, c'est `conn.executescript(SCHEMA_P15)` :
+    `executescript` VALIDE implicitement la transaction en cours avant de
+    lancer son script, si bien que les quatre `DROP TABLE` partaient sur
+    disque avant le premier `INSERT`. Mesuré le 26/08/2026 sur Python 3.14.6
+    et SQLite 3.37.2, ceux de la production : 2 déclarations en base, un uuid
+    rattaché deux fois — la source en publie 6 en double — faisait lever
+    `UNIQUE constraint failed`, et une connexion neuve relisait **0**. Même
+    mesure après ce correctif : elle relit **2**, avec les mêmes uuid et les
+    trois index, en WAL comme hors WAL. La propriété est tenue par
+    `test_un_echec_apres_le_drop_laisse_la_base_intacte` — sans lui elle
+    régresserait en silence, ce qui est déjà arrivé une fois.
 
-    Conséquences à connaître avant de s'appuyer sur cette fonction :
-      · les contrôles qui veulent laisser la base intacte doivent être posés
-        AVANT elle — c'est le cas des six ;
-      · `controler_absence_patrimoine`, qui est posé APRÈS, ne rend PAS la base
-        à son état antérieur : il la laisse vide (ce qui reste conforme à son
-        intention, mais pas à ce qu'il annonçait) ;
-      · la mémoire des deux contrôles inter-cycles est détruite par le même
-        incident, et ils le journalisent.
+    Ce que `ecrire()` ne fait pas : valider. Elle laisse la transaction
+    ouverte ; `executer()` commit après le contrôle de sortie et rollback sur
+    toute exception. Un contrôle posé APRÈS elle — c'est le cas du seul
+    `controler_absence_patrimoine` — rend donc bien la base à son état
+    antérieur en échouant, et les deux contrôles inter-cycles gardent leur
+    mémoire par-dessus l'incident.
 
-    Le remède existe et n'est pas celui-ci : ouvrir une transaction explicite
-    (`BEGIN`) et passer les instructions du schéma une à une — SQLite sait
-    faire du DDL transactionnel. C'est un chantier à part, qui touche le chemin
-    d'écriture de la source, et il n'a PAS été fait ici : ce qui a été fait,
-    c'est cesser d'annoncer une garantie que le code ne tient pas.
+    ⚠️ Si l'appelant a DÉJÀ une transaction ouverte, `ecrire()` s'y greffe :
+    un second `BEGIN` lèverait « cannot start a transaction within a
+    transaction » (mesuré). Le prix, à connaître avant d'appeler : le
+    `rollback()` qui suit un échec annule alors AUSSI le travail non validé de
+    l'appelant. Sur le chemin réel le cas ne se présente pas — entre
+    `db.init_db()`, qui valide, et cet appel, `executer()` ne fait que des
+    `SELECT`, qui n'ouvrent pas de transaction en contrôle hérité (mesuré :
+    `in_transaction` est faux à l'entrée).
     """
-    conn.executescript(SCHEMA_P15)
+    if not conn.in_transaction:
+        conn.execute("BEGIN")
+    for instruction in instructions_schema():
+        conn.execute(instruction)
 
     conn.executemany(
         "INSERT INTO hatvp_decl_interets (uuid, elu_id, type_declaration,"
@@ -964,13 +1016,14 @@ def controler_absence_patrimoine(conn) -> None:
     POURQUOI un contrôle APRÈS écriture, alors que deux barrières filtrent
     déjà en amont : les barrières protègent le chemin nominal, celui-ci
     protège du chemin qu'on n'a pas prévu (écriture manuelle, migration,
-    reprise partielle). Il échoue franc — et il faut être exact sur ce qui se
-    passe alors : il est posé APRÈS `ecrire()`, dont le `DROP` est déjà validé
-    (voir sa docstring), si bien que le `rollback()` ne rend PAS la base à son
-    état antérieur mais la laisse **vide**. C'est conforme à l'intention — mieux
-    vaut pas de données du tout qu'une ligne patrimoniale publiée sous le nom de
-    quelqu'un — mais ce n'est pas ce qui était écrit ici, et un exploitant qui
-    diagnostique a besoin du vrai.
+    reprise partielle). Il échoue franc, et depuis le 26/08/2026 son échec est
+    sans dommage : il est posé APRÈS `ecrire()`, mais `ecrire()` n'a rien
+    validé, si bien que le `rollback()` de `executer()` rend la base à son état
+    antérieur — le cycle précédent reste servi. Ce fut faux pendant tout le
+    temps où `ecrire()` passait par `executescript` : le contrôle laissait
+    alors les tables vides. Conforme à l'intention dans les deux cas (mieux
+    vaut pas de données du tout qu'une ligne patrimoniale publiée sous le nom
+    de quelqu'un), mais un exploitant qui diagnostique a besoin du vrai.
     """
     autorisees = {r.cle for r in RUBRIQUES.values()}
     trouvees = {r["rubrique"] for r in
@@ -1187,9 +1240,11 @@ def rubriques_effondrees(precedentes: dict[str, int],
 def lignes_par_rubrique_precedentes(conn) -> dict[str, int]:
     """`{rubrique: nombre de lignes}` du cycle précédent, `{}` s'il n'y en a pas.
 
-    Même talon d'Achille que `rattachements_precedents`, et il faut le dire
-    ici aussi : les DEUX contrôles perdent la mémoire au même incident, et le
-    silence de l'un ne doit pas passer pour un contrôle qui a regardé.
+    Même angle mort que `rattachements_precedents`, et il faut le dire ici
+    aussi : les DEUX contrôles sont sans mémoire quand leur table est présente
+    mais vide, et le silence de l'un ne doit pas passer pour un contrôle qui a
+    regardé. Depuis que `ecrire()` est atomique, un cycle mort en cours
+    d'écriture n'est plus une cause possible de cet état.
     """
     existe = conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='hatvp_decl_lignes'"
@@ -1201,7 +1256,10 @@ def lignes_par_rubrique_precedentes(conn) -> dict[str, int]:
     if not compte:
         log.warning(
             "hatvp_decl_lignes existe mais est VIDE : le contrôle de rubrique "
-            "effondrée n'a aucune mémoire pour ce cycle-ci et ne verra rien.")
+            "effondrée n'a aucune mémoire pour ce cycle-ci et ne verra rien. "
+            "L'écriture étant atomique, un cycle en échec n'est plus une cause "
+            "possible : chercher une restauration partielle ou une écriture "
+            "manuelle.")
     return compte
 
 
@@ -1226,19 +1284,19 @@ def rattachements_precedents(conn) -> dict[str, str]:
     CI à chaque fois que `pipelines/*.py` change — la table est absente et le
     contrôle n'a rien à comparer : il se tait, il ne devine pas.
 
-    🛑 MAIS « VIDE » N'EST PAS « ABSENTE », ET LA DIFFÉRENCE EST LE TALON
-    D'ACHILLE DE CE GARDE-FOU. `ecrire()` commence par `executescript`, qui
-    VALIDE implicitement la transaction en cours : un échec survenant entre le
-    `DROP` et le `conn.commit()` laisse les quatre tables **existantes, vides,
-    et validées sur disque** — le `rollback()` de `executer()` n'annule que les
-    insertions. Mesuré le 26/08/2026 (Python 3.14.6, celui de la production) :
-    2 déclarations en base, un uuid rattaché deux fois — la source en publie
-    déjà **6 en double** — fait lever `UNIQUE constraint failed`, et une
-    connexion neuve relit **0 déclaration**. Le cycle suivant n'aurait alors
-    aucune mémoire, et ce garde-fou serait muet **au lendemain d'un incident**,
-    c'est-à-dire au moment où il sert le plus. On ne peut pas reconstruire
-    cette mémoire, mais on refuse qu'elle disparaisse en silence : le cas est
-    journalisé en avertissement, distinctement de la base neuve.
+    🛑 « VIDE » N'EST PAS « ABSENTE », ET LA DIFFÉRENCE COMPTE TOUJOURS. Une
+    table présente et vide fait taire ce garde-fou exactement comme une base
+    neuve, alors qu'elle ne dit pas du tout la même chose. Ce cas avait une
+    cause structurelle jusqu'au 26/08/2026 : `ecrire()` passait par
+    `executescript`, qui valide implicitement, et un échec entre le `DROP` et
+    le `conn.commit()` laissait les quatre tables existantes et vides sur
+    disque (mesuré : une connexion neuve relisait 0 déclaration). La mémoire de
+    ce garde-fou disparaissait donc **au lendemain d'un incident**, au moment
+    où elle sert le plus. Cette cause-là est fermée — l'écriture est atomique,
+    un cycle qui meurt laisse le cycle précédent intact — mais l'avertissement
+    reste : « vide » peut encore venir d'ailleurs (restauration partielle,
+    écriture manuelle, migration), et ce silence-là ne doit pas passer pour un
+    contrôle qui a regardé.
     """
     existe = conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='hatvp_decl_interets'"
@@ -1249,10 +1307,11 @@ def rattachements_precedents(conn) -> dict[str, str]:
                   conn.execute("SELECT uuid, elu_id FROM hatvp_decl_interets")}
     if not precedents:
         log.warning(
-            "hatvp_decl_interets existe mais est VIDE : le cycle précédent est "
-            "mort entre le DROP de `ecrire` et son commit. Le contrôle de perte "
+            "hatvp_decl_interets existe mais est VIDE : le contrôle de perte "
             "de rattachement n'a aucune mémoire pour ce cycle-ci et ne verra "
-            "rien ; il redeviendra opérant au cycle suivant.")
+            "rien ; il redeviendra opérant au cycle suivant. L'écriture étant "
+            "atomique, un cycle en échec n'est plus une cause possible : "
+            "chercher une restauration partielle ou une écriture manuelle.")
     return precedents
 
 
@@ -1439,17 +1498,17 @@ def main() -> int:
     try:
         executer()
     except Exception:
-        # Ce message a longtemps promis « aucune écriture partielle : le
-        # remplacement complet est transactionnel ». C'est faux (voir `ecrire`),
-        # et c'était le mensonge servi à l'exploitant au moment précis où il
-        # diagnostique. Il dit désormais ce qui est vrai dans les deux cas.
+        # Ce message a promis « aucune écriture partielle », a dû se dédire
+        # quand la mesure a montré qu'`executescript` validait implicitement,
+        # et peut le promettre de nouveau depuis le 26/08/2026 : ce qui tient
+        # la promesse est le `BEGIN` de `ecrire()` et le test qui l'éprouve,
+        # jamais cette phrase.
         log.exception(
-            "P15 en échec. Si l'échec vient d'un contrôle POSÉ AVANT l'écriture "
-            "(les six : fiches, lues, repli, rattachées, rubrique effondrée, "
-            "perte de rattachement), la base est intacte. S'il vient d'`ecrire` "
-            "ou d'après, les quatre tables hatvp_decl_* sont VIDES sur disque — "
-            "le prochain cycle réussi les remet d'aplomb, mais les deux "
-            "contrôles inter-cycles seront sans mémoire pour ce cycle-là")
+            "P15 en échec. La base n'est PAS modifiée : les six contrôles posés "
+            "avant l'écriture lèvent sans rien toucher, l'écriture elle-même "
+            "est atomique, et le contrôle de sortie est annulé avec elle. Le "
+            "cycle précédent reste servi, avec la mémoire des deux contrôles "
+            "inter-cycles")
         return 1
     return 0
 

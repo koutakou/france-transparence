@@ -141,18 +141,25 @@ après écriture et fait échouer le pipeline si une rubrique hors liste blanche
 s'y trouve. Il ne protège pas du chemin nominal, déjà couvert : il protège du
 chemin qu'on n'a pas prévu — migration, reprise partielle, écriture manuelle.
 
-⚠️ **Ce document écrivait « avec rollback ». C'est faux, et la correction
-compte.** `ecrire()` commence par `conn.executescript(SCHEMA_P15)`,
-et `executescript` valide implicitement la transaction en cours. Un échec
-survenant **après** `ecrire()` laisse donc les quatre tables **vidées et
-validées sur disque** : le `conn.rollback()` de `executer()` n'annule que les
-insertions, pas le `DROP`. Mesuré le 26/08/2026 sur base jetable, Python 3.14.6
-comme en production : 2 déclarations en base, échec simulé après `ecrire()`,
-**0 déclaration après réouverture du fichier**. Pour ce garde-fou-ci le
-résultat reste conforme à l'intention (« mieux vaut pas de données du tout
-qu'une ligne patrimoniale »), mais la garantie générale « la base reste dans
-son état précédent » ne vaut que pour les contrôles posés **avant**
-`ecrire()` — ce qui est le cas de tous les autres, §4.1 compris.
+✅ **« Avec rollback » est vrai depuis le 26/08/2026, et ne l'était pas avant :
+l'histoire vaut d'être gardée, parce qu'elle dit à quoi tient la garantie.**
+`ecrire()` a longtemps commencé par `conn.executescript(SCHEMA_P15)`, et
+`executescript` valide implicitement la transaction en cours : les quatre
+`DROP TABLE` partaient donc sur disque avant le premier `INSERT`, et un échec
+survenant après laissait les quatre tables **vidées et validées**, le
+`conn.rollback()` de `executer()` n'annulant que les insertions. Mesuré le
+26/08/2026 sur base jetable, Python 3.14.6 et SQLite 3.37.2 comme en
+production : 2 déclarations en base, échec provoqué par un uuid en double,
+**0 déclaration après réouverture du fichier**. `ecrire()` ouvre désormais une
+transaction explicite (`BEGIN`) et passe les instructions du schéma **une à
+une** — SQLite fait du DDL transactionnel : même mesure, **2 déclarations**
+après réouverture, avec les mêmes uuid et les trois index, en WAL comme hors
+WAL. La garantie « la base reste dans son état précédent » vaut donc
+maintenant pour **tous** les contrôles, y compris celui-ci, qui est le seul
+posé après l'écriture. Ce qui la tient n'est pas cette phrase mais
+`test_un_echec_apres_le_drop_laisse_la_base_intacte` : la promesse a déjà été
+fausse une fois pour n'avoir été écrite nulle part ailleurs que dans une
+docstring.
 
 Les fixtures de test qui portent des blocs patrimoniaux sont **entièrement
 fabriquées** (`fixtures/hatvp/declarations_patrimoine_fabrique.xml`). Copier
@@ -335,10 +342,12 @@ Ces deux contrôles ne vivent que sur le serveur : sur une base neuve — celle 
 l'intégration continue, qui repart de zéro à chaque cycle nocturne comme à
 chaque proposition de fusion touchant `pipelines/*.py` — il n'y a aucun passage
 précédent : le contrôle se tait plutôt que de
-deviner. ⚠️ Un cycle mort **en cours d'écriture** laisse au contraire les tables
-présentes et vides (voir l'encadré du § 3.2) : cette mémoire-là est perdue, le
-contrôle est sans effet pour un cycle, et il le **journalise** au lieu de
-laisser croire qu'il a regardé. En dernier recours, une perte examinée s'acquitte **uuid par uuid**
+deviner. ⚠️ Une table **présente mais vide** les rend aveugles de la même
+façon, sans le dire : ils le **journalisent** donc, au lieu de laisser croire
+qu'ils ont regardé. Jusqu'au 26/08/2026 un cycle mort en cours d'écriture
+suffisait à produire cet état ; l'écriture étant devenue atomique (encadré du
+§ 3.2), il ne reste que des causes extérieures au pipeline — restauration
+partielle, écriture manuelle, migration. En dernier recours, une perte examinée s'acquitte **uuid par uuid**
 (`FT_P15_PERTES_ACQUITTEES`), jamais en desserrant un seuil. La conduite à
 tenir est au § 4 du `docs/deploiement/RUNBOOK.md`.
 
@@ -443,8 +452,9 @@ hatvp_decl_montants   (ligne_id, annee, montant TEXT, brut_net)       94 507 lig
 ```
 
 Remplacement complet à chaque exécution (`DROP` + `CREATE` dans une
-transaction) : le pipeline est **idempotent**, deux passages donnent les mêmes
-compteurs et le même poids.
+transaction explicite, § 3.2) : le pipeline est **idempotent**, deux passages
+donnent les mêmes compteurs et le même poids — et un passage qui échoue laisse
+les compteurs du précédent.
 
 Répartition des 27 731 lignes par rubrique : organes dirigeants 13 147,
 mandats électifs 6 141, participations financières 3 601, activités
