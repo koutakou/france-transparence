@@ -1176,11 +1176,26 @@ def test_gardefou_une_date_de_naissance_perdue_est_une_PERTE_pas_une_fin_de_mand
         tmp_path, monkeypatch):
     """Le scénario mesuré : un cycle amont abîmé ne doit pas passer en SUCCÈS.
 
-    Mesuré sur copie de la base servie le 26/08/2026 : 200 dates de naissance
-    mises à NULL, fiches conservées, faisaient disparaître 798 déclarations et
-    11 812 lignes (−41,3 %) avec un cycle en SUCCÈS et pour seul mot un
-    avertissement disant « fin de mandat attendue ». Aucun autre garde-fou ne
-    mordait : 1 534 rattachées (plancher 1 000), aucune rubrique à zéro.
+    ⚠️ Les chiffres qui suivent RACONTENT une mesure faite ailleurs — sur copie
+    de la base servie — et ne sont ni calculés ni vérifiés par ce test, qui est
+    une maquette à un seul élu. Ils sont ici pour dire POURQUOI le garde-fou
+    existe ; la mesure elle-même est celle de `elus_avec_fiche` (pipeline).
+
+    Mesurée le 26/08/2026 sur copie de la base servie et le fichier servi, en
+    mettant à NULL la date de naissance des 200 premiers élus à fiche pris dans
+    l'ordre de `elus.id` (fiches conservées) : le cycle rendait 1 913
+    rattachées contre 2 332, soit **419 déclarations et 4 409 lignes (−15,4 %)**
+    disparues dans un cycle en SUCCÈS, pour seul mot un avertissement disant
+    « fin de mandat attendue ». Aucun autre garde-fou ne mordait : 1 913
+    rattachées (plancher 1 000), repli à 3,3 %, aucune rubrique à zéro, et
+    −15,4 % reste sous la rupture de −20 % de `ft-fraicheur`.
+
+    🛑 Ce test a longtemps porté « 798 déclarations et 11 812 lignes (−41,3 %) »
+    et « 1 534 rattachées ». C'était FAUX, et contredisait le pipeline et
+    `docs/HATVP-DECLARATIONS.md`, qui disaient déjà 419 / 4 409. Aucune
+    sélection de 200 élus ne rend 798 : re-mesuré le 26/08/2026, les 200
+    premiers par `elus.id` rendent 419, et le maximum atteignable par 200 élus
+    quelconques est de 801 déclarations pour 14 043 lignes. Ne pas restaurer.
     """
     chemin = tmp_path / "p15_date_nulle.db"
     monkeypatch.setenv("FT_DB_PATH", str(chemin))
@@ -1214,6 +1229,240 @@ def test_gardefou_perte_acquittee_une_par_une_laisse_passer(tmp_path, monkeypatc
     stats = _executer_avec_parse_simule(monkeypatch, chemin,
                                         uuids_en_plus=("u-detachee", "u-autre"))
     assert stats["pertes_acquittees"] == 2
+
+    # Le compteur ne suffit pas : un `executer()` qui rendrait ce chiffre sans
+    # écrire passerait le test ci-dessus. On vérifie que la base a bien été
+    # remplacée, et que les deux uuid acquittés en sont sortis.
+    conn = db.init_db(chemin=chemin)
+    apres = p15.rattachements_precedents(conn)
+    conn.close()
+    assert "u-detachee" not in apres and "u-autre" not in apres
+    assert len(apres) == 2          # les deux déclarations réelles de la fixture
+
+    # CE QUI EN DÉCOULE POUR L'EXPLOITANT, et que le RUNBOOK § 4 « 2 bis »
+    # prescrit : une fois l'acquittement consommé, le cycle suivant passe SANS
+    # la variable. C'est pourquoi on reprend par `ft-deploy` tout court — qui
+    # rejoue les 31 pipelines, dont les 21 en aval que l'échec avait arrêtés —
+    # et non par `--sans-ingest`, qui n'en rejouerait aucun.
+    monkeypatch.delenv(p15.ENV_PERTES_ACQUITTEES)
+    stats2 = _executer_avec_parse_simule(monkeypatch, chemin,
+                                         uuids_en_plus=("u-detachee", "u-autre"))
+    assert stats2["pertes_acquittees"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Ce que cinq mutations survivantes ont montré manquant (campagne du 26/08/2026)
+#
+# Quinze mutations éprouvées sur le code des deux garde-fous, dix tuées, CINQ
+# survivantes — c'est-à-dire cinq propriétés que le dépôt AFFIRME et que rien
+# ne tenait. Les tests ci-dessous les tiennent, un par mutation, et chacun cite
+# la mutation qu'il tue. Contre-épreuve exigée pour chacun : réintroduire la
+# mutation doit faire tomber CE test.
+# ---------------------------------------------------------------------------
+
+
+def test_ordre_la_rubrique_effondree_est_signalee_AVANT_la_perte(
+        tmp_path, monkeypatch):
+    """MUTATION TUÉE : déplacer le bloc « rubrique effondrée » après la perte.
+
+    L'ordre est argumenté à trois endroits — le commentaire « ORDRE VOULU » du
+    pipeline, `docs/HATVP-DECLARATIONS.md` § 4.1 et `RUNBOOK.md` § 4 — et rien
+    ne le tenait : les deux garde-fous n'étaient éprouvés que dans des bases
+    séparées, jamais sur un cycle qui cumule les deux anomalies. Un cycle qui
+    les cumule doit montrer la rupture de lecture, qui n'est JAMAIS acquittable,
+    et surtout PAS la perte, qui l'est : sinon l'exploitant acquitte des uuid —
+    donc abandonne des déclarations irréversiblement — pour un défaut qui était
+    ailleurs. Le message bénin ne doit pas masquer le grave.
+    """
+    chemin = tmp_path / "p15_ordre.db"
+    monkeypatch.setenv("FT_DB_PATH", str(chemin))
+    conn = db.init_db(chemin=chemin)
+    _base_de_gardefou(conn, {"u-detachee": "PA1"})      # anomalie 1 : une perte
+    conn.execute("INSERT INTO hatvp_decl_lignes (declaration_uuid, elu_id,"
+                 " rubrique, rubrique_ordre, rang) VALUES ('x', 'PA1',"
+                 " 'consultant', 5, 1)")                # anomalie 2 : la rubrique
+    conn.commit()
+    conn.close()
+
+    with pytest.raises(ValueError) as leve:
+        _executer_avec_parse_simule(monkeypatch, chemin,
+                                    uuids_en_plus=("u-detachee",))
+    message = str(leve.value)
+    assert "rubrique effondrée" in message
+    assert "perte de rattachement" not in message
+    # Et le message ne doit pas non plus proposer l'acquittement : rien, ici,
+    # ne s'acquitte — le remède est un correctif de pipeline.
+    assert p15.ENV_PERTES_ACQUITTEES not in message
+
+
+def test_une_declaration_sans_aucune_ligne_reste_rattachee(tmp_path, monkeypatch):
+    """MUTATION TUÉE : construire `rattachements` depuis les LIGNES.
+
+    Une déclaration dont toutes les rubriques sont « néant » a un en-tête et
+    zéro ligne. Bâtir l'état courant sur `donnees["lignes"]` plutôt que sur
+    `donnees["entetes"]` la ferait disparaître de `rattachements` alors qu'elle
+    est parfaitement rattachée — et le garde-fou la compterait comme perdue.
+    Ce sont de FAUSSES pertes, et une fausse perte est pire qu'un silence :
+    elle arrête les 21 pipelines en aval et pousse à acquitter, c'est-à-dire à
+    abandonner pour de bon une déclaration qui n'avait rien.
+    """
+    chemin = tmp_path / "p15_sans_lignes.db"
+    monkeypatch.setenv("FT_DB_PATH", str(chemin))
+    conn = db.init_db(chemin=chemin)
+    # « u-neant » était rattachée à PA1 au cycle précédent ; au cycle courant
+    # elle est toujours publiée, toujours rattachée à PA1, et ne porte aucune
+    # ligne. On l'AJOUTE au lieu de vider une déclaration existante : vider
+    # celle de PA2 effondrerait trois rubriques et ferait mordre l'autre
+    # garde-fou, qui n'est pas le sujet ici.
+    _base_de_gardefou(conn, {"u-neant": "PA1"})
+    conn.close()
+
+    monkeypatch.setattr(p15, "session_http", lambda *a, **k: None)
+    monkeypatch.setattr(p15, "telecharger", lambda *a, **k: EXTRAIT_REEL)
+    monkeypatch.setattr(p15, "date_derniere_modification", lambda *a, **k: "2026-08-21")
+    vrai_parcourir = p15.parcourir
+
+    def parse_avec_neant(chemin_xml, index_elus, index_souple=None):
+        donnees = vrai_parcourir(EXTRAIT_REEL, {ELU_UN: "PA1", ELU_DEUX: "PA2"})
+        donnees["entetes"].append({
+            "uuid": "u-neant", "elu_id": "PA1", "type_declaration": "DI",
+            "type_declaration_libelle": "Déclaration d'intérêts",
+            "date_depot": "2026-07-01", "modificative": 0,
+            "qualite_declarant": None, "organe_libelle": None,
+            "type_mandat": None, "nb_lignes": 0,
+        })
+        donnees["uuids_vus"] = set(donnees["uuids_vus"]) | {"u-neant"}
+        donnees["stats"]["declarations_lues"] = 6_608
+        donnees["stats"]["rattachees"] = 2_332
+        donnees["stats"]["rattachees_par_repli"] = 71
+        return donnees
+
+    monkeypatch.setattr(p15, "parcourir", parse_avec_neant)
+    stats = p15.executer(chemin_db=chemin, max_age_heures=None)   # ne doit PAS lever
+    assert stats["pertes_hors_fiche"] == 0
+    conn = db.init_db(chemin=chemin)
+    # Elle est bien en base, et bien à zéro ligne : c'est le cas que la
+    # mutation transformerait en fausse perte.
+    assert conn.execute("SELECT COUNT(*) FROM hatvp_decl_interets"
+                        " WHERE uuid = 'u-neant'").fetchone()[0] == 1
+    assert conn.execute("SELECT COUNT(*) FROM hatvp_decl_lignes"
+                        " WHERE declaration_uuid = 'u-neant'").fetchone()[0] == 0
+    conn.close()
+
+
+def test_le_message_dechec_porte_DEUX_troncatures_distinctes(tmp_path, monkeypatch):
+    """MUTATIONS TUÉES : supprimer l'un OU l'autre des deux « … ».
+
+    Le message tronque deux listes indépendantes — les élus et les uuid — et
+    annonce chaque troncature par un « … ». Un test qui se contente de
+    `"…" in message` laisse supprimer l'une des deux : l'autre suffit à le
+    satisfaire. Les deux mutations survivaient séparément. On compte donc, et
+    on éprouve le cas où une seule des deux listes déborde.
+    """
+    chemin = tmp_path / "p15_deux_points.db"
+    monkeypatch.setenv("FT_DB_PATH", str(chemin))
+    conn = db.init_db(chemin=chemin)
+    dix = {f"u-perdue-{i:02d}": f"PA{i}" for i in range(10)}
+    _base_de_gardefou(conn, dix)
+    conn.close()
+    with pytest.raises(ValueError) as leve:
+        _executer_avec_parse_simule(monkeypatch, chemin, uuids_en_plus=tuple(dix))
+    # Dix uuid ET dix élus : les deux listes débordent, deux « … ».
+    assert str(leve.value).count("…") == 2
+
+    # Contre-épreuve : dix uuid mais DEUX élus seulement. Seule la liste des
+    # uuid déborde — un seul « … », et c'est celui des uuid.
+    chemin2 = tmp_path / "p15_un_point.db"
+    monkeypatch.setenv("FT_DB_PATH", str(chemin2))
+    conn = db.init_db(chemin=chemin2)
+    dix_deux_elus = {f"u-perdue-{i:02d}": ("PA1" if i % 2 else "PA2")
+                     for i in range(10)}
+    _base_de_gardefou(conn, dix_deux_elus)
+    conn.close()
+    with pytest.raises(ValueError) as leve2:
+        _executer_avec_parse_simule(monkeypatch, chemin2,
+                                    uuids_en_plus=tuple(dix_deux_elus))
+    message = str(leve2.value)
+    assert message.count("…") == 1
+    assert message.split("uuid :")[1].count("…") == 1     # côté uuid
+    assert message.split("uuid :")[0].count("…") == 0     # pas côté élus
+
+
+def test_uuids_vus_s_arrete_a_la_barriere_de_type(index_fixture_patrimoine):
+    """MUTATION TUÉE : alimenter `uuids_vus` AVANT la barrière de type.
+
+    `uuids_vus` sert à distinguer « la HATVP a retiré la déclaration » de
+    « nous ne savons plus à qui elle appartient ». Une déclaration de situation
+    patrimoniale (DSP) n'a jamais été ingérée et ne le sera jamais : si son uuid
+    entrait dans `uuids_vus`, elle deviendrait éligible au garde-fou, qui
+    pourrait la déclarer « perdue » — c'est-à-dire réclamer d'un exploitant
+    qu'il examine, dans un message d'échec, une déclaration dont la publication
+    du contenu est punie de 45 000 € d'amende (art. LO 135-2).
+
+    Le pipeline le promet en docstring : « `uuids_vus` ne contient que les
+    déclarations acceptées par la barrière de type (DI/DIA) ». Rien ne le
+    tenait.
+    """
+    donnees = p15.parcourir(PATRIMOINE_FABRIQUE, index_fixture_patrimoine)
+    vus = donnees["uuids_vus"]
+    assert "DSP-FABRIQUE-0000-0000-000000000001" not in vus
+    # Contre-épreuve : la déclaration d'intérêts de la même fixture, elle, y est
+    # — sans quoi le test passerait aussi sur un `uuids_vus` toujours vide.
+    assert "DI-MENTEUSE-0000-0000-000000000002" in vus
+    assert donnees["stats"]["refus_type_declaration"] >= 1
+
+
+def test_hors_fiche_efface_la_memoire_du_gardefou_pour_toujours(
+        tmp_path, monkeypatch, caplog):
+    """La propriété que la PR passait sous silence, tenue ici par un test.
+
+    Le chemin `hors_fiche` n'avertit que, et le cycle RÉUSSIT. Donc `ecrire()`
+    tourne, DROPpe `hatvp_decl_interets` et la réécrit depuis les seuls
+    en-têtes : l'uuid détaché n'y est pas, il quitte `precedents`, et le
+    garde-fou ne le comparera plus jamais à rien. Si l'élu retrouve sa fiche
+    plus tard — P7/P9 réparé, renouvellement du Sénat, fusion des `rne-*` — la
+    déclaration restée détachée ne sera plus signalée par personne.
+
+    C'est le même effacement que `FT_P15_PERTES_ACQUITTEES`, sauf qu'aucun
+    exploitant ne l'a demandé. Ce test existe pour que cette irréversibilité
+    soit une propriété tenue, et non une phrase de documentation : si un jour
+    on décide de garder la mémoire de ces uuid, c'est CE test qui doit tomber
+    et être réécrit, sciemment.
+    """
+    import logging
+    chemin = tmp_path / "p15_hors_fiche_memoire.db"
+    monkeypatch.setenv("FT_DB_PATH", str(chemin))
+    conn = db.init_db(chemin=chemin)
+    # « u-sans-fiche » était rattachée à un élu qui n'est plus dans `elus` :
+    # fin de mandat. Elle est toujours publiée en amont.
+    _base_de_gardefou(conn, {"u-sans-fiche": "PA-inexistant"})
+    assert p15.rattachements_precedents(conn).get("u-sans-fiche") == "PA-inexistant"
+    conn.close()
+
+    with caplog.at_level(logging.WARNING):
+        stats = _executer_avec_parse_simule(monkeypatch, chemin,
+                                            uuids_en_plus=("u-sans-fiche",))
+    assert stats["pertes_hors_fiche"] == 1
+    # L'avertissement doit DIRE que c'est sans retour : c'est la seule trace
+    # qui restera de cette déclaration.
+    assert "SANS RETOUR" in caplog.text
+
+    # Et voici l'irréversibilité, mesurée et non racontée : au cycle suivant,
+    # l'uuid a quitté la mémoire du garde-fou.
+    conn = db.init_db(chemin=chemin)
+    assert "u-sans-fiche" not in p15.rattachements_precedents(conn)
+    conn.close()
+
+    # Contre-épreuve : même si l'élu retrouve sa fiche, le garde-fou reste muet
+    # — il n'a plus rien à quoi comparer. C'est le cœur du défaut.
+    conn = db.init_db(chemin=chemin)
+    _inserer_elu(conn, "PA-inexistant", "REVENU", "Elu", "1960-01-01")
+    conn.commit()
+    conn.close()
+    stats2 = _executer_avec_parse_simule(monkeypatch, chemin,
+                                         uuids_en_plus=("u-sans-fiche",))
+    assert stats2["pertes_hors_fiche"] == 0      # plus d'avertissement…
+    assert stats2.get("pertes_acquittees", 0) == 0   # …et plus d'échec non plus
 
 
 # ---------------------------------------------------------------------------

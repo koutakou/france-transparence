@@ -283,20 +283,48 @@ et huit élus, le dit, et **la liste complète part sur la sortie d'erreur** —
 sans quoi, au-delà de huit, l'acquittement serait impossible. L'acquittement
 n'est d'ailleurs pas une réparation mais un **abandon assumé** : un uuid
 acquitté quitte l'état précédent et le contrôle se taira sur lui ensuite.
-C'est pourquoi le contrôle de rubrique ci-dessous, qui n'est jamais
+C'est pourquoi le contrôle de rubrique décrit plus bas, qui n'est jamais
 acquittable, est évalué **avant** celui-ci : un message acquittable ne doit
-jamais masquer une rupture de lecture qui ne l'est pas. Sont **volontairement** laissés passer : la déclaration retirée
+jamais masquer une rupture de lecture qui ne l'est pas. ⚠️ Il est numéroté
+« sixième » et rédigé après, parce qu'il se comprend à partir du cinquième ;
+**l'ordre de lecture de ce document n'est pas l'ordre d'exécution**, et c'est
+l'ordre d'exécution qui compte. Il est tenu par
+`test_ordre_la_rubrique_effondree_est_signalee_AVANT_la_perte`, sur un cycle
+qui cumule les deux anomalies — avant lui, rien ne le tenait : chaque garde-fou
+n'était éprouvé que dans sa propre base.
+
+Sont **volontairement** laissés passer : la déclaration retirée
 de la source ; l'élu qui perd sa fiche en fin de mandat — journalisé en
 avertissement, jamais muet ; et la déclaration qui **change** d'élu sans
 disparaître, ce que produira la fusion des fiches `rne-*` en double (fusion
 simulée le 26/08/2026 : 14 déclarations déplacées, **0 perdue**).
+
+🛑 **Le deuxième de ces trois cas — le chemin `hors_fiche` — efface la mémoire
+du garde-fou POUR TOUJOURS, et il est le seul des trois à se déclencher TOUT
+SEUL.** Ce n'est pas une nuance : c'est la contrepartie du silence. Le cycle
+réussit, donc `ecrire()` tourne, donc `hatvp_decl_interets` est réécrite depuis
+les seuls en-têtes du cycle — et l'uuid détaché n'y figure pas. Il quitte
+l'état précédent et ne sera **plus jamais** comparé à quoi que ce soit. Si
+l'élu retrouve sa fiche plus tard — P7/P9 réparé, **renouvellement du Sénat du
+27/09/2026**, fusion des doublons `rne-*` — pendant que sa déclaration reste
+détachée, **plus rien ne le signalera**.
+
+L'effet est identique à celui de `FT_P15_PERTES_ACQUITTEES` ; la différence est
+qu'un acquittement exige qu'un exploitant nomme chaque uuid dans une commande,
+là où `hors_fiche` n'exige rien de personne. Des trois voies qui font oublier
+un uuid, **c'est la seule automatique** — et c'était, jusqu'au 26/08/2026, la
+seule que ce document ne nommait pas. L'avertissement du journal porte
+désormais « SANS RETOUR », et la propriété est tenue par
+`test_hors_fiche_efface_la_memoire_du_gardefou_pour_toujours` : le jour où l'on
+voudra garder cette mémoire, c'est ce test qui devra tomber, sciemment.
 
 **Le sixième** ferme le trou que le cinquième laisse ouvert : le cinquième
 raisonne sur des en-têtes, et les 2 332 déclarations peuvent rester rattachées
 pendant que leur CONTENU s'effondre — il n'existe aucun plancher sur le nombre
 de lignes. Perdre toute la rubrique `participation_financiere` coûterait 3 726
 lignes sur 28 586, soit −13,0 %, sous le seuil de rupture de −20 % ; les quatre
-plus petites rubriques réunies, −17,5 %, encore dessous. La cause probable est
+plus petites rubriques réunies, 5 005 lignes sur 28 586, −17,5 %, encore
+dessous. La cause probable est
 le renommage d'une balise amont hors de la liste blanche `RUBRIQUES`, qui est
 indexée sur des noms de balise (`participationFinanciereDto`…). Le contrôle est
 là encore sans seuil : **une rubrique qui portait des lignes et n'en porte plus

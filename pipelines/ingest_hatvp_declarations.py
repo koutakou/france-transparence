@@ -734,9 +734,15 @@ def construire_index_souple(conn) -> dict[tuple[str, str], list[dict]]:
     portent « MARTIN »), PETIT/Maud, ROUSSET/Alain, TACHE/Emmanuel (contre
     Aurélien Taché, 1984), CORBIERE/Evelyne (contre Alexis Corbière, 1968) et
     JACQUES/Micheline. Le jour où un homonyme de la MÊME ANNÉE entre dans
-    `elus`, leur déclaration se détache SANS BRUIT. Aucun contrôle ne le
-    verrait : les garde-fous de `main()` sont un plancher et une proportion,
-    pas un delta.
+    `elus`, leur déclaration se détache — et c'est précisément le cas mesuré
+    sur Martin/Élisa. ⚠️ Ce paragraphe a longtemps fini par « SANS BRUIT.
+    Aucun contrôle ne le verrait : les garde-fous de `main()` sont un plancher
+    et une proportion, pas un delta. » Les deux moitiés étaient fausses, et le
+    sont restées après le correctif qui les démentait. **Ce détachement est
+    désormais vu** : c'est exactement le trou que `pertes_de_rattachement`
+    ferme, sans seuil ni tolérance. Et les garde-fous n'ont jamais été dans
+    `main()` — ils sont tous dans `executer()`, posés avant `ecrire()` ;
+    `main()` ne fait qu'attraper et journaliser.
 
     Ce repli n'écrase JAMAIS la clé exacte : il n'est consulté qu'après son
     échec. Il est donc strictement additif — il rattache des déclarations
@@ -1083,7 +1089,13 @@ def pertes_de_rattachement(
 
     Ce que ce contrôle laisse VOLONTAIREMENT passer, pour ne pas hurler à tort :
       · la déclaration retirée de la source (cas 1 ci-dessus) ;
-      · l'élu qui perd sa fiche (fin de mandat) ;
+      · l'élu qui perd sa fiche (fin de mandat) — chemin `hors_fiche`, qui
+        n'avertit que et laisse le cycle réussir. 🛑 Le prix de ce silence :
+        parce que le cycle réussit, `ecrire()` réécrit `hatvp_decl_interets`
+        sans ces uuid, qui quittent alors `precedents` POUR TOUJOURS. C'est le
+        même effacement que l'acquittement, mais SANS DÉCISION HUMAINE : si
+        l'élu retrouve sa fiche pendant que la déclaration reste détachée, plus
+        rien ne le dira jamais. Voir le bloc `if hors_fiche:` de `executer` ;
       · la déclaration qui CHANGE d'élu sans disparaître — c'est exactement ce
         que produira la fusion des fiches `rne-*` en double : mesuré le
         26/08/2026 sur une fusion simulée des six jumelles (FAVENNEC, VAGINAY,
@@ -1325,10 +1337,26 @@ def executer(chemin_db=None, max_age_heures: float | None = 6.0) -> dict:
             # mandat, cas légitime et fréquent, donc pas un échec — mais jamais
             # muet. Les uuid sont nommés, pas seulement les élus : sans eux
             # l'anomalie n'est pas instruisible depuis le journal.
+            #
+            # 🛑 CE CHEMIN EFFACE LA MÉMOIRE DU GARDE-FOU, POUR TOUJOURS, ET
+            # TOUT SEUL. Le cycle réussit, donc `ecrire()` tourne — et il
+            # DROPpe `hatvp_decl_interets` pour la réécrire depuis les seuls
+            # `entetes`. Un uuid rangé ici n'y est pas : il quitte `precedents`
+            # et ne sera plus jamais comparé à rien. Si l'élu retrouve sa fiche
+            # — P7/P9 réparé, renouvellement du Sénat du 27/09/2026, fusion des
+            # doublons `rne-*` — pendant que sa déclaration reste détachée, le
+            # garde-fou restera MUET sur elle, définitivement.
+            #
+            # C'est exactement l'effet de `FT_P15_PERTES_ACQUITTEES`, à ceci
+            # près que l'acquittement exige qu'un exploitant nomme chaque uuid,
+            # là où ce chemin-ci se déclenche sans que personne n'ait rien
+            # décidé. Des trois voies qui font oublier un uuid, c'est la seule
+            # automatique — d'où cet avertissement, seule trace qu'il en reste.
             log.warning(
                 "%d déclaration(s) toujours publiées se détachent de %d élu(s) "
                 "qui ne figurent plus parmi les fiches publiées (fin de mandat "
-                "attendue) — %s",
+                "attendue) — SANS RETOUR : ces uuid quittent la mémoire du "
+                "garde-fou au commit de ce cycle et n'y reviendront pas — %s",
                 len(hors_fiche), len({e for _, e in hors_fiche}),
                 "; ".join(f"{u} ({e})" for u, e in hors_fiche))
         acquittees = {u.strip() for u in
