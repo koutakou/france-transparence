@@ -27,7 +27,7 @@ L'identité de déploiement est **paramétrable au build** : un fork change d'ad
 
 Hébergement : serveur dédié — donc payant, contrairement à la première mise en ligne sur GitHub Pages.
 
-Décision d'hébergement et limites : [docs/deploiement/DECISION.md](docs/deploiement/DECISION.md) · exploitation quotidienne : [docs/deploiement/RUNBOOK.md](docs/deploiement/RUNBOOK.md) · ce qui exige encore un humain : [docs/ACTIONS-HUMAINES.md](docs/ACTIONS-HUMAINES.md).
+Décision d'hébergement et limites : [docs/deploiement/DECISION.md](docs/deploiement/DECISION.md) · exploitation quotidienne : [docs/deploiement/RUNBOOK.md](docs/deploiement/RUNBOOK.md) · ce qui exige encore un humain : [docs/ACTIONS-HUMAINES.md](docs/ACTIONS-HUMAINES.md) · redirections des fiches d'élus fusionnées : [docs/REDIRECTIONS-ELUS.md](docs/REDIRECTIONS-ELUS.md).
 
 ## Démarrage rapide
 

@@ -1,0 +1,40 @@
+# Fiches d'élus en double, retirées par le rattrapage de `upsert_elus`
+# (pipelines/ingest_integrite.py) — et l'URL vers laquelle rediriger la leur.
+#
+# POURQUOI CE FICHIER EXISTE. La règle nginx qui sert ces 301 vit dans
+# /etc/nginx/snippets/, hors du dépôt : aucun script ft-* n'écrit dans
+# /etc/nginx, la règle survit donc au cycle de 05:17 et à ft-rollback, mais
+# elle n'est versionnée nulle part. Cette table EST la source de vérité ;
+# le fichier nginx s'en déduit par deploy/gen-redirections-elus.sh.
+#
+# Le lot n'est PAS un invariant : il se mesure sur l'état de `elus` du jour et
+# sur le millésime RNE du jour. Celui-ci a été mesuré le 26/08/2026 en rejouant
+# `upsert_elus` sur une COPIE de la base servie — 17 fiches, 36 020 -> 36 003,
+# 14 declarations et 184 lignes deplacees, 0 fiche creee. Ne pas le recopier
+# d'une seance a l'autre sans le refaire.
+#
+# ABSENT DE CETTE TABLE, ET C'EST VOULU : rne-b4ef3c48aba5341f (VIGIER Peter,
+# jumelle presumee PA607090 "Jean-Pierre Vigier"). Patronyme, date de naissance
+# et siege concordent, mais aucune composante de prenom n'est commune : le
+# repli y est structurellement aveugle, et l'identite serait une INFERENCE, pas
+# une source d'etat civil. La fiche porte 0 declaration : la laisser est sans
+# consequence, la forcer serait une fusion decidee a la main.
+#
+# id retire	id conserve	personne
+rne-9b0690c3380e2630	PA793214	ABADIE Audrey
+rne-458f0cdc332b255b	PA267042	FAVENNEC Yannick
+rne-9886da25564e5760	PA841595	FOUCHER CHAZÉ Cendrine
+rne-001f81fcd1e5f7ae	PA793892	GALZY Stéphanie
+rne-344b467349a63d9f	SEN-21514M	GUERIN Marie-Pierre
+rne-7415021cf72db2bc	PA795998	KBIDI Emeline
+rne-478a9583c84cffd5	PA795636	LUCAS Benjamin
+rne-14dcb94cc2c7d19f	SEN-21634U	MAINGAULT Didier
+rne-1eaf3d01f1714dfa	PA793342	MARTIN Alexandra
+rne-3fa9b246552bf43e	PA793944	MARTIN Alexandra
+rne-f89dcf3be79d64be	PA795722	OLIVE Karl
+rne-a16f02f7320b9261	SEN-20130U	PONCET Raymonde
+rne-42e2d99995af2dd2	PA795240	REID ABERLOT Mereana
+rne-41ab8e76d2734fcb	PA841377	REY Emeline
+rne-ba7be78a29b1e987	PA840657	VAGINAY Sophie
+rne-5ecb0e21f6eac401	PA841575	VOS Frédéric
+rne-1b9578695735474d	SEN-21030V	XOWIE Robert

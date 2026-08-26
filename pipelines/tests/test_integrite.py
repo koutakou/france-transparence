@@ -211,8 +211,8 @@ def test_upsert_elus_prudent_et_idempotent(conn):
         " '[{\"source\": \"AN\", \"type\": \"depute\", \"groupe\": \"LFI-NFP\"}]')",
         (lahmar["Nom de l'élu"], lahmar["Prénom de l'élu"], lahmar["Date de naissance"]))
     personnes = p7.preparer_personnes(rne)
-    inseres, maj = p7.upsert_elus(conn, personnes)
-    assert maj == 1 and inseres == len(personnes) - 1
+    inseres, maj, rattrapes = p7.upsert_elus(conn, personnes)
+    assert maj == 1 and inseres == len(personnes) - 1 and rattrapes == 0
     ligne = conn.execute("SELECT * FROM elus WHERE id = 'an-PA841729'").fetchone()
     assert ligne["uid_an"] == "PA841729"          # jamais écrasé
     mandats = json.loads(ligne["mandats"])
@@ -223,11 +223,435 @@ def test_upsert_elus_prudent_et_idempotent(conn):
     assert conn.execute("SELECT count(*) AS n FROM elus WHERE nom = 'AMRANE'"
                         ).fetchone()["n"] == 1
     # Rejouable : aucun doublon, pas d'empilement des mandats RNE.
-    inseres2, _ = p7.upsert_elus(conn, p7.preparer_personnes(rne))
-    assert inseres2 == 0
+    inseres2, _, rattrapes2 = p7.upsert_elus(conn, p7.preparer_personnes(rne))
+    assert inseres2 == 0 and rattrapes2 == 0
     mandats2 = json.loads(conn.execute(
         "SELECT mandats FROM elus WHERE id = 'an-PA841729'").fetchone()["mandats"])
     assert len(mandats2) == len(mandats)
+
+
+def _poser_fiche(conn, ident, nom, prenom, naissance, uid="uid-x"):
+    """Insère une fiche AN/Sénat comme le ferait P9, sans mandat RNE."""
+    conn.execute(
+        "INSERT INTO elus (id, nom, prenom, date_naissance, uid_an, mandats)"
+        " VALUES (?, ?, ?, ?, ?, '[{\"source\": \"AN\", \"type\": \"depute\"}]')",
+        (ident, nom, prenom, naissance, uid))
+
+
+@pytest.mark.parametrize("motif, nom_an, prenom_an, decalage_date", [
+    # RNE « FAVENNEC » / AN « Favennec-Bécot » — 4 cas mesurés.
+    ("nom composé tronqué au RNE", "{nom}-Bécot", "{prenom}", None),
+    # RNE « VAGINAY » / AN « Ricourt Vaginay » — composante commune en FIN.
+    ("composante commune en fin", "Ricourt {nom}", "{prenom}", None),
+    # AN « Martin (Gironde) » — suffixe de désambiguïsation entre parenthèses.
+    ("parenthèses de désambiguïsation", "{nom} (Gironde)", "{prenom}", None),
+    # RNE « KBIDI » / AN « K/Bidi » — ponctuation interne divergente.
+    ("ponctuation interne", "{nom_coupe}", "{prenom}", None),
+    # RNE « Frédéric » / AN « Frédéric-Pierre » — prénom composé tronqué.
+    ("prénom composé tronqué", "{nom}", "{prenom}-Pierre", None),
+    # RNE 1969-09-29 / AN 1969-03-29 — le mois diverge.
+    ("date : le mois diverge", "{nom}", "{prenom}", "mois"),
+    # RNE 1981-10-21 / AN 1981-10-20 — le jour diverge.
+    ("date : le jour diverge", "{nom}", "{prenom}", "jour"),
+])
+def test_rattrapage_les_ecritures_divergentes_de_letat_civil(
+        conn, motif, nom_an, prenom_an, decalage_date):
+    """Chaque motif d'écriture divergente mesuré sur la base servie.
+
+    La clé exacte échoue sur chacun ; le rattrapage doit retrouver la fiche
+    AN, y verser le mandat RNE, et ne créer aucune ligne `rne-*` pour cette
+    personne.
+    """
+    depute = charger_rne()["deputes"][0]
+    nom, prenom = depute["Nom de l'élu"], depute["Prénom de l'élu"]
+    naissance = depute["Date de naissance"]
+
+    cible_nom = nom_an.format(nom=nom, prenom=prenom,
+                              nom_coupe=nom[:2] + "/" + nom[2:].capitalize())
+    cible_prenom = prenom_an.format(nom=nom, prenom=prenom)
+    cible_date = naissance
+    if decalage_date == "mois":
+        cible_date = naissance[:5] + ("01" if naissance[5:7] != "01" else "02") + naissance[7:]
+    elif decalage_date == "jour":
+        cible_date = naissance[:8] + ("01" if naissance[8:] != "01" else "02")
+
+    _poser_fiche(conn, "PA-cible", cible_nom, cible_prenom, cible_date, uid="PA-cible")
+    avant = conn.execute("SELECT count(*) AS n FROM elus").fetchone()["n"]
+
+    inseres, maj, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(charger_rne()))
+
+    assert rattrapes == 1, f"non rattrapé : {motif}"
+    ligne = conn.execute("SELECT mandats FROM elus WHERE id = 'PA-cible'").fetchone()
+    # La fiche AN porte désormais les DEUX sources : rien n'est perdu.
+    assert {m["source"] for m in json.loads(ligne["mandats"])} == {"AN", "RNE"}
+    # Aucune fiche rne-* n'a été créée pour cette personne.
+    assert conn.execute(
+        "SELECT count(*) AS n FROM elus WHERE id LIKE 'rne-%' AND nom = ?",
+        (nom,)).fetchone()["n"] == 0
+    # Une seule personne de plus en base : l'autre député de la fixture.
+    assert conn.execute("SELECT count(*) AS n FROM elus").fetchone()["n"] == avant + inseres
+
+
+def test_rattrapage_supprime_le_doublon_deja_en_base(conn):
+    """Le geste qui rend le correctif VISIBLE sur le site.
+
+    La base servie survit d'un déploiement à l'autre, contrairement à celle de
+    l'intégration continue qui naît neuve. Une clé corrigée cesserait d'ajouter
+    des doublons sans effacer ceux qui sont déjà là : le site continuerait de
+    servir deux fiches pour une seule personne. Ce test pose le doublon tel
+    qu'une ingestion précédente l'a créé, et exige sa disparition.
+    """
+    depute = charger_rne()["deputes"][0]
+    nom, prenom, naissance = (depute["Nom de l'élu"], depute["Prénom de l'élu"],
+                              depute["Date de naissance"])
+    _poser_fiche(conn, "PA-cible", nom + "-Bécot", prenom, naissance, uid="PA-cible")
+
+    # Première ingestion, AVANT le correctif : elle a créé une ligne rne-*.
+    cle = (p7.normaliser_texte(nom), p7.normaliser_texte(prenom), naissance)
+    import hashlib
+    ancien = "rne-" + hashlib.sha1("|".join(cle).encode()).hexdigest()[:16]
+    conn.execute(
+        "INSERT INTO elus (id, nom, prenom, date_naissance, mandats)"
+        " VALUES (?, ?, ?, ?, '[{\"source\": \"RNE\", \"type\": \"depute\"}]')",
+        (ancien, nom, prenom, naissance))
+    assert conn.execute("SELECT count(*) AS n FROM elus WHERE id = ?",
+                        (ancien,)).fetchone()["n"] == 1
+
+    _, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(charger_rne()))
+
+    assert rattrapes == 1
+    # Le doublon a disparu, et son mandat vit désormais sur la fiche AN.
+    assert conn.execute("SELECT count(*) AS n FROM elus WHERE id = ?",
+                        (ancien,)).fetchone()["n"] == 0
+    ligne = conn.execute("SELECT mandats FROM elus WHERE id = 'PA-cible'").fetchone()
+    assert {m["source"] for m in json.loads(ligne["mandats"])} == {"AN", "RNE"}
+
+
+def test_rattrapage_refuse_de_trancher_une_homonymie(conn):
+    """Deux fiches AN également plausibles : on renonce, on n'en choisit pas une.
+
+    C'est le garde-fou n° 3. Attribuer la déclaration d'intérêts d'une
+    personne à son homonyme serait la faute la plus grave possible ici.
+    """
+    depute = charger_rne()["deputes"][0]
+    nom, prenom, naissance = (depute["Nom de l'élu"], depute["Prénom de l'élu"],
+                              depute["Date de naissance"])
+    _poser_fiche(conn, "PA-jumeau-1", nom + "-Martin", prenom, naissance, uid="PA-jumeau-1")
+    _poser_fiche(conn, "PA-jumeau-2", nom + "-Durand", prenom, naissance, uid="PA-jumeau-2")
+
+    _, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(charger_rne()))
+    assert rattrapes == 0
+    for r in conn.execute("SELECT mandats FROM elus WHERE uid_an LIKE 'PA-jumeau-%'"):
+        assert "RNE" not in r["mandats"]
+
+
+def test_rattrapage_exige_lannee_de_naissance(conn):
+    """Même nom, même prénom, autre ANNÉE : deux personnes, pas une.
+
+    C'est ce qui empêche la tolérance de date de dégénérer en appariement par
+    le seul patronyme — 588 couples nom+prénom sont partagés par au moins deux
+    personnes dans `elus`.
+    """
+    depute = charger_rne()["deputes"][0]
+    autre_annee = str(int(depute["Date de naissance"][:4]) + 3) + depute["Date de naissance"][4:]
+    _poser_fiche(conn, "PA-autre-annee", depute["Nom de l'élu"] + "-Bis",
+                 depute["Prénom de l'élu"], autre_annee, uid="PA-autre-annee")
+
+    _, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(charger_rne()))
+    assert rattrapes == 0
+
+
+def test_rattrapage_ne_touche_jamais_un_elu_local(conn):
+    """Le rattrapage ne cherche que parmi les fiches AN/Sénat.
+
+    Élargir aux 35 000 élus locaux ferait fusionner des homonymes que plus
+    rien ne distinguerait. Ici, une ligne rne-* préexistante au nom voisin ne
+    doit pas être rattrapée : elle reste intacte, et la personne RNE est
+    insérée à part.
+    """
+    depute = charger_rne()["deputes"][0]
+    conn.execute(
+        "INSERT INTO elus (id, nom, prenom, date_naissance, mandats)"
+        " VALUES ('rne-voisin', ?, ?, ?, '[{\"source\": \"RNE\", \"type\": \"maire\"}]')",
+        (depute["Nom de l'élu"] + "-Voisin", depute["Prénom de l'élu"],
+         depute["Date de naissance"]))
+
+    _, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(charger_rne()))
+    assert rattrapes == 0
+    reste = conn.execute("SELECT mandats FROM elus WHERE id = 'rne-voisin'").fetchone()
+    assert json.loads(reste["mandats"]) == [{"source": "RNE", "type": "maire"}]
+
+
+def test_composantes_et_dates_voisines():
+    """Les deux primitives, sur les écritures réellement mesurées."""
+    assert "favennec" in p7._composantes("Favennec-Bécot")
+    assert "becot" in p7._composantes("Favennec-Bécot")
+    # Le suffixe de désambiguïsation de l'AN n'appartient pas au patronyme.
+    assert p7._composantes("Martin (Alpes-Maritimes)") == p7._composantes("MARTIN")
+    # La forme recollée absorbe une ponctuation interne divergente.
+    assert p7._composantes("K/Bidi") & p7._composantes("KBIDI")
+    # Une composante commune en FIN de nom compte autant qu'en tête.
+    assert p7._composantes("Ricourt Vaginay") & p7._composantes("VAGINAY")
+
+    assert p7._dates_voisines("1969-09-29", "1969-03-29")   # le mois diverge
+    assert p7._dates_voisines("1981-10-21", "1981-10-20")   # le jour diverge
+    assert not p7._dates_voisines("1969-09-29", "1972-09-29")   # l'année, jamais
+    assert not p7._dates_voisines("1969-09-29", "1969-03-28")   # deux composantes
+    assert not p7._dates_voisines("1969-09-29", None)
+
+
+def _rne_avec_jumeau(nom_jumeau: str, **surcharges):
+    """La fixture RNE, plus un second député dérivé du premier.
+
+    Sert aux cas où il faut DEUX personnes RNE distinctes visant la même fiche
+    AN : la fixture n'en porte que deux, aux états civils sans rapport.
+    """
+    rne = charger_rne()
+    jumeau = dict(rne["deputes"][0])
+    jumeau["Nom de l'élu"] = nom_jumeau
+    jumeau.update(surcharges)
+    rne = dict(rne)
+    rne["deputes"] = rne["deputes"] + [jumeau]
+    return rne
+
+
+def test_rattrapage_ne_vole_pas_une_fiche_que_la_cle_exacte_atteint_deja(conn):
+    """Ajustement n° 3 : la collision clé exacte × rattrapage.
+
+    Le set `pris` de la boucle n'interdit qu'un DOUBLE rattrapage. Il laisse
+    ouvert le cas où une fiche AN est atteinte par la CLÉ EXACTE d'une personne
+    et, en plus, choisie comme cible de rattrapage pour une AUTRE : les deux y
+    écrivent leurs mandats, et la seconde efface en silence les entrées
+    "source": "RNE" de la première — le mandat d'une personne disparaît sans un
+    mot. Reproduit ici ; 0 occurrence sur les données du 26/08/2026, c'est donc
+    un trou latent, pas un défaut mesuré.
+
+    La bonne réponse n'est pas de choisir : c'est de RENONCER au rattrapage.
+    Deux personnes qui prétendent à la même fiche, c'est exactement l'homonymie
+    contre laquelle le garde-fou n° 3 existe.
+    """
+    depute = charger_rne()["deputes"][0]
+    nom, prenom, naissance = (depute["Nom de l'élu"], depute["Prénom de l'élu"],
+                              depute["Date de naissance"])
+    # La fiche AN porte EXACTEMENT l'état civil du premier député : la clé
+    # exacte l'atteint, sans passer par le rattrapage.
+    _poser_fiche(conn, "PA-cible", nom, prenom, naissance, uid="PA-cible")
+    # Un second élu RNE, écrit autrement, que le repli enverrait sur la MÊME.
+    rne = _rne_avec_jumeau(nom + "-Bis")
+
+    _, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(rne))
+
+    assert rattrapes == 0, "la fiche était déjà prise par la clé exacte"
+    # Le mandat du premier est intact sur la fiche AN…
+    mandats = json.loads(conn.execute(
+        "SELECT mandats FROM elus WHERE id = 'PA-cible'").fetchone()["mandats"])
+    rne_sur_cible = [m for m in mandats if m.get("source") == "RNE"]
+    assert len(rne_sur_cible) == 1
+    assert rne_sur_cible[0]["departement"] == depute["Code du département"]
+    # …et le second vit sur sa propre ligne, au lieu d'avoir écrasé le premier.
+    assert conn.execute(
+        "SELECT count(*) AS n FROM elus WHERE id LIKE 'rne-%' AND nom = ?",
+        (nom + "-Bis",)).fetchone()["n"] == 1
+
+
+def test_rattrapage_ordre_indifferent_la_cible_prise_lest_dans_les_deux_sens(conn):
+    """Le garde-fou de l'ajustement n° 3 ne dépend pas de l'ordre d'itération.
+
+    Interdire la cible seulement quand la clé exacte l'a DÉJÀ rencontrée
+    laisserait passer le cas inverse — le rattrapage arrivant en premier. Le
+    dictionnaire `personnes` est ordonné : ce test place le jumeau AVANT la
+    personne à clé exacte, l'autre ordre étant couvert par le test précédent.
+    """
+    depute = charger_rne()["deputes"][0]
+    nom, prenom, naissance = (depute["Nom de l'élu"], depute["Prénom de l'élu"],
+                              depute["Date de naissance"])
+    _poser_fiche(conn, "PA-cible", nom, prenom, naissance, uid="PA-cible")
+    rne = _rne_avec_jumeau(nom + "-Bis")
+    personnes = p7.preparer_personnes(rne)
+    # On inverse l'ordre : le jumeau (rattrapable) est traité en premier.
+    inverse = {c: personnes[c] for c in reversed(list(personnes))}
+
+    _, _, rattrapes = p7.upsert_elus(conn, inverse)
+
+    assert rattrapes == 0
+    mandats = json.loads(conn.execute(
+        "SELECT mandats FROM elus WHERE id = 'PA-cible'").fetchone()["mandats"])
+    assert len([m for m in mandats if m.get("source") == "RNE"]) == 1
+
+
+def test_les_particules_ne_sont_jamais_appariantes(conn):
+    """Ajustement n° 2 : la faille que la PR #89 avait fermée ailleurs.
+
+    Le `_composantes` d'origine de ce correctif rendait `frozenset(mots) |
+    {recolle}` SANS filtre : « LE MAIRE » et « LE GAC » se seraient appariés sur
+    la seule syllabe « le », et « DE RUGY » avec « DE COURSON » sur « de ».
+    Mesuré sur les fiches servies : « LE » est porté par 18 d'entre elles,
+    « DE » par 14. Ici le chemin ne se contente pas de rattacher : il SUPPRIME
+    une fiche. C'était une faille armée.
+
+    Le remède retenu est de n'avoir qu'une seule primitive — celle de P15, qui
+    porte déjà le filtre — ramenée au casefold de P7 (voir `_composantes`).
+    """
+    # La primitive elle-même : la particule ne survit pas, la recollée oui.
+    assert p7._composantes("LE MAIRE") & p7._composantes("LE GAC") == frozenset()
+    assert p7._composantes("DE RUGY") & p7._composantes("DE COURSON") == frozenset()
+    assert "lemaire" in p7._composantes("Le Maire")
+    # Et la casse : tout P7 est en casefold, P15 en MAJUSCULES. Deux jeux qui
+    # ne s'intersectent jamais — le casefold est posé à la frontière.
+    assert all(c == c.casefold() for c in p7._composantes("Favennec-Bécot"))
+
+    # Bout en bout : deux élus dont seule une particule est commune ne se
+    # rattrapent pas, et aucune fiche n'est supprimée.
+    depute = charger_rne()["deputes"][0]
+    _poser_fiche(conn, "PA-particule", "LE GAC", depute["Prénom de l'élu"],
+                 depute["Date de naissance"], uid="PA-particule")
+    rne = _rne_avec_jumeau("LE MAIRE")
+
+    _, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(rne))
+    assert rattrapes == 0
+    assert "RNE" not in conn.execute(
+        "SELECT mandats FROM elus WHERE id = 'PA-particule'").fetchone()["mandats"]
+
+
+def test_rattrapage_refuse_un_homonyme_de_meme_patronyme_et_meme_annee(conn):
+    """Le cas BELLAMY — le seul tendu de la base servie, et il n'était pas testé.
+
+    `rne-9d8eafca03bfb18c` BELLAMY côtoie un `SEN-21125C Bellamy` de MÊME
+    patronyme et MÊME année de naissance. Sur les quatre garde-fous, deux
+    seulement le protègent : aucune composante de prénom commune, et des dates
+    qui ne sont pas voisines. La protection tient, mais sans marge — d'où ce
+    test, qui la rend explicite au lieu de la laisser à la chance.
+    """
+    depute = charger_rne()["deputes"][0]
+    nom, naissance = depute["Nom de l'élu"], depute["Date de naissance"]
+    # Même patronyme, même ANNÉE, prénom sans aucune composante commune.
+    autre_jour = naissance[:8] + ("07" if naissance[8:] != "07" else "08")
+    _poser_fiche(conn, "PA-homonyme", nom, "Marie-Jeanne", autre_jour,
+                 uid="PA-homonyme")
+
+    _, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(charger_rne()))
+
+    assert rattrapes == 0, "un homonyme de même patronyme ne doit jamais suffire"
+    assert "RNE" not in conn.execute(
+        "SELECT mandats FROM elus WHERE id = 'PA-homonyme'").fetchone()["mandats"]
+
+
+def test_le_volume_des_suppressions_est_borne(conn):
+    """Ajustement n° 4 : sans plafond, un millésime RNE abîmé effacerait en masse.
+
+    Le rattrapage est le SEUL endroit où ce pipeline retire une ligne de sa
+    table noyau, et la suppression ne se répare pas : les déclarations que P15
+    rattachait à la fiche partie basculent sur son chemin `hors_fiche`, qui
+    journalise sans faire échouer et efface la mémoire du garde-fou SANS RETOUR.
+    `ft-deploy` ne rattraperait pas non plus : ses deux seuls seuils de
+    volumétrie sont `NB_ELUS >= 900` et un plafond de taille d'export.
+
+    Le contrôle est éprouvé ici directement — l'appeler avec une liste construite
+    est la seule façon de franchir un plancher de 50 sans une fixture de 1 000
+    élus. Le passage par `upsert_elus` est couvert par les tests voisins.
+    """
+    # Sous le plancher : muet, quelle que soit la proportion (le cas de l'IC,
+    # dont la base naît neuve et ne porte qu'une poignée de fiches).
+    p7._controler_volume_supprimees([f"rne-{i:016x}" for i in range(50)], 2)
+    # Au-dessus du plancher mais sous la proportion : muet aussi.
+    p7._controler_volume_supprimees([f"rne-{i:016x}" for i in range(51)], 5_000)
+    # Les deux franchis : il mord, et il NOMME les identifiants.
+    trop = [f"rne-{i:016x}" for i in range(500)]
+    with pytest.raises(ValueError) as excinfo:
+        p7._controler_volume_supprimees(trop, 925)
+    message = str(excinfo.value)
+    assert "500 fiche(s)" in message and "Base NON modifiée" in message
+    assert trop[0] in message
+    assert p7.ENV_RATTRAPAGES_ACQUITTES in message
+
+
+def test_les_suppressions_sacquittent_une_par_une(monkeypatch):
+    """L'issue de secours ne desserre aucun seuil : elle NOMME ce qu'on assume.
+
+    Même forme qu'en P15 (`FT_P15_PERTES_ACQUITTEES`), et pour la même raison :
+    une levée arrête les 21 pipelines en aval et tout le rafraîchissement du
+    site jusqu'à intervention humaine. Il fallait une sortie utilisable en une
+    commande, pas un correctif de code à écrire dans l'urgence.
+    """
+    trop = [f"rne-{i:016x}" for i in range(500)]
+    # Acquitter 449 laisse 51 : au-dessus du plancher, sous la proportion.
+    monkeypatch.setenv(p7.ENV_RATTRAPAGES_ACQUITTES, ",".join(trop[:449]))
+    p7._controler_volume_supprimees(trop, 5_000)
+    # Acquitter TOUT : muet quel que soit le dénominateur.
+    monkeypatch.setenv(p7.ENV_RATTRAPAGES_ACQUITTES, ", ".join(trop))
+    p7._controler_volume_supprimees(trop, 1)
+    # N'acquitter que la moitié : il mord encore, sur le reste seulement.
+    monkeypatch.setenv(p7.ENV_RATTRAPAGES_ACQUITTES, ",".join(trop[:100]))
+    with pytest.raises(ValueError, match="400 fiche"):
+        p7._controler_volume_supprimees(trop, 925)
+
+
+def test_upsert_elus_arme_reellement_le_garde_fou_de_volume(conn, monkeypatch):
+    """Le contrôle est BRANCHÉ, pas seulement écrit.
+
+    Le test voisin éprouve la fonction de contrôle en l'appelant ; celui-ci
+    éprouve le CÂBLAGE — sans quoi retirer son appel dans `upsert_elus`
+    laisserait toute la suite verte. Les seuils sont abaissés plutôt que la
+    fixture gonflée à mille élus : c'est le branchement qu'on mesure ici, pas
+    la valeur du plancher.
+    """
+    monkeypatch.setattr(p7, "PLANCHER_RATTRAPAGES", 0)
+    monkeypatch.setattr(p7, "PROPORTION_RATTRAPAGES", 0.0)
+    depute = charger_rne()["deputes"][0]
+    nom, prenom, naissance = (depute["Nom de l'élu"], depute["Prénom de l'élu"],
+                              depute["Date de naissance"])
+    _poser_fiche(conn, "PA-cible", nom + "-Bécot", prenom, naissance, uid="PA-cible")
+    cle = (p7.normaliser_texte(nom), p7.normaliser_texte(prenom), naissance)
+    import hashlib
+    ancien = "rne-" + hashlib.sha1("|".join(cle).encode()).hexdigest()[:16]
+    conn.execute(
+        "INSERT INTO elus (id, nom, prenom, date_naissance, mandats)"
+        " VALUES (?, ?, ?, ?, '[{\"source\": \"RNE\", \"type\": \"depute\"}]')",
+        (ancien, nom, prenom, naissance))
+
+    with pytest.raises(ValueError, match="rattrapage invraisemblable"):
+        p7.upsert_elus(conn, p7.preparer_personnes(charger_rne()))
+
+    # Et l'acquittement traverse bien le même câblage.
+    monkeypatch.setenv(p7.ENV_RATTRAPAGES_ACQUITTES, ancien)
+    _, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(charger_rne()))
+    assert rattrapes == 1
+
+
+def test_la_suppression_tombe_dans_la_transaction_de_ecrire(conn):
+    """La fiche supprimée revient si le cycle échoue APRÈS.
+
+    C'est la propriété que les PR #91 et #92 ont achetée, et le rattrapage ne
+    doit pas la défaire : le `DELETE FROM elus` est le premier ordre destructeur
+    que ce pipeline émette sur sa table noyau, et il doit être annulé comme le
+    reste. Sans le `BEGIN IMMEDIATE` d'`appliquer_schema`, il partirait sur
+    disque et la fiche serait perdue alors même que le cycle a échoué.
+    """
+    depute = charger_rne()["deputes"][0]
+    nom, prenom, naissance = (depute["Nom de l'élu"], depute["Prénom de l'élu"],
+                              depute["Date de naissance"])
+    _poser_fiche(conn, "PA-cible", nom + "-Bécot", prenom, naissance, uid="PA-cible")
+    cle = (p7.normaliser_texte(nom), p7.normaliser_texte(prenom), naissance)
+    import hashlib
+    ancien = "rne-" + hashlib.sha1("|".join(cle).encode()).hexdigest()[:16]
+    conn.execute(
+        "INSERT INTO elus (id, nom, prenom, date_naissance, mandats)"
+        " VALUES (?, ?, ?, ?, '[{\"source\": \"RNE\", \"type\": \"depute\"}]')",
+        (ancien, nom, prenom, naissance))
+    conn.commit()
+
+    conn.execute("BEGIN IMMEDIATE")
+    _, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(charger_rne()))
+    assert rattrapes == 1
+    assert conn.execute("SELECT count(*) AS n FROM elus WHERE id = ?",
+                        (ancien,)).fetchone()["n"] == 0
+    conn.rollback()
+
+    # Le cycle a échoué : la fiche est revenue, et son mandat avec.
+    assert conn.execute("SELECT count(*) AS n FROM elus WHERE id = ?",
+                        (ancien,)).fetchone()["n"] == 1
+    assert "RNE" not in conn.execute(
+        "SELECT mandats FROM elus WHERE id = 'PA-cible'").fetchone()["mandats"]
 
 
 def test_croiser_hatvp_flag_unique_des_deux_cotes(conn, dossiers):

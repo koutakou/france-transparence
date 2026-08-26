@@ -21,7 +21,7 @@ Tables produites (remplacement complet, idempotent) :
   A1_hatvp_retard_presume). Colonnes : id, type, gravite, titre, detail, regle,
   base_legale, source_url, date_calcul.
 
-Table noyau complétée (jamais écrasée) :
+Table noyau complétée, et — depuis le rattrapage — élaguée :
 - elus : UPSERT prudent par (nom, prénom, date de naissance) normalisés —
   députés (577), sénateurs (348), maires (~34 800), présidents d'exécutifs
   (conseils départementaux, conseils régionaux, EPCI). Les colonnes remplies par
@@ -63,6 +63,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import os
 import re
 import sqlite3
 import sys
@@ -74,6 +75,7 @@ from pathlib import Path
 
 from pipelines import db
 from pipelines.common import RAW_DIR, obtenir_logger, session_http, telecharger
+from pipelines.ingest_hatvp_declarations import composantes_identite, dates_voisines
 
 log = obtenir_logger("ingest_integrite")
 
@@ -510,6 +512,76 @@ def _cle_personne(r: dict) -> tuple[str, str, str]:
     )
 
 
+# Garde-fou de VOLUME du rattrapage (ajustement n° 4 de la qualification D22).
+# Chaque rattrapage émet un `DELETE FROM elus` : c'est le seul endroit où ce
+# pipeline retire une ligne de sa table noyau. Sans plafond, un millésime RNE
+# abîmé — un fichier tronqué, une colonne décalée, un export de test — pourrait
+# en émettre des centaines dans un cycle qui se termine en SUCCÈS, sans qu'un
+# seul seuil morde. `ft-deploy` ne rattraperait pas : ses deux seuls contrôles
+# de volumétrie sont `NB_ELUS >= 900` (l. 303) et un plafond de taille d'export
+# (l. 305) — mesuré, 1 049 fiches tombant à 1 036 passe sans un mot, et il
+# faudrait perdre 97 % des fiches pour que le premier morde.
+#
+# La forme est celle de P15 : un PLANCHER *et* une PROPORTION, jamais la
+# proportion seule. La proportion seule ferait échouer l'intégration continue,
+# dont les fixtures ne portent qu'une poignée de fiches (1 rattrapage sur 2
+# cibles = 50 %) ; le plancher seul serait aveugle à une base qui aurait fondu.
+# Mesure du 26/08/2026 sur la base servie : 17 rattrapages pour 925 fiches
+# AN/Sénat, soit 1,8 % — deux ordres de grandeur sous le déclenchement.
+PLANCHER_RATTRAPAGES = 50
+PROPORTION_RATTRAPAGES = 0.05
+
+# Issue de secours, calquée sur `FT_P15_PERTES_ACQUITTEES` : elle ne desserre
+# aucun seuil, elle NOMME les identifiants dont un exploitant assume la
+# suppression. Ce qui est acquitté est donc tracé dans la commande, pas effacé
+# du code. Elle existe pour la même raison qu'en P15 : une levée arrête les
+# 21 pipelines en aval et tout le rafraîchissement du site jusqu'à intervention
+# humaine, chaque nuit.
+ENV_RATTRAPAGES_ACQUITTES = "FT_P7_RATTRAPAGES_ACQUITTES"
+
+
+def _composantes(s: str | None) -> frozenset[str]:
+    """Composantes d'un nom ou d'un prénom — celles de P15, ramenées au casefold.
+
+    POURQUOI ON N'EN ÉCRIT PAS UNE SECONDE. `composantes_identite` (P15,
+    `ingest_hatvp_declarations`) fait déjà exactement ce travail — retrait des
+    parenthèses de désambiguïsation de l'Assemblée, forme recollée pour les
+    graphies coupées autrement (RNE « KBIDI » / AN « K/Bidi ») — ET elle exclut
+    les PARTICULES, ce que la version d'origine de ce correctif ne faisait pas.
+    Mesuré : « LE MAIRE » × « LE GAC » s'apparient sur la seule syllabe « le »
+    sans ce filtre, et « DE RUGY » × « DE COURSON » sur « de » ; « LE » est porté
+    par 18 fiches servies, « DE » par 14. Réintroduire une variante sans filtre
+    dans un chemin qui SUPPRIME une fiche, alors que la PR #89 venait de fermer
+    cette faille dans un chemin qui se contente de rattacher, était une faille
+    armée — pas un défaut de style.
+
+    ⚠️ LA CASSE, ET POURQUOI CE N'EST PAS UN APPEL DIRECT. `composantes_identite`
+    rend du MAJUSCULE (convention de la source HATVP, cf. `normaliser_identite`)
+    ; tout P7 est en `casefold` (`normaliser_texte`). Les deux jeux ne
+    s'intersectent JAMAIS. Le repli reste cohérent avec lui-même dans les deux
+    conventions — il ne croise que ses propres sorties — mais une comparaison
+    ultérieure contre une clé P7 rendrait un ensemble vide EN SILENCE : aucune
+    exception, zéro rattrapage, garde-fou muet. Le casefold est donc posé ici,
+    à la frontière, une fois pour toutes.
+
+    Différence résiduelle assumée : P15 normalise en NFD, P7 en NFKD ; les
+    caractères de compatibilité (« Ⅷ », « № ») s'évaporent au lieu d'être
+    dépliés. Aucun patronyme du RNE n'en porte (mesuré : 0 sur 36 020).
+    """
+    return frozenset(c.casefold() for c in composantes_identite(s))
+
+
+def _dates_voisines(a: str | None, b: str | None) -> bool:
+    """Même ANNÉE, au plus une composante de date divergente — celle de P15.
+
+    Alias explicite : la primitive est `dates_voisines` de P15, à l'identique
+    (deux sources officielles se contredisent d'un chiffre sur l'état civil —
+    mesuré ici : Karl Olive, 1969-09-29 au RNE contre 1969-03-29 à l'AN ;
+    Stéphanie Galzy, le 21 contre le 20). Rien à dupliquer.
+    """
+    return dates_voisines(a, b)
+
+
 def _dep_rne(r: dict) -> str:
     d = normaliser_departement(r.get("Code du département"))
     return d or normaliser_departement(r.get("Code de la collectivité à statut particulier"))
@@ -770,24 +842,196 @@ def preparer_personnes(rne: dict[str, list[dict]]) -> dict[tuple, dict]:
     return personnes
 
 
-def upsert_elus(conn, personnes: dict[tuple, dict]) -> tuple[int, int]:
+def _rattraper(p: dict, index_nom: dict, garde: set) -> dict | None:
+    """Retrouve la fiche AN/Sénat d'une personne que la clé exacte a manquée.
+
+    POURQUOI cette seconde chance existe. La clé exacte est
+    `(nom, prénom, date de naissance)` normalisés. Elle est juste, et elle doit
+    le rester : 588 couples nom+prénom sont partagés par au moins deux
+    personnes dans `elus`, et c'est la date de naissance qui les sépare
+    (cf. tests de P15 et EXPLOITATION.md § 9.6). Mais elle échoue chaque fois
+    que le RNE et la chambre n'écrivent pas l'état civil de la MÊME façon —
+    mesuré le 26/08/2026 sur les 36 020 lignes de la base servie, 17 fois :
+
+      · le RNE tronque un nom composé que la chambre porte en entier
+        (RNE « FAVENNEC » / AN « Favennec-Bécot », 4 cas), ou l'inverse
+        (RNE « FOUCHER CHAZÉ » / AN « Chazé »), ou la composante commune est
+        en FIN de nom (RNE « VAGINAY » / AN « Ricourt Vaginay », 3 cas) ;
+      · l'AN désambiguïse deux homonymes par le département entre parenthèses
+        (« Martin (Gironde) »), 2 cas ;
+      · les graphies divergent sur la ponctuation (RNE « KBIDI » / AN
+        « K/Bidi ») ou le RNE porte une faute de frappe (« REID ABERLOT »
+        pour « Reid Arbelot ») ;
+      · le prénom est tronqué (RNE « Frédéric » / AN « Frédéric-Pierre »,
+        2 cas) ;
+      · les deux sources se contredisent d'un chiffre sur la date (2 cas).
+
+    Trois garde-fous, sans lesquels le remède serait pire que le mal :
+      1. on ne cherche QUE parmi les fiches AN/Sénat (`index_nom` ne contient
+         qu'elles). Le problème est de ne pas créer un `rne-*` en double d'une
+         fiche existante ; élargir aux 35 093 lignes d'élus locaux ferait
+         fusionner des homonymes que rien ne distingue plus ;
+      2. il faut au moins une composante de NOM **et** une de PRÉNOM en
+         commun, l'année de naissance identique, et au plus une composante de
+         date qui diverge ;
+      3. **un seul candidat**, sinon on renonce. Deux candidats, c'est une
+         homonymie, et attribuer la déclaration d'intérêts d'une personne à
+         une autre serait la faute la plus grave possible ici.
+
+    Mesure de contrôle du 26/08/2026, en rejouant `upsert_elus` sur une COPIE
+    de la base servie : **17** rattrapages — et pas 16, chiffre d'une mesure
+    antérieure que ce texte a porté à tort —, 0 candidat ambigu, 0 fiche déjà
+    appariée touchée, 0 fiche créée, `elus` passant de 36 020 à 36 003 lignes.
+    La liste des 17 identifiants est dans `deploy/redirections-elus.tsv` : le
+    lot se MESURE, il ne se recopie pas d'une séance à l'autre — il dépend de
+    l'état de `elus` du jour et du millésime RNE du jour. Cette table est aussi
+    la source des redirections 301 qui empêchent les URL retirées de tomber en
+    404 : voir `docs/REDIRECTIONS-ELUS.md`, et **poser la règle nginx AVANT**
+    de laisser un cycle retirer les fiches.
+
+    Les fiches AN/Sénat qui restent sans mandat RNE après ce passage ne sont
+    PAS des doublons : ce sont des arrivées récentes absentes du millésime RNE,
+    et un prénom d'usage qu'aucune règle sur l'état civil ne peut trancher
+    (RNE « Peter VIGIER » / AN « Jean-Pierre Vigier » : même date de naissance
+    et même siège, mais `_composantes('Peter') ∩ _composantes('Jean-Pierre')`
+    est vide — le repli y est structurellement AVEUGLE). Les laisser non
+    appariées est le comportement correct : il vaut mieux deux fiches qu'une
+    fusion fausse.
+    """
+    annee = (p["date_naissance"] or "")[:4]
+    if not annee:
+        return None
+    composantes_prenom = _composantes(p["prenom"])
+    if not composantes_prenom:
+        return None
+    candidats: dict[str, dict] = {}
+    for c in _composantes(p["nom"]):
+        for e in index_nom.get((annee, c), ()):
+            if e["id"] in candidats or e["id"] in garde:
+                continue
+            if not _dates_voisines(p["date_naissance"], e["date_naissance"]):
+                continue
+            if not (composantes_prenom & _composantes(e["prenom"])):
+                continue
+            candidats[e["id"]] = e
+    if len(candidats) != 1:                # garde-fou n° 3 : homonymie
+        return None
+    return next(iter(candidats.values()))
+
+
+def _controler_volume_supprimees(supprimes: list[str], nb_cibles: int) -> None:
+    """Refuse un cycle qui supprimerait un volume invraisemblable de fiches.
+
+    POURQUOI C'EST LA SUPPRESSION QU'ON GARDE, ET PAS LE COMPTE DE RATTRAPAGES.
+    Un rattrapage qui n'efface rien — le cas de l'intégration continue, dont la
+    base naît neuve — ne fait que verser des mandats RNE sur une fiche AN ; le
+    cycle suivant les remplace en bloc, l'erreur ne survit pas à la nuit. Le
+    `DELETE`, lui, ne se répare pas : la fiche partie, les déclarations que P15
+    lui rattachait basculent sur son chemin `hors_fiche`, qui journalise sans
+    faire échouer et **efface la mémoire du garde-fou de la PR #90 sans
+    retour**. C'est donc le geste irréversible qu'il faut borner, pas son
+    superensemble.
+
+    PLANCHER *ET* PROPORTION, jamais l'un sans l'autre — la forme est celle des
+    garde-fous de P15 (`ingest_hatvp_declarations`, repli d'orthographe ≤ 15 %
+    doublé d'un plancher de 1 000 rattachements). La proportion seule ferait
+    échouer l'intégration continue, dont les fixtures ne portent qu'une poignée
+    de fiches ; le plancher seul serait aveugle à une base qui aurait fondu.
+
+    L'acquittement ne desserre AUCUN seuil : il nomme, un par un, les
+    identifiants dont l'exploitant assume la suppression.
+    """
+    acquittes = {i.strip() for i in
+                 os.environ.get(ENV_RATTRAPAGES_ACQUITTES, "").split(",") if i.strip()}
+    restants = [i for i in supprimes if i not in acquittes]
+    if acquittes:
+        log.warning("rattrapage : %d suppression(s) acquittée(s) par %s",
+                    len(supprimes) - len(restants), ENV_RATTRAPAGES_ACQUITTES)
+    if not (len(restants) > PLANCHER_RATTRAPAGES
+            and len(restants) > PROPORTION_RATTRAPAGES * nb_cibles):
+        return
+    # La liste COMPLÈTE part au journal AVANT la levée : le message d'exception
+    # tronque à huit, et l'acquittement exige de nommer chaque identifiant.
+    # Sans cette ligne, l'issue de secours serait inutilisable.
+    log.error("rattrapage : liste complète des %d fiches à supprimer : %s",
+              len(restants), " ".join(restants))
+    raise ValueError(
+        f"rattrapage invraisemblable : {len(restants)} fiche(s) `rne-*` seraient "
+        f"supprimées pour {nb_cibles} fiches AN/Sénat indexées "
+        f"(plancher {PLANCHER_RATTRAPAGES}, plafond "
+        f"{PROPORTION_RATTRAPAGES:.0%}) — le millésime RNE est-il abîmé ? "
+        f"Base NON modifiée. Identifiants : {', '.join(restants[:8])}"
+        f"{' …' if len(restants) > 8 else ''}. Après examen, acquitter "
+        f"identifiant par identifiant avec {ENV_RATTRAPAGES_ACQUITTES}=<id,id> "
+        f"— la liste complète est dans le journal, ligne « rattrapage : liste "
+        f"complète ».")
+
+
+def upsert_elus(conn, personnes: dict[tuple, dict]) -> tuple[int, int, int]:
     """UPSERT prudent par (nom, prénom, date de naissance) normalisés.
 
     Ne touche jamais uid_an / matricule_senat ; ne remplit sexe, profession,
     date_naissance que s'ils sont NULL ; remplace uniquement les mandats
     "source": "RNE" du JSON, les autres sont conservés.
+
+    Quand la clé exacte échoue, `_rattraper` tente une seconde fois contre les
+    seules fiches AN/Sénat — voir sa docstring pour le pourquoi et les trois
+    garde-fous. Un rattrapage supprime au passage la ligne `rne-*` que les
+    ingestions PRÉCÉDENTES avaient créée pour cette même personne : sans cette
+    purge, corriger l'appariement cesserait d'ajouter des doublons sans
+    effacer ceux qui sont déjà en base, et le site continuerait de servir deux
+    fiches pour une seule personne. La base servie survit d'un déploiement à
+    l'autre, contrairement à celle de l'intégration continue qui naît neuve à
+    chaque passage : c'est là, et là seulement, que les doublons persistent.
     """
     existants: dict[tuple, dict] = {}
+    index_nom: dict[tuple, list] = defaultdict(list)
+    cibles: set[str] = set()   # fiches AN/Sénat indexées, dénominateur du garde-fou
     for r in conn.execute("SELECT id, nom, prenom, date_naissance, sexe, profession,"
                           " mandats FROM elus"):
-        cle = (normaliser_texte(r["nom"]), normaliser_texte(r["prenom"]),
-               (r["date_naissance"] or "").strip())
-        existants.setdefault(cle, dict(r))
+        e = dict(r)
+        cle = (normaliser_texte(e["nom"]), normaliser_texte(e["prenom"]),
+               (e["date_naissance"] or "").strip())
+        existants.setdefault(cle, e)
+        if not e["id"].startswith("rne-"):     # garde-fou n° 1 : cibles AN/Sénat
+            annee = (e["date_naissance"] or "")[:4]
+            if annee:
+                cibles.add(e["id"])
+                for c in _composantes(e["nom"]):
+                    index_nom[(annee, c)].append(e)
 
-    inseres = maj = 0
+    inseres = maj = rattrapes = 0
+    supprimes: list[str] = []
+    # Garde-fou n° 4 : une fiche AN/Sénat que la CLÉ EXACTE atteint déjà n'est
+    # pas rattrapable. Le seul `pris.add()` de la boucle n'interdit qu'un DOUBLE
+    # rattrapage ; il laisse ouverte la collision clé exacte × rattrapage — deux
+    # personnes RNE distinctes écrivant leurs mandats sur la même fiche, la
+    # seconde effaçant en silence les entrées "source": "RNE" de la première
+    # (reproduit en laboratoire ; 0 occurrence sur les données du 26/08/2026).
+    # Le pré-calcul rend le garde-fou INDÉPENDANT DE L'ORDRE d'itération :
+    # interdire la cible seulement quand la clé exacte l'a déjà rencontrée
+    # laisserait passer le cas où le rattrapage arrive en premier.
+    pris: set = {existants[c]["id"] for c in personnes
+                 if c in existants and not existants[c]["id"].startswith("rne-")}
     for cle, p in personnes.items():
-        if cle in existants:
-            e = existants[cle]
+        e = existants.get(cle)
+        # La clé exacte peut très bien retomber sur le DOUBLON lui-même : une
+        # ingestion antérieure au correctif a créé une ligne `rne-*` qui porte
+        # exactement cette clé. La trouver ne prouve donc rien — il faut quand
+        # même chercher la fiche AN/Sénat, et si elle existe, c'est ELLE la
+        # bonne cible et la ligne `rne-*` doit disparaître. Sans cette reprise,
+        # le correctif cesserait de créer des doublons sans jamais effacer ceux
+        # que la base servie porte déjà, et le site ne bougerait pas.
+        if e is None or e["id"].startswith("rne-"):
+            cible = _rattraper(p, index_nom, pris)
+            if cible is not None:
+                pris.add(cible["id"])
+                rattrapes += 1
+                if e is not None:
+                    conn.execute("DELETE FROM elus WHERE id = ?", (e["id"],))
+                    supprimes.append(e["id"])
+                e = cible
+        if e is not None:
             try:
                 anciens = json.loads(e["mandats"]) if e["mandats"] else []
             except json.JSONDecodeError:
@@ -806,7 +1050,8 @@ def upsert_elus(conn, personnes: dict[tuple, dict]) -> tuple[int, int]:
                 (ident, p["nom"], p["prenom"], p["sexe"], p["date_naissance"],
                  p["profession"], json.dumps(p["mandats"], ensure_ascii=False)))
             inseres += 1
-    return inseres, maj
+    _controler_volume_supprimees(supprimes, len(cibles))
+    return inseres, maj, rattrapes
 
 
 def croiser_hatvp_flag(conn, dossiers: list[dict]) -> int:
@@ -974,10 +1219,11 @@ def ecrire(conn, dossiers: list[dict], rne: dict, chemins: dict,
 
     # --- elus : upsert prudent + croisement HATVP ----------------------
     personnes = preparer_personnes(rne)
-    inseres, maj = upsert_elus(conn, personnes)
+    inseres, maj, rattrapes = upsert_elus(conn, personnes)
     flags = croiser_hatvp_flag(conn, dossiers)
-    log.info("elus : %d insérés, %d complétés (fusion mandats), %d hatvp_flag posés",
-             inseres, maj, flags)
+    log.info("elus : %d insérés, %d complétés (fusion mandats), %d rattrapés sur"
+             " une fiche AN/Sénat, %d hatvp_flag posés",
+             inseres, maj, rattrapes, flags)
 
     # --- Conseillers municipaux : agrégats seulement -------------------
     lignes_cm, total_cm = agreger_conseillers_municipaux(chemins["cm"], aujourd_hui)
@@ -1090,8 +1336,10 @@ def main() -> int:
             "P7 en échec. La base n'est PAS modifiée : l'écriture est atomique, "
             "le cycle précédent reste servi entier. Les tables remplacées "
             "(hatvp_declarations, hatvp_agregats, rne_cm_agregats, et les "
-            "alertes A1) gardent leur contenu de la veille ; `elus` n'est de "
-            "toute façon jamais écrasée, seulement complétée")
+            "alertes A1) gardent leur contenu de la veille ; `elus` est "
+            "complétée, et les seules lignes qu'elle perd sont les fiches "
+            "`rne-*` rattrapées sur une fiche AN/Sénat — ce `DELETE` tombe "
+            "dans la même transaction, il est donc annulé lui aussi")
         return 1
     finally:
         if conn is not None:
