@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { getDb } from "@/lib/db";
 import { getSlugsMissions } from "@/lib/queries/depenses";
+import { getIdsFichesStatiques } from "@/lib/queries/elus";
 import { SITE_URL } from "@/lib/site";
 
 // Exigé par `output: "export"` (route metadata générée au build).
@@ -11,7 +12,9 @@ export const dynamic = "force-static";
  * - les pages du site + les pages éditoriales (légales et méthode) ;
  * - les fiches élus réellement pré-rendues — mandats nationaux et exécutifs
  *   uniquement (docs/deploiement/DECISION.md : députés, sénateurs,
- *   présidents de conseil départemental et régional, ≈ 1 053 fiches).
+ *   présidents de conseil départemental et régional). Le compte n'est pas
+ *   écrit ici : il dérive à chaque ingestion, et c'est getIdsFichesStatiques()
+ *   qui en décide.
  *
  * URLs absolues en dur sur SITE_URL (GitHub Pages, basePath inclus) et
  * TRAILING SLASH systématique (le site statique sert des index.html).
@@ -47,14 +50,6 @@ const PAGES_DONNEES = [
 /** Pages éditoriales, indépendantes de l'ingestion (aucun `lastmod`). */
 const PAGES_LEGALES = ["mentions-legales", "donnees-personnelles", "comprendre"];
 
-/** Types de mandat dont la fiche élu est pré-rendue (DECISION.md §R2). */
-const TYPES_MANDAT_FICHE = [
-  "depute",
-  "senateur",
-  "president_conseil_departemental",
-  "president_conseil_regional",
-];
-
 export default function sitemap(): MetadataRoute.Sitemap {
   // Garde « base absente » héritée de getDb() : sans base (dev sans
   // ingestion), le sitemap reste valide — sans `lastmod` et sans fiches.
@@ -84,18 +79,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     }
   }
 
-  // Fiches élus : ids distincts porteurs d'au moins un mandat pré-rendu.
+  // Fiches élus : MÊME source que generateStaticParams de /elus/[id] —
+  // getIdsFichesStatiques() est la seule vérité, comme getSlugsMissions()
+  // ci-dessus. L'énumération locale qui vivait ici prenait les sénateurs dans
+  // json_each(e.mandats) au lieu de la table `senateurs` ; elle annonçait donc
+  // des fiches que le build ne génère pas, et le sitemap servait des 404.
   if (db) {
-    const jetons = TYPES_MANDAT_FICHE.map(() => "?").join(", ");
-    const lignes = db
-      .prepare(
-        `SELECT DISTINCT e.id
-           FROM elus e, json_each(e.mandats) je
-          WHERE json_extract(je.value, '$.type') IN (${jetons})
-          ORDER BY e.id`,
-      )
-      .all(...TYPES_MANDAT_FICHE) as { id: string }[];
-    for (const { id } of lignes) {
+    for (const id of getIdsFichesStatiques()) {
       urls.push({ url: `${SITE_URL}/elus/${encodeURIComponent(id)}/`, lastModified });
     }
   }

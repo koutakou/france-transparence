@@ -10,18 +10,21 @@
  * - les entités routables (ministères, institutions, collectivités, partis)
  *   par nom/sigle, vers leur module.
  *
- * CONTRAT FICHES (docs/deploiement/DECISION.md) : seuls les élus portant un
- * mandat `depute`, `senateur`, `president_conseil_departemental` ou
- * `president_conseil_regional` ont une fiche statique /elus/<id> (1 053
- * fiches). L'`id` n'est transporté QUE pour eux ; les autres résultats
- * renvoient vers la liste /elus — jamais vers une fiche 404.
+ * CONTRAT FICHES (docs/deploiement/DECISION.md) : l'`id` n'est transporté que
+ * pour les élus qui ont RÉELLEMENT une fiche statique /elus/<id> ; les autres
+ * résultats renvoient vers la liste /elus — jamais vers une fiche 404. La
+ * seule vérité est getIdsFichesStatiques(), celle-là même que consomme
+ * generateStaticParams : tester ici les 4 types de mandat rendait la promesse
+ * fausse pour les sénateurs, dont le JSON des mandats survit à la sortie de la
+ * table `senateurs`. Aucun compte n'est écrit ici : il dérive à chaque
+ * ingestion.
  *
  * Format compact (vise ≤ 1,5 Mo brut) : tableaux positionnels, libellés de
  * mandat et départements dédupliqués par index.
  */
 import fs from "node:fs";
 import { getDb } from "@/lib/db";
-import type { MandatJson } from "@/lib/queries/elus";
+import { getIdsFichesStatiques, type MandatJson } from "@/lib/queries/elus";
 import {
   GEOJSON_DEPARTEMENTS_PATH,
   type GeojsonDepartements,
@@ -45,14 +48,6 @@ export type IndexRecherche = {
   hrefs: string[];
   entites: EntiteIndex[];
 };
-
-/** Types de mandat ouvrant droit à une fiche statique (contrat DECISION.md). */
-export const TYPES_MANDAT_FICHE = [
-  "depute",
-  "senateur",
-  "president_conseil_departemental",
-  "president_conseil_regional",
-] as const;
 
 /** Ordre de préférence du mandat principal (même ordre que l'ancienne API). */
 const PRIORITE_MANDATS = [
@@ -152,6 +147,10 @@ export function construireIndexRecherche(): IndexRecherche | null {
     return i;
   };
 
+  // Une seule construction pour les ~36 000 lignes : `has` en O(1), là où un
+  // `includes` sur la liste des fiches serait quadratique.
+  const idsFiches = new Set(getIdsFichesStatiques());
+
   const elus: EluIndex[] = lignes.map((e) => {
     let mandats: MandatJson[] = [];
     if (e.mandats) {
@@ -171,10 +170,8 @@ export function construireIndexRecherche(): IndexRecherche | null {
     }
     principal = principal ?? mandats[0];
 
-    // Fiche statique : au moins un mandat des 4 types du contrat.
-    const aFiche = mandats.some((m) =>
-      (TYPES_MANDAT_FICHE as readonly string[]).includes(m.type ?? ""),
-    );
+    // Fiche statique : l'id figure-t-il parmi les pages réellement générées ?
+    const aFiche = idsFiches.has(e.id);
 
     // Libellé + département selon le mandat principal.
     let typeIdx = 6; // « Élu·e »

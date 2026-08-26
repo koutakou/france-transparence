@@ -203,6 +203,36 @@ jobs:
           nb_fiches=$(find app/out/elus -mindepth 1 -maxdepth 1 -type d | wc -l)
           echo "Fiches élus générées : $nb_fiches"
           test "$nb_fiches" -ge 900
+          # Le seuil ci-dessus a 130+ de marge : un écart de six fiches passe
+          # dessous sans le frôler. Ce qui manquait n'était pas un seuil plus
+          # serré (il dériverait), c'est la COHÉRENCE entre les deux
+          # populations. Le sitemap a annoncé des /elus/<id> que le build ne
+          # générait pas pendant six jours et douze déploiements, sans qu'aucun
+          # contrôle les compare : des 404 servis aux moteurs, en silence.
+          # Les deux sens sont vérifiés — le second interdit qu'une fiche
+          # réellement publiée cesse d'être annoncée.
+          python3 - <<'EOF'
+          import pathlib, re, sys, urllib.parse
+          out = pathlib.Path("app/out")
+          locs = re.findall(r"<loc>([^<]*)</loc>", (out / "sitemap.xml").read_text())
+          # Découper sur le CHEMIN, pas sur la chaîne : `/elus/` est aussi la
+          # page de liste, et un rsplit naïf y lève IndexError — le garde-fou
+          # aurait échoué à tous les coups, y compris sur un site sain.
+          annonces = set()
+          for u in locs:
+              chemin = urllib.parse.urlsplit(u).path
+              if chemin.startswith("/elus/") and chemin.strip("/") != "elus":
+                  annonces.add(urllib.parse.unquote(chemin.strip("/")[len("elus/"):]))
+          generees = {d.name for d in (out / "elus").iterdir() if d.is_dir()}
+          fantomes = sorted(annonces - generees)
+          muettes = sorted(generees - annonces)
+          print(f"Fiches annoncées au sitemap : {len(annonces)} — générées : {len(generees)}")
+          for f in fantomes[:20]:
+              print(f"  ÉCHEC : /elus/{f}/ est au sitemap sans page générée (404 servi)")
+          for m in muettes[:20]:
+              print(f"  ÉCHEC : /elus/{m}/ est générée mais absente du sitemap")
+          sys.exit(1 if fantomes or muettes else 0)
+          EOF
           taille=$(du -sm app/out | cut -f1)
           echo "Taille du site : ${taille} Mo"
           test "$taille" -lt 950

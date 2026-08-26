@@ -643,8 +643,15 @@ export function getFicheElu(id: string): FicheElu | null {
 /**
  * Identifiants des fiches statiques : députés et exécutifs CD/CR depuis
  * le JSON des mandats ; sénateurs depuis la table `senateurs` (ODSEN
- * ACTIF), pas depuis `json_extract(type)='senateur'` (353 fusionnés /
- * 349 SEN-* dont 1 ANCIEN).
+ * ACTIF), pas depuis `json_extract(type)='senateur'` — le JSON des mandats
+ * conserve un mandat sénatorial que la table a déjà purgé, et l'écart entre
+ * les deux dérive à chaque ingestion (aucun chiffre écrit ici pour cette
+ * raison : il serait faux à la publication suivante).
+ *
+ * SEULE VÉRITÉ des fiches /elus/<id> : generateStaticParams, le sitemap et
+ * l'index de recherche consomment tous les trois cette fonction. Ne pas
+ * réintroduire d'énumération parallèle — c'est ce qui avait mis au sitemap,
+ * et dans la boîte de recherche, des URL que le build ne génère pas.
  */
 export function getIdsFichesStatiques(): string[] {
   const db = getDb();
