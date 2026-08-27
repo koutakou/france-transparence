@@ -32,12 +32,20 @@ set -euo pipefail
 
 TABLE="${1:-$(dirname "$0")/redirections-elus.tsv}"
 SITE="https://francetransparence.fr"
+# Destination RÉELLE du fichier engendré. Elle est écrite en clair, et NON
+# dérivée de "$0" : le vhost inclut `snippets/ft-redirections-elus*.conf`,
+# un joker que le nom du SCRIPT (`gen-redirections-elus.conf`) ne satisfait
+# pas. La ligne « Régénérer » du fichier engendré l'annonçait pourtant ainsi
+# jusqu'au 27/08/2026 : un opérateur qui la suivait écrivait un fichier que
+# nginx n'inclut jamais, `nginx -t` restait vert, et la régénération
+# PARAISSAIT faite sans avoir eu le moindre effet. Échec silencieux.
+CIBLE_NGINX=/etc/nginx/snippets/ft-redirections-elus-pages.conf
 
 [ -r "$TABLE" ] || { echo "table illisible : $TABLE" >&2; exit 1; }
 
 printf '# ENGENDRÉ — ne pas modifier à la main.\n'
 printf '# Source de vérité : deploy/redirections-elus.tsv du dépôt.\n'
-printf '# Régénérer : deploy/gen-redirections-elus.sh > %s\n' "$(basename "${0%.sh}").conf"
+printf '# Régénérer : deploy/gen-redirections-elus.sh > %s\n' "$CIBLE_NGINX"
 printf '#\n'
 
 n=0

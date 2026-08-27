@@ -264,6 +264,59 @@ jobs:
           cat app/out/robots.txt
           grep -qx 'Sitemap: https://francetransparence\.fr/sitemap\.xml' app/out/robots.txt
 
+      # --- Redirections 301 des fiches fusionnées (R1a et R1c) --------------
+      # Source : doc/QUALIFICATION-301-DERIVE-20260826.md § 9. La règle nginx
+      # qui sert ces 301 vit HORS du dépôt (/etc/nginx/snippets/) : rien, dans
+      # la chaîne, ne rapprochait jusqu'ici la table du site réellement
+      # engendré. Les tests pipelines valident la table contre elle-même — une
+      # faute de frappe, un doublon, une cible `rne-*` — jamais un identifiant
+      # qui a cessé d'exister.
+      #
+      # 🛑 CES CONTRÔLES AVERTISSENT, ILS NE BLOQUENT PAS, et c'est délibéré.
+      # Une cible qui perd sa page est un événement NORMAL : le jour où un
+      # député cible perd son mandat, sa fiche sort du site. Un `exit 1` ici
+      # gèlerait la publication entière sur un événement garanti à échéance.
+      #
+      # Ce que chacun attrape :
+      #   R1a — une CIBLE de la table n'est plus engendrée : le 301 pointe
+      #         désormais vers un 404, et l'ancienne fiche est perdue pour de
+      #         bon (l'URL retirée ne rend même plus la jumelle).
+      #   R1c — une SOURCE de la table est de nouveau engendrée (résurrection
+      #         par le pipeline) : la page existe, mais nginx la masque
+      #         derrière le 301 — publiée et invisible, en silence.
+      #
+      # Ce qui N'EST PAS ici, et pourquoi : le sens « fiche sortie du site sans
+      # ligne dans la table » (R1b) exige l'arborescence out/elus de la release
+      # PRÉCÉDENTE. Elle n'existe que sur le serveur (GARDER=5) ; un runner ne
+      # met en cache que data/france.db. Le prescrire ici serait prescrire un
+      # contrôle structurellement incalculable. Il vit dans ft-deploy seul.
+      - name: Cohérence des redirections 301 d'élus (avertit, ne bloque pas)
+        run: |
+          set -u
+          table=deploy/redirections-elus.tsv
+          if [ ! -r "$table" ]; then
+            echo "::warning::$table illisible : le contrôle des 301 n'a pas été joué"
+            exit 0
+          fi
+          n=0; absentes=; ressuscitees=
+          while IFS=$'\t' read -r retire conserve _reste; do
+            case "$retire" in ''|'#'*) continue ;; esac
+            n=$((n + 1))
+            [ -d "app/out/elus/$conserve" ] || absentes="$absentes $conserve"
+            [ ! -d "app/out/elus/$retire" ] || ressuscitees="$ressuscitees $retire"
+          done < "$table"
+          echo "Table des redirections : $n ligne(s)."
+          if [ -n "$absentes" ]; then
+            echo "::warning::R1a — cible(s) de la table sans page engendrée, le 301 pointe vers un 404 :$absentes"
+          else
+            echo "  R1a : les $n cibles sont engendrées."
+          fi
+          if [ -n "$ressuscitees" ]; then
+            echo "::warning::R1c — source(s) de la table de nouveau engendrée(s), masquée(s) par le 301 :$ressuscitees"
+          else
+            echo "  R1c : aucune source ressuscitée."
+          fi
+
       # Le site construit ci-dessus n'est PAS déployé : il n'a servi qu'à
       # prouver que la chaîne complète tient. Seule la page de redirection
       # part sur GitHub Pages.

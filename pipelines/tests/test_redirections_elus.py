@@ -12,6 +12,8 @@ mesurée sur l'état de `elus` du jour, pas sur celui de l'intégration continue
 dont la base naît neuve. Voir `docs/REDIRECTIONS-ELUS.md`.
 """
 
+import fnmatch
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -87,3 +89,24 @@ def test_le_generateur_rend_deux_blocs_par_fiche(couples):
         assert (f"location = /elus/{retire} {{ return 301 "
                 f"https://francetransparence.fr/elus/{conserve}/$is_args$args; }}") in rendu
     assert rendu.count("location ") == 2 * len(couples)
+
+
+def test_la_ligne_de_regeneration_nomme_un_fichier_que_l_include_attrape():
+    """L'en-tête engendré doit nommer un fichier que le vhost inclut VRAIMENT.
+
+    Le vhost inclut `snippets/ft-redirections-elus*.conf` — un joker. Jusqu'au
+    27/08/2026 la ligne « Régénérer » nommait `gen-redirections-elus.conf`,
+    c'est-à-dire le nom du SCRIPT, que ce joker n'attrape pas. L'opérateur qui
+    la suivait écrivait un fichier jamais inclus, `nginx -t` restait vert, et la
+    régénération PARAISSAIT faite sans avoir eu le moindre effet : exactement la
+    famille d'échecs silencieux que cette table existe pour fermer.
+    """
+    rendu = subprocess.run([str(GENERATEUR)], capture_output=True, text=True,
+                           check=True).stdout
+    lignes = [l for l in rendu.splitlines() if l.startswith("# Régénérer")]
+    assert len(lignes) == 1, f"une seule ligne « Régénérer » attendue, {len(lignes)}"
+    cible = lignes[0].split(">", 1)[1].strip()
+    assert fnmatch.fnmatch(os.path.basename(cible), "ft-redirections-elus*.conf"), (
+        f"« Régénérer » nomme {cible!r}, que l'include à joker "
+        "`snippets/ft-redirections-elus*.conf` n'attrape pas"
+    )
