@@ -265,12 +265,11 @@ jobs:
           grep -qx 'Sitemap: https://francetransparence\.fr/sitemap\.xml' app/out/robots.txt
 
       # --- Redirections 301 des fiches fusionnées (R1a et R1c) --------------
-      # Source : doc/QUALIFICATION-301-DERIVE-20260826.md § 9. La règle nginx
-      # qui sert ces 301 vit HORS du dépôt (/etc/nginx/snippets/) : rien, dans
-      # la chaîne, ne rapprochait jusqu'ici la table du site réellement
-      # engendré. Les tests pipelines valident la table contre elle-même — une
-      # faute de frappe, un doublon, une cible `rne-*` — jamais un identifiant
-      # qui a cessé d'exister.
+      # Source : /srv/france-transparence/doc/QUALIFICATION-301-DERIVE-20260826.md
+      # § 9 — chemin ABSOLU sur le serveur : ce document vit HORS du dépôt (le
+      # dépôt porte `docs/`, pas `doc/`). Miroir de l'étape équivalente de
+      # `ft-deploy`, lui-même NON VERSIONNÉ : toute garde se pose deux fois, à
+      # la main, et une réinstallation efface celle du serveur.
       #
       # 🛑 CES CONTRÔLES AVERTISSENT, ILS NE BLOQUENT PAS, et c'est délibéré.
       # Une cible qui perd sa page est un événement NORMAL : le jour où un
@@ -278,7 +277,7 @@ jobs:
       # gèlerait la publication entière sur un événement garanti à échéance.
       #
       # Ce que chacun attrape :
-      #   R1a — une CIBLE de la table n'est plus engendrée : le 301 pointe
+      #   R1a — une CIBLE de la table n'est plus SERVIE : le 301 pointe
       #         désormais vers un 404, et l'ancienne fiche est perdue pour de
       #         bon (l'URL retirée ne rend même plus la jumelle).
       #   R1c — une SOURCE de la table est de nouveau engendrée (résurrection
@@ -290,6 +289,8 @@ jobs:
       # PRÉCÉDENTE. Elle n'existe que sur le serveur (GARDER=5) ; un runner ne
       # met en cache que data/france.db. Le prescrire ici serait prescrire un
       # contrôle structurellement incalculable. Il vit dans ft-deploy seul.
+      # Et ni l'un ni l'autre ne rapproche la table du SNIPPET nginx installé :
+      # c'est le chantier P-SNIPPET-DERIVE, ouvert, non qualifié.
       - name: Cohérence des redirections 301 d'élus (avertit, ne bloque pas)
         run: |
           set -u
@@ -298,23 +299,43 @@ jobs:
             echo "::warning::$table illisible : le contrôle des 301 n'a pas été joué"
             exit 0
           fi
-          n=0; absentes=; ressuscitees=
-          while IFS=$'\t' read -r retire conserve _reste; do
+          n=0; nc=0; absentes=; ressuscitees=; malformees=
+          # `|| [ -n "${retire:-}" ]` : sans ce garde, une table sans saut de
+          # ligne final PERD SA DERNIÈRE LIGNE en silence, et l'étape annonce
+          # « les n cibles sont engendrées » sans avoir testé la dernière.
+          while IFS=$'\t' read -r retire conserve _reste || [ -n "${retire:-}" ]; do
             case "$retire" in ''|'#'*) continue ;; esac
             n=$((n + 1))
-            [ -d "app/out/elus/$conserve" ] || absentes="$absentes $conserve"
+            # Une deuxième colonne VIDE rendrait `[ -d app/out/elus/ ]` VRAI —
+            # le répertoire parent existe toujours : R1a passerait à blanc.
+            if [ -z "${conserve:-}" ]; then
+              malformees="$malformees $retire"
+            # On teste `index.html`, pas le répertoire : c'est le fichier que
+            # nginx sert, et un répertoire vide rend 404 en silence.
+            else
+              nc=$((nc + 1))
+              [ -f "app/out/elus/$conserve/index.html" ] || absentes="$absentes $conserve"
+            fi
             [ ! -d "app/out/elus/$retire" ] || ressuscitees="$ressuscitees $retire"
           done < "$table"
           echo "Table des redirections : $n ligne(s)."
+          # Plancher : sans lui, une table VIDÉE ou TRONQUÉE rend « 0 ligne » et
+          # l'étape passe au vert, alors que nginx sert encore ses redirections.
+          if [ "$n" -eq 0 ]; then
+            echo "::warning::La table des 301 est LUE mais VIDE (0 ligne utile) — plus rien n'est contrôlé"
+          fi
           if [ -n "$absentes" ]; then
-            echo "::warning::R1a — cible(s) de la table sans page engendrée, le 301 pointe vers un 404 :$absentes"
-          else
-            echo "  R1a : les $n cibles sont engendrées."
+            echo "::warning::R1a — cible(s) de la table non servie(s), le 301 pointe vers un 404 :$absentes"
+          elif [ "$n" -gt 0 ]; then
+            echo "  R1a : les $nc cible(s) complète(s) sont servies."
           fi
           if [ -n "$ressuscitees" ]; then
             echo "::warning::R1c — source(s) de la table de nouveau engendrée(s), masquée(s) par le 301 :$ressuscitees"
-          else
+          elif [ "$n" -gt 0 ]; then
             echo "  R1c : aucune source ressuscitée."
+          fi
+          if [ -n "$malformees" ]; then
+            echo "::warning::Table des 301 — ligne(s) sans deuxième colonne, jamais vérifiées :$malformees"
           fi
 
       # Le site construit ci-dessus n'est PAS déployé : il n'a servi qu'à
