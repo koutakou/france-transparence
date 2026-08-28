@@ -19,6 +19,15 @@
 # repli y est structurellement aveugle, et l'identite serait une INFERENCE, pas
 # une source d'etat civil. La fiche porte 0 declaration : la laisser est sans
 # consequence, la forcer serait une fusion decidee a la main.
+# Cette paire est desormais SURVEILLEE : `controler_collisions_de_cle`
+# (pipelines/ingest_integrite.py) journalise a chaque cycle le nombre de cles
+# d'etat civil portees par plus d'une ligne. Si l'amont fait converger les
+# deux graphies de prenom, le compte passe de 0 a 1 et la paire est nommee.
+# Mesure du 28/08/2026 : si la convergence survenait, elle ne serait PAS
+# silencieuse — ingest_hatvp_declarations, lance apres, ecarte les deux cles
+# (index 1039 -> 1037), perd les 2 declarations de PA607090 et LEVE : le cycle
+# echoue et la publication gele. Voir docs/REDIRECTIONS-ELUS.md, section
+# "La paire laissee non appariee est desormais SURVEILLEE".
 #
 # id retire	id conserve	personne
 rne-9b0690c3380e2630	PA793214	ABADIE Audrey

@@ -33,6 +33,16 @@ Table noyau complétée, et — depuis le rattrapage — élaguée :
   uniquement quand le couple nom+prénom est unique des deux côtés (homonymie
   non tranchée = pas de flag).
 
+Contrôle d'après-cycle, non bloquant :
+- collisions de clé d'état civil (`controler_collisions_de_cle`) — nombre de
+  clés (nom, prénom, date de naissance) normalisées portées par plus d'une ligne
+  de `elus`. Une collision fait gagner le `setdefault` de l'UPSERT à la ligne
+  que le balayage rencontre en premier ; si ce n'est pas une fiche `rne-*`, le
+  doublon `rne-*` cesse d'être purgeable et le site sert deux fiches pour une
+  seule personne, sans qu'aucun compteur de CE pipeline ne bouge (P15, lancé
+  après, en voit une partie — voir la docstring de la fonction). Le compte part
+  au journal à chaque cycle, zéro compris.
+
 Alerte A1 — règle révisée de docs/SOURCES.md §4 (appliquée à la lettre) :
 - Nominatif RÉSERVÉ aux statuts natifs « Déclaration non déposée » (constat
   officiel HATVP, 4 cas au 14/08/2026) → 1 alerte nominative par dossier.
@@ -967,6 +977,22 @@ def _controler_volume_supprimees(supprimes: list[str], nb_cibles: int) -> None:
         f"complète ».")
 
 
+# La requête d'état civil est écrite UNE fois et partagée par `upsert_elus` et
+# son contrôle : le contrôle voit ainsi le MÊME ordre de balayage que le code
+# qu'il observe, et aucune réécriture future ne peut le lui faire perdre en
+# silence. ⚠️ Mesuré le 28/08/2026 sur la base servie, contre une première
+# rédaction de ce commentaire qui affirmait trop : abréger la projection ne
+# suffit PAS à changer l'ordre. `SELECT id, nom, prenom, date_naissance FROM
+# elus` reste planifié `SCAN elus` et rend le même ordre. Seule une projection
+# ENTIÈREMENT contenue dans un index bascule — `SELECT rowid` devient
+# `SCAN elus USING COVERING INDEX idx_elus_uid_an`, `SELECT id` devient
+# `SCAN … USING COVERING INDEX sqlite_autoindex_elus_1`, et celle-là rend bien
+# un autre ordre. Le partage ne corrige donc pas un défaut existant : il ferme
+# une porte étroite, avant qu'un index ajouté un jour ne l'élargisse.
+REQUETE_ETAT_CIVIL = ("SELECT id, nom, prenom, date_naissance, sexe, profession,"
+                      " mandats FROM elus")
+
+
 def upsert_elus(conn, personnes: dict[tuple, dict]) -> tuple[int, int, int]:
     """UPSERT prudent par (nom, prénom, date de naissance) normalisés.
 
@@ -987,8 +1013,7 @@ def upsert_elus(conn, personnes: dict[tuple, dict]) -> tuple[int, int, int]:
     existants: dict[tuple, dict] = {}
     index_nom: dict[tuple, list] = defaultdict(list)
     cibles: set[str] = set()   # fiches AN/Sénat indexées, dénominateur du garde-fou
-    for r in conn.execute("SELECT id, nom, prenom, date_naissance, sexe, profession,"
-                          " mandats FROM elus"):
+    for r in conn.execute(REQUETE_ETAT_CIVIL):
         e = dict(r)
         cle = (normaliser_texte(e["nom"]), normaliser_texte(e["prenom"]),
                (e["date_naissance"] or "").strip())
@@ -1052,6 +1077,89 @@ def upsert_elus(conn, personnes: dict[tuple, dict]) -> tuple[int, int, int]:
             inseres += 1
     _controler_volume_supprimees(supprimes, len(cibles))
     return inseres, maj, rattrapes
+
+
+def controler_collisions_de_cle(conn) -> list[dict]:
+    """Compte les clés d'état civil portées par PLUS D'UNE ligne de `elus`.
+
+    POURQUOI CE COMPTEUR-LÀ, ET PAS UN AUTRE. `upsert_elus` indexe les fiches
+    déjà en base par `(nom, prénom, date de naissance)` normalisés avec un
+    `setdefault` : quand deux lignes portent la même clé, la PREMIÈRE rencontrée
+    gagne, et l'ordre de rencontre est celui que SQLite choisit — une propriété
+    du PLAN d'exécution, pas des données. Si la gagnante n'est pas une fiche
+    `rne-*`, la branche `if e is None or e["id"].startswith("rne-")` n'est jamais
+    prise : aucun rattrapage, aucun `DELETE`, et le doublon `rne-*` continue
+    d'être servi indéfiniment, figé sur ses mandats du jour de la convergence.
+
+    DANS CE PIPELINE, C'EST UN NON-ÉVÉNEMENT : rien n'est inséré, ni complété,
+    ni rattrapé, ni supprimé, donc aucun de ses compteurs ne bouge. Ni
+    `rattrapes`, ni la liste `supprimes` — qui n'en est qu'un sous-ensemble
+    strict — ne peuvent le voir. Le seul état observable est le nombre de clés
+    portées par plus d'une ligne : c'est ce qui est compté ici.
+
+    🛑 EN REVANCHE, « PERSONNE D'AUTRE NE PEUT LE VOIR » SERAIT FAUX, ET CE
+    CONTRÔLE A FAILLI ÊTRE ÉCRIT SUR CE MOTIF-LÀ. Une réfutation adversariale
+    l'a cassé le 28/08/2026, mesures à l'appui. `ingest_hatvp_declarations`
+    (P15), que le `Makefile` lance APRÈS celui-ci dans le même cycle, indexe les
+    fiches sur la MÊME clé et se défend déjà : il écarte les clés partagées et
+    il AVERTIT. Rejoué sur la base servie avec la convergence simulée de la
+    seule paire armée connue : son index passe de 1 039 à 1 037, la fiche
+    devient injoignable, ses 2 déclarations toujours publiées basculent en
+    « perte de rattachement » — et P15 LÈVE, donc `make ingest` échoue et
+    `ft-deploy` gèle la publication. La convergence n'est pas invisible : sur ce
+    cas-là, elle CASSE le cycle.
+
+    CE QUE CE CONTRÔLE APPORTE MALGRÉ TOUT, et qui est sa vraie justification :
+      · P15 n'indexe que les fiches à mandat `depute`/`senateur`/`president_*`
+        — 1 039 lignes le 28/08/2026 sur 36 003. Les ~35 000 autres (maires,
+        exécutifs locaux) sont hors de sa vue ; elles sont dans celle-ci ;
+      · quand la personne en collision ne porte aucune déclaration publiée, P15
+        se contente d'un avertissement et le cycle passe ;
+      · P15 parle de SON index, jamais de `elus` : il ne nomme ni les
+        identifiants, ni celui que le `setdefault` retiendra ;
+      · il arrive plus tard dans le cycle, et ce contrôle-ci tire plus tôt ;
+      · le compte part au journal CHAQUE nuit, zéro compris.
+
+    IL AVERTIT, IL NE LÈVE JAMAIS, ET IL NE CORRIGE RIEN. `ft-deploy` est en
+    tout-ou-rien : une levée gèlerait la publication entière du site pour un
+    défaut qui n'altère aucune donnée servie le jour même. Et trancher entre
+    deux fiches est une décision d'identité, pas une opération de pipeline — la
+    seule paire connue à porter ce risque est laissée volontairement non
+    appariée par `deploy/redirections-elus.tsv`, au motif que l'identité y serait
+    une INFÉRENCE et non une source d'état civil. Ce qu'il faut est de VOIR la
+    convergence si elle survient, surtout pas de la provoquer.
+
+    LA REQUÊTE EST CELLE, EXACTE, DE `upsert_elus` (`REQUETE_ETAT_CIVIL`) — voir
+    le commentaire de la constante pour ce que cette précaution couvre vraiment,
+    et pour ce qu'une première rédaction lui faisait dire de trop.
+
+    Retourne une entrée par clé en collision : `cle`, `ids` dans l'ordre de
+    balayage, et `retenu` — l'identifiant que le `setdefault` conserverait. La
+    liste vide est le cas nominal, et le compte part au journal À CHAQUE CYCLE,
+    y compris quand il vaut zéro : un contrôle muet au vert est indiscernable
+    d'un contrôle débranché.
+    """
+    par_cle: dict[tuple, list[str]] = {}
+    for r in conn.execute(REQUETE_ETAT_CIVIL):
+        cle = (normaliser_texte(r["nom"]), normaliser_texte(r["prenom"]),
+               (r["date_naissance"] or "").strip())
+        par_cle.setdefault(cle, []).append(r["id"])
+
+    collisions = [{"cle": cle, "ids": ids, "retenu": ids[0]}
+                  for cle, ids in par_cle.items() if len(ids) > 1]
+    for c in collisions:
+        ignorees = c["ids"][1:]
+        log.warning("collision de clé d'état civil : %d lignes de elus portent"
+                    " (%s | %s | %s) — retenue par le balayage : %s ;"
+                    " ignorée(s) : %s",
+                    len(c["ids"]), *c["cle"], c["retenu"], " ".join(ignorees))
+        doublons_rne = [i for i in ignorees if i.startswith("rne-")]
+        if doublons_rne and not c["retenu"].startswith("rne-"):
+            log.warning("collision de clé : la fiche retenue %s n'est PAS une"
+                        " fiche rne-*, donc la branche de rattrapage ne sera pas"
+                        " prise et le ou les doublons %s ne seront plus jamais"
+                        " purgés", c["retenu"], " ".join(doublons_rne))
+    return collisions
 
 
 def croiser_hatvp_flag(conn, dossiers: list[dict]) -> int:
@@ -1221,9 +1329,10 @@ def ecrire(conn, dossiers: list[dict], rne: dict, chemins: dict,
     personnes = preparer_personnes(rne)
     inseres, maj, rattrapes = upsert_elus(conn, personnes)
     flags = croiser_hatvp_flag(conn, dossiers)
+    collisions = controler_collisions_de_cle(conn)
     log.info("elus : %d insérés, %d complétés (fusion mandats), %d rattrapés sur"
-             " une fiche AN/Sénat, %d hatvp_flag posés",
-             inseres, maj, rattrapes, flags)
+             " une fiche AN/Sénat, %d hatvp_flag posés, %d collision(s) de clé",
+             inseres, maj, rattrapes, flags, len(collisions))
 
     # --- Conseillers municipaux : agrégats seulement -------------------
     lignes_cm, total_cm = agreger_conseillers_municipaux(chemins["cm"], aujourd_hui)

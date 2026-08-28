@@ -654,6 +654,293 @@ def test_la_suppression_tombe_dans_la_transaction_de_ecrire(conn):
         "SELECT mandats FROM elus WHERE id = 'PA-cible'").fetchone()["mandats"]
 
 
+# ---------------------------------------------------------------------------
+# Contrôle d'après-cycle : collisions de clé d'état civil
+# ---------------------------------------------------------------------------
+
+
+def _poser_ligne(conn, ident, nom, prenom, naissance):
+    """Pose une ligne brute de `elus`, sans passer par aucun pipeline.
+
+    `_poser_fiche` impose un `uid_an` et un mandat AN : elle ne sait pas
+    fabriquer une ligne `rne-*`, qui est justement la moitié intéressante d'une
+    collision.
+    """
+    conn.execute(
+        "INSERT INTO elus (id, nom, prenom, date_naissance) VALUES (?, ?, ?, ?)",
+        (ident, nom, prenom, naissance))
+
+
+def test_les_collisions_de_cle_sont_comptees_nommees_et_ordonnees(conn):
+    """Deux graphies que `normaliser_texte` confond = UNE collision.
+
+    Le contrôle ne peut pas être trois lignes de SQL : `nom = nom` laisserait
+    passer « ZZTE KERVAN » contre « Zzté-Kervan », et `prenom = prenom`
+    laisserait passer « Jean-Pierre » contre « Jean Pierre ».
+
+    ⚠️ LES QUATRE TRANSFORMATIONS SONT EXERCÉES SUR LE CHAMP `nom`, ET C'EST
+    DÉLIBÉRÉ. Une première version de ce test réservait l'accent et le tiret au
+    PRÉNOM et ne mettait qu'une différence de casse sur le nom : une réfutation
+    du 28/08/2026 a montré qu'elle restait VERTE si l'on remplaçait
+    `normaliser_texte(nom)` par un simple `.casefold()`. Le contrôle serait
+    alors devenu aveugle à sa cible principale — les graphies de PATRONYME, dont
+    la docstring de `_rattraper` liste dix-sept cas. Le rembourrage de la date
+    garde de son côté le `.strip()`, sans lequel le contrôle divergerait de
+    `upsert_elus`.
+    """
+    _poser_ligne(conn, "PA-collision", "Zzté-Kervan", "Jean-Pierre", "1969-10-22")
+    _poser_ligne(conn, "rne-0000000000000001", "ZZTE KERVAN", "Jean Pierre",
+                 " 1969-10-22 ")
+    _poser_ligne(conn, "PA-voisine", "Zzté-Kervan", "Jean-Pierre", "1970-01-01")
+
+    collisions = p7.controler_collisions_de_cle(conn)
+
+    assert len(collisions) == 1
+    (c,) = collisions
+    assert c["cle"] == ("zzte kervan", "jean pierre", "1969-10-22")
+    # Ordre de BALAYAGE, pas ordre alphabétique : c'est lui qui décide.
+    assert c["ids"] == ["PA-collision", "rne-0000000000000001"]
+    assert c["retenu"] == "PA-collision"
+
+
+def test_le_controle_compte_des_cles_pas_des_lignes(conn):
+    """Trois lignes sur une clé, ce n'est pas trois collisions, c'est une.
+
+    Un compteur de LIGNES rendrait 5 là où le défaut n'a que deux occurrences :
+    le nombre journalisé n'aurait plus de sens, et le seuil « attendu 0 »
+    perdrait sa lisibilité dès la première collision réelle.
+    """
+    for ident in ("PA-a", "rne-000000000000000a", "rne-000000000000000b"):
+        _poser_ligne(conn, ident, "Zztestov", "Ana", "1960-01-01")
+    _poser_ligne(conn, "PA-b", "Ykerman", "Bo", "1961-02-02")
+    _poser_ligne(conn, "rne-000000000000000c", "Ykerman", "Bo", "1961-02-02")
+
+    collisions = p7.controler_collisions_de_cle(conn)
+
+    assert len(collisions) == 2
+    assert sorted(len(c["ids"]) for c in collisions) == [2, 3]
+
+
+def test_une_base_sans_collision_ne_dit_rien(conn, caplog):
+    """Contre-épreuve du SILENCE — sans elle, un contrôle toujours bavard
+    passerait pour un contrôle qui voit.
+
+    Le pendant de cette épreuve vit dans `ecrire()` : le compte part au journal
+    même à zéro, pour qu'un contrôle débranché ne se confonde pas avec un
+    contrôle au vert. Les deux vont ensemble.
+    """
+    import logging
+    _poser_ligne(conn, "PA-a", "Zztestov", "Ana", "1960-01-01")
+    _poser_ligne(conn, "rne-000000000000000a", "Zztestov", "Ana", "1960-01-02")
+    _poser_ligne(conn, "rne-000000000000000b", "Zztestov", "Anna", "1960-01-01")
+
+    with caplog.at_level(logging.WARNING):
+        assert p7.controler_collisions_de_cle(conn) == []
+    assert caplog.text == ""
+
+
+def test_le_doublon_rne_condamne_est_nomme(conn, caplog):
+    """Le SENS de la collision change tout, et le journal doit le dire.
+
+    Quand la ligne retenue par le balayage n'est pas une fiche `rne-*`, la
+    branche `if e is None or e["id"].startswith("rne-")` de `upsert_elus` n'est
+    jamais prise : pas de rattrapage, pas de `DELETE`, et le doublon `rne-*`
+    reste servi pour toujours. C'est le sens MAJORITAIRE du biais et le seul
+    qu'aucun compteur de cycle ne peut voir. Dans l'autre sens, le rattrapage
+    reste possible : le second avertissement ne doit PAS partir, sans quoi il
+    crierait au loup une nuit sur deux.
+    """
+    import logging
+    _poser_ligne(conn, "PA-cible", "Zztestov", "Ana", "1960-01-01")
+    _poser_ligne(conn, "rne-000000000000000a", "ZZTESTOV", "ANA", "1960-01-01")
+    with caplog.at_level(logging.WARNING):
+        p7.controler_collisions_de_cle(conn)
+    assert "collision de clé d'état civil" in caplog.text
+    assert "plus jamais purgés" in caplog.text
+    assert "rne-000000000000000a" in caplog.text
+
+    # Sens inverse : la fiche `rne-*` est rencontrée la première.
+    caplog.clear()
+    conn.execute("DELETE FROM elus")
+    _poser_ligne(conn, "rne-000000000000000a", "ZZTESTOV", "ANA", "1960-01-01")
+    _poser_ligne(conn, "PA-cible", "Zztestov", "Ana", "1960-01-01")
+    with caplog.at_level(logging.WARNING):
+        p7.controler_collisions_de_cle(conn)
+    assert "collision de clé d'état civil" in caplog.text
+    assert "plus jamais purgés" not in caplog.text
+
+    # Troisième sens : DEUX fiches AN/Sénat, aucune `rne-*`. La retenue n'est
+    # pas une fiche `rne-*`, mais il n'y a aucun doublon `rne-*` à condamner :
+    # sans la garde `doublons_rne and`, le message partirait avec une liste
+    # VIDE. Réfutation du 28/08/2026 : rien ne tenait cette garde.
+    caplog.clear()
+    conn.execute("DELETE FROM elus")
+    _poser_ligne(conn, "PA-un", "Zztestov", "Ana", "1960-01-01")
+    _poser_ligne(conn, "SEN-deux", "ZZTESTOV", "ANA", "1960-01-01")
+    with caplog.at_level(logging.WARNING):
+        p7.controler_collisions_de_cle(conn)
+    assert "collision de clé d'état civil" in caplog.text
+    assert "plus jamais purgés" not in caplog.text
+
+
+def test_le_controle_ne_leve_jamais_et_ne_modifie_rien(conn):
+    """Il SIGNALE, il ne tranche pas — et `ft-deploy` est en tout-ou-rien.
+
+    Une levée ici gèlerait la publication entière du site. Et une correction
+    automatique trancherait une question d'identité que `redirections-elus.tsv`
+    laisse délibérément ouverte : l'appariement y serait une INFÉRENCE, pas une
+    source d'état civil.
+    """
+    _poser_ligne(conn, "PA-cible", "Zztestov", "Ana", "1960-01-01")
+    _poser_ligne(conn, "rne-000000000000000a", "ZZTESTOV", "ANA", "1960-01-01")
+    avant = conn.execute("SELECT id, nom, prenom, date_naissance FROM elus"
+                         " ORDER BY id").fetchall()
+
+    assert len(p7.controler_collisions_de_cle(conn)) == 1        # ne lève pas
+
+    apres = conn.execute("SELECT id, nom, prenom, date_naissance FROM elus"
+                         " ORDER BY id").fetchall()
+    assert [tuple(r) for r in apres] == [tuple(r) for r in avant]
+
+
+def test_les_fiches_sans_date_de_naissance_collapsent_sur_une_seule_cle(conn):
+    """Propriété RÉELLE de la clé, écrite ici pour qu'elle ne surprenne pas.
+
+    `(e["date_naissance"] or "").strip()` fait de l'absence de date une valeur
+    de clé comme une autre : deux homonymes stricts sans date de naissance
+    collisionnent, alors que ce sont peut-être deux personnes. Ce n'est pas un
+    défaut du contrôle, c'est le défaut qu'il révèle — `upsert_elus` les
+    confond DÉJÀ, et son `setdefault` en écarte une en silence. Mesuré le
+    28/08/2026 sur la base servie : 0 ligne de `elus` sans date de naissance,
+    donc 0 occurrence. Si l'amont en livre un jour, le compte s'allumera, et il
+    aura raison.
+    """
+    _poser_ligne(conn, "rne-000000000000000a", "Zztestov", "Ana", None)
+    _poser_ligne(conn, "rne-000000000000000b", "ZZTESTOV", "ANA", "")
+
+    collisions = p7.controler_collisions_de_cle(conn)
+
+    assert len(collisions) == 1
+    assert collisions[0]["cle"] == ("zztestov", "ana", "")
+
+
+def test_le_controle_lit_la_meme_requete_que_upsert_elus():
+    """La fidélité du contrôle tient à UNE chose : la projection partagée.
+
+    ⚠️ Mesuré le 28/08/2026 : abréger la projection ne suffit PAS à changer
+    l'ordre — `SELECT id, nom, prenom, date_naissance FROM elus` reste
+    `SCAN elus`. Seule une projection ENTIÈREMENT couverte par un index bascule
+    (`SELECT rowid` → `SCAN … USING COVERING INDEX idx_elus_uid_an`), et
+    celle-là rend bien un autre ordre. Le partage ferme donc une porte étroite,
+    que l'ajout d'un index un jour élargirait. Ce test le garde, et rien
+    d'autre ne le garderait.
+    """
+    arbre = ast.parse(Path(p7.__file__).read_text(encoding="utf-8"))
+    fonctions = {n.name: n for n in ast.walk(arbre)
+                 if isinstance(n, ast.FunctionDef)}
+    for nom in ("upsert_elus", "controler_collisions_de_cle"):
+        partagees = [a for a in ast.walk(fonctions[nom])
+                     if isinstance(a, ast.Call)
+                     and isinstance(a.func, ast.Attribute)
+                     and a.func.attr == "execute"
+                     and a.args and isinstance(a.args[0], ast.Name)
+                     and a.args[0].id == "REQUETE_ETAT_CIVIL"]
+        assert partagees, f"{nom} n'exécute plus REQUETE_ETAT_CIVIL"
+    # Et la constante projette bien l'état civil complet, pas un rowid nu.
+    assert "id, nom, prenom, date_naissance" in p7.REQUETE_ETAT_CIVIL
+    assert "rowid" not in p7.REQUETE_ETAT_CIVIL
+
+
+def test_le_controle_mesure_l_etat_d_APRES_upsert_elus(tmp_path, dossiers, caplog):
+    """Il compte l'état d'APRÈS le rattrapage, pas celui d'avant.
+
+    ⚠️ CE TEST EXISTE PARCE QU'UNE RÉFUTATION A MONTRÉ QU'IL MANQUAIT. Le
+    28/08/2026, déplacer l'appel du contrôle AVANT `upsert_elus` laissait toute
+    la suite VERTE : la collision que le test de câblage voisin pose n'est
+    portée par aucune personne du lot RNE, donc l'état d'avant et l'état d'après
+    y sont identiques et rien ne pouvait distinguer les deux positions.
+
+    L'état fabriqué ici les sépare : trois lignes, dont deux `rne-*` de MÊME
+    clé. Avant le cycle, ces deux-là sont une collision. Pendant le cycle, la
+    première est rattrapée sur `PA-cible` et SUPPRIMÉE — la seconde reste seule
+    sur sa clé, et la collision n'existe plus. Le contrôle doit donc compter
+    **0** ; s'il tirait avant l'UPSERT, il compterait 1.
+
+    L'état est synthétique — deux `rne-*` de même clé ne peuvent pas naître du
+    pipeline, dont l'identifiant EST le sha1 de la clé. C'est assumé : ce qu'on
+    épingle ici est le site d'appel, pas une population réelle.
+    """
+    import hashlib
+    import logging
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    try:
+        depute = charger_rne()["deputes"][0]
+        nom, prenom, naissance = (depute["Nom de l'élu"], depute["Prénom de l'élu"],
+                                  depute["Date de naissance"])
+        _poser_fiche(conn, "PA-cible", nom + "-Bécot", prenom, naissance,
+                     uid="PA-cible")
+        cle = (p7.normaliser_texte(nom), p7.normaliser_texte(prenom), naissance)
+        ancien = "rne-" + hashlib.sha1("|".join(cle).encode()).hexdigest()[:16]
+        _poser_ligne(conn, ancien, nom, prenom, naissance)
+        _poser_ligne(conn, "rne-000000000000jum", nom, prenom, naissance)
+        conn.commit()
+
+        # Avant le cycle, la collision est bien là — sinon le test ne prouverait
+        # rien : il faut que les deux positions donnent des comptes DIFFÉRENTS.
+        assert len(p7.controler_collisions_de_cle(conn)) == 1
+
+        with caplog.at_level(logging.INFO):
+            p7.ecrire(conn, dossiers, charger_rne(),
+                      {"cm": FIXTURES / "rne_cm_extrait.csv"},
+                      AUJOURD_HUI, "2026-08-14", "2026-08-11")
+
+        assert "1 rattrapés sur une fiche AN/Sénat" in caplog.text
+        assert conn.execute("SELECT count(*) AS n FROM elus WHERE id = ?",
+                            (ancien,)).fetchone()["n"] == 0
+        assert "0 collision(s) de clé" in caplog.text
+        assert len(p7.controler_collisions_de_cle(conn)) == 0
+    finally:
+        conn.close()
+
+
+def test_le_controle_est_branche_dans_ecrire(tmp_path, dossiers, caplog):
+    """Le contrôle est BRANCHÉ, pas seulement écrit — et il compte À ZÉRO.
+
+    Le test voisin éprouve la fonction en l'appelant ; celui-ci éprouve le
+    CÂBLAGE dans le vrai `ecrire()`, sans quoi retirer son appel laisserait
+    toute la suite verte. Il tient les deux moitiés du contrat : la collision
+    posée est vue, ET le compte part au journal même quand il vaut zéro — c'est
+    cette seconde moitié qui distingue, dans `deploiement.log`, un contrôle au
+    vert d'un contrôle débranché.
+    """
+    import logging
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    try:
+        # --- cycle SAIN : le compte doit être journalisé, à zéro -------
+        with caplog.at_level(logging.INFO):
+            p7.ecrire(conn, dossiers, charger_rne(),
+                      {"cm": FIXTURES / "rne_cm_extrait.csv"},
+                      AUJOURD_HUI, "2026-08-14", "2026-08-11")
+        assert "0 collision(s) de clé" in caplog.text
+        conn.commit()
+
+        # --- collision posée à la main, cycle rejoué -------------------
+        caplog.clear()
+        _poser_ligne(conn, "PA-collision", "Zztestov", "Jean-Pierre", "1969-10-22")
+        _poser_ligne(conn, "rne-0000000000000001", "ZZTESTOV", "Jean Pierre",
+                     "1969-10-22")
+        conn.commit()
+        with caplog.at_level(logging.INFO):
+            p7.ecrire(conn, dossiers, charger_rne(),
+                      {"cm": FIXTURES / "rne_cm_extrait.csv"},
+                      AUJOURD_HUI, "2026-08-14", "2026-08-11")
+        assert "1 collision(s) de clé" in caplog.text
+        assert "collision de clé d'état civil" in caplog.text
+        assert "plus jamais purgés" in caplog.text
+    finally:
+        conn.close()
+
+
 def test_croiser_hatvp_flag_unique_des_deux_cotes(conn, dossiers):
     p7.upsert_elus(conn, p7.preparer_personnes(charger_rne()))
     n = p7.croiser_hatvp_flag(conn, dossiers)
