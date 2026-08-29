@@ -22,6 +22,7 @@ import pytest
 
 from pipelines import db
 from pipelines import ingest_parlement as p9
+from pipelines.common import reparer_controles_cp1252, reparer_mojibake
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -854,4 +855,211 @@ def test_upsert_elu_normalise_aussi_a_l_insertion_d_une_fiche_neuve(tmp_path):
                     nom="  Dupont  ", prenom="", date_naissance="\xa0")
     assert bilan == {"preserves": 0, "refus_insertion": 0}
     assert _etat_civil(conn, valeur="PA999999") == ("Dupont", None, None)
+    conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Titres de scrutins du Sénat : contrôles C1 servis au visiteur
+# ---------------------------------------------------------------------------
+
+
+def test_titre_dosleg_repare_les_deux_controles_reellement_servis():
+    """Les 64 titres corrompus ne portent que ces deux octets-là.
+
+    Mesuré le 29/08/2026 sur la base servie : 4 764 titres, dont 64 porteurs
+    de 30 x U+0096 et 36 x U+009C — et d'aucun autre contrôle. Une seule de
+    ces valeurs est servie 1 740 fois, sur 348 fiches d'élus, et 348 est
+    exactement le nombre de sénateurs écrits par le cycle : toutes.
+    """
+    assert p9._titre_dosleg(
+        "groupe Écologiste \x96 Kanaky"
+    ) == "groupe Écologiste – Kanaky"
+    assert p9._titre_dosleg(
+        "la mise en \x9cuvre du transfert"
+    ) == "la mise en œuvre du transfert"
+
+
+def test_titre_dosleg_ne_leve_pas_sur_un_titre_vide():
+    """`reparer_controles_cp1252` lève AttributeError sur None : il faut garder.
+
+    `assainir_texte` rend None sur une chaîne vide après nettoyage, et le
+    remède n'a pas le garde `isinstance` qu'elle porte. Sans ce garde, un
+    seul titre vide ferait tomber la passe — et l'ingestion est
+    tout-ou-rien, donc la publication de la nuit entière avec elle. C'est le
+    mécanisme exact du blocage d'état civil déjà payé une fois.
+    """
+    assert p9._titre_dosleg(None) is None
+    assert p9._titre_dosleg("") is None
+    assert p9._titre_dosleg("   ") is None
+    assert p9._titre_dosleg("\xa0 ") is None
+
+
+def test_titre_dosleg_rattrape_un_c1_materialise_par_reparer_mojibake():
+    """Le remède passe APRÈS `reparer_mojibake`, jamais avant.
+
+    `reparer_mojibake` ne fait pas que réparer : il PRODUIT un C1 quand
+    l'amont a empilé deux couches de corruption. Les octets UTF-8 de U+0096
+    (C2 96) relus en cp1252 s'écrivent « Â– » ; l'aller-retour de
+    `reparer_mojibake` les dé-empile d'une couche et rend U+0096 — un
+    contrôle tout neuf. Placé avant lui, le remède ne le verrait jamais.
+
+    Le témoin est fabriqué par ALLER-RETOUR et non à la main : un témoin
+    écrit à la main accuse l'instrument à sa place (U+0087 n'a aucun
+    encodage cp1252, une séquence bâtie sur lui ressort intacte et fait
+    croire à un remède muet).
+    """
+    deja_corrompu = "groupe Écologiste \x96 Kanaky"
+    mojibake = deja_corrompu.encode("utf-8").decode("cp1252")
+    assert "\x96" not in mojibake, (
+        "prémisse : le C1 est encore EMPILÉ dans le mojibake, donc invisible"
+    )
+    assert reparer_mojibake(mojibake) == deja_corrompu, (
+        "prémisse du test : c'est reparer_mojibake qui MATÉRIALISE le C1"
+    )
+    assert p9._titre_dosleg(mojibake) == "groupe Écologiste – Kanaky"
+
+
+def test_titre_dosleg_fige_l_ordre_sur_u0085_et_u0092():
+    """L'ordre est figé explicitement, il n'est pas hérité par accident.
+
+    Les deux `.replace()` passent en tête, avant `normaliser_espaces` qui
+    écraserait U+0085 en espace (c'est le seul C1 que la classe `\\s` Unicode
+    attrape) et avant le remède cp1252, qui rendrait U+0092 en apostrophe
+    TYPOGRAPHIQUE U+2019. Le rendu établi est l'apostrophe ASCII, celle que
+    le dump emploie partout ailleurs.
+
+    Ce n'est pas un test du rendu de demain : mesuré dans le dump même
+    (bloc COPY de `scr`), 0x92 y apparaît 929 fois par cycle, et la base
+    n'en porte aucun précisément parce que ce `.replace` les convertit
+    toutes. 0x85, lui, y apparaît 0 fois — cette moitié-là est inerte sur
+    cette source, et l'épingler garde l'ordre figé si elle cesse de l'être.
+    """
+    assert p9._titre_dosleg("l\x92amendement") == "l'amendement"
+    assert p9._titre_dosleg("suite\x85fin") == "suite…fin"
+
+
+def test_titre_dosleg_laisse_intact_un_titre_sain():
+    """Un remède qui abîme le sain ne se voit pas : il faut l'épingler.
+
+    Le tiret demi-cadratin déjà bien composé, l'oe ligaturé déjà correct,
+    l'espace insécable et l'apostrophe typographique doivent traverser sans
+    changer — la moitié des 64 titres voisins portent d'ailleurs le tiret
+    ASCII à la place du U+0096, et il ne doit pas bouger non plus.
+    """
+    sain = "groupe Écologiste – Solidarité, mise en œuvre"
+    assert p9._titre_dosleg(sain) == sain
+    assert p9._titre_dosleg("Écologiste - Solidarité") == "Écologiste - Solidarité"
+
+
+def test_titre_dosleg_laisse_les_octets_sans_equivalent_cp1252():
+    """« Plus aucun Cc » serait un critère d'acceptation FAUX.
+
+    0x81, 0x8D, 0x8F, 0x90 et 0x9D n'ont aucun caractère cp1252 attribué. Le
+    remède ne peut pas les rendre, et deviner à leur place violerait le
+    principe du dépôt : on écarte et on compte, on ne devine pas. Le critère
+    s'énonce donc « plus aucun Cc de la plage cp1252 ATTRIBUÉE ».
+    """
+    for perdu in ("\x81", "\x8d", "\x8f", "\x90", "\x9d"):
+        assert p9._titre_dosleg("a" + perdu + "b") == "a" + perdu + "b"
+
+
+def test_titre_dosleg_est_idempotent():
+    """Le cycle vide et réécrit la table entière chaque nuit : deux passes = une."""
+    une = p9._titre_dosleg("groupe Écologiste \x96 Kanaky, mise en \x9cuvre")
+    assert une == "groupe Écologiste – Kanaky, mise en œuvre"
+    assert p9._titre_dosleg(une) == une
+
+
+def _zip_dosleg_modifie(tmp_path: Path, avant: bytes, apres: bytes) -> Path:
+    """Le même zip que `_zip_dosleg`, un motif d'octets substitué.
+
+    Sert à fabriquer les contre-épreuves du compteur de titres réparés :
+    une fixture SANS contrôle doit le faire tomber à zéro, une fixture qui
+    en porte deux doit le faire monter à deux. Un compteur qui ne sait pas
+    varier ne prouve rien par sa valeur.
+    """
+    sql = (FIXTURES / "dosleg_extrait.sql").read_bytes()
+    assert avant in sql, "prémisse de la contre-épreuve : motif absent de la fixture"
+    chemin = tmp_path / "dosleg_modifie.zip"
+    with zipfile.ZipFile(chemin, "w") as z:
+        z.writestr("dosleg.sql", sql.replace(avant, apres))
+    return chemin
+
+
+def test_ingerer_dosleg_journalise_les_titres_repares(tmp_path, monkeypatch,
+                                                      caplog):
+    """Un compteur muet au vert est indiscernable d'un compteur débranché.
+
+    Mesuré le 29/08/2026 sur le dump réel, avec l'itérateur du pipeline :
+    4 764 lignes `scr`, 951 occurrences C1 dans le champ `scrint`
+    (885 × 0x92, 30 × 0x96, 36 × 0x9C) réparties sur 649 titres. Le
+    compteur compte des TITRES : en production il doit rendre 649, pas 951
+    ni 64. Cette ligne de journal est ce qui datera la prochaine régression
+    d'encodage de l'amont, et ce qui signalera un remède débranché : si
+    elle tombe à zéro sans que la source ait changé, ce n'est pas la source
+    qui a guéri.
+    """
+    def _ingerer(chemin_zip):
+        conn = db.init_db(chemin=tmp_path / "t.db")
+        conn.executescript(p9._SCHEMA_P9)
+        monkeypatch.setattr(p9, "telecharger", lambda *a, **k: chemin_zip)
+        caplog.clear()
+        with caplog.at_level("INFO"):
+            p9.ingerer_dosleg(conn, session=None)
+        bilan = [m for m in caplog.messages if m.startswith("Dosleg :")]
+        assert bilan, "la ligne de bilan Dosleg a disparu"
+        return conn, bilan[0]
+
+    # 1. La fixture réelle porte un 0x92 : le compteur le voit.
+    conn, bilan = _ingerer(_zip_dosleg(tmp_path))
+    assert "1 titre(s) réparé(s) (contrôles C1 cp1252)" in bilan
+    conn.close()
+
+    # 2. Contre-épreuve du ZÉRO : plus de contrôle, plus de compte — et la
+    #    ligne reste écrite, elle ne disparaît pas.
+    conn, bilan = _ingerer(
+        _zip_dosleg_modifie(tmp_path, b"\xc2\x92", b"'")
+    )
+    assert "0 titre(s) réparé(s) (contrôles C1 cp1252)" in bilan
+    conn.close()
+
+    # 3. Contre-épreuve du POSITIF sur la cible réellement servie : le 0x96
+    #    des 348 fiches de sénateurs. Le compteur monte, ET la valeur en
+    #    base est réparée en tiret demi-cadratin.
+    conn, bilan = _ingerer(
+        _zip_dosleg_modifie(tmp_path, b"\xc2\x92", b"\xc2\x96")
+    )
+    assert "1 titre(s) réparé(s) (contrôles C1 cp1252)" in bilan
+    titre = conn.execute(
+        "SELECT titre FROM scrutins_senat WHERE numero = 338"
+    ).fetchone()[0]
+    assert "\x96" not in titre
+    assert "–" in titre
+    conn.close()
+
+
+def test_ingerer_dosleg_ne_laisse_aucun_controle_reparable_en_base(tmp_path,
+                                                                   monkeypatch):
+    """Le critère d'acceptation, et il n'est PAS « plus aucun Cc ».
+
+    Cinq octets (0x81, 0x8D, 0x8F, 0x90, 0x9D) n'ont aucun caractère cp1252
+    attribué : ils sont irréparables par spécification, et deviner à leur
+    place violerait le principe du dépôt. Le critère porte donc sur la
+    plage ATTRIBUÉE, et sur elle seule.
+    """
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    monkeypatch.setattr(p9, "telecharger",
+                        lambda *a, **k: _zip_dosleg_modifie(
+                            tmp_path, b"\xc2\x92", b"\xc2\x96"))
+    p9.ingerer_dosleg(conn, session=None)
+    attribues = {chr(o) for o in range(0x80, 0xA0)
+                 if chr(o) != reparer_controles_cp1252(chr(o))}
+    assert len(attribues) == 27
+    restants = [
+        (n, t) for n, t in conn.execute(
+            "SELECT numero, titre FROM scrutins_senat WHERE titre IS NOT NULL")
+        if attribues & set(t)
+    ]
+    assert restants == []
     conn.close()

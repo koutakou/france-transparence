@@ -114,6 +114,7 @@ from pipelines.archive_fenetre import archiver_sortie_fenetre
 from pipelines.common import (
     assainir_texte,
     obtenir_logger,
+    reparer_controles_cp1252,
     session_http,
     telecharger,
 )
@@ -714,10 +715,55 @@ def _date_copy(valeur: str | None) -> str | None:
 
 
 def _titre_dosleg(brut: str | None) -> str | None:
-    """Intitulé Dosleg : U+0092 du dump (apostrophe Windows) → apostrophe."""
+    """Intitulé Dosleg : contrôles C1 du dump → le caractère cp1252 attendu.
+
+    L'ORDRE EST FIGÉ ICI, EXPLICITEMENT, parce que les ordres possibles ne
+    rendent pas la même chose — il n'est pas hérité par accident.
+
+    1. Les deux `.replace()` d'abord. Ils ne sont PAS redondants avec
+       `reparer_controles_cp1252` : `.replace(U+0092, "'")` produit
+       l'apostrophe ASCII U+0027, que le dump emploie partout ailleurs,
+       là où le remède cp1252 produirait la typographique U+2019. Les
+       laisser en tête préserve le rendu établi, et met U+0085 hors de
+       portée de `normaliser_espaces`, qui l'écraserait en espace (c'est
+       le seul C1 que la classe `\\s` Unicode attrape).
+
+       🛑 NE PAS CONCLURE DE L'AVAL SUR L'AMONT ICI. La base servie ne porte
+       aucun 0x92, et on en a d'abord déduit que ce `.replace` était mort.
+       C'est l'inverse : mesuré le 29/08/2026 dans le dump lui-même (bloc
+       COPY de la table `scr`, 10 644 lignes), il agit sur 929 occurrences
+       de 0x92 À CHAQUE CYCLE — la base n'en porte aucun PARCE QU'il les a
+       toutes converties. Le retirer changerait 929 apostrophes d'ASCII en
+       typographique. Le second, lui, est bien inerte sur cette source :
+       0x85 y apparaît 0 fois. Le même comptage rend 30 × 0x96 et
+       36 × 0x9C, qui sont exactement les 66 contrôles retrouvés en base :
+       le compte amont → aval ferme.
+    2. `assainir_texte` ensuite, donc `reparer_mojibake` puis
+       `normaliser_espaces`.
+    3. `reparer_controles_cp1252` EN DERNIER, jamais avant `reparer_mojibake` :
+       celui-ci MATÉRIALISE un C1 sur le motif « Â » + caractère
+       typographique. Un C1 produit après le passage du remède y
+       échapperait.
+
+    Le garde `if propre is None` est nécessaire, pas défensif :
+    `assainir_texte` rend `None` sur une chaîne vide après nettoyage, et
+    `reparer_controles_cp1252` lève `AttributeError` sur `None` — elle n'a
+    pas le garde `isinstance` d'`assainir_texte`. L'ingestion est
+    tout-ou-rien : un seul titre vide gèlerait la publication de la nuit.
+
+    Défaut traité, mesuré le 29/08/2026 sur la base servie : 64 titres sur
+    4 764 portent 30 OCCURRENCES de U+0096 (tiret demi-cadratin, sur
+    28 titres) et 36 de U+009C (œ, sur 36 titres), et aucun autre contrôle ;
+    28 + 36 = 64, les deux ensembles ne se recoupent pas. Une de ces valeurs
+    est servie 1 740 fois, sur 348 fiches d'élus — et 348 est exactement le
+    nombre de sénateurs écrits par le cycle : toutes.
+    """
     if brut is None:
         return None
-    return assainir_texte(brut.replace("\u0092", "'").replace("\u0085", "…"))
+    propre = assainir_texte(brut.replace("\u0092", "'").replace("\u0085", "…"))
+    if propre is None:
+        return None
+    return reparer_controles_cp1252(propre)
 
 
 def _matricule_dosleg(brut: str | None) -> str | None:
@@ -1284,6 +1330,7 @@ def ingerer_dosleg(conn, session: requests.Session) -> None:
 
     date_min_fenetre = (date.today() - timedelta(days=FENETRE_JOURS)).isoformat()
     scrutins: list[dict] = []
+    titres_repares = 0
     cles_detail: set[tuple[int, int]] = set()
     fenetre_exprimes: dict[tuple[int, int], set[str]] = {}
     dates_par_cle: dict[tuple[int, int], str] = {}
@@ -1328,11 +1375,14 @@ def ingerer_dosleg(conn, session: requests.Session) -> None:
                 if votants is not None and exprimes is not None:
                     abstentions = votants - exprimes
                 adopte, sort = _sort_scrutin_senat(pour, contre)
+                titre_brut = row.get("scrint")
+                if titre_brut and reparer_controles_cp1252(titre_brut) != titre_brut:
+                    titres_repares += 1
                 scrutins.append({
                     "sesann": sesann,
                     "numero": numero,
                     "date_scrutin": date_scrutin,
-                    "titre": _titre_dosleg(row.get("scrint")),
+                    "titre": _titre_dosleg(titre_brut),
                     "nombre_votants": votants,
                     "suffrages_exprimes": exprimes,
                     "pour": pour,
@@ -1439,9 +1489,20 @@ def ingerer_dosleg(conn, session: requests.Session) -> None:
             "questions, pas TAP export_sens"
         ),
     )
-    log.info("Dosleg : %d scrutins, dernier session %s n° %s du %s",
-             len(scrutins), dernier["sesann"], dernier["numero"],
-             dernier["date_scrutin"])
+    # Compteur INCONDITIONNEL, zéro compris : un compteur muet au vert est
+    # indiscernable d'un compteur débranché. S'il tombe à 0 sans que l'amont
+    # ait changé, ce n'est pas la source qui a guéri, c'est le remède qui a
+    # été débranché.
+    # Il compte des TITRES, pas des occurrences — les deux grandeurs ne se
+    # réfutent pas l'une l'autre. Mesuré le 29/08/2026 sur le dump, avec cet
+    # itérateur-ci : 4 764 lignes `scr`, 951 occurrences C1 dans `scrint`
+    # (885 × 0x92, 30 × 0x96, 36 × 0x9C) réparties sur 649 TITRES. La valeur
+    # attendue est donc 649, et non 64 : les 64 sont ce qui RESTE en base une
+    # fois les 613 titres à 0x92 traités par le `.replace` de _titre_dosleg.
+    log.info("Dosleg : %d scrutins, %d titre(s) réparé(s) (contrôles C1 "
+             "cp1252), dernier session %s n° %s du %s",
+             len(scrutins), titres_repares, dernier["sesann"],
+             dernier["numero"], dernier["date_scrutin"])
 
 
 def ingerer_datan(conn, session: requests.Session) -> None:
