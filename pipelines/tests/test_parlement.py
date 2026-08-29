@@ -373,3 +373,485 @@ def test_pipeline_complet_reel(tmp_path, monkeypatch):
     n_scr_sen = conn.execute("SELECT count(*) AS n FROM scrutins_senat").fetchone()["n"]
     assert n_scr_sen >= 4764
     conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Garde-fou d'état civil : une valeur amont vide n'efface jamais la base
+#
+# Les trois sites d'écriture de P9 réécrivaient sans condition le nom, le
+# prénom et la date de naissance de fiches EXISTANTES à chaque cycle :
+# elus (UPDATE), deputes (ON CONFLICT DO UPDATE) et senateurs (INSERT OR
+# REPLACE). Une valeur amont vide ou entièrement blanche effaçait donc une
+# identité en silence — et c'est `deputes.nom` que le site affiche.
+#
+# Le cas de l'INSÉCABLE n'est pas théorique : `lire_csv_senat` décode ODSEN
+# en ISO-8859-1, où l'octet 0xA0 EST U+00A0. Il est ici le test qui
+# discrimine la normalisation Python d'un `TRIM` SQL, lequel ne coupe que
+# l'espace ASCII 0x20 et laisserait donc passer l'effacement.
+# ---------------------------------------------------------------------------
+
+
+def _elu_seme(conn, **surcharges):
+    """Fiche d'élu peuplée, telle qu'un cycle précédent l'a laissée."""
+    champs = {"id": "PA841605", "nom": "Golliot", "prenom": "Antoine",
+              "date_naissance": "1985-08-13", "uid_an": "PA841605"}
+    champs.update(surcharges)
+    colonnes = ", ".join(champs)
+    conn.execute(f"INSERT INTO elus ({colonnes}) VALUES"
+                 f" ({', '.join('?' * len(champs))})", tuple(champs.values()))
+    conn.commit()
+
+
+def _upsert(conn, **surcharges):
+    appel = {"cle": "uid_an", "valeur_cle": "PA841605",
+             "id_defaut": "PA841605", "nom": "Golliot", "prenom": "Antoine",
+             "sexe": "M", "date_naissance": "1985-08-13",
+             "profession": "Technicien",
+             "mandat": {"type": "depute", "legislature": 17},
+             "source_mandat": "AN-P9"}
+    appel.update(surcharges)
+    return p9.upsert_elu(conn, **appel)
+
+
+def _etat_civil(conn, table="elus", cle="uid_an", valeur="PA841605"):
+    colonnes = "nom, prenom" + (", date_naissance" if table != "deputes" else "")
+    ligne = conn.execute(
+        f"SELECT {colonnes} FROM {table} WHERE {cle} = ?", (valeur,)).fetchone()
+    return None if ligne is None else tuple(ligne)
+
+
+@pytest.mark.parametrize("vide", ["", "   ", "\xa0", " ", "\t\n", "\r", None])
+def test_upsert_elu_refuse_effacer_le_nom(tmp_path, vide):
+    """Aucune valeur amont vide, quel que soit le blanc, n'efface le nom."""
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    _elu_seme(conn)
+    bilan = _upsert(conn, nom=vide)
+    assert _etat_civil(conn) == ("Golliot", "Antoine", "1985-08-13")
+    assert bilan["preserves"] == 1        # le compteur VOIT le refus
+    conn.close()
+
+
+def test_upsert_elu_refuse_effacer_prenom_et_naissance(tmp_path):
+    """prenom et date_naissance sont NULLABLES : un None les effaçait sans
+    rien lever ni journaliser — l'effacement le plus silencieux des trois."""
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    _elu_seme(conn)
+    bilan = _upsert(conn, prenom=None, date_naissance="")
+    assert _etat_civil(conn) == ("Golliot", "Antoine", "1985-08-13")
+    assert bilan["preserves"] == 2
+    conn.close()
+
+
+def test_upsert_elu_laisse_passer_une_correction_de_graphie(tmp_path):
+    """CONTRE-ÉPREUVE DU SILENCE : la garde ne doit pas geler la colonne.
+
+    C'est la réécriture par P9 qui apporte la casse propre de l'AN par-dessus
+    la graphie RNE en capitales. Une garde qui refuserait aussi les
+    corrections légitimes éteindrait cette correction-là avec le défaut.
+    """
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    _elu_seme(conn, nom="GOLLIOT", prenom="ANTOINE")
+    bilan = _upsert(conn, nom="Golliot-Dupont", prenom="Antoine",
+                    date_naissance="1985-08-14")
+    assert _etat_civil(conn) == ("Golliot-Dupont", "Antoine", "1985-08-14")
+    assert bilan["preserves"] == 0        # le compteur sait aussi rendre ZÉRO
+    conn.close()
+
+
+def test_upsert_elu_ne_leve_pas_sur_fiche_neuve_sans_nom(tmp_path):
+    """Refus par NON-ÉCRITURE, jamais par levée.
+
+    elus.nom est NOT NULL et l'appel est dans le `with conn:` de l'appelant :
+    une levée annulerait les 577 (ou 348) écritures du bloc, ferait rendre 1
+    à main(), arrêterait make au 8e pipeline sur 31 et ne publierait RIEN de
+    la nuit. Une fiche non créée est réparée par le cycle suivant.
+    """
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    bilan = _upsert(conn, valeur_cle="PA999999", id_defaut="PA999999", nom="")
+    assert _etat_civil(conn, valeur="PA999999") is None
+    assert bilan["refus_insertion"] == 1
+    # la fiche saine du cycle suivant est bien créée : la garde n'est pas un gel
+    bilan = _upsert(conn, valeur_cle="PA999999", id_defaut="PA999999",
+                    nom="Dupont")
+    assert _etat_civil(conn, valeur="PA999999") == (
+        "Dupont", "Antoine", "1985-08-13")
+    assert bilan["refus_insertion"] == 0
+    conn.close()
+
+
+def _zip_amo10(tmp_path, nom, prenom="Antoine"):
+    """Zip AMO10 minimal bâti sur la fiche réelle PA841605, nom substitué."""
+    data = json.loads((FIXTURES / "acteur_PA841605.json").read_text("utf-8"))
+    ident = data["acteur"]["etatCivil"]["ident"]
+    ident["nom"], ident["prenom"] = nom, prenom
+    data["acteur"]["mandats"] = {"mandat": []}     # aucun organe à résoudre
+    chemin = tmp_path / "amo10.zip"
+    with zipfile.ZipFile(chemin, "w") as z:
+        z.writestr("json/acteur/PA841605.json", json.dumps(data))
+    return chemin
+
+
+def test_ingerer_amo10_refuse_effacer_le_nom_servi(tmp_path, monkeypatch):
+    """deputes.nom est ce que le SITE AFFICHE (queries/elus.ts:244,250).
+
+    Une garde posée sur la seule table elus protégerait la clé de
+    rattachement HATVP et laisserait le nom servi sans défense.
+    """
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    conn.execute("INSERT INTO deputes (uid_an, legislature, nom, prenom)"
+                 " VALUES ('PA841605', ?, 'Golliot', 'Antoine')",
+                 (p9.LEGISLATURE,))
+    _elu_seme(conn)
+    monkeypatch.setattr(p9, "_date_last_modified", lambda *a, **k: "2026-08-29")
+    monkeypatch.setattr(p9, "telecharger",
+                        lambda *a, **k: _zip_amo10(tmp_path, "\xa0", ""))
+    p9.ingerer_amo10(conn, session=None)
+    assert _etat_civil(conn, table="deputes") == ("Golliot", "Antoine")
+    assert _etat_civil(conn) == ("Golliot", "Antoine", "1985-08-13")
+    conn.close()
+
+
+# Colonnes d'ODSEN_GENERAL, dans l'ordre réel de l'export du Sénat.
+ODSEN_NOM, ODSEN_PRENOM, ODSEN_NAISSANCE = 2, 3, 5
+
+
+def _csv_odsen(**substitutions: bytes) -> bytes:
+    """ODSEN_GENERAL réel, colonnes du 1er ACTIF substituées (ISO-8859-1).
+
+    Les octets passent tels quels : c'est ainsi qu'on met `b"\xa0"` dans le
+    fichier, où il DEVIENDRA l'insécable U+00A0 au décodage ISO-8859-1.
+    """
+    index = {"nom": ODSEN_NOM, "prenom": ODSEN_PRENOM,
+             "naissance": ODSEN_NAISSANCE}
+    lignes = (FIXTURES / "odsen_extrait.csv").read_bytes().split(b"\n")
+    for i, l in enumerate(lignes):
+        if l.startswith(b"21071F,"):
+            champs = l.rstrip(b"\r").split(b",")
+            for cle, octets in substitutions.items():
+                champs[index[cle]] = octets
+            lignes[i] = b",".join(champs) + b"\r"
+            break
+    else:                                   # pragma: no cover - fixture figée
+        raise AssertionError("ligne 21071F absente de la fixture ODSEN")
+    return b"\n".join(lignes)
+
+
+def _senat_jetable(tmp_path, monkeypatch, **substitutions):
+    """Câble ingerer_senat sur des fichiers locaux, sans réseau."""
+    general = tmp_path / "ODSEN_GENERAL.csv"
+    general.write_bytes(_csv_odsen(**substitutions))
+    elusen = tmp_path / "ODSEN_ELUSEN.csv"
+    elusen.write_bytes(b"Matricule,Date de fin de mandat\r\n")
+    monkeypatch.setattr(p9, "_date_last_modified", lambda *a, **k: "2026-08-29")
+    monkeypatch.setattr(
+        p9, "telecharger",
+        lambda url, dest, **k: general if "GENERAL" in dest else elusen)
+
+
+def _senateur_seme(conn):
+    conn.execute("INSERT INTO senateurs (matricule, nom, prenom,"
+                 " date_naissance) VALUES ('21071F', 'Aeschlimann',"
+                 " 'Marie-Do', '1974-04-17')")
+    conn.execute("INSERT INTO elus (id, nom, prenom, date_naissance,"
+                 " matricule_senat) VALUES ('SEN-21071F', 'Aeschlimann',"
+                 " 'Marie-Do', '1974-04-17', '21071F')")
+    conn.commit()
+
+
+def test_ingerer_senat_refuse_l_insecable_iso8859(tmp_path, monkeypatch):
+    """L'octet 0xA0 d'un CSV Sénat EST l'insécable U+00A0 une fois décodé.
+
+    C'est le cas qui distingue la normalisation Python d'un TRIM SQL : TRIM
+    ne coupe que l'espace ASCII 0x20, laisse passer 0xA0, et remplacerait le
+    patronyme par une insécable sans levée et sans journal.
+    """
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    _senateur_seme(conn)
+    _senat_jetable(tmp_path, monkeypatch, nom=b"\xa0")
+    p9.ingerer_senat(conn, session=None)
+    assert _etat_civil(conn, "senateurs", "matricule", "21071F") == (
+        "Aeschlimann", "Marie-Do", "1974-04-17")
+    assert _etat_civil(conn, "elus", "matricule_senat", "21071F") == (
+        "Aeschlimann", "Marie-Do", "1974-04-17")
+    conn.close()
+
+
+def test_valeur_amont_ne_convertit_pas_ce_qui_n_est_pas_du_texte():
+    """Une garde ne doit pas remplacer une levée bruyante par une valeur
+    fausse et muette.
+
+    `_texte` ne démêle que les dicts : une LISTE de l'amont AN traverse. Avant
+    cette garde, sqlite3 levait au bind. Convertir en `str` écrirait un repr
+    Python dans la colonne affichée, sans que personne ne le voie jamais.
+    """
+    assert p9.valeur_amont(" Golliot ") == "Golliot"
+    assert p9.valeur_amont("\xa0") is None
+    assert p9.valeur_amont(None) is None
+    for brut in (False, True, 0, b"Ok", ["A", "B"], {"a": 1}):
+        assert p9.valeur_amont(brut) is brut      # rendu INCHANGÉ
+
+
+def test_preserver_ne_compte_pas_une_preservation_qui_n_a_rien_sauve():
+    """CONTRE-ÉPREUVE DU MENSONGE DU COMPTEUR.
+
+    Une base laissée par un cycle d'AVANT cette garde peut porter `''`.
+    Compter une « préservation » du vide ferait lire « la garde a agi » à un
+    exploitant dont le nom servi est resté vide.
+    """
+    etat, n = p9.preserver_etat_civil(
+        {"nom": "", "prenom": ""}, {"nom": "", "prenom": ""},
+        p9.ETAT_CIVIL_DEPUTES)
+    assert etat == {"nom": "", "prenom": ""}      # statu quo, rien d'écrasé
+    assert n == 0                                 # et RIEN de compté
+    # contre-épreuve du positif : le compteur sait rendre du non-nul
+    etat, n = p9.preserver_etat_civil(
+        {"nom": "", "prenom": ""}, {"nom": "Golliot", "prenom": "Antoine"},
+        p9.ETAT_CIVIL_DEPUTES)
+    assert etat == {"nom": "Golliot", "prenom": "Antoine"} and n == 2
+
+
+def test_preserver_tolere_une_colonne_absente_de_la_projection():
+    """Une projection désynchronisée ne doit pas LEVER dans le `with conn:`.
+
+    Le coût d'une levée ici serait le rollback des 577 (ou 348) écritures et
+    la nuit non publiée ; ce sont les tests des trois sites qui verrouillent
+    la concordance, pas une exception en production.
+    """
+    etat, n = p9.preserver_etat_civil(
+        {"nom": "", "date_naissance": ""}, {"nom": "Golliot"},
+        p9.ETAT_CIVIL_ELUS)
+    assert etat["nom"] == "Golliot" and etat["date_naissance"] is None
+    assert n == 1
+
+
+def test_upsert_elu_ne_saute_jamais_une_fiche_existante(tmp_path):
+    """Le refus par non-écriture ne peut PAS priver une fiche existante de sa
+    mise à jour de mandats. `nom` étant NOT NULL, la valeur préservée d'une
+    ligne existante n'est jamais vide : le chemin de refus n'est atteignable
+    que sur une fiche NEUVE. Éprouvé plutôt que déduit."""
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    _elu_seme(conn)
+    bilan = _upsert(conn, nom="\xa0", prenom="", date_naissance=None,
+                    mandat={"type": "depute", "legislature": 18})
+    assert bilan["refus_insertion"] == 0 and bilan["preserves"] == 3
+    ligne = conn.execute(
+        "SELECT nom, mandats FROM elus WHERE uid_an = 'PA841605'").fetchone()
+    assert ligne["nom"] == "Golliot"
+    assert json.loads(ligne["mandats"])[0]["legislature"] == 18
+    conn.close()
+
+
+def test_ingerer_amo10_met_a_jour_elus_meme_si_deputes_est_refuse(tmp_path,
+                                                                  monkeypatch):
+    """Le refus d'écrire dans `deputes` ne doit pas emporter la fiche `elus`.
+
+    Cas atteignable : `deputes` est purgée chaque nuit par le
+    `DELETE … NOT IN`, `elus` ne l'est jamais. Un député absent un jour et
+    revenu le lendemain avec un nom vide a donc une fiche `elus` mais pas de
+    ligne `deputes` — ses mandats doivent quand même être fusionnés.
+    """
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    _elu_seme(conn)                       # elus existe, deputes ABSENT
+    monkeypatch.setattr(p9, "_date_last_modified", lambda *a, **k: "2026-08-29")
+    monkeypatch.setattr(p9, "telecharger",
+                        lambda *a, **k: _zip_amo10(tmp_path, "", ""))
+    p9.ingerer_amo10(conn, session=None)
+    ligne = conn.execute("SELECT nom, mandats FROM elus"
+                         " WHERE uid_an = 'PA841605'").fetchone()
+    assert ligne["nom"] == "Golliot"                       # non effacé
+    assert "AN-P9" in ligne["mandats"]                     # et MIS À JOUR
+    conn.close()
+
+
+def test_ingerer_amo10_ne_laisse_pas_un_depute_sans_fiche_elus(tmp_path,
+                                                               monkeypatch):
+    """`queries/elus.ts:244` joint `deputes` à `elus` en JOINTURE INTERNE.
+
+    Un député écrit dans `deputes` mais refusé dans `elus` disparaîtrait de
+    la liste servie. Quand le nom est connu de `deputes`, il doit servir aussi
+    à créer la fiche `elus`.
+    """
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    conn.execute("INSERT INTO deputes (uid_an, legislature, nom, prenom)"
+                 " VALUES ('PA841605', ?, 'Golliot', 'Antoine')",
+                 (p9.LEGISLATURE,))
+    conn.commit()                          # deputes existe, elus ABSENT
+    monkeypatch.setattr(p9, "_date_last_modified", lambda *a, **k: "2026-08-29")
+    monkeypatch.setattr(p9, "telecharger",
+                        lambda *a, **k: _zip_amo10(tmp_path, "\xa0", ""))
+    p9.ingerer_amo10(conn, session=None)
+    assert _etat_civil(conn, table="deputes") == ("Golliot", "Antoine")
+    ligne = conn.execute(
+        "SELECT nom FROM elus WHERE uid_an = 'PA841605'").fetchone()
+    assert ligne is not None and ligne["nom"] == "Golliot"
+    conn.close()
+
+
+def test_ingerer_amo10_laisse_passer_une_correction_sur_le_nom_servi(
+        tmp_path, monkeypatch):
+    """CONTRE-ÉPREUVE DU GEL sur `deputes` — la table que le site AFFICHE.
+
+    Sans ce test, la colonne pourrait être rendue write-once sans qu'un seul
+    test ne rougisse : c'est exactement le coût que le projet a refusé.
+    """
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    conn.execute("INSERT INTO deputes (uid_an, legislature, nom, prenom)"
+                 " VALUES ('PA841605', ?, 'GOLLIOT', 'ANTOINE')",
+                 (p9.LEGISLATURE,))
+    _elu_seme(conn, nom="GOLLIOT", prenom="ANTOINE")
+    monkeypatch.setattr(p9, "_date_last_modified", lambda *a, **k: "2026-08-29")
+    monkeypatch.setattr(p9, "telecharger",
+                        lambda *a, **k: _zip_amo10(tmp_path, "Golliot"))
+    p9.ingerer_amo10(conn, session=None)
+    assert _etat_civil(conn, table="deputes") == ("Golliot", "Antoine")
+    assert _etat_civil(conn)[:2] == ("Golliot", "Antoine")
+    conn.close()
+
+
+def test_ingerer_amo10_journalise_le_compte_meme_a_zero(tmp_path, monkeypatch,
+                                                        caplog):
+    """Un contrôle muet au vert est indiscernable d'un contrôle débranché."""
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    monkeypatch.setattr(p9, "_date_last_modified", lambda *a, **k: "2026-08-29")
+    monkeypatch.setattr(p9, "telecharger",
+                        lambda *a, **k: _zip_amo10(tmp_path, "Golliot"))
+    with caplog.at_level("INFO"):
+        p9.ingerer_amo10(conn, session=None)
+    bilan = [m for m in caplog.messages if m.startswith("AMO10 :") and "état civil" in m]
+    assert bilan and "0 champ(s) préservé(s) sur deputes, 0 sur elus" in bilan[0]
+    assert "0 fiche(s) deputes et 0 fiche(s) elus non écrite(s)" in bilan[0]
+    # contre-épreuve du positif : le même bilan sait rendre du NON-nul
+    caplog.clear()
+    monkeypatch.setattr(p9, "telecharger",
+                        lambda *a, **k: _zip_amo10(tmp_path, "\xa0", ""))
+    with caplog.at_level("INFO"):
+        p9.ingerer_amo10(conn, session=None)
+    bilan = [m for m in caplog.messages if m.startswith("AMO10 :") and "état civil" in m]
+    assert bilan and "2 champ(s) préservé(s) sur deputes" in bilan[0]
+    conn.close()
+
+
+def test_ingerer_senat_refuse_effacer_la_date_de_naissance(tmp_path,
+                                                           monkeypatch):
+    """`Date naissance` vide : la route la plus exposée, sur le champ le plus
+    silencieux. Une ligne ODSEN tronquée APRÈS `État` passe le filtre `actifs`
+    et livre `Date naissance = None` — `date_naissance` étant nullable, elle
+    passait à NULL sans levée et sans trace."""
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    _senateur_seme(conn)
+    _senat_jetable(tmp_path, monkeypatch, naissance=b"")
+    p9.ingerer_senat(conn, session=None)
+    assert _etat_civil(conn, "senateurs", "matricule", "21071F") == (
+        "Aeschlimann", "Marie-Do", "1974-04-17")
+    assert _etat_civil(conn, "elus", "matricule_senat", "21071F") == (
+        "Aeschlimann", "Marie-Do", "1974-04-17")
+    conn.close()
+
+
+def test_ingerer_senat_laisse_passer_une_correction(tmp_path, monkeypatch):
+    """CONTRE-ÉPREUVE DU GEL sur `senateurs` et sur la fiche `elus` liée."""
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    conn.execute("INSERT INTO senateurs (matricule, nom, prenom,"
+                 " date_naissance) VALUES ('21071F', 'AESCHLIMANN', 'M.-D.',"
+                 " '1900-01-01')")
+    conn.execute("INSERT INTO elus (id, nom, prenom, date_naissance,"
+                 " matricule_senat) VALUES ('SEN-21071F', 'AESCHLIMANN',"
+                 " 'M.-D.', '1900-01-01', '21071F')")
+    conn.commit()
+    _senat_jetable(tmp_path, monkeypatch)          # fixture non modifiée
+    p9.ingerer_senat(conn, session=None)
+    assert _etat_civil(conn, "senateurs", "matricule", "21071F") == (
+        "Aeschlimann", "Marie-Do", "1974-04-17")
+    assert _etat_civil(conn, "elus", "matricule_senat", "21071F") == (
+        "Aeschlimann", "Marie-Do", "1974-04-17")
+    conn.close()
+
+
+def test_ingerer_senat_journalise_le_compte_meme_a_zero(tmp_path, monkeypatch,
+                                                        caplog):
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    _senateur_seme(conn)
+    _senat_jetable(tmp_path, monkeypatch)
+    with caplog.at_level("INFO"):
+        p9.ingerer_senat(conn, session=None)
+    bilan = [m for m in caplog.messages if m.startswith("Sénat :") and "état civil" in m]
+    assert bilan and "0 champ(s) préservé(s) sur senateurs, 0 sur elus" in bilan[0]
+    assert "0 fiche(s) senateurs et 0 fiche(s) elus non écrite(s)" in bilan[0]
+    caplog.clear()
+    _senat_jetable(tmp_path, monkeypatch, nom=b"\xa0", naissance=b"")
+    with caplog.at_level("INFO"):
+        p9.ingerer_senat(conn, session=None)
+    bilan = [m for m in caplog.messages if m.startswith("Sénat :") and "état civil" in m]
+    assert bilan and "2 champ(s) préservé(s) sur senateurs" in bilan[0]
+    conn.close()
+
+
+def test_ingerer_senat_ne_leve_pas_sur_nom_vide_du_csv(tmp_path, monkeypatch):
+    """`senateurs.nom` est NOT NULL et l'`INSERT OR REPLACE` est dans le
+    `with conn:`. Un CSV ne peut rendre que `''` : le cas est atteignable, et
+    il ne doit ni lever ni emporter les AUTRES sénateurs."""
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    _senat_jetable(tmp_path, monkeypatch, nom=b"")
+    p9.ingerer_senat(conn, session=None)           # ne lève pas
+    assert conn.execute("SELECT count(*) FROM senateurs WHERE matricule ="
+                        " '21071F'").fetchone()[0] == 0
+    assert conn.execute("SELECT count(*) FROM senateurs").fetchone()[0] >= 1
+    assert conn.execute("SELECT count(*) FROM meta_sources WHERE source_id ="
+                        " 'S6-ODSEN'").fetchone()[0] == 1
+    conn.close()
+
+
+def test_ingerer_amo10_ne_leve_pas_sur_nom_nul_de_l_an(tmp_path, monkeypatch):
+    """`_texte()` rend None sur un dict-nil {'@xsi:nil': 'true'} — cas
+    constaté sur `uri_hatvp` d'un acteur réel. Avant ce correctif, un seul
+    None dans le JSON de l'AN annulait les 577 écritures du `with conn:`,
+    faisait rendre 1 à main(), arrêtait make au 8e pipeline sur 31 et ne
+    publiait RIEN de la nuit."""
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    data = json.loads((FIXTURES / "acteur_PA841605.json").read_text("utf-8"))
+    data["acteur"]["etatCivil"]["ident"]["nom"] = {"@xsi:nil": "true"}
+    data["acteur"]["mandats"] = {"mandat": []}
+    chemin = tmp_path / "nil.zip"
+    with zipfile.ZipFile(chemin, "w") as z:
+        z.writestr("json/acteur/PA841605.json", json.dumps(data))
+    monkeypatch.setattr(p9, "_date_last_modified", lambda *a, **k: "2026-08-29")
+    monkeypatch.setattr(p9, "telecharger", lambda *a, **k: chemin)
+    p9.ingerer_amo10(conn, session=None)           # ne lève pas
+    assert conn.execute("SELECT count(*) FROM deputes").fetchone()[0] == 0
+    assert conn.execute("SELECT count(*) FROM elus").fetchone()[0] == 0
+    assert conn.execute("SELECT count(*) FROM meta_sources WHERE source_id ="
+                        " 'S5-AMO10'").fetchone()[0] == 1
+    conn.close()
+
+
+def test_upsert_elu_normalise_aussi_a_l_insertion_d_une_fiche_neuve(tmp_path):
+    """La normalisation vaut à l'INSERT autant qu'à l'UPDATE.
+
+    Sur une fiche neuve il n'y a rien à préserver, mais il y a à nettoyer :
+    un `prenom` vide doit entrer en NULL, pas en `''` — sinon la garde du
+    cycle SUIVANT verra une valeur « déjà en base » qu'elle ne pourra pas
+    préserver, et la colonne restera vide sans que rien ne le signale.
+    """
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    bilan = _upsert(conn, valeur_cle="PA999999", id_defaut="PA999999",
+                    nom="  Dupont  ", prenom="", date_naissance="\xa0")
+    assert bilan == {"preserves": 0, "refus_insertion": 0}
+    assert _etat_civil(conn, valeur="PA999999") == ("Dupont", None, None)
+    conn.close()

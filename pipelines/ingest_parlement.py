@@ -760,6 +760,71 @@ def _fusionner_mandats(existant: str | None, entree: dict, source: str) -> str:
     return json.dumps(mandats, ensure_ascii=False)
 
 
+# --- Garde-fou d'état civil ------------------------------------------------
+# Les trois sites d'écriture de P9 réécrivent le nom, le prénom et la date de
+# naissance de fiches EXISTANTES à chaque cycle : elus (UPDATE), deputes
+# (ON CONFLICT DO UPDATE) et senateurs (INSERT OR REPLACE). Une valeur amont
+# vide y effaçait une identité en silence — et c'est deputes.nom que le site
+# affiche. La garde vaut donc pour les trois, pas pour la seule table noyau.
+ETAT_CIVIL_ELUS = ("nom", "prenom", "date_naissance")
+ETAT_CIVIL_DEPUTES = ("nom", "prenom")          # deputes n'a pas de naissance
+ETAT_CIVIL_SENATEURS = ("nom", "prenom", "date_naissance")
+
+
+def valeur_amont(v):
+    """Valeur textuelle nettoyée, ou None si elle est vide ou toute blanche.
+
+    La normalisation est en PYTHON, pas en SQL : `TRIM` SQLite ne coupe que
+    l'espace ASCII 0x20, quand `str.strip()` couvre les blancs Unicode. Or
+    l'insécable U+00A0 est ATTEIGNABLE — `lire_csv_senat` décode ODSEN en
+    ISO-8859-1, où l'octet 0xA0 EST l'insécable. Une garde écrite en SQL
+    laisserait donc le patronyme se faire remplacer par une insécable.
+
+    Ce qui n'est pas du texte ressort INCHANGÉ, sans conversion : une liste
+    ou un dict que `_texte` n'aurait pas démêlé doit continuer de faire lever
+    sqlite3 au bind, comme avant cette garde. Les convertir écrirait un repr
+    Python dans la colonne affichée, en silence — remplacer une levée
+    bruyante par une valeur fausse et muette serait le contraire du but.
+    """
+    if not isinstance(v, str):
+        return v
+    return v.strip() or None
+
+
+def preserver_etat_civil(entrant: dict, ancien, champs) -> tuple[dict, int]:
+    """Substitue à toute valeur d'état civil vide celle qui est déjà en base.
+
+    Rend les valeurs à écrire et le nombre de champs RÉELLEMENT préservés.
+    Seul le VIDE est refusé : une correction de graphie légitime passe —
+    c'est la réécriture par P9 qui apporte la casse propre de l'AN par-dessus
+    le RNE, et geler la colonne éteindrait cette correction avec le défaut.
+
+    La valeur en base est jugée par le même critère que l'amont. Si elle est
+    vide elle aussi — état qu'un cycle d'avant cette garde a pu laisser —
+    il n'y a rien à préserver : on réécrit le vide tel quel (statu quo) et
+    on ne le COMPTE PAS. Compter une préservation qui n'a rien sauvé ferait
+    lire « la garde a agi » là où le nom servi reste vide.
+
+    Une colonne absente de la projection est traitée comme absente de la
+    base, jamais comme une erreur : les écritures sont dans un `with conn:`,
+    et une levée ici annulerait la nuit entière. Ce sont les tests des trois
+    sites qui verrouillent la concordance projection/champs, pas une levée.
+    """
+    cles = ancien.keys() if ancien is not None else ()
+    retenu, preserves = {}, 0
+    for champ in champs:
+        utile = valeur_amont(entrant.get(champ))
+        if utile is not None:
+            retenu[champ] = utile
+            continue
+        brut = ancien[champ] if champ in cles else None
+        if valeur_amont(brut) is not None:
+            retenu[champ], preserves = brut, preserves + 1
+        else:
+            retenu[champ] = brut
+    return retenu, preserves
+
+
 def upsert_elu(
     conn,
     *,
@@ -773,23 +838,38 @@ def upsert_elu(
     profession: str | None,
     mandat: dict,
     source_mandat: str,
-) -> None:
+) -> dict:
     """UPSERT dans la table noyau elus par identifiant de chambre.
 
     Ne touche JAMAIS aux colonnes des autres pipelines (hatvp_flag, et
     l'identifiant de l'autre chambre) ; la colonne mandats est fusionnée.
+    Rend le bilan du garde-fou d'état civil (champs préservés, insertion
+    refusée) — ajout purement additif : les sites d'appel restent libres de
+    l'ignorer.
     """
     ligne = conn.execute(
-        f"SELECT id, mandats FROM elus WHERE {cle} = ?", (valeur_cle,)
+        f"SELECT id, mandats, nom, prenom, date_naissance FROM elus"
+        f" WHERE {cle} = ?", (valeur_cle,)
     ).fetchone()
+    etat, preserves = preserver_etat_civil(
+        {"nom": nom, "prenom": prenom, "date_naissance": date_naissance},
+        ligne, ETAT_CIVIL_ELUS)
     if ligne:
         mandats = _fusionner_mandats(ligne["mandats"], mandat, source_mandat)
         conn.execute(
             """UPDATE elus SET nom = ?, prenom = ?, sexe = ?,
                date_naissance = ?, profession = ?, mandats = ? WHERE id = ?""",
-            (nom, prenom, sexe, date_naissance, profession, mandats,
-             ligne["id"]),
+            (etat["nom"], etat["prenom"], sexe, etat["date_naissance"],
+             profession, mandats, ligne["id"]),
         )
+    elif etat["nom"] is None:
+        # Fiche neuve sans patronyme utilisable. elus.nom est NOT NULL et
+        # l'appel est dans le `with conn:` de l'appelant : lever annulerait
+        # les 577 (ou 348) écritures du bloc, ferait rendre 1 à main(),
+        # arrêterait make au 8e pipeline sur 31 et ne publierait RIEN de la
+        # nuit. On refuse par NON-ÉCRITURE ; le cycle suivant créera la fiche
+        # dès que l'amont redeviendra sain.
+        return {"preserves": preserves, "refus_insertion": 1}
     else:
         mandats = _fusionner_mandats(None, mandat, source_mandat)
         conn.execute(
@@ -797,9 +877,10 @@ def upsert_elu(
                 (id, nom, prenom, sexe, date_naissance, profession,
                  {cle}, mandats)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (id_defaut, nom, prenom, sexe, date_naissance, profession,
-             valeur_cle, mandats),
+            (id_defaut, etat["nom"], etat["prenom"], sexe,
+             etat["date_naissance"], profession, valeur_cle, mandats),
         )
+    return {"preserves": preserves, "refus_insertion": 0}
 
 
 # ---------------------------------------------------------------------------
@@ -840,54 +921,81 @@ def ingerer_amo10(conn, session: requests.Session) -> None:
     for ref in sorted(r for r in refs if r):
         organes[ref] = parser_organe(json.loads(z.read(f"json/organe/{ref}.json")))
 
+    # Effectifs des groupes : remplis DANS la boucle, à partir des seuls
+    # députés réellement écrits — sinon un député refusé faute de patronyme
+    # gonflerait groupes_an.effectif sans ligne correspondante dans deputes.
     effectifs: dict[str, set[str]] = {}
-    for a in acteurs:
-        if a["groupe_ref"]:
-            effectifs.setdefault(a["groupe_ref"], set()).add(a["uid"])
 
+    preserves_deputes = preserves_elus = 0
+    refus_deputes = refus_elus = 0
     with conn:
         for a in acteurs:
             ass = a["assemblee"] or {}
             groupe = organes.get(a["groupe_ref"] or "", {})
             commission = organes.get(a["commission_ref"] or "", {})
-            conn.execute(
-                """INSERT INTO deputes
-                     (uid_an, legislature, nom, prenom, departement,
-                      num_departement, num_circo, groupe_ref, groupe_sigle,
-                      groupe_nom, commission_ref, commission,
-                      date_debut_mandat, date_prise_fonction, date_fin_mandat,
-                      url_fiche_an, url_hatvp)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                   ON CONFLICT(uid_an) DO UPDATE SET
-                     legislature = excluded.legislature,
-                     nom = excluded.nom, prenom = excluded.prenom,
-                     departement = excluded.departement,
-                     num_departement = excluded.num_departement,
-                     num_circo = excluded.num_circo,
-                     groupe_ref = excluded.groupe_ref,
-                     groupe_sigle = excluded.groupe_sigle,
-                     groupe_nom = excluded.groupe_nom,
-                     commission_ref = excluded.commission_ref,
-                     commission = excluded.commission,
-                     date_debut_mandat = excluded.date_debut_mandat,
-                     date_prise_fonction = excluded.date_prise_fonction,
-                     date_fin_mandat = excluded.date_fin_mandat,
-                     url_fiche_an = excluded.url_fiche_an,
-                     url_hatvp = excluded.url_hatvp""",
-                (a["uid"], LEGISLATURE, a["nom"], a["prenom"],
-                 ass.get("departement"), ass.get("num_departement"),
-                 ass.get("num_circo"), a["groupe_ref"],
-                 groupe.get("sigle"), groupe.get("nom"),
-                 a["commission_ref"], commission.get("nom"),
-                 ass.get("date_debut"), ass.get("date_prise_fonction"),
-                 ass.get("date_fin"),
-                 f"https://www.assemblee-nationale.fr/dyn/deputes/{a['uid']}",
-                 a["url_hatvp"]),
-            )
-            upsert_elu(
+            # deputes.nom / .prenom sont ce que le SITE AFFICHE
+            # (app/src/lib/queries/elus.ts:244,250) : la garde vaut ici
+            # autant que sur la table noyau.
+            etat, n = preserver_etat_civil(
+                a,
+                conn.execute("SELECT nom, prenom FROM deputes"
+                             " WHERE uid_an = ?", (a["uid"],)).fetchone(),
+                ETAT_CIVIL_DEPUTES)
+            preserves_deputes += n
+            if etat["nom"] is None:
+                # Député inconnu ET sans patronyme : deputes.nom est NOT NULL
+                # et l'INSERT est dans ce `with conn:` — lever perdrait les
+                # 577 écritures et la publication de la nuit. Le refus ne
+                # porte QUE sur cette écriture-ci : la fiche elus, elle, doit
+                # continuer d'être mise à jour (ses mandats notamment), et
+                # elle a sa propre garde.
+                refus_deputes += 1
+            else:
+                if a["groupe_ref"]:
+                    effectifs.setdefault(a["groupe_ref"], set()).add(a["uid"])
+                conn.execute(
+                    """INSERT INTO deputes
+                         (uid_an, legislature, nom, prenom, departement,
+                          num_departement, num_circo, groupe_ref, groupe_sigle,
+                          groupe_nom, commission_ref, commission,
+                          date_debut_mandat, date_prise_fonction, date_fin_mandat,
+                          url_fiche_an, url_hatvp)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                       ON CONFLICT(uid_an) DO UPDATE SET
+                         legislature = excluded.legislature,
+                         nom = excluded.nom, prenom = excluded.prenom,
+                         departement = excluded.departement,
+                         num_departement = excluded.num_departement,
+                         num_circo = excluded.num_circo,
+                         groupe_ref = excluded.groupe_ref,
+                         groupe_sigle = excluded.groupe_sigle,
+                         groupe_nom = excluded.groupe_nom,
+                         commission_ref = excluded.commission_ref,
+                         commission = excluded.commission,
+                         date_debut_mandat = excluded.date_debut_mandat,
+                         date_prise_fonction = excluded.date_prise_fonction,
+                         date_fin_mandat = excluded.date_fin_mandat,
+                         url_fiche_an = excluded.url_fiche_an,
+                         url_hatvp = excluded.url_hatvp""",
+                    (a["uid"], LEGISLATURE, etat["nom"], etat["prenom"],
+                     ass.get("departement"), ass.get("num_departement"),
+                     ass.get("num_circo"), a["groupe_ref"],
+                     groupe.get("sigle"), groupe.get("nom"),
+                     a["commission_ref"], commission.get("nom"),
+                     ass.get("date_debut"), ass.get("date_prise_fonction"),
+                     ass.get("date_fin"),
+                     f"https://www.assemblee-nationale.fr/dyn/deputes/{a['uid']}",
+                     a["url_hatvp"]),
+                )
+            # On passe l'état PRÉSERVÉ, pas la valeur brute : sinon un
+            # amont vide sur un député déjà connu de `deputes` mais pas
+            # encore de `elus` ferait refuser la fiche elus, et
+            # `queries/elus.ts:244` étant une JOINTURE INTERNE, le député
+            # disparaîtrait de la liste servie alors qu'on a son nom.
+            bilan = upsert_elu(
                 conn,
                 cle="uid_an", valeur_cle=a["uid"], id_defaut=a["uid"],
-                nom=a["nom"], prenom=a["prenom"], sexe=a["sexe"],
+                nom=etat["nom"], prenom=etat["prenom"], sexe=a["sexe"],
                 date_naissance=a["date_naissance"], profession=a["profession"],
                 mandat={
                     "type": "depute", "legislature": LEGISLATURE,
@@ -899,6 +1007,8 @@ def ingerer_amo10(conn, session: requests.Session) -> None:
                 },
                 source_mandat="AN-P9",
             )
+            preserves_elus += bilan["preserves"]
+            refus_elus += bilan["refus_insertion"]
         # Députés sortis du dump du jour → hors exercice, retirés de deputes.
         uids = [a["uid"] for a in acteurs]
         marqueurs = ",".join("?" * len(uids))
@@ -926,7 +1036,13 @@ def ingerer_amo10(conn, session: requests.Session) -> None:
                "AMO50 proscrit (figé au 11/07/2024) ; lien HATVP fourni par "
                "le champ uri_hatvp de l'AN"),
     )
-    log.info("AMO10 : %d députés, %d groupes écrits", len(acteurs), len(effectifs))
+    # Compte journalisé À CHAQUE CYCLE, zéro compris : un contrôle muet au
+    # vert est indiscernable d'un contrôle débranché.
+    log.info("AMO10 : %d députés, %d groupes écrits ; état civil : %d champ(s)"
+             " préservé(s) sur deputes, %d sur elus ; %d fiche(s) deputes et"
+             " %d fiche(s) elus non écrite(s) faute de patronyme",
+             len(acteurs), len(effectifs), preserves_deputes, preserves_elus,
+             refus_deputes, refus_elus)
 
 
 def ingerer_scrutins(conn, session: requests.Session) -> None:
@@ -1061,36 +1177,58 @@ def ingerer_senat(conn, session: requests.Session) -> None:
         mandats_en_cours[r.get("Matricule")] = (
             nettoyer_date_senat(r.get("Date de début de mandat")), None)
 
+    preserves_senateurs = preserves_elus = 0
+    refus_senateurs = refus_elus = 0
     with conn:
         for r in actifs:
             matricule = r["Matricule"]
             nom, prenom = r.get("Nom usuel"), r.get("Prénom usuel")
+            naissance = nettoyer_date_senat(r.get("Date naissance"))
             debut, fin = mandats_en_cours.get(matricule, (None, None))
-            conn.execute(
-                """INSERT OR REPLACE INTO senateurs
-                     (matricule, nom, prenom, sexe, circonscription, groupe,
-                      groupe_appartenance, commission, date_debut_mandat,
-                      date_fin_mandat, date_naissance, profession, email,
-                      url_fiche_senat)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (matricule, nom, prenom,
-                 {"M.": "M", "Mme": "F"}.get(r.get("Qualité")),
-                 r.get("Circonscription"), r.get("Groupe politique"),
-                 r.get("Type d'app au grp politique") or None,
-                 r.get("Commission permanente") or None,
-                 debut, fin,
-                 nettoyer_date_senat(r.get("Date naissance")),
-                 r.get("Description de la profession") or None,
-                 r.get("Courrier électronique") or None,
-                 construire_url_senateur(nom or "", prenom or "", matricule)),
-            )
-            upsert_elu(
+            # Route la plus exposée des trois : un CSV ne peut rendre que ''
+            # (restval=None sur toute ligne courte), et ODSEN est décodé en
+            # ISO-8859-1, où l'octet 0xA0 est l'insécable.
+            etat, n = preserver_etat_civil(
+                {"nom": nom, "prenom": prenom, "date_naissance": naissance},
+                conn.execute("SELECT nom, prenom, date_naissance FROM"
+                             " senateurs WHERE matricule = ?",
+                             (matricule,)).fetchone(),
+                ETAT_CIVIL_SENATEURS)
+            preserves_senateurs += n
+            if etat["nom"] is None:
+                # senateurs.nom est NOT NULL et l'INSERT OR REPLACE est dans
+                # ce `with conn:` — même arbitrage que pour les députés. Le
+                # refus ne porte QUE sur cette écriture : la fiche elus reste
+                # mise à jour, et elle a sa propre garde.
+                refus_senateurs += 1
+            else:
+                conn.execute(
+                    """INSERT OR REPLACE INTO senateurs
+                         (matricule, nom, prenom, sexe, circonscription, groupe,
+                          groupe_appartenance, commission, date_debut_mandat,
+                          date_fin_mandat, date_naissance, profession, email,
+                          url_fiche_senat)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (matricule, etat["nom"], etat["prenom"],
+                     {"M.": "M", "Mme": "F"}.get(r.get("Qualité")),
+                     r.get("Circonscription"), r.get("Groupe politique"),
+                     r.get("Type d'app au grp politique") or None,
+                     r.get("Commission permanente") or None,
+                     debut, fin,
+                     etat["date_naissance"],
+                     r.get("Description de la profession") or None,
+                     r.get("Courrier électronique") or None,
+                     construire_url_senateur(etat["nom"], etat["prenom"] or "",
+                                             matricule)),
+                )
+            # État PRÉSERVÉ et non brut : même motif qu'en AMO10.
+            bilan = upsert_elu(
                 conn,
                 cle="matricule_senat", valeur_cle=matricule,
                 id_defaut=f"SEN-{matricule}",
-                nom=nom, prenom=prenom,
+                nom=etat["nom"], prenom=etat["prenom"],
                 sexe={"M.": "M", "Mme": "F"}.get(r.get("Qualité")),
-                date_naissance=nettoyer_date_senat(r.get("Date naissance")),
+                date_naissance=etat["date_naissance"],
                 profession=r.get("Description de la profession") or None,
                 mandat={
                     "type": "senateur",
@@ -1100,6 +1238,8 @@ def ingerer_senat(conn, session: requests.Session) -> None:
                 },
                 source_mandat="SENAT-P9",
             )
+            preserves_elus += bilan["preserves"]
+            refus_elus += bilan["refus_insertion"]
         # Sortis de l'état ACTIF (démission, décès, renouvellement) → retirés.
         matricules = [r["Matricule"] for r in actifs]
         marqueurs = ",".join("?" * len(matricules))
@@ -1118,7 +1258,12 @@ def ingerer_senat(conn, session: requests.Session) -> None:
                "ODSEN au 19/08/2026 → date_fin_mandat NULL, recharger après "
                "le scrutin) ; dates de début via ODSEN_ELUSEN, partiel"),
     )
-    log.info("Sénat : %d sénateurs écrits", len(actifs))
+    # Compte journalisé À CHAQUE CYCLE, zéro compris (cf. AMO10).
+    log.info("Sénat : %d sénateurs écrits ; état civil : %d champ(s)"
+             " préservé(s) sur senateurs, %d sur elus ; %d fiche(s) senateurs"
+             " et %d fiche(s) elus non écrite(s) faute de patronyme",
+             len(actifs), preserves_senateurs, preserves_elus,
+             refus_senateurs, refus_elus)
 
 
 def ingerer_dosleg(conn, session: requests.Session) -> None:
