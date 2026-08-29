@@ -14,7 +14,10 @@ La redirection est servie par nginx, depuis
 Ce n'est pas un oubli. Mesuré : aucun script de `/usr/local/bin/` ni de
 `/usr/local/sbin/` n'écrit dans `/etc/nginx` — la règle survit donc au
 déploiement de 05:17 comme à `ft-rollback`, et `ft-sauvegarde` l'archive chaque
-nuit avec le reste de `/etc/nginx`. L'alternative écartée est la clé `redirects`
+nuit avec le reste de `/etc/nginx`. *(Depuis le 29/08/2026, `ft-deploy` et
+`ft-rollback` la **lisent** — voir « Le contrôle de dérive » plus bas. Aucun des
+deux ne l'écrit : le seul script qui écrit dans `/etc/nginx` reste
+`poser-301-d22.sh`, lancé à la main.)* L'alternative écartée est la clé `redirects`
 de `next.config` : mesurée **inopérante** sous `output: export` dans le Next du
 projet — un simple avertissement au journal, aucun fichier produit, et
 `ft-deploy` ne contrôle pas les avertissements. Une règle qui a l'air posée et
@@ -30,11 +33,36 @@ La contrepartie — une règle non versionnée — est payée par ce couple :
 ## Poser ou mettre à jour la règle
 
 ```sh
-sudo -u ftweb git -C /srv/france-transparence/travail/amont pull --ff-only
-/srv/france-transparence/travail/amont/deploy/gen-redirections-elus.sh \
-  > /etc/nginx/snippets/ft-redirections-elus-pages.conf
-nginx -t && ft-nginx-reload
+/root/poser-301-d22.sh --essai   # tout vérifier, ne RIEN écrire
+/root/poser-301-d22.sh           # engendrer, installer, recharger, contrôler
 ```
+
+🛑 **NE PAS appeler le générateur à la main, et surtout pas depuis
+`travail/amont`.** La procédure que ce document a portée jusqu'au 29/08/2026
+était celle-ci :
+
+```sh
+# ❌ PÉRIMÉE — conservée pour qu'on la reconnaisse, pas pour qu'on la rejoue
+sudo -u ftweb git -C /srv/france-transparence/travail/amont pull --ff-only
+/srv/france-transparence/travail/amont/deploy/gen-redirections-elus.sh > …
+```
+
+Elle est fautive sur **deux** points, chacun mesuré :
+
+1. **Le mauvais arbre.** `travail/amont` est tiré à la main ; l'arbre qui
+   PUBLIE est `/srv/france-transparence/app`, que `ft-deploy` avance par
+   `git fetch` au début de chaque cycle. Engendrer depuis `amont` peut poser
+   une règle issue d'une table **plus récente ou plus ancienne** que le site
+   servi, silencieusement, puisque la table existe des deux côtés.
+2. **La mauvaise redirection de sortie.** Le vhost inclut
+   `snippets/ft-redirections-elus*.conf` — un **joker** que le nom du script
+   (`gen-redirections-elus.conf`) ne satisfait pas. Écrire sous ce nom-là
+   produit un fichier que nginx **n'inclut jamais**, `nginx -t` reste vert, et
+   la régénération n'a aucun effet observable.
+
+`poser-301-d22.sh` lit `app`, écrit au bon chemin, refuse bruyamment si une
+cible n'est pas servie, recharge par `ft-nginx-reload` et contrôle les 17 paires
+en HTTP réel. Son régime se choisit par `FT_DEPOT` — voir « L'ordre des gestes ».
 
 Le vhost porte, une seule fois, un `include` **à joker** :
 
@@ -65,11 +93,68 @@ n'en couvrirait que deux : les autres rendraient 404 après suppression et
   vhost, qui teste `-d $document_root$1` et rend 404 dès que le répertoire a
   disparu.
 
-## L'ordre des gestes
+## L'ordre des gestes — DEUX régimes, et le défaut a changé le 27/08/2026
 
-**Poser la règle AVANT que le cycle ne retire les fiches.** Mesuré : le 301
-prime même quand la page existe encore. L'ordre inverse ouvrirait une fenêtre
-de 404 entre la bascule de release et le rechargement de nginx.
+Ce paragraphe prescrivait « **poser la règle AVANT** que le cycle ne retire les
+fiches ». **Cet ordre est devenu inapplicable** le jour où `poser-301-d22.sh` a
+cessé de lire `travail/amont` pour lire `app`, l'arbre qui publie : à l'instant
+« juste avant `ft-deploy` », `app` porte encore la révision du déploiement
+**précédent**. Pour un lot introduit par la PR qu'on s'apprête à déployer, le
+script engendrerait donc la règle depuis l'**ancienne** table — sans rien dire.
+
+| régime | quand | ce qu'on paie |
+|---|---|---|
+| **courant** *(défaut)* | **APRÈS** `ft-deploy` | une brève fenêtre de 404 entre la bascule de release et le rechargement de nginx |
+| **migration** | AVANT `ft-deploy`, `FT_DEPOT=/srv/france-transparence/travail/amont poser-301-d22.sh` | rien en 404 (le 301 prime même quand la page existe encore), mais tant que la fusion n'est pas déployée les pages `rne-*` portent des déclarations que leurs jumelles ne portent pas encore : poser la règle trop tôt les rend inatteignables |
+
+⚠️ **Ne jamais lancer `poser-301-d22.sh` et `ft-deploy` en même temps.**
+`ft-deploy` fait `git reset --hard` puis `git clean -fd` sur `app` ; le script
+lit le même arbre, et **aucun verrou n'est partagé entre les deux**. Fenêtre
+étroite, geste manuel : il suffit de ne pas les croiser.
+
+## Le contrôle de dérive vit CÔTÉ SERVEUR, et nulle part ailleurs
+
+La chaîne met en jeu **trois** artefacts, pas deux :
+
+| | artefact | où |
+|---|---|---|
+| ① | la **table** `deploy/redirections-elus.tsv` | ce dépôt, versionnée |
+| ② | le **build** `app/out/elus/` | engendré à chaque cycle |
+| ③ | le **snippet** `/etc/nginx/snippets/ft-redirections-elus-pages.conf` | hors dépôt, posé à la main |
+
+`R1a` et `R1c` — présents **deux fois**, dans `ft-deploy` et dans
+`.github/workflows/publication.yml` — rapprochent ① et ②. Personne ne
+rapprochait ① et ③ : une table modifiée et déployée sans rejouer
+`poser-301-d22.sh` laissait nginx servir l'ancien lot, et les deux contrôles
+disaient « OK ».
+
+Depuis le 29/08/2026, `/usr/local/bin/ft-controle-301` ferme ce trou. Il est
+appelé par `ft-deploy` (après la bascule) et par `ft-rollback` (après la
+sienne), **avertit sans jamais bloquer**, et journalise son compte à **chaque**
+cycle, zéro compris, dans `/var/log/france-transparence/deploiement.log` :
+
+```
+[05:27:22] 301 d'élus (S1/S2, ft-deploy) : OK : 301 servis — 17/17 en 301,
+           17/17 cibles conformes, 17/17 en 200 après suivi ; snippet 17 = table 17
+```
+
+Il mesure l'**effet**, pas le fichier : pour chaque ligne de la table, il exige
+`301` sur les deux formes d'URL, **compare `%{redirect_url}` à la jumelle
+attendue**, et exige `200` en suivant. La comparaison de cible n'est pas un
+raffinement : une cible **permutée** vers une autre fiche réelle rend `301` puis
+`200`, un contrôle par le seul code reste **muet**, et le visiteur atterrit sur
+la mauvaise fiche en `301` *permanent*, mis en cache par son navigateur.
+
+🛑 **CE CONTRÔLE N'A PAS DE JUMEAU EN CI, ET C'EST VOULU.** C'est une exception
+assumée à la règle « toute garde se pose deux fois ». Le runner GitHub n'a ni
+`/etc/nginx` ni le site servi, et ce fichier de workflow n'a ni `ssh` ni
+`rsync` : il ne peut **ni lire ③ ni l'interroger**. Si tu cherches l'étape
+manquante côté CI en lisant `publication.yml`, arrête — il n'y en a pas. Le même
+avertissement est écrit dans `publication.yml` et en tête de `ft-controle-301`.
+
+⚠️ Corollaire : `ft-controle-301` n'est **pas versionné**, comme `ft-deploy`,
+`ft-rollback` et `poser-301-d22.sh`. **Toute réinstallation du serveur les
+efface.** Aucun test de ce dépôt ne les couvre.
 
 ## Ce que la règle ne couvre pas
 
