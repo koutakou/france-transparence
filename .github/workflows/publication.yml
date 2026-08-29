@@ -265,6 +265,18 @@ jobs:
           grep -qx 'Sitemap: https://francetransparence\.fr/sitemap\.xml' app/out/robots.txt
 
       # --- Redirections 301 des fiches fusionnées (R1a et R1c) --------------
+      #
+      # 🛑 IL MANQUE UN TROISIÈME CONTRÔLE ICI, ET C'EST VOULU — NE LE CHERCHE PAS.
+      # La chaîne met en jeu TROIS artefacts : ① la table (ce dépôt), ② le build
+      # (ci-dessous), ③ le SNIPPET nginx /etc/nginx/snippets/ft-redirections-elus-pages.conf,
+      # HORS DÉPÔT, posé à la main par /root/poser-301-d22.sh.
+      # R1a et R1c rapprochent ① et ②. Le rapprochement ① <-> ③ est
+      # STRUCTURELLEMENT IMPOSSIBLE ICI : ce runner n'a ni /etc/nginx ni le site
+      # servi, et ce workflow n'a ni ssh ni rsync — il ne peut ni lire ③ ni
+      # l'interroger. Ce contrôle-là vit donc UNE SEULE FOIS, côté serveur, dans
+      # /usr/local/bin/ft-controle-301, appelé par ft-deploy et par ft-rollback.
+      # Exception assumée à la règle « toute garde se pose deux fois ».
+      # Voir docs/REDIRECTIONS-ELUS.md, § « Le contrôle de dérive vit CÔTÉ SERVEUR ».
       # Source : /srv/france-transparence/doc/QUALIFICATION-301-DERIVE-20260826.md
       # § 9 — chemin ABSOLU sur le serveur : ce document vit HORS du dépôt (le
       # dépôt porte `docs/`, pas `doc/`). Miroir de l'étape équivalente de

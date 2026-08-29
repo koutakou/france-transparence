@@ -889,15 +889,33 @@ def _rattraper(p: dict, index_nom: dict, garde: set) -> dict | None:
          une autre serait la faute la plus grave possible ici.
 
     Mesure de contrôle du 26/08/2026, en rejouant `upsert_elus` sur une COPIE
-    de la base servie : **17** rattrapages — et pas 16, chiffre d'une mesure
-    antérieure que ce texte a porté à tort —, 0 candidat ambigu, 0 fiche déjà
+    de la base servie : 17 rattrapages, 0 candidat ambigu, 0 fiche déjà
     appariée touchée, 0 fiche créée, `elus` passant de 36 020 à 36 003 lignes.
+
+    ⚠️ CE « 17 » EST PÉRIMÉ, PAS FAUX, et le chiffre du jour est **16**.
+    Il valait 17 tant que la base portait les deux fiches en double. Le `DELETE`
+    du 26/08 a retiré les doublons ; depuis, une des 17 paires —
+    `rne-14dcb94cc2c7d19f` -> `SEN-21634U` — est attrapée par la CLÉ EXACTE,
+    donc AVANT d'arriver ici : c'est la seule des 17 dont le RNE et le Sénat
+    écrivent l'état civil à l'identique. `_rattraper` n'en voit plus que 16, et
+    le journal de chaque cycle l'écrit (« 16 rattrapés sur une fiche AN/Sénat »).
+    Re-mesuré le 28/08/2026 par rejeu sur une copie de la base servie, avec sa
+    contre-épreuve : le doublon réinséré avec un rowid inférieur redonne 17.
+    **16 est correct et stable.** Ne pas « corriger » ce nombre vers 17 sans
+    avoir rejoué la mesure : c'est l'état de `elus` qui le fixe, pas ce texte.
+
     La liste des 17 identifiants est dans `deploy/redirections-elus.tsv` : le
     lot se MESURE, il ne se recopie pas d'une séance à l'autre — il dépend de
     l'état de `elus` du jour et du millésime RNE du jour. Cette table est aussi
     la source des redirections 301 qui empêchent les URL retirées de tomber en
-    404 : voir `docs/REDIRECTIONS-ELUS.md`, et **poser la règle nginx AVANT**
-    de laisser un cycle retirer les fiches.
+    404 : voir `docs/REDIRECTIONS-ELUS.md`.
+
+    ⚠️ L'ordre des gestes a changé le 27/08/2026 : ce texte prescrivait de
+    « poser la règle nginx AVANT de laisser un cycle retirer les fiches ». Le
+    régime COURANT est désormais l'inverse — `poser-301-d22.sh` lit l'arbre qui
+    PUBLIE, qui n'avance qu'au `git fetch` de `ft-deploy` : posée avant, la
+    règle serait engendrée depuis l'ANCIENNE table. Les deux régimes et ce
+    qu'ils coûtent sont dans `docs/REDIRECTIONS-ELUS.md`.
 
     Les fiches AN/Sénat qui restent sans mandat RNE après ce passage ne sont
     PAS des doublons : ce sont des arrivées récentes absentes du millésime RNE,
