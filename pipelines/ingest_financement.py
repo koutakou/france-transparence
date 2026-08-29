@@ -103,7 +103,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from pipelines import db
-from pipelines.common import obtenir_logger, session_http, telecharger
+from pipelines.common import (
+    obtenir_logger,
+    reparer_controles_cp1252,
+    session_http,
+    telecharger,
+)
 
 log = obtenir_logger("ingest_financement")
 
@@ -652,6 +657,7 @@ def parser_partis(brut: bytes, millesime: int) -> list[dict]:
 
     resultat: list[dict] = []
     au_millesime = 0
+    noms_repares = 0
     for champs in lignes[1:]:
         if not champs or not any(c.strip() for c in champs):
             continue
@@ -662,6 +668,10 @@ def parser_partis(brut: bytes, millesime: int) -> list[dict]:
         code = champs[0].strip()
         if not code:
             raise ValueError(f"comptes des partis {millesime} : Code_CNCCFP vide")
+        nom_brut = champs[1].strip()
+        nom = reparer_controles_cp1252(nom_brut)
+        if nom != nom_brut:
+            noms_repares += 1
         ex_lu = int(champs[3].strip())
         if ex_lu == millesime:
             au_millesime += 1
@@ -677,8 +687,10 @@ def parser_partis(brut: bytes, millesime: int) -> list[dict]:
                 # même normalisation de casse que les noms de personnes, par
                 # symétrie (aucun nom de parti n'est modifié dans le corpus
                 # 2021-2024 : le garde-fou « aucune minuscule ASCII » protège
-                # « 12éme », « 8ème », « SoCARRIÈRES »…).
-                "nom": normaliser_casse_nom(champs[1].strip()),
+                # « 12éme », « 8ème », « SoCARRIÈRES »…). Les contrôles C1 sont
+                # réparés AVANT, pour que la casse voie « Œ » comme la lettre
+                # qu'il est et non comme un caractère de contrôle.
+                "nom": normaliser_casse_nom(nom),
                 "unite": champs[2].strip(),
                 "exercice": ex_lu,
                 "millesime": millesime,
@@ -699,6 +711,14 @@ def parser_partis(brut: bytes, millesime: int) -> list[dict]:
             f"comptes des partis {millesime} : aucune ligne datée {millesime} "
             "— mauvais fichier ?"
         )
+    # INCONDITIONNEL, zéro compris : un compteur muet au vert est
+    # indiscernable d'un compteur débranché. C'est cette ligne qui datera la
+    # prochaine régression d'encodage de l'amont, dans un journal que rien
+    # d'autre n'archive.
+    log.info(
+        "comptes des partis %d : %d nom(s) réparé(s) (contrôles C1 cp1252)",
+        millesime, noms_repares,
+    )
     return resultat
 
 

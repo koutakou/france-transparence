@@ -183,6 +183,52 @@ def normaliser_espaces(texte: str) -> str:
     return re.sub(r"\s+", " ", texte.replace(" ", " ").replace(" ", " ")).strip()
 
 
+# Les octets 0x80-0x9F auxquels cp1252 affecte un caractère, rendus à leur
+# point de code Unicode réel. Les cinq autres (0x81, 0x8D, 0x8F, 0x90, 0x9D)
+# n'ont aucune affectation : ils restent intacts, comme un mojibake
+# irréparable, la règle de ce module étant de ne jamais rien perdre.
+_CONTROLES_CP1252 = {}
+for _octet in range(0x80, 0xA0):
+    try:
+        _CONTROLES_CP1252[_octet] = bytes([_octet]).decode("cp1252")
+    except UnicodeDecodeError:
+        pass
+del _octet
+
+
+def reparer_controles_cp1252(texte: str) -> str:
+    """Contrôles C1 (U+0080-U+009F) → le caractère cp1252 du même octet.
+
+    POURQUOI, et pourquoi ce n'est PAS `reparer_mojibake`. L'amont a décodé
+    des octets cp1252 avec la table iso-8859-1, puis réencodé en UTF-8. Les
+    deux tables coïncident sur 0xC0-0xFF — d'où le « É » parfaitement
+    accentué de « ROSNÉENNE » dans la chaîne même qui est fautive — et
+    divergent sur 0x80-0x9F, où cp1252 place la ponctuation typographique là
+    où iso-8859-1 place des contrôles. « Œ » (0x8C) devient donc U+008C et
+    « ’ » (0x92) devient U+0092, DANS UN FICHIER PAR AILLEURS UTF-8 VALIDE :
+    aucun contrôle d'encodage ne peut le voir — `decode("utf-8")` réussit —
+    et seule la catégorie Unicode `Cc` le révèle. Le défaut est sélectif par
+    caractère, jamais global au fichier.
+
+    `reparer_mojibake` traite le défaut INVERSE (UTF-8 relu en cp1252, qui
+    laisse des « Ã », « Â », « â€ ») et sort immédiatement sur une chaîne qui
+    n'en porte aucun : les deux fonctions ne se recouvrent pas, elles se
+    complètent — comme `normaliser_casse_nom` d'`ingest_financement` le dit
+    déjà d'un troisième défaut de la même source.
+
+    Cas mesuré le 29/08/2026 : le CSV CNCCFP des comptes de partis 2024
+    publie « LEVALLOIS AU C\x8cUR » et « UNION ROSNÉENNE D\x92ACTION
+    MUNICIPALE ». Les millésimes 2021 à 2023 portaient « Œ » correct
+    (0xC5 0x92) : la régression est amont, datée, et vérifiée octet pour
+    octet sur la ressource data.gouv elle-même. Ces deux noms étaient servis
+    tels quels dans l'index de recherche du site.
+
+    Idempotente, et sans effet sur un texte sain : les caractères hors
+    U+0080-U+009F ne sont pas dans la table de translation.
+    """
+    return texte.translate(_CONTROLES_CP1252)
+
+
 def assainir_texte(valeur: str | None) -> str | None:
     """`reparer_mojibake` + `normaliser_espaces`, tolérant au None/non-str.
 

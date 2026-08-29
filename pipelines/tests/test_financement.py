@@ -764,3 +764,81 @@ def test_controle_comptes_partis_ne_modifie_rien():
     avant = [dict(l) for l in lignes]
     fin.controler_comptes_partis(lignes)
     assert lignes == avant
+
+
+# ---------------------------------------------------------------------------
+# Contrôles C1 de la source CNCCFP — défaut MESURÉ ET SERVI le 29/08/2026
+# ---------------------------------------------------------------------------
+#
+# Le CSV des comptes de partis 2024 publie « LEVALLOIS AU C\x8cUR » et
+# « UNION ROSNÉENNE D\x92ACTION MUNICIPALE » : des octets cp1252 (0x8C = Œ,
+# 0x92 = ’) décodés par l'amont avec la table iso-8859-1, donc devenus des
+# contrôles C1, puis réencodés en UTF-8 VALIDE. Vérifié octet pour octet sur
+# la ressource data.gouv (md5 identique au fichier local), et absent des
+# millésimes 2021-2023 : la régression est amont et datée.
+#
+# Le nom traverse `parser_partis` vers TROIS colonnes — `entites.nom`,
+# `partis.nom`, `partis_comptes.nom_declare` — ce qui est la raison de
+# réparer au parseur et non aux sites d'écriture SQL.
+
+
+def _fixture_corrompue() -> bytes:
+    """La fixture 2024, avec un nom remplacé par le cas réel corrompu."""
+    brut = FIX_PARTIS_2024.read_bytes()
+    assert b"RASSEMBLEMENT NATIONAL" in brut
+    return brut.replace(b"RASSEMBLEMENT NATIONAL", b"LEVALLOIS AU C\xc2\x8cUR")
+
+
+def test_parser_partis_repare_les_controles_c1():
+    lignes = fin.parser_partis(_fixture_corrompue(), 2024)
+    nom = next(l for l in lignes if l["code"] == "40")["nom"]
+    assert nom == "LEVALLOIS AU CŒUR"
+    assert "\x8c" not in nom
+
+
+def test_parser_partis_ne_touche_pas_aux_noms_sains():
+    """Contre-épreuve : la réparation ne doit RIEN changer d'autre."""
+    avant = fin.parser_partis(FIX_PARTIS_2024.read_bytes(), 2024)
+    assert next(l for l in avant if l["code"] == "40")["nom"] == "RASSEMBLEMENT NATIONAL"
+    assert all("\u0152" not in l["nom"] for l in avant)
+
+
+def test_charger_partis_ne_sert_aucun_controle_c1_dans_les_trois_colonnes(conn):
+    """Le défaut se propage à trois colonnes : les trois doivent être propres."""
+    import unicodedata
+
+    lignes = fin.parser_partis(_fixture_corrompue(), 2024)
+    fin.charger_partis(conn, {2024: lignes})
+    for table, colonne in (
+        ("entites", "nom"),
+        ("partis", "nom"),
+        ("partis_comptes", "nom_declare"),
+    ):
+        valeurs = [
+            r[0] for r in conn.execute(f"SELECT {colonne} FROM {table}").fetchall()
+        ]
+        assert valeurs, f"{table}.{colonne} vide : le test ne prouverait rien"
+        fautives = [
+            v for v in valeurs
+            if v and any(unicodedata.category(c) == "Cc" for c in v)
+        ]
+        assert fautives == [], f"{table}.{colonne} sert encore {fautives!r}"
+        assert "LEVALLOIS AU CŒUR" in valeurs
+
+
+def test_parser_partis_journalise_son_compte_meme_a_zero(caplog):
+    """CONTRE-ÉPREUVE DU SILENCE : un compteur muet au vert est indiscernable
+    d'un compteur débranché. Le segment doit être au journal des DEUX côtés,
+    et porter un compte différent."""
+    import logging
+
+    with caplog.at_level(logging.INFO):
+        fin.parser_partis(FIX_PARTIS_2024.read_bytes(), 2024)
+    sain = [m for m in caplog.messages if "réparé(s)" in m]
+    assert len(sain) == 1 and "0 nom(s) réparé(s)" in sain[0]
+
+    caplog.clear()
+    with caplog.at_level(logging.INFO):
+        fin.parser_partis(_fixture_corrompue(), 2024)
+    corrompu = [m for m in caplog.messages if "réparé(s)" in m]
+    assert len(corrompu) == 1 and "1 nom(s) réparé(s)" in corrompu[0]

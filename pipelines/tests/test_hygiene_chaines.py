@@ -7,7 +7,12 @@ est prouvablement cassé, et ne touche à RIEN d'autre — c'est cette seconde
 moitié qui est la plus fragile, donc la plus testée ici.
 """
 
-from pipelines.common import assainir_texte, normaliser_espaces, reparer_mojibake
+from pipelines.common import (
+    assainir_texte,
+    normaliser_espaces,
+    reparer_controles_cp1252,
+    reparer_mojibake,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -85,3 +90,67 @@ def test_assainir_texte_rend_none_sur_le_vide():
 
 def test_assainir_texte_cumule_les_deux_traitements():
     assert assainir_texte("  MarchÃ©  public  ") == "Marché public"
+
+
+# ---------------------------------------------------------------------------
+# Contrôles C1 — le défaut INVERSE du mojibake, et il n'est traité nulle part
+# ailleurs. Ces tests existent parce que `assainir_texte` a été proposé comme
+# remède au défaut mesuré, et qu'il ne le répare PAS : la contre-épreuve
+# ci-dessous fige cette limite pour qu'aucune séance ne la re-suppose.
+# ---------------------------------------------------------------------------
+
+
+def test_repare_les_deux_controles_du_corpus_cnccfp():
+    """Cas réels servis le 29/08/2026 dans l'index de recherche du site."""
+    assert reparer_controles_cp1252("LEVALLOIS AU C\x8cUR") == "LEVALLOIS AU CŒUR"
+    assert (
+        reparer_controles_cp1252("UNION ROSNÉENNE D\x92ACTION MUNICIPALE")
+        == "UNION ROSNÉENNE D’ACTION MUNICIPALE"
+    )
+
+
+def test_repare_toute_la_plage_affectee_en_cp1252():
+    """27 des 32 octets 0x80-0x9F portent un caractère en cp1252."""
+    repares = [
+        o for o in range(0x80, 0xA0)
+        if reparer_controles_cp1252(chr(o)) != chr(o)
+    ]
+    assert len(repares) == 27
+    assert reparer_controles_cp1252("\x80\x85\x93\x94\x96") == "€…“”–"
+
+
+def test_laisse_intacts_les_cinq_octets_sans_affectation():
+    """Ne jamais rien perdre : cp1252 n'affecte pas ces cinq octets."""
+    for octet in (0x81, 0x8D, 0x8F, 0x90, 0x9D):
+        assert reparer_controles_cp1252(chr(octet)) == chr(octet)
+
+
+def test_ne_touche_pas_au_texte_sain():
+    for sain in (
+        "UNION ROSNÉENNE D’ACTION MUNICIPALE",
+        "LEVALLOIS AU CŒUR",
+        "BÂTIMENT, CHÂTEAU, Île, Août",
+        "espace insécable\u00a0et fine\u202f",
+        "tabulation\tet\nretour",
+        "",
+    ):
+        assert reparer_controles_cp1252(sain) == sain
+
+
+def test_est_idempotente():
+    une = reparer_controles_cp1252("LEVALLOIS AU C\x8cUR")
+    assert reparer_controles_cp1252(une) == une
+
+
+def test_assainir_texte_NE_repare_PAS_les_controles_c1():
+    """CONTRE-ÉPREUVE, et c'est le cœur de ces tests.
+
+    `assainir_texte` a été proposé le 29/08/2026 comme remède aux deux noms
+    de partis corrompus ; il ne les répare pas, parce que `reparer_mojibake`
+    sort immédiatement sur une chaîne sans « Ã »/« Â »/« â€ ». Ce test fige
+    la limite : s'il devient rouge, c'est que `assainir_texte` a été élargi,
+    et il faudra alors relire les sept pipelines qui l'appellent.
+    """
+    assert assainir_texte("LEVALLOIS AU C\x8cUR") == "LEVALLOIS AU C\x8cUR"
+    # … et l'instrument n'est pas muet pour autant : il répare son défaut à lui
+    assert assainir_texte("MarchÃ© public") == "Marché public"
