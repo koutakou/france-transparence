@@ -186,6 +186,50 @@ def _fixture(tmp_path: Path) -> Path:
                 ("H", "#10"),
                 ("I", "#3"),
             ],
+            # Contrôle C1 U+009C : cas RÉEL de la base servie au 30/08/2026
+            # (« Cœuvres-et-Valsery », Aisne, dep_source 020 com_source 201).
+            [
+                ("B", "020"),
+                ("C", "201"),
+                ("D", "C\u009cuvres-et-Valsery"),
+                ("E", "Total"),
+                ("F", "#30"),
+                ("H", "#60"),
+                ("I", "#12"),
+            ],
+            # Contrôle C1 U+0092 : cas RÉEL, hors carte (B31 326).
+            [
+                ("B", "B31"),
+                ("C", "326"),
+                ("D", "C\u00f4te d\u0092Ivoire"),
+                ("E", "Total"),
+                ("F", "#7"),
+                ("H", "#14"),
+                ("I", "#4"),
+            ],
+        ],
+    )
+
+
+def _fixture_saine(tmp_path: Path) -> Path:
+    """Même forme, mais AUCUN caractère à réparer.
+
+    Contre-épreuve du compteur : sans elle, un compteur figé sur une constante
+    non nulle passerait le test de valeur.
+    """
+    return _xlsx_inline(
+        tmp_path / "ircom_sain.xlsx",
+        [
+            [("E", "IRCOM revenus 2024")],
+            [
+                ("B", "010"),
+                ("C", "001"),
+                ("D", "L'Abergement-Clémenciat"),
+                ("E", "Total"),
+                ("F", "#480"),
+                ("H", "#1000"),
+                ("I", "#200"),
+            ],
         ],
     )
 
@@ -232,9 +276,9 @@ def test_departement_carte_ain_paris_corse_b31():
 
 
 def test_extraire_lit_lannee_et_ignore_les_tranches(extrait):
-    annee, lignes = extrait
+    annee, lignes, _n = extrait
     assert annee == 2024
-    assert len(lignes) == 6
+    assert len(lignes) == 8
     assert all(o["libelle"] != "Ambérieu-en-Bugey" for o in lignes)
     assert {o["libelle"] for o in lignes} == {
         "L'Abergement-Clémenciat",
@@ -243,11 +287,14 @@ def test_extraire_lit_lannee_et_ignore_les_tranches(extrait):
         "Muscourt",
         "Ajaccio",
         "Autres",
+        # RÉPARÉS : l'assertion porte sur la sortie propre, pas sur l'entrée.
+        "Cœuvres-et-Valsery",
+        "Côte d’Ivoire",
     }
 
 
 def test_extraire_convertit_les_milliers_et_garde_le_nc(extrait):
-    _annee, lignes = extrait
+    _annee, lignes, _n = extrait
     par = {o["libelle"]: o for o in lignes}
     assert par["L'Abergement-Clémenciat"]["impot_net_euros"] == 1_000_000.0
     assert par["Paris 1er Arrondissement"]["dep_carte"] == "75"
@@ -258,6 +305,96 @@ def test_extraire_convertit_les_milliers_et_garde_le_nc(extrait):
     assert par["Ajaccio"]["dep_carte"] == "2A"
     assert par["Autres"]["dep_carte"] is None
     assert par["Autres"]["impot_net_euros"] == 10_000.0
+
+
+# ---------------------------------------------------------------------------
+# Hygiène des libellés — contrôles C1 (30/08/2026)
+#
+# Mesure qui motive ces tests, sur la base SERVIE `app/data/france.db` :
+# `ircom_communes.libelle` portait 114 lignes sur 35 156 à contrôle C1, un par
+# ligne, 105 × U+009C + 4 × U+008C + 5 × U+0092 = 114. Les deux cas de la
+# fixture sont RÉELS et pris dans ces 114.
+#
+# Épreuves de mutation que ce bloc doit tuer :
+#   M1  `assainir_texte_integral` -> `assainir_texte`   -> test_..._repare_les_controles_c1
+#   M2  `n_assainies += 1` retiré                       -> test_..._compte_..._par_leur_valeur
+#   M3  `n_assainies` figé à une constante non nulle    -> test_..._fixture_saine
+#   M4  `if libelle != brut` -> `if True`               -> test_..._compte_..._par_leur_valeur
+#   M5  garde « ligne Total incomplète » retiré         -> test_..._refuse_un_libelle_vide
+# ---------------------------------------------------------------------------
+
+# Les deux libellés SOURCES, tels que l'amont les publie.
+BRUT_COEUVRES = "C\u009cuvres-et-Valsery"
+BRUT_IVOIRE = "C\u00f4te d\u0092Ivoire"
+
+
+def test_extraire_repare_les_controles_c1_du_libelle(extrait):
+    """M1. `assainir_texte` ne répare PAS les C1 : avec lui, ces deux
+    assertions tombent, et c'est tout l'objet du changement."""
+    _annee, lignes, _n = extrait
+    par_cle = {(o["dep_source"], o["com_source"]): o["libelle"] for o in lignes}
+    assert par_cle[("020", "201")] == "Cœuvres-et-Valsery"
+    assert par_cle[("B31", "326")] == "Côte d\u2019Ivoire"
+    # Et il n'en reste aucun, nulle part : le remède n'est pas partiel.
+    assert not [
+        o["libelle"]
+        for o in lignes
+        if any(0x80 <= ord(c) <= 0x9F for c in o["libelle"])
+    ]
+
+
+def test_extraire_compte_les_libelles_assainis_par_leur_valeur(extrait):
+    """M2/M4. Le compteur se teste par sa VALEUR, jamais par `>= 0` : un
+    compteur débranché rendrait 0 et passerait une telle assertion.
+
+    Preuve de CHAÎNAGE, pour que la valeur ne soit pas un nombre magique :
+    chaque ligne majore le compteur de 1 au plus, exactement deux lignes de la
+    fixture diffèrent de leur source, et 2 est le total. Si le compteur
+    comptait toutes les lignes (`if True`), il rendrait 8.
+    """
+    _annee, lignes, n_assainies = extrait
+    brut_par_cle = {("020", "201"): BRUT_COEUVRES, ("B31", "326"): BRUT_IVOIRE}
+    modifiees = [
+        o
+        for o in lignes
+        if o["libelle"]
+        != brut_par_cle.get((o["dep_source"], o["com_source"]), o["libelle"])
+    ]
+    assert len(modifiees) == 2
+    assert n_assainies == 2
+    assert n_assainies < len(lignes) == 8
+
+
+def test_extraire_ne_compte_aucun_libelle_sur_une_fixture_saine(tmp_path):
+    """M3. CONTRE-ÉPREUVE : sur du texte sain le compteur rend 0. Sans elle,
+    un compteur figé sur 2 passerait le test précédent."""
+    _annee, lignes, n_assainies = extraire(_fixture_saine(tmp_path))
+    assert [o["libelle"] for o in lignes] == ["L'Abergement-Clémenciat"]
+    assert n_assainies == 0
+
+
+def test_extraire_refuse_un_libelle_vide(tmp_path):
+    """M5. La SECONDE différence d'`assainir_texte_integral` est qu'elle rend
+    `""` là où `assainir_texte` rendait `None`. Ce test fixe que le garde
+    tout-ou-rien s'en moque : un libellé vide échoue toujours, et l'ingestion
+    de la nuit ne peut pas écrire une commune sans nom."""
+    p = _xlsx_inline(
+        tmp_path / "vide.xlsx",
+        [
+            [("E", "IRCOM revenus 2024")],
+            [
+                ("B", "010"),
+                ("C", "001"),
+                ("D", "   "),
+                ("E", "Total"),
+                ("F", "#1"),
+                ("H", "#1"),
+                ("I", "#1"),
+            ],
+        ],
+    )
+    with pytest.raises(ValueError, match="ligne Total incomplète"):
+        extraire(p)
 
 
 def test_extraire_refuse_un_doublon(tmp_path):
@@ -290,22 +427,23 @@ def test_extraire_refuse_un_doublon(tmp_path):
 
 
 def test_controler_ampleur_refuse_une_fixture_trop_petite(extrait):
-    annee, lignes = extrait
+    annee, lignes, _n = extrait
     with pytest.raises(ValueError, match="communes Total"):
         controler_ampleur(annee, lignes)
 
 
 def test_ecrire_db_agrege_et_metadonnees(tmp_path, extrait):
-    annee, lignes = extrait
+    annee, lignes, _n = extrait
     conn = db.init_db(chemin=tmp_path / "ircom.db")
     date = ecrire_db(conn, annee, lignes)
     assert date == "2024-12-31"
     nat = conn.execute("SELECT * FROM ircom_national").fetchone()
-    assert nat["n_communes"] == 6
+    assert nat["n_communes"] == 8
     assert nat["n_communes_nc"] == 1
     # 1 000 000 + 2 000 000 + 0 (nc) + (-1 500) + 50 000 + 10 000
-    assert nat["impot_net_euros"] == pytest.approx(3_058_500.0)
-    assert nat["n_foyers"] == 480 + 1000 + 20 + 100 + 5
+    #   + 60 000 (Cœuvres) + 14 000 (Côte d’Ivoire)
+    assert nat["impot_net_euros"] == pytest.approx(3_132_500.0)
+    assert nat["n_foyers"] == 480 + 1000 + 20 + 100 + 5 + 30 + 7
     paris = conn.execute(
         "SELECT * FROM ircom_departements WHERE dep_carte = '75'"
     ).fetchone()
@@ -319,7 +457,13 @@ def test_ecrire_db_agrege_et_metadonnees(tmp_path, extrait):
     ).fetchone()
     assert meta["source_id"] == SOURCE_ID
     assert meta["date_donnees"] == "2024-12-31"
-    assert meta["lignes"] == 6
+    assert meta["lignes"] == 8
+    # Le libellé RÉPARÉ atteint bien la table : l'hygiène n'est pas perdue
+    # entre `extraire` et `ecrire_db`.
+    assert conn.execute(
+        "SELECT libelle FROM ircom_communes "
+        "WHERE dep_source = '020' AND com_source = '201'"
+    ).fetchone()["libelle"] == "Cœuvres-et-Valsery"
     conn.close()
 
 
@@ -338,6 +482,6 @@ def test_xlsx_communes_dans_zip_refuse_lambiguite(tmp_path, xlsx):
         z.write(xlsx, "ircom_2025_revenus_2024/ircom_communes_complet_revenus_2024.xlsx")
     dest = tmp_path / "out.xlsx"
     out = xlsx_communes_dans_zip(zpath, dest)
-    annee, lignes = extraire(out)
+    annee, lignes, _n = extraire(out)
     assert annee == 2024
-    assert len(lignes) == 6
+    assert len(lignes) == 8

@@ -60,7 +60,7 @@ from xml.etree.ElementTree import iterparse
 
 from pipelines import db
 from pipelines.common import (
-    assainir_texte,
+    assainir_texte_integral,
     obtenir_logger,
     session_http,
     telecharger,
@@ -260,8 +260,36 @@ def _nombre(val):
         raise ValueError(f"nombre IRCOM illisible : {val!r}") from e
 
 
-def extraire(chemin_xlsx: Path) -> tuple[int, list[dict]]:
-    """xlsx communes → (année des revenus, lignes Total)."""
+def extraire(chemin_xlsx: Path) -> tuple[int, list[dict], int]:
+    """xlsx communes → (année des revenus, lignes Total, libellés assainis).
+
+    L'hygiène du libellé est `assainir_texte_integral`, et non `assainir_texte`
+    comme jusqu'au 30/08/2026. POURQUOI, mesuré ce jour-là sur la base SERVIE :
+    `ircom_communes.libelle` portait **114 lignes sur 35 156** à contrôle C1,
+    un par ligne — 105 × U+009C (« œ »), 4 × U+008C (« Œ »), 5 × U+0092 (« ’ ») —
+    et ce sont des noms de communes françaises : « C\x9cuvres-et-Valsery »,
+    « Schœlcher » écrit « Sch\x9clcher », « Vand\x9cuvre-lès-Nancy ». Le défaut
+    est celui que décrit `reparer_controles_cp1252` : l'amont a décodé du cp1252
+    avec la table iso-8859-1. Le fichier reste de l'UTF-8 parfaitement valide —
+    aucun contrôle d'encodage ne peut le voir, seule la catégorie Unicode `Cc`
+    le révèle. `assainir_texte` ne répare PAS les C1, et cette limite est
+    verrouillée par `test_assainir_texte_NE_repare_PAS_les_controles_c1` : on ne
+    l'élargit pas, on change d'appelant. Les 114 sont toutes réparables (aucun
+    des cinq octets sans affectation cp1252).
+
+    LA SECONDE DIFFÉRENCE DE LA FONCTION EST ICI SANS EFFET, ET C'EST MESURÉ :
+    `assainir_texte_integral` rend `""` là où `assainir_texte` rendait `None`
+    sur une valeur vide après nettoyage. Le `or ""` puis le garde
+    « ligne Total incomplète » qui suivent traitent les deux à l'identique — les
+    deux sont faux — donc un libellé vide échoue toujours, et l'ingestion reste
+    tout-ou-rien. C'est le seul appelant des sept où cette différence a été
+    vérifiée inoffensive ligne à ligne ; ailleurs elle écrirait `''` au lieu de
+    `NULL` dans une colonne servie.
+
+    Le troisième membre du tuple est le nombre de libellés que l'hygiène a
+    MODIFIÉS. Il est journalisé à chaque cycle, zéro compris : un compteur muet
+    au vert est indiscernable d'un compteur débranché.
+    """
     with zipfile.ZipFile(chemin_xlsx) as z:
         shared = _shared_strings(z)
         feuilles = [
@@ -275,11 +303,12 @@ def extraire(chemin_xlsx: Path) -> tuple[int, list[dict]]:
         src = z.open(sorted(feuilles)[0])
         annee: int | None = None
         lignes: list[dict] = []
+        n_assainies = 0
         current: int | None = None
         cells: dict[str, object] = {}
 
         def flush() -> None:
-            nonlocal annee
+            nonlocal annee, n_assainies
             e = cells.get("E")
             if e is None:
                 return
@@ -294,7 +323,10 @@ def extraire(chemin_xlsx: Path) -> tuple[int, list[dict]]:
                 return
             dep = str(cells.get("B") or "").strip()
             com = str(cells.get("C") or "").strip()
-            libelle = assainir_texte(str(cells.get("D") or "")) or ""
+            brut = str(cells.get("D") or "")
+            libelle = assainir_texte_integral(brut) or ""
+            if libelle != brut:
+                n_assainies += 1
             if not dep or not com or not libelle:
                 raise ValueError(
                     f"ligne Total incomplète : dep={dep!r} com={com!r} "
@@ -348,7 +380,7 @@ def extraire(chemin_xlsx: Path) -> tuple[int, list[dict]]:
         if cle in vus:
             raise ValueError(f"commune dupliquée : {cle}")
         vus.add(cle)
-    return annee, lignes
+    return annee, lignes, n_assainies
 
 
 def controler_ampleur(annee: int, lignes: list[dict]) -> None:
@@ -527,7 +559,7 @@ def main() -> int:
         xlsx = xlsx_communes_dans_zip(
             Path(chemin_zip), Path(chemin_zip).parent / "ircom_communes.xlsx"
         )
-        annee, lignes = extraire(xlsx)
+        annee, lignes, n_assainies = extraire(xlsx)
         controler_ampleur(annee, lignes)
         conn = db.init_db()
         date_donnees = ecrire_db(conn, annee, lignes)
@@ -535,10 +567,12 @@ def main() -> int:
         somme = sum(o["impot_net_euros"] or 0.0 for o in lignes)
         n_nc = sum(1 for o in lignes if o["impot_net_euros"] is None)
         log.info(
-            "ircom: %d communes Total, %d n.c., données au %s "
+            "ircom: %d communes Total, %d n.c., %d libellé(s) assaini(s) "
+            "(mojibake, contrôles C1 cp1252, espaces), données au %s "
             "(revenus %s, impôt net publié %.3f Md€)",
             len(lignes),
             n_nc,
+            n_assainies,
             date_donnees,
             annee,
             euros_en_md(somme),
