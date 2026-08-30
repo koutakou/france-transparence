@@ -76,7 +76,12 @@ from pathlib import Path
 import duckdb
 
 from pipelines import db
-from pipelines.common import RAW_DIR, obtenir_logger, telecharger
+from pipelines.common import (
+    RAW_DIR,
+    assainir_texte_integral,
+    obtenir_logger,
+    telecharger,
+)
 
 log = obtenir_logger("lobbying")
 
@@ -375,6 +380,41 @@ def verifier_fragments(libelles_observes) -> list[str]:
     """
     vus = {(lib or "").strip() for lib in libelles_observes}
     return sorted(f for f in FRAGMENTS_MINISTERIELS if f not in vus)
+
+
+def assainir_lignes(lignes: list[tuple]) -> tuple[list[tuple], int]:
+    """Jeu de lignes prêtes à écrire → même jeu assaini, et nombre de VALEURS
+    modifiées.
+
+    Toutes les chaînes sont assainies, sans liste blanche de colonnes. POURQUOI
+    SANS LISTE : les sept jeux de ce pipeline sortent de `fetchall()` sous forme
+    de tuples positionnels, sans nom de colonne ; une liste d'indices serait un
+    doublon silencieux du schéma, qui se périmerait à la première colonne
+    insérée. Les valeurs non-`str` (entiers, `None`, flottants) sont rendues à
+    l'identique par `assainir_texte_integral`, et aucune colonne de ce pipeline
+    ne transporte de sérialisation dont l'hygiène casserait la syntaxe : les
+    multivaluées sont des agrégats `string_agg(…, ' | ')`, pas du JSON.
+
+    🛑 CE PASSAGE EST EN AVAL DE TOUT APPARIEMENT, ET C'EST OBLIGATOIRE.
+    `groupe_institution`, `portefeuille_ministeriel` et `verifier_fragments`
+    apparient des libellés bruts sur la table fermée `FRAGMENTS_MINISTERIELS`,
+    par `.strip()` et `.replace("’", "'")`. Assainir en amont d'eux changerait
+    ce qu'ils apparient — et `verifier_fragments` signalerait des fragments
+    « absents » qui ne le sont pas. L'hygiène est donc posée à la toute fin de
+    `construire()`, après le dernier `fetchall()` et avant la moindre écriture.
+    """
+    modifiees = 0
+    propres = []
+    for ligne in lignes:
+        neuve = []
+        for valeur in ligne:
+            propre = assainir_texte_integral(valeur)
+            if propre != valeur:
+                modifiees += 1
+            neuve.append(propre)
+        propres.append(tuple(neuve))
+    return propres, modifiees
+
 
 
 # ---------------------------------------------------------------------------
@@ -707,6 +747,29 @@ def construire(dossier_csv: Path, aujourdhui: date) -> dict:
         """
     ).fetchall()
 
+    # Hygiène à l'entrée : mojibake, contrôles C1 cp1252, espaces. Un seul
+    # passage, ici, en aval de tous les appariements de libellés (voir la
+    # docstring d'`assainir_lignes`) et en amont des sept `INSERT` d'`ecrire_db`
+    # — donc aussi en amont de `_lignes_alertes`, qui compose ses titres
+    # d'alerte à partir d'`alertes_defaut`.
+    valeurs_assainies = 0
+    entites, n = assainir_lignes(entites)
+    valeurs_assainies += n
+    activites, n = assainir_lignes(activites)
+    valeurs_assainies += n
+    agg_institutions, n = assainir_lignes(agg_institutions)
+    valeurs_assainies += n
+    agg_ministeres, n = assainir_lignes(agg_ministeres)
+    valeurs_assainies += n
+    agg_top, n = assainir_lignes(agg_top)
+    valeurs_assainies += n
+    agg_budgets, n = assainir_lignes(agg_budgets)
+    valeurs_assainies += n
+    agg_trimestres, n = assainir_lignes(agg_trimestres)
+    valeurs_assainies += n
+    alertes_defaut, n = assainir_lignes(alertes_defaut)
+    valeurs_assainies += n
+
     stats = {
         "entites": len(entites),
         "entites_actives": sum(1 for e in entites if e[9] == 1),
@@ -720,6 +783,7 @@ def construire(dossier_csv: Path, aujourdhui: date) -> dict:
         ).fetchone()[0],
         # fragments de la table fermée introuvables dans la donnée du jour
         "fragments_ministeres_absents": fragments_absents,
+        "valeurs_assainies": valeurs_assainies,
     }
     con.close()
 
@@ -916,11 +980,16 @@ def executer(chemin_db=None, max_age_heures: float | None = 6.0,
 
     stats.update(stats_alertes)
     stats["date_donnees"] = donnees["date_donnees"]
+    # Le compteur d'hygiène est journalisé INCONDITIONNELLEMENT, zéro compris :
+    # un compteur muet au vert est indiscernable d'un compteur débranché
+    # (règle posée par la PR #100).
     log.info(
         "lobbying OK : %d entités, %d activités (détail %d), %d alertes défaut "
-        "+ %d agrégat, date_donnees=%s",
+        "+ %d agrégat, %d valeur(s) assainie(s) (mojibake, contrôles C1 cp1252, "
+        "espaces), date_donnees=%s",
         stats["entites"], stats["activites_total"], stats["activites_detail"],
-        stats["alertes_defaut"], stats["alertes_agregat"], stats["date_donnees"],
+        stats["alertes_defaut"], stats["alertes_agregat"],
+        stats["valeurs_assainies"], stats["date_donnees"],
     )
     return stats
 

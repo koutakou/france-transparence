@@ -20,6 +20,7 @@ import pytest
 from pipelines import db
 from pipelines.ingest_lobbying import (
     FRAGMENTS_MINISTERIELS,
+    assainir_lignes,
     PORTEFEUILLES_MINISTERIELS,
     TYPES_ALERTES,
     construire,
@@ -399,3 +400,154 @@ def test_integration_reelle(tmp_path):
         assert "Environnement, énergie et mer" in ministeres
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Lobbying — hygiène à l'entrée (`assainir_lignes`)
+#
+# MUTATIONS TUÉES PAR CE BLOC (jouées le 30/08/2026, chacune re-vérifiée en la
+# réintroduisant et en exigeant que CE test-là rougisse) :
+#   M14  `assainir_lignes` rendue identité
+#   M16  compteur `valeurs_assainies` figé à zéro (la 1ʳᵉ version de son test
+#        la laissait SURVIVRE — corrigé, cf. le docstring du test)
+#   M17  un des huit jeux de lignes oublié dans le passage
+#
+# CE QUI N'EST PAS UNE MUTATION, ET NE DOIT PAS ÊTRE COMPTÉ COMME TELLE :
+#   `test_hygiene_posee_EN_AVAL_des_appariements_de_fragments` est un GARDE
+#   DIFFÉRENTIEL, pas un tueur de mutation. Sur cette fixture, remonter
+#   l'hygiène en amont des appariements ne changerait rien — les libellés
+#   ministériels y sont déjà propres —, donc aucun test ne pourrait le
+#   détecter. Le garde vaut pour la donnée réelle, où ils ne le sont pas.
+# ---------------------------------------------------------------------------
+
+
+def test_assainir_lignes_compte_et_preserve_les_non_str():
+    """MUTATION TUÉE : `assainir_lignes` rendue identité, et compteur figé.
+
+    Les lignes de ce pipeline sont des tuples POSITIONNELS sortis de
+    `fetchall()` : l'hygiène s'applique à toute chaîne, sans liste d'indices —
+    une liste d'indices serait un doublon silencieux du schéma, qui se
+    périmerait à la première colonne insérée.
+    """
+    lignes = [
+        ("141", "MEDEF\x8cUVRE", None, 42, 3.5, "  Paris  "),
+        ("642", "SKEZI", None, 7, None, "Grenoble"),
+    ]
+    propres, compte = assainir_lignes(lignes)
+    assert propres[0] == ("141", "MEDEFŒUVRE", None, 42, 3.5, "Paris")
+    assert propres[1] == lignes[1], "une ligne saine doit sortir inchangée"
+    assert compte == 2
+    # Les non-str traversent à l'identique, y compris None : `ecrire_db` écrit
+    # dans des colonnes NOT NULL, et l'ingestion est tout-ou-rien.
+    assert propres[0][2] is None and propres[0][3] == 42 and propres[0][4] == 3.5
+    assert assainir_lignes([]) == ([], 0)
+
+
+def test_le_compte_d_hygiene_remonte_reellement_dans_stats(monkeypatch):
+    """MUTATION TUÉE : `valeurs_assainies` figé à zéro dans `stats`.
+
+    🛑 CE TEST A DÛ ÊTRE RÉÉCRIT. Sa première version se contentait de
+    `stats["valeurs_assainies"] >= 0` : la mutation « compteur figé à zéro » y
+    SURVIVAIT, ce qui est exactement le compteur débranché que la règle de la
+    PR #100 veut empêcher. Un compteur ne se teste pas par son existence.
+
+    Deux prises, pour ne pas dépendre d'une seule :
+    1. la valeur RÉELLE de la fixture, mesurée le 30/08/2026 — la fixture est
+       un sous-ensemble réel des vues HATVP du 19/08, et elle porte bien 3
+       valeurs à assainir ;
+    2. une preuve de chaînage indépendante de la propreté de la fixture : si
+       chacun des huit jeux rend 7 de plus, le total doit monter de 56.
+    """
+    reel = construire(FIXTURE, AUJOURDHUI)["stats"]["valeurs_assainies"]
+    assert reel == 3, "3 valeurs à assainir dans la fixture au 30/08/2026"
+
+    from pipelines import ingest_lobbying
+
+    vraie = ingest_lobbying.assainir_lignes
+
+    def majoree(lignes):
+        propres, n = vraie(lignes)
+        return propres, n + 7
+
+    monkeypatch.setattr(ingest_lobbying, "assainir_lignes", majoree)
+    assert construire(FIXTURE, AUJOURDHUI)["stats"]["valeurs_assainies"] == reel + 8 * 7
+
+
+def test_hygiene_posee_EN_AVAL_des_appariements_de_fragments(monkeypatch):
+    """MUTATION TUÉE : passage d'hygiène remonté avant les appariements.
+
+    🛑 `groupe_institution`, `portefeuille_ministeriel` et `verifier_fragments`
+    apparient des libellés BRUTS sur la table fermée `FRAGMENTS_MINISTERIELS`,
+    par `.strip()` et `.replace("’", "'")`. Assainir en amont d'eux changerait
+    ce qu'ils apparient, et `verifier_fragments` signalerait des fragments
+    « absents » qui ne le sont pas. Ce test le prouve par différence : neutraliser
+    l'hygiène ne doit RIEN changer aux appariements.
+    """
+    from pipelines import ingest_lobbying
+
+    avec = construire(FIXTURE, AUJOURDHUI)
+    monkeypatch.setattr(ingest_lobbying, "assainir_lignes", lambda lignes: (lignes, 0))
+    sans = construire(FIXTURE, AUJOURDHUI)
+
+    assert (avec["stats"]["fragments_ministeres_absents"]
+            == sans["stats"]["fragments_ministeres_absents"])
+    assert {t[0] for t in avec["agg_ministeres"]} == {t[0] for t in sans["agg_ministeres"]}
+    assert {t[1] for t in avec["agg_institutions"]} == {t[1] for t in sans["agg_institutions"]}
+    # … et l'instrument n'est pas muet : la neutralisation a bien eu lieu.
+    assert sans["stats"]["valeurs_assainies"] == 0
+
+
+def test_les_huit_jeux_de_lignes_passent_par_l_hygiene(monkeypatch):
+    """MUTATION TUÉE : un des huit jeux oublié dans le passage.
+
+    `lobby_agg_top_entites` n'est PAS dérivée de `lobby_entites` : c'est une
+    requête duckdb séparée sur le CSV brut (`t_act JOIN t_inf`). Nettoyer les
+    entités ne la nettoie donc pas — d'où le comptage des appels.
+    """
+    from pipelines import ingest_lobbying
+
+    vus = []
+    vraie = ingest_lobbying.assainir_lignes
+
+    def espion(lignes):
+        vus.append(len(lignes))
+        return vraie(lignes)
+
+    monkeypatch.setattr(ingest_lobbying, "assainir_lignes", espion)
+    donnees = construire(FIXTURE, AUJOURDHUI)
+    assert len(vus) == 8, "les huit jeux de lignes doivent être assainis"
+    assert sorted(vus) == sorted(
+        len(donnees[cle]) for cle in (
+            "entites", "activites", "agg_institutions", "agg_ministeres",
+            "agg_top", "agg_budgets", "agg_trimestres", "alertes_defaut",
+        )
+    )
+
+
+def test_aucun_controle_c1_reparable_dans_les_colonnes_servies(base):
+    """Contrôle d'acceptation, FORMULÉ JUSTE : « plus aucun `Cc` de la plage
+    cp1252 ATTRIBUÉE », jamais « plus aucun `Cc` » — cinq octets
+    (0x81, 0x8D, 0x8F, 0x90, 0x9D) sont irréparables par spécification.
+    """
+    conn, _ = base
+    reparables = {chr(o) for o in range(0x80, 0xA0)} - {
+        chr(o) for o in (0x81, 0x8D, 0x8F, 0x90, 0x9D)
+    }
+    colonnes = (
+        ("lobby_entites", ("denomination", "nom_usage", "sigle", "ville")),
+        ("lobby_activites", ("objet", "decisions")),
+        ("lobby_agg_top_entites", ("denomination",)),
+    )
+    total = 0
+    for table, cols in colonnes:
+        for col in cols:
+            valeurs = [r[0] for r in conn.execute(
+                f"SELECT {col} FROM {table} WHERE {col} IS NOT NULL")]
+            total += len(valeurs)
+            for v in valeurs:
+                assert not (set(v) & reparables), (table, col, repr(v))
+    # 🛑 Sans cette garde, le test passerait sur une base vide et ne prouverait
+    # rien : c'est le « zéro vide » que ce dépôt refuse. La fixture (5 entités,
+    # 19 activités) en rend 38 au 30/08/2026 ; le seuil est calé DESSOUS, pour
+    # qu'il signale une fixture vidée sans rougir au premier enrichissement.
+    assert total >= 30, f"population trop maigre pour conclure : {total}"

@@ -239,3 +239,80 @@ def assainir_texte(valeur: str | None) -> str | None:
         return valeur
     propre = normaliser_espaces(reparer_mojibake(valeur))
     return propre or None
+
+
+def assainir_texte_integral(valeur: str | None) -> str | None:
+    """Hygiène COMPLÈTE d'une valeur brute : mojibake, contrôles C1, espaces.
+
+    Deux différences avec `assainir_texte`, et elles sont voulues :
+
+    1. Elle répare AUSSI les contrôles C1 (`reparer_controles_cp1252`).
+       `assainir_texte` ne le fait pas, et cette limite est verrouillée par
+       `test_assainir_texte_NE_repare_PAS_les_controles_c1` — les sept
+       pipelines qui l'appellent en dépendent. On n'élargit donc pas
+       `assainir_texte` : on pose une seconde fonction à côté.
+    2. Elle NE transforme PAS la chaîne vide en `None`. `assainir_texte` le
+       fait ; ici la valeur est écrite telle quelle dans une colonne qui peut
+       être `NOT NULL`, et un `None` inattendu gèlerait la publication de la
+       nuit (l'ingestion est tout-ou-rien).
+
+    L'ORDRE EST FIGÉ ICI, EXPLICITEMENT, ET IL A ÉTÉ MESURÉ le 30/08/2026 sur
+    la base servie (221 335 valeurs texte) ET sur les exports BOAMP bruts
+    (2 703 990 chaînes). Les cinq ordres possibles ne rendent pas la même
+    chose, et trois d'entre eux perdent de l'information :
+
+    · `normaliser_espaces` EN PREMIER DÉTRUIT une réparation : le mojibake
+      dont l'octet de continuation est l'insécable (« Ã » + U+00A0 = « à »)
+      cesse d'être réparable une fois l'insécable écrasée en espace ordinaire,
+      parce que `C3 20` n'est pas de l'UTF-8 valide. La docstring de
+      `reparer_mojibake` le disait déjà en creux, en citant ce cas parmi les
+      irréparables. **`normaliser_espaces` va donc EN DERNIER**, et c'est lui
+      qui absorbe l'insécable étroite U+202F que la réparation vient de
+      produire (`'Lot 8â€¯: VRD'` → `'Lot 8 : VRD'`).
+
+    · `reparer_controles_cp1252` passe APRÈS `reparer_mojibake`, qui
+      MATÉRIALISE un C1 sur le motif « Â » + caractère typographique — règle
+      déjà posée par `_titre_dosleg` (`ingest_parlement.py`).
+
+    · ...mais AVANT `normaliser_espaces`, et c'est la correction que cette
+      fonction apporte à l'ordre de `_titre_dosleg`. U+0085 est le seul C1 que
+      la classe `\\s` Unicode attrape : laissé à `normaliser_espaces`, il
+      devient une espace au lieu de `…`. `_titre_dosleg` s'en tire par un
+      `.replace("\\u0085", "…")` posé en tête, qui n'est plus nécessaire ici —
+      et qui ne couvrait pas le U+0085 **matérialisé** par `reparer_mojibake`,
+      donc produit APRÈS lui. (Le chantier `P-ASSAINIR-ORDRE-U0085`, qui vise
+      `assainir_texte`, reste ouvert : il n'est pas traité ici.)
+
+    · Le couple (mojibake, contrôles C1) est appliqué JUSQU'À POINT FIXE, et
+      non une seule fois. Un mojibake peut être écrit AVEC des contrôles C1 :
+      « â » + U+0080 + U+0099 est « â€™ » dont les deux octets de continuation
+      ont été relus en latin-1. `reparer_mojibake` ne le voit pas ;
+      `reparer_controles_cp1252` le matérialise en « â€™ » ; seul un second
+      passage le rend « ’ ». **Ce motif est exercé : 46 occurrences dans
+      `boamp_ao_en_cours.json` au 30/08/2026**, dont `Fortâ€‘deâ€‘France` et
+      `Galiber â€“ CS 70263`. Symétriquement, un « Â » suivi d'un C1 produit
+      un C1 au second passage, qu'un troisième doit reprendre : sans point
+      fixe, la fonction **régénérerait** un contrôle qu'elle est censée
+      supprimer. Le point fixe rend aussi la fonction IDEMPOTENTE — propriété
+      exigée par toute reprise d'archive ultérieure, et sans laquelle la
+      double passe du compteur d'`ingest_boamp` mentirait.
+
+    La boucle TERMINE par construction : `reparer_controles_cp1252` conserve
+    la longueur, `reparer_mojibake` ne peut que la raccourcir, et une chaîne
+    qui ne raccourcit plus est un point fixe. La borne de 4 est un garde-fou,
+    pas un réglage : la convergence demande 3 passages au plus sur toute la
+    population mesurée, et 1 seul sur du texte sain.
+
+    Tolérante au `None` et aux non-`str`, qu'elle rend à l'identique : les
+    valeurs viennent de `.get()` et de `LEFT JOIN`, et
+    `reparer_controles_cp1252` lève `AttributeError` sur `None`.
+    """
+    if not isinstance(valeur, str):
+        return valeur
+    propre = valeur
+    for _ in range(4):
+        suivant = reparer_controles_cp1252(reparer_mojibake(propre))
+        if suivant == propre:
+            break
+        propre = suivant
+    return normaliser_espaces(propre)

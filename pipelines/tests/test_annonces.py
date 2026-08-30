@@ -254,3 +254,141 @@ def test_parser_ao_ecarte_l_avis_a_echeance_impossible():
     # Même avis, échéance corrigée : il est ingéré.
     rec_sain = dict(rec, datelimitereponse="2017-07-24")
     assert ingest_boamp.parser_ao(rec_sain)["idweb"] == "17-88555"
+
+
+# ---------------------------------------------------------------------------
+# BOAMP — hygiène à l'entrée (`_assainir_champs`)
+#
+# MUTATIONS TUÉES PAR CE BLOC (jouées le 30/08/2026, chacune re-vérifiée en la
+# réintroduisant et en exigeant que CE test-là rougisse) :
+#   M8   appel à `_assainir_champs` retiré de `parser_ao`
+#   M9   appel retiré de `parser_annonce`
+#   M10  appel retiré d'`indexer_liens` (un seul côté du rapprochement assaini)
+#   M11  éléments de liste non assainis (revient à n'assainir que le JSON sérialisé)
+#   M12  `"donnees"` ajouté à `CHAMPS_TEXTE`
+#   M13  compteur figé à zéro
+# ---------------------------------------------------------------------------
+
+
+def test_parser_ao_assainit_les_controles_c1(reels):
+    """Le défaut visé par la tranche : un contrôle C1 cp1252 dans `objet`.
+
+    L'enregistrement réel est DÉRIVÉ, jamais réécrit : seule la valeur fautive
+    est substituée, et par un octet réellement observé sur ce chemin
+    (`0x8C` = « Œ », 7 occurrences en base servie au 30/08/2026).
+    """
+    sale = dict(reels["boamp_ao_joue"], objet="MAITRISE D'\x8cUVRE et diagnostic")
+    ligne = ingest_boamp.parser_ao(sale)
+    assert ligne["objet"] == "MAITRISE D'ŒUVRE et diagnostic"
+    # … et l'instrument n'est pas muet : sans hygiène, le C1 arriverait tel quel
+    assert "\x8c" in sale["objet"]
+
+
+def test_parser_annonce_assainit_les_espaces_de_acheteur(reels):
+    """`acheteur` : blancs de bord, insécables et sauts de ligne internes.
+
+    ARBITRAGE ASSUMÉ : `normaliser_espaces` écrase la structure de ligne des
+    adresses postales que BOAMP glisse parfois dans `nomacheteur` (6 valeurs
+    sur 19 à saut de ligne, mesuré le 30/08/2026). Le contenu n'est pas perdu,
+    seul le séparateur devient une espace — et AUCUNE page ne rend ce champ
+    en multiligne : `app/src` ne porte pas une seule règle `white-space`, donc
+    le HTML servi collapsait déjà ces sauts de ligne. Ce qui est gagné en
+    échange vaut plus : les tris, les `GROUP BY` et la recherche plein texte
+    cessent de distinguer deux acheteurs identiques.
+    """
+    sale = dict(
+        reels["boamp_attribution"],
+        nomacheteur="  FOUGERES HABITAT\n21 RUE DE LA CASERNE\xa0\n35300 FOUGERES ",
+    )
+    ligne = ingest_boamp.parser_annonce(sale)
+    assert ligne["acheteur"] == "FOUGERES HABITAT 21 RUE DE LA CASERNE 35300 FOUGERES"
+
+
+def test_parser_annonce_assainit_les_ELEMENTS_de_la_liste_titulaires(reels):
+    """MUTATION TUÉE : hygiène appliquée à la chaîne JSON, pas aux éléments.
+
+    `titulaires` est sérialisé par `_liste_json`. Un saut de ligne dans un
+    élément devient `\\n` dans le JSON — DEUX caractères ASCII qu'aucune classe
+    `\\s` n'attrape. Assainir après sérialisation ne le voit donc pas.
+
+    Ce n'est pas un cas d'école : au 30/08/2026, sur les 17 valeurs sales de
+    `annonces_recentes.titulaires` (2 052 non nulles), 16 portent des blancs
+    réels — mais UNE est un communiqué entier collé derrière le nom du
+    titulaire par un saut de ligne, et celle-là n'est visible qu'ici.
+    """
+    sale = dict(
+        reels["boamp_attribution"],
+        titulaire=["PROTECT SECURITE\nLe marché a été notifié le 12 août 2026",
+                   "ATMOS\x8cUVRE"],
+    )
+    titulaires = json.loads(ingest_boamp.parser_annonce(sale)["titulaires"])
+    assert titulaires == [
+        "PROTECT SECURITE Le marché a été notifié le 12 août 2026",
+        "ATMOSŒUVRE",
+    ]
+    # Contre-épreuve : la chaîne JSON, elle, ne portait aucun blanc réel à
+    # normaliser — c'est bien l'élément, et lui seul, qui devait être assaini.
+    assert "\\n" in json.dumps(sale["titulaire"], ensure_ascii=False)
+
+
+def test_assainir_champs_ne_touche_pas_au_blob_donnees(reels):
+    """MUTATION TUÉE : `"donnees"` ajouté à `CHAMPS_TEXTE`.
+
+    `donnees` n'est pas une colonne : c'est le blob eForms que lit
+    `extraire_montant`. En normaliser les espaces changerait ce que ses
+    expressions rationnelles apparient, et le montant servi avec.
+    """
+    assert "donnees" not in ingest_boamp.CHAMPS_TEXTE
+    rec = reels["boamp_ao_joue"]
+    propre, _ = ingest_boamp._assainir_champs(rec)
+    assert propre["donnees"] == rec["donnees"]
+    # Le montant reste celui que le test nominal fige.
+    assert ingest_boamp.parser_ao(rec)["montant_estime"] == pytest.approx(168000.0)
+
+
+def test_assainir_champs_compte_les_valeurs_modifiees(reels):
+    """MUTATION TUÉE : compteur figé à zéro.
+
+    Un élément de liste compte pour une valeur — c'est la seule convention qui
+    permette de recomposer le total à partir des colonnes.
+    """
+    rec = reels["boamp_ao_joue"]
+    _, zero = ingest_boamp._assainir_champs(rec)
+    assert zero == 0, "l'enregistrement réel est sain : le compteur doit rendre 0"
+    sale = dict(rec, objet="A\x8cB", nomacheteur="  X  ", type_marche=["S\x8cT", "SAIN"])
+    propre, compte = ingest_boamp._assainir_champs(sale)
+    assert compte == 3          # objet + nomacheteur + 1 élément sur 2
+    assert propre["type_marche"] == ["SŒT", "SAIN"]
+
+
+def test_assainir_champs_ne_leve_pas_sur_des_champs_nuls(reels):
+    """L'ingestion est tout-ou-rien : une levée gèlerait la publication de la
+    nuit. `reparer_controles_cp1252` lève `AttributeError` sur `None`, d'où le
+    garde `isinstance` d'`assainir_texte_integral`."""
+    vide = {cle: None for cle in ingest_boamp.CHAMPS_TEXTE}
+    propre, compte = ingest_boamp._assainir_champs(vide)
+    assert compte == 0 and all(v is None for v in propre.values())
+    assert ingest_boamp._assainir_champs({})[1] == 0
+    # Une liste dont un élément est None passe aussi.
+    assert ingest_boamp._assainir_champs({"titulaire": [None, "X"]})[1] == 0
+
+
+def test_indexer_liens_apparie_apres_hygiene_DES_DEUX_COTES():
+    """MUTATION TUÉE : hygiène retirée d'`indexer_liens`.
+
+    🛑 `cible` (issu d'`annonce_lie`) est comparée à `ligne["idweb"]`, que
+    `parser_ao` assainit. Assainir un seul côté d'un rapprochement DÉPLACE les
+    appariements au lieu de les corriger : l'AO cesserait d'être marqué annulé.
+    """
+    idweb_sale = "26-55241\xa0"
+    annules, _ = ingest_boamp.indexer_liens(
+        [{"idweb": "26-90000", "nature": "ANNULATION",
+          "annonce_lie": [idweb_sale], "dateparution": "2026-08-20"}]
+    )
+    ao = ingest_boamp.parser_ao({
+        "idweb": "26-55241", "dateparution": "2026-08-01",
+        "datelimitereponse": "2026-09-01",
+    })
+    assert ao["idweb"] in annules
+    # … et l'instrument n'est pas muet : la clé brute, elle, n'apparie pas.
+    assert idweb_sale != ao["idweb"]

@@ -54,7 +54,7 @@ from urllib.parse import quote, urlencode
 
 from pipelines import db
 from pipelines.archive_fenetre import archiver_sortie_fenetre
-from pipelines.common import obtenir_logger, telecharger
+from pipelines.common import assainir_texte_integral, obtenir_logger, telecharger
 
 log = obtenir_logger("ingest_boamp")
 
@@ -90,6 +90,20 @@ CHAMPS_ANNONCE = (
     "type_marche,titulaire,code_departement,dateparution,datelimitereponse,url_avis"
 )
 CHAMPS_LIEN = "idweb,annonce_lie,dateparution,nature"
+
+# Champs bruts BOAMP dont la valeur devient du texte servi, ou une cle de
+# rapprochement entre les trois exports. `donnees` en est deliberement ABSENT :
+# ce n'est pas une colonne, c'est le blob que lit `extraire_montant`, et
+# normaliser ses espaces changerait ce que ses expressions rationnelles
+# apparient. Les cles (`idweb`, `annonce_lie`) sont assainies DES DEUX COTES du
+# rapprochement, dans `indexer_liens` comme dans les deux parseurs : n'en
+# assainir qu'un cote deplacerait les appariements au lieu de les corriger.
+CHAMPS_TEXTE = (
+    "idweb", "annonce_lie", "objet", "nomacheteur", "nature", "nature_libelle",
+    "famille", "famille_libelle", "type_marche", "type_procedure",
+    "procedure_libelle", "descripteur_libelle", "titulaire", "code_departement",
+    "dateparution", "datelimitereponse", "url_avis",
+)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS ao_en_cours (
@@ -193,6 +207,46 @@ def archiver_annonces_hors_fenetre(
 # ---------------------------------------------------------------------------
 # Parsing (fonctions pures, testées sur enregistrements réels)
 # ---------------------------------------------------------------------------
+
+
+def _assainir_champs(rec: dict) -> tuple[dict, int]:
+    """Enregistrement brut BOAMP → copie dont les champs de `CHAMPS_TEXTE` sont
+    assainis, et nombre de VALEURS modifiées (un élément de liste compte pour
+    un).
+
+    POURQUOI ICI, ET PAS AUX SITES D'ÉCRITURE. Le même `rec["objet"]` alimente
+    `ao_en_cours.objet` ET `annonces_recentes.objet`, puis
+    `annonces_recentes_archive` par copie : une réparation posée en amont des
+    écritures les couvre toutes. C'est la règle du dépôt depuis la PR #100
+    (« réparer au parseur, pas aux sites d'écriture »).
+
+    POURQUOI ÉLÉMENT PAR ÉLÉMENT SUR LES CHAMPS MULTIVALUÉS. Ils sont sérialisés
+    par `_liste_json` avant d'être écrits, et un saut de ligne devient alors
+    `\\n` — deux caractères ASCII qu'aucune classe `\\s` n'attrape. Mesuré le
+    30/08/2026 sur la base servie : sur les 17 valeurs sales de
+    `annonces_recentes.titulaires` (2 052 non nulles), 16 portent des blancs
+    réels qu'une hygiène appliquée à la chaîne sérialisée verrait, mais **1**
+    est un communiqué entier collé derrière le nom du titulaire par un saut de
+    ligne — et celle-là, seule l'hygiène élément par élément la voit. Même
+    chose pour la seule valeur équivalente de l'archive (476 non nulles).
+
+    `donnees` n'est PAS dans `CHAMPS_TEXTE` : voir le commentaire de la
+    constante.
+    """
+    propre = dict(rec)
+    modifiees = 0
+    for cle in CHAMPS_TEXTE:
+        valeur = propre.get(cle)
+        if isinstance(valeur, list):
+            neuve = [assainir_texte_integral(v) for v in valeur]
+            delta = sum(1 for avant, apres in zip(valeur, neuve) if avant != apres)
+        else:
+            neuve = assainir_texte_integral(valeur)
+            delta = 1 if neuve != valeur else 0
+        if delta:
+            propre[cle] = neuve
+            modifiees += delta
+    return propre, modifiees
 
 
 def _liste_json(valeur: object) -> str | None:
@@ -309,7 +363,12 @@ def _limite_plausible(parution: str, limite: str) -> bool:
 def parser_ao(rec: dict) -> dict | None:
     """Enregistrement export BOAMP (AO) → ligne ao_en_cours, ou None si
     les champs indispensables (idweb, dates) manquent, ou si la date limite
-    de réponse est manifestement fautive (cf. `_limite_plausible`)."""
+    de réponse est manifestement fautive (cf. `_limite_plausible`).
+
+    L'hygiène est posée EN PREMIER, avant même le contrôle de plausibilité :
+    `_limite_plausible` fait `int(parution[:4])`, qu'une espace de bord ferait
+    échouer, et l'écart serait alors imputé à la donnée."""
+    rec, _ = _assainir_champs(rec)
     idweb = rec.get("idweb")
     parution = rec.get("dateparution")
     limite = rec.get("datelimitereponse")
@@ -346,6 +405,7 @@ def parser_ao(rec: dict) -> dict | None:
 def parser_annonce(rec: dict) -> dict | None:
     """Enregistrement export BOAMP (toute nature) → ligne annonces_recentes,
     ou None si idweb/dateparution manquent."""
+    rec, _ = _assainir_champs(rec)
     idweb = rec.get("idweb")
     parution = rec.get("dateparution")
     if not idweb or not parution:
@@ -369,10 +429,16 @@ def parser_annonce(rec: dict) -> dict | None:
 
 def indexer_liens(recs: list[dict]) -> tuple[set[str], dict[str, str]]:
     """Annonces ANNULATION/RECTIFICATIF → (idweb annulés, cible → dernier
-    rectificatif). `annonce_lie` pointe vers la ou les annonces d'origine."""
+    rectificatif). `annonce_lie` pointe vers la ou les annonces d'origine.
+
+    🛑 L'hygiène est posée ICI AUSSI, et ce n'est pas de la symétrie décorative :
+    `cible` est comparée à `ligne["idweb"]`, que `parser_ao` assainit. Assainir
+    un seul côté d'un rapprochement DÉPLACE les appariements au lieu de les
+    corriger — un AO annulé cesserait d'être marqué annulé."""
     annules: set[str] = set()
     rectifs: dict[str, tuple[str, str]] = {}  # cible -> (dateparution, idweb)
     for rec in recs:
+        rec, _ = _assainir_champs(rec)
         cibles = rec.get("annonce_lie") or []
         if not isinstance(cibles, list):
             cibles = [cibles]
@@ -434,6 +500,18 @@ def _executer() -> None:
         "nature IN ('ANNULATION','RECTIFICATIF')",
         CHAMPS_LIEN,
         "boamp_annonces_liees.json",
+    )
+
+    # Compteur d'hygiène. INCONDITIONNEL, zéro compris : un compteur muet au
+    # vert est indiscernable d'un compteur débranché (règle posée par la PR #100).
+    # Il est recalculé par une SECONDE passe sur le brut plutôt que rendu par les
+    # parseurs : ceux-ci restent des fonctions à un seul argument, testables
+    # telles quelles, et la passe ne coûte rien devant les trois téléchargements.
+    # `assainir_texte_integral` est idempotente — la double passe ne peut donc pas
+    # faire diverger ce que compte le journal de ce qui est écrit en base.
+    valeurs_assainies = sum(
+        _assainir_champs(rec)[1]
+        for rec in (*brut_ao, *brut_annonces, *brut_liens)
     )
 
     aos, ecartes_ao = [], 0
@@ -561,8 +639,10 @@ def _executer() -> None:
 
     log.info(
         "BOAMP ingéré : %d AO en cours (%d annulés, %d avec montant), "
-        "%d annonces %d j, fraîcheur %s",
-        len(aos), nb_annulees, nb_montants, len(annonces), FENETRE_JOURS, date_donnees,
+        "%d annonces %d j, %d valeur(s) assainie(s) (mojibake, contrôles C1 "
+        "cp1252, espaces), fraîcheur %s",
+        len(aos), nb_annulees, nb_montants, len(annonces), FENETRE_JOURS,
+        valeurs_assainies, date_donnees,
     )
 
 
