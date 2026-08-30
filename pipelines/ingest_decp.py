@@ -210,7 +210,7 @@ import duckdb
 
 from pipelines import db
 from pipelines.common import (
-    normaliser_espaces,
+    assainir_texte_integral,
     obtenir_logger,
     reparer_mojibake,
     telecharger,
@@ -1270,22 +1270,63 @@ _TABLES = {
 # POURQUOI ici et pas en SQL : la réparation du mojibake exige un
 # aller-retour d'encodage octet par octet, hors de portée de DuckDB comme de
 # SQLite. POURQUOI ces colonnes-là : ce sont les seules chaînes DECP servies
-# à l'écran ou indexées. Mesuré le 20/08/2026 sur la base de production
-# (585 503 objets) : 308 objets porteurs de mojibake → 5 irréparables,
-# 0 régression ; 77 306 objets porteurs d'espaces parasites (insécables,
-# retours ligne, bords).
+# à l'écran ou indexées.
+#
+# CHIFFRES RE-MESURÉS LE 30/08/2026 sur la base SERVIE (les précédents
+# dataient du 20/08 et annonçaient 585 503 objets pour une table qui en
+# compte 496 861 — c'est le compteur ajouté ci-dessous qui les tient
+# désormais à jour, faute de quoi rien ne les recompte) :
+# `decp_marches` = 496 861 lignes, `objet` non NULL sur 496 861, dont
+# 1 460 portent au moins un contrôle C1 (U+0080-U+009F) et 19 un U+0002 ;
+# les deux populations sont DISJOINTES (total `Cc` = 1 479).
+# `acheteur_nom` (493 195 valeurs) et `titulaire_nom` (469 706) n'en portent
+# AUCUN : tout le bénéfice de l'hygiène C1 porte sur `objet` seule, et c'est
+# la raison d'être de la ventilation PAR COLONNE du bilan.
 _COLONNES_ASSAINIES = frozenset({"objet", "acheteur_nom", "titulaire_nom"})
 # `titulaires_json` est du JSON : on y répare le mojibake (qui n'affecte que
 # le contenu des chaînes) mais on n'y touche PAS aux espaces, qui font partie
-# de la syntaxe sérialisée.
+# de la syntaxe sérialisée. Il ne bascule donc PAS sur
+# `assainir_texte_integral`, qui applique `normaliser_espaces`.
 _COLONNES_MOJIBAKE_SEUL = frozenset({"titulaires_json"})
 
 
-def _assainir_lot(lot: list[tuple], champs: list[str]) -> list[tuple]:
+def _assainir_lot(
+    lot: list[tuple],
+    champs: list[str],
+    bilan: dict[str, int] | None = None,
+) -> list[tuple]:
     """Applique l'hygiène des chaînes aux colonnes texte d'un lot de lignes.
 
     Rendu tel quel si aucune colonne du lot n'est concernée : le pipeline
     DECP transfère ~600 000 lignes, on ne paye le coût que là où il sert.
+
+    POURQUOI `assainir_texte_integral` ET PAS L'ÉDITION NATURELLE. Le code
+    d'origine composait `normaliser_espaces(reparer_mojibake(v))`, qui ne
+    répare PAS les contrôles C1 : `reparer_mojibake` sort immédiatement sur
+    une chaîne sans « Ã », « Â » ni « â€ », et la donnée fautive de DECP est
+    « â » + U+0080 + U+0093 **brute**, où l'« € » est encore l'octet 0x80.
+    Le maillon était donc présent et inopérant. L'édition naturelle — ajouter
+    `reparer_controles_cp1252` EN QUEUE de l'expression existante — fait bien
+    tomber le compteur de C1 de 1 460 à 1, mais en FABRIQUANT 147 lignes
+    visiblement fausses (« Hp 7488 â€“ mission de moe ») : elle matérialise
+    l'« € » APRÈS le seul passage capable de le consommer. **L'ordre gouverne,
+    et il est figé une seule fois, dans `assainir_texte_integral`** — mesuré
+    le 30/08/2026 sur les 1 460 lignes réelles.
+
+    Le `or None` n'est pas décoratif : `assainir_texte_integral` rend `""` là
+    où l'ancienne composition rendait `None`, et `objet` est une colonne
+    nullable sans DEFAULT écrite sans garde au site d'appel. Sans lui, la
+    bascule introduirait une régression `NULL → ''` invisible en base.
+
+    `bilan` est un ACCUMULATEUR facultatif {colonne: valeurs changées},
+    alimenté en place. POURQUOI un paramètre et pas un second membre de
+    retour : le contrat « rendu tel quel » repose sur l'IDENTITÉ de l'objet
+    (`_assainir_lot(lot, champs) is lot`), que trois tests verrouillent.
+    POURQUOI ventilé par colonne : un total global masquerait que la bascule
+    est INERTE sur `acheteur_nom` et `titulaire_nom`, donc indiscernable d'un
+    remède qui aurait porté sur les trois. Les clés agrègent toutes les
+    tables du chargement — `objet` est assaini dans `decp_marches` ET dans
+    `decp_derniers_marches`, qui en dérive.
     """
     indices_pleins = [i for i, c in enumerate(champs) if c in _COLONNES_ASSAINIES]
     indices_moji = [i for i, c in enumerate(champs) if c in _COLONNES_MOJIBAKE_SEUL]
@@ -1297,13 +1338,30 @@ def _assainir_lot(lot: list[tuple], champs: list[str]) -> list[tuple]:
         for i in indices_pleins:
             v = cellules[i]
             if isinstance(v, str):
-                cellules[i] = normaliser_espaces(reparer_mojibake(v)) or None
+                cellules[i] = assainir_texte_integral(v) or None
+                if bilan is not None and cellules[i] != v:
+                    bilan[champs[i]] = bilan.get(champs[i], 0) + 1
         for i in indices_moji:
             v = cellules[i]
             if isinstance(v, str):
                 cellules[i] = reparer_mojibake(v)
+                if bilan is not None and cellules[i] != v:
+                    bilan[champs[i]] = bilan.get(champs[i], 0) + 1
         sorties.append(tuple(cellules))
     return sorties
+
+
+def _bilan_hygiene_neuf(champs: list[str]) -> dict[str, int]:
+    """Accumulateur amorcé à ZÉRO sur les colonnes assainies de `champs`.
+
+    C'est l'amorce qui rend le journal lisible : un compteur qui ne
+    mentionnerait que les colonnes effectivement modifiées tairait les
+    colonnes saines, et un remède débranché rendrait alors exactement la même
+    sortie qu'une donnée propre. Une table sans colonne texte rend un
+    accumulateur vide, donc n'écrit rien au journal.
+    """
+    traitees = _COLONNES_ASSAINIES | _COLONNES_MOJIBAKE_SEUL
+    return {c: 0 for c in champs if c in traitees}
 
 
 def _reconcilier_schema(conn: sqlite3.Connection) -> list[str]:
@@ -1358,7 +1416,9 @@ def charger(conn: sqlite3.Connection, duck: duckdb.DuckDBPyConnection) -> dict[s
     Contrôle de schéma, CREATE TABLE IF NOT EXISTS, puis DELETE/INSERT dans la
     transaction en cours (aucun commit ici — l'appelant commet, cf. main, ou
     annule). Les colonnes texte sont assainies au passage (cf.
-    `_assainir_lot`). Retourne {table: lignes insérées}.
+    `_assainir_lot`) et le bilan de cette hygiène est journalisé
+    INCONDITIONNELLEMENT, zéro compris, ventilé par table et par colonne.
+    Retourne {table: lignes insérées}.
     """
     # Ordre imposé : contrôle → DROP des tables discordantes → `_SCHEMA` (qui
     # les recrée AVEC leurs index) → DELETE/INSERT. Cf. `_reconcilier_schema`
@@ -1366,12 +1426,25 @@ def charger(conn: sqlite3.Connection, duck: duckdb.DuckDBPyConnection) -> dict[s
     # l'intégration continue est neuve, et seul le premier cas casse.
     _reconcilier_schema(conn)
     conn.executescript(_SCHEMA)  # idempotent, ne détruit rien
+    # Bilan d'hygiène AMORCÉ À ZÉRO, et ventilé par TABLE.COLONNE. Trois
+    # raisons, toutes mesurées le 30/08/2026 : (1) un total global masquerait
+    # que la bascule est INERTE sur `acheteur_nom` et `titulaire_nom`, donc
+    # indiscernable d'un remède qui aurait porté sur les trois ; (2) `objet`
+    # est assaini dans `decp_marches` ET dans `decp_derniers_marches`, qui en
+    # dérive et qui est la SEULE des deux réellement affichée — les agréger
+    # sous une clé unique rendrait un nombre que personne ne peut recomposer ;
+    # (3) une colonne saine doit apparaître avec son `0`, faute de quoi un
+    # remède redevenu inopérant serait indiscernable d'une donnée propre.
+    # C'est exactement le défaut que cette tranche corrige : le maillon était
+    # présent et muet depuis le 20/08.
+    bilan_hygiene: dict[str, int] = {}
     comptes: dict[str, int] = {}
     for table, (source, champs) in _TABLES.items():
         conn.execute(f"DELETE FROM {table}")
         colonnes = ", ".join(champs)
         marqueurs = ", ".join("?" for _ in champs)
         curseur = duck.execute(f"SELECT {colonnes} FROM {source}")
+        bilan_table = _bilan_hygiene_neuf(champs)
         total = 0
         while True:
             lot = curseur.fetchmany(50_000)
@@ -1379,10 +1452,17 @@ def charger(conn: sqlite3.Connection, duck: duckdb.DuckDBPyConnection) -> dict[s
                 break
             conn.executemany(
                 f"INSERT INTO {table} ({colonnes}) VALUES ({marqueurs})",
-                _assainir_lot(lot, champs),
+                _assainir_lot(lot, champs, bilan_table),
             )
             total += len(lot)
         comptes[table] = total
+        bilan_hygiene.update({f"{table}.{c}": n for c, n in bilan_table.items()})
+    log.info(
+        "hygiène des chaînes : %d valeur(s) assainie(s) (mojibake, contrôles "
+        "C1 cp1252, espaces) — %s",
+        sum(bilan_hygiene.values()),
+        ", ".join(f"{c}={n}" for c, n in sorted(bilan_hygiene.items())),
+    )
     return comptes
 
 

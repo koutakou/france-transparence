@@ -557,21 +557,150 @@ def test_les_marches_sans_ligne_modification_zero_sont_dates(resultat):
 
 # ---------------------------------------------------------------------------
 # Hygiène des chaînes au chargement (§ M8 de doc/QUALITE-DONNEES.md)
+#
+# Mesure qui motive ces tests, sur la base SERVIE `app/data/france.db`
+# (30/08/2026) : `decp_marches` = 496 861 lignes, `objet` non NULL sur les
+# 496 861, dont 1 460 portent au moins un contrôle C1 (U+0080-U+009F) et 19 un
+# U+0002 — populations DISJOINTES, `Cc` total = 1 479. `acheteur_nom`
+# (493 195 valeurs) et `titulaire_nom` (469 706) n'en portent AUCUN : tout le
+# bénéfice porte sur `objet` seule. La table SERVIE `decp_derniers_marches`
+# (200 lignes), qui dérive de la même table temporaire DuckDB, en portait 2.
+# Les trois `objet` ci-dessous sont RÉELS, pris dans cette population, et leur
+# `uid` est cité en regard.
+#
+# 🛑 LA FIXTURE PARQUET NE PORTE AUCUN CONTRÔLE C1 — mesuré, 0 ligne sur 41.
+# Elle ne peut donc PAS départager les éditions du remède : un test du remède
+# écrit sur elle serait vert sous TOUTES les mutations. D'où deux blocs
+# distincts — le remède se teste sur des valeurs réelles passées en dur, le
+# compteur se teste sur la fixture.
+#
+# Épreuves de mutation que ce bloc doit tuer :
+#   M1  `assainir_texte_integral` -> `assainir_texte`  -> test_..._repare_les_controles_c1
+#   M2  translation C1 EN QUEUE (l'édition naturelle)  -> test_..._ne_fabrique_pas_de_mojibake
+#   M3  `or None` ôté                                  -> test_..._rend_none_sur_une_valeur_blanche
+#   M4  `titulaires_json` basculé sur `_integral`      -> test_..._ne_touche_pas_aux_espaces
+#   M5  `return lot` -> `return list(lot)`             -> test_..._laisse_passer_un_lot
+#   M6  `bilan[...] = ... + 1` retiré                  -> test_..._compte_par_leur_valeur
+#   M7  `if cellules[i] != v` -> `if True`             -> test_..._compte_par_leur_valeur
+#   M8  amorce `_bilan_hygiene_neuf` réduite à `{}`    -> test_..._journalise_les_colonnes_saines
+#   M9  ligne de journal retirée de `charger`          -> test_..._journalise_les_colonnes_saines
 # ---------------------------------------------------------------------------
+
+# Les trois `objet` SOURCES, tels que l'amont les publie. Écrits en
+# ÉCHAPPEMENTS et jamais en clair : ce sont des caractères de contrôle, donc
+# invisibles dans un éditeur — c'est précisément ce qui les rend indétectables
+# à l'oeil et pourquoi seule la catégorie Unicode `Cc` les révèle.
+OBJET_TIRETS = (  # uid 616820205001542025-54_71210000
+    "Hp 7488 \u00e2\u0080\u0093 mission de moe \u00e2\u0080\u0093 cappellebrouck"
+    " \u00e2\u0080\u0093 construction de 9 logements individuels"
+)
+OBJET_APOSTROPHE = (  # uid 247600646000192024MEP240101b_71300000
+    "AMO POUR LA CR\u00c9ATION D\u0092UN FORAGE D\u2019EAU"
+)
+OBJET_PHOTOVOLTAIQUE = (  # uid 779987486000152025572884000000_31712331
+    "INSTALLATION DE CENTRALES PHOTOVOLTA\u00c3\u008fQUE EN OMBRIERES"
+    " SUR LES P+R DE METZ METROPOLE"
+)
+CHAMPS_MINIMAUX = ["uid", "objet", "acheteur_nom", "montant_retenu"]
 
 
 def test_assainir_lot_repare_et_normalise_les_colonnes_servies():
-    """Mesuré le 20/08/2026 sur la base de production : 308 objets porteurs
-    de mojibake (→ 5 irréparables) et 77 306 porteurs d'espaces parasites."""
-    champs = ["uid", "objet", "acheteur_nom", "montant_retenu"]
-    lot = [("U1", "TRAVAUX  DE\nRÃ‰NOVATION ", "  MAIRIE DE PARIS ", 1000.0)]
-    (ligne,) = ingest_decp._assainir_lot(lot, champs)
+    """Mojibake « Ã » et espaces parasites : le cas que le code d'origine
+    traitait déjà, et qui ne doit pas régresser avec la bascule."""
+    lot = [("U1", "TRAVAUX  DE\nRÃ\u2030NOVATION ", "  MAIRIE DE PARIS ", 1000.0)]
+    (ligne,) = ingest_decp._assainir_lot(lot, CHAMPS_MINIMAUX)
     assert ligne == ("U1", "TRAVAUX DE RÉNOVATION", "MAIRIE DE PARIS", 1000.0)
 
 
+def test_assainir_lot_repare_les_controles_c1_de_objet():
+    """M1. Cas RÉELS de la base servie, et raison d'être de cette tranche.
+
+    `assainir_texte` ne répare PAS les contrôles C1 : avec lui, ces assertions
+    tombent. Le maillon d'hygiène EXISTAIT avant, et il était INOPÉRANT sur ce
+    défaut — `reparer_mojibake` sort immédiatement sur une chaîne sans « Ã »,
+    « Â » ni « â€ », et ici l'« € » de « â€“ » est encore l'octet 0x80.
+    """
+    lot = [
+        ("U1", OBJET_TIRETS, "ACHETEUR", 1.0),
+        ("U2", OBJET_APOSTROPHE, "ACHETEUR", 2.0),
+    ]
+    objets = [ligne[1] for ligne in ingest_decp._assainir_lot(lot, CHAMPS_MINIMAUX)]
+    assert objets == [
+        "Hp 7488 – mission de moe – cappellebrouck"
+        " – construction de 9 logements individuels",
+        "AMO POUR LA CRÉATION D’UN FORAGE D’EAU",
+    ]
+    # …et il n'en reste aucun : le remède n'est pas partiel.
+    assert not [c for o in objets for c in o if 0x80 <= ord(c) <= 0x9F]
+
+
+def test_assainir_lot_ne_fabrique_pas_de_mojibake_visible():
+    """M2, ET C'EST LE PIÈGE DE CETTE TRANCHE.
+
+    L'édition NATURELLE — ajouter `reparer_controles_cp1252` en QUEUE de
+    l'expression existante — fait bien tomber le compteur de contrôles C1 de
+    1 460 à 1, mais en FABRIQUANT du mojibake VISIBLE : « Hp 7488 â€“ mission
+    de moe ». Mesuré le 30/08/2026 sur les 1 460 lignes réelles : 147 lignes
+    visiblement fausses, et TOUS les contrôles d'hygiène du projet au vert.
+    Mécanisme : `reparer_mojibake` ne voit « â€ » que si l'« € » est déjà un
+    « € » ; le placer avant la translation, c'est le faire travailler sur une
+    chaîne où le marqueur n'existe pas encore. **L'ordre gouverne**, et il est
+    figé une seule fois, dans `assainir_texte_integral`.
+
+    Un compteur de C1 tombé à zéro ne prouve donc rien à lui seul : il faut
+    nommer ce qui NE doit PAS apparaître.
+    """
+    (ligne,) = ingest_decp._assainir_lot(
+        [("U1", OBJET_TIRETS, "ACHETEUR", 1.0)], CHAMPS_MINIMAUX
+    )
+    assert "\u20ac" not in ligne[1]  # l'« € » que l'édition en queue fabrique
+    assert "\u00e2" not in ligne[1]  # le « â » qui le précède
+    assert ligne[1].count("\u2013") == 3  # trois tirets cadratins, réparés
+
+
+def test_assainir_lot_laisse_le_residu_hors_table_cp1252_intact():
+    """Le contrôle d'acceptation se formule « plus aucun C1 de la plage cp1252
+    ATTRIBUÉE », jamais « plus aucun C1 ».
+
+    cp1252 n'affecte que 27 des 32 octets 0x80-0x9F, et `str.translate` laisse
+    intact tout point de code absent de sa table. Cette ligne — la SEULE de
+    toute la base servie à porter un des cinq octets non affectés — reste donc
+    inchangée, et c'est le résidu SPÉCIFIÉ, pas un échec. Ce n'est d'ailleurs
+    pas du cp1252 corrompu mais un double encodage de « Ï » ; sa réparation
+    est un chantier distinct, `P-MOJIBAKE-ROUNDTRIP-CP1252`.
+    """
+    (ligne,) = ingest_decp._assainir_lot(
+        [("U1", OBJET_PHOTOVOLTAIQUE, "UEM", 1.0)], CHAMPS_MINIMAUX
+    )
+    assert ligne[1] == OBJET_PHOTOVOLTAIQUE
+    assert "\u008f" in ligne[1]
+
+
+def test_assainir_lot_rend_none_sur_une_valeur_blanche():
+    """M3. `assainir_texte_integral` rend `""` là où la composition d'origine
+    rendait `None` : sans le `or None`, la bascule introduirait une régression
+    `NULL -> ''` dans une colonne nullable sans DEFAULT, écrite sans garde au
+    site d'appel.
+
+    Ce cas ne peut être que CONSTRUIT : au 30/08/2026 la base servie porte
+    0 `objet` vide et 0 `objet` NULL sur 496 861, elle n'offre donc aucun
+    témoin qui distinguerait les deux comportements.
+    """
+    lot = [
+        ("U1", "", "  ", 1.0),
+        ("U2", "   ", "\u00a0\u00a0", 2.0),
+        ("U3", "\u0092", "OK", 3.0),
+    ]
+    lignes = ingest_decp._assainir_lot(lot, CHAMPS_MINIMAUX)
+    assert [ligne[1] for ligne in lignes] == [None, None, "’"]
+    assert [ligne[2] for ligne in lignes] == [None, None, "OK"]
+
+
 def test_assainir_lot_ne_touche_pas_aux_espaces_du_json_titulaires():
-    """`titulaires_json` est de la syntaxe : on y répare le mojibake, pas
-    les espaces, qui sont porteurs de sens dans une chaîne sérialisée."""
+    """M4. `titulaires_json` est de la syntaxe : on y répare le mojibake, pas
+    les espaces, qui sont porteurs de sens dans une chaîne sérialisée. C'est
+    ce qui l'exclut de la bascule — `assainir_texte_integral` applique
+    `normaliser_espaces`, qui écraserait le double espace ci-dessous."""
     champs = ["uid", "titulaires_json"]
     valeur = '[{"siret": "123", "nom": "SociÃ©tÃ©  X"}]'
     (ligne,) = ingest_decp._assainir_lot([("U1", valeur)], champs)
@@ -579,9 +708,102 @@ def test_assainir_lot_ne_touche_pas_aux_espaces_du_json_titulaires():
 
 
 def test_assainir_lot_laisse_passer_un_lot_sans_colonne_texte():
-    """Le pipeline transfère ~600 000 lignes : pas de coût là où c'est inutile."""
+    """M5. Le pipeline transfère ~600 000 lignes : pas de coût là où c'est
+    inutile. Le contrat est l'IDENTITÉ de l'objet, pas son égalité — et il
+    tient aussi quand un accumulateur est fourni."""
     lot = [("2026-01", 42, 1000.0)]
-    assert ingest_decp._assainir_lot(lot, ["mois", "nb_marches", "montant_total"]) is lot
+    champs = ["mois", "nb_marches", "montant_total"]
+    assert ingest_decp._assainir_lot(lot, champs) is lot
+    bilan = {}
+    assert ingest_decp._assainir_lot(lot, champs, bilan) is lot
+    assert bilan == {}
+
+
+def _bilan_du_journal(messages: list[str]) -> list[str]:
+    """Les messages de journal portant le bilan d'hygiène, et eux seuls."""
+    return [m for m in messages if "valeur(s) assainie(s)" in m]
+
+
+def test_charger_compte_les_valeurs_assainies_par_leur_valeur(tmp_path, resultat):
+    """M6/M7. Le compteur se teste par sa VALEUR, jamais par `>= 0` : un
+    compteur débranché rendrait 0 et passerait une telle assertion.
+
+    Preuve de CHAÎNAGE, pour qu'aucun de ces nombres ne soit magique : on
+    recompte les écarts en confrontant la SOURCE (DuckDB) au RÉSULTAT écrit
+    (SQLite), donc sans réappliquer la fonction mesurée. Si le compteur
+    comptait toutes les valeurs texte qui traversent l'hygiène (`if True`), il
+    rendrait 324 et non 22.
+    """
+    duck, _ = resultat
+    conn = db.init_db(chemin=tmp_path / "decp_bilan.db")
+    try:
+        ingest_decp.charger(conn, duck)
+        conn.commit()
+        traitees = (
+            ingest_decp._COLONNES_ASSAINIES | ingest_decp._COLONNES_MOJIBAKE_SEUL
+        )
+        ecarts, traversees = {}, 0
+        for table in ("decp_marches", "decp_derniers_marches"):
+            source, champs = ingest_decp._TABLES[table]
+            colonnes = ", ".join(champs)
+            iuid = champs.index("uid")
+            ecrit = {
+                r["uid"]: tuple(r[c] for c in champs)
+                for r in conn.execute(f"SELECT {colonnes} FROM {table}")
+            }
+            for brute in duck.execute(f"SELECT {colonnes} FROM {source}").fetchall():
+                arrivee = ecrit[brute[iuid]]
+                for i, c in enumerate(champs):
+                    if c in traitees and isinstance(brute[i], str):
+                        traversees += 1
+                        if arrivee[i] != brute[i]:
+                            ecarts[f"{table}.{c}"] = ecarts.get(f"{table}.{c}", 0) + 1
+        assert ecarts == {
+            "decp_marches.objet": 10,
+            "decp_marches.acheteur_nom": 1,
+            "decp_derniers_marches.objet": 10,
+            "decp_derniers_marches.acheteur_nom": 1,
+        }
+        assert sum(ecarts.values()) == 22 < traversees == 324
+    finally:
+        conn.close()
+
+
+def test_charger_journalise_le_bilan_meme_pour_les_colonnes_saines(
+    tmp_path, resultat, caplog
+):
+    """M8/M9. CONTRE-ÉPREUVE DU SILENCE : un compteur muet au vert est
+    indiscernable d'un compteur débranché — et c'était l'état exact de
+    `ingest_decp` avant cette tranche, dont le maillon d'hygiène tournait sans
+    rien réparer ni rien dire depuis le 20/08/2026.
+
+    Le bilan est donc journalisé À CHAQUE cycle, ZÉRO COMPRIS, et ventilé par
+    TABLE et par COLONNE. Un total global ne suffirait pas : mesurée sur la
+    base servie, la bascule est INERTE sur `acheteur_nom` (493 195 valeurs,
+    0 changée) et `titulaire_nom` (469 706, 0) — un chiffre unique aurait
+    laissé croire que le remède portait sur les trois colonnes.
+    """
+    import logging
+
+    duck, _ = resultat
+    conn = db.init_db(chemin=tmp_path / "decp_journal.db")
+    try:
+        with caplog.at_level(logging.INFO):
+            ingest_decp.charger(conn, duck)
+        bilans = _bilan_du_journal(caplog.messages)
+        assert len(bilans) == 1, "le bilan d'hygiène doit être journalisé une fois"
+        assert "22 valeur(s) assainie(s)" in bilans[0]
+        # Les colonnes SAINES sont nommées avec leur zéro : c'est l'amorce.
+        for segment in (
+            "decp_marches.objet=10",
+            "decp_marches.acheteur_nom=1",
+            "decp_marches.titulaire_nom=0",
+            "decp_marches.titulaires_json=0",
+            "decp_derniers_marches.objet=10",
+        ):
+            assert segment in bilans[0], segment
+    finally:
+        conn.close()
 
 
 # ---------------------------------------------------------------------------
