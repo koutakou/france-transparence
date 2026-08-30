@@ -1307,11 +1307,13 @@ def _assainir_lot(
     « â » + U+0080 + U+0093 **brute**, où l'« € » est encore l'octet 0x80.
     Le maillon était donc présent et inopérant. L'édition naturelle — ajouter
     `reparer_controles_cp1252` EN QUEUE de l'expression existante — fait bien
-    tomber le compteur de C1 de 1 460 à 1, mais en FABRIQUANT 147 lignes
-    visiblement fausses (« Hp 7488 â€“ mission de moe ») : elle matérialise
-    l'« € » APRÈS le seul passage capable de le consommer. **L'ordre gouverne,
-    et il est figé une seule fois, dans `assainir_texte_integral`** — mesuré
-    le 30/08/2026 sur les 1 460 lignes réelles.
+    tomber le compteur de C1 de 1 460 à 1, mais en FABRIQUANT du mojibake
+    VISIBLE (« Hp 7488 â€“ mission de moe ») : elle matérialise l'« € » APRÈS
+    le seul passage capable de le consommer. Mesuré le 30/08/2026 sur les
+    1 460 lignes réelles : 147 en portent un marqueur visible sous cette
+    édition contre 1 sous celle retenue, soit 146 FABRIQUÉES.
+    **L'ordre gouverne, et il est figé une seule fois, dans
+    `assainir_texte_integral`.**
 
     Le `or None` n'est pas décoratif : `assainir_texte_integral` rend `""` là
     où l'ancienne composition rendait `None`, et `objet` est une colonne
@@ -1319,14 +1321,14 @@ def _assainir_lot(
     bascule introduirait une régression `NULL → ''` invisible en base.
 
     `bilan` est un ACCUMULATEUR facultatif {colonne: valeurs changées},
-    alimenté en place. POURQUOI un paramètre et pas un second membre de
-    retour : le contrat « rendu tel quel » repose sur l'IDENTITÉ de l'objet
-    (`_assainir_lot(lot, champs) is lot`), que trois tests verrouillent.
+    alimenté en place, et portant les colonnes DE CE LOT seulement —
+    l'appelant le préfixe par sa table (cf. `charger`). POURQUOI un paramètre
+    et pas un second membre de retour : le contrat « rendu tel quel » repose
+    sur l'IDENTITÉ de l'objet (`_assainir_lot(lot, champs) is lot`), que
+    verrouille `test_assainir_lot_laisse_passer_un_lot_sans_colonne_texte`.
     POURQUOI ventilé par colonne : un total global masquerait que la bascule
     est INERTE sur `acheteur_nom` et `titulaire_nom`, donc indiscernable d'un
-    remède qui aurait porté sur les trois. Les clés agrègent toutes les
-    tables du chargement — `objet` est assaini dans `decp_marches` ET dans
-    `decp_derniers_marches`, qui en dérive.
+    remède qui aurait porté sur les trois.
     """
     indices_pleins = [i for i, c in enumerate(champs) if c in _COLONNES_ASSAINIES]
     indices_moji = [i for i, c in enumerate(champs) if c in _COLONNES_MOJIBAKE_SEUL]
