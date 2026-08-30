@@ -1322,9 +1322,11 @@ def _assainir_lot(
     `reparer_controles_cp1252` EN QUEUE de l'expression existante — fait bien
     tomber le compteur de C1 de 1 460 à 1, mais en FABRIQUANT du mojibake
     VISIBLE (« Hp 7488 â€“ mission de moe ») : elle matérialise l'« € » APRÈS
-    le seul passage capable de le consommer. Mesuré le 30/08/2026 sur les
-    1 460 lignes réelles : 147 en portent un marqueur visible sous cette
-    édition contre 1 sous celle retenue, soit 146 FABRIQUÉES.
+    le seul passage capable de le consommer. **146 des 1 460 lignes réelles
+    en ressortent différentes de ce que rend le remède retenu**, mesuré le
+    30/08/2026. ⚠️ Ce 146 est un écart entre deux sorties, donc indépendant
+    de toute définition ; un décompte par « marqueur visible » varie de 122 à
+    277 selon les marqueurs retenus et ne doit pas être cité comme un fait.
     **L'ordre gouverne, et il est figé une seule fois, dans
     `assainir_texte_integral`.**
 
@@ -1474,9 +1476,17 @@ def charger(conn: sqlite3.Connection, duck: duckdb.DuckDBPyConnection) -> dict[s
             total += len(lot)
         comptes[table] = total
         bilan_hygiene.update({f"{table}.{c}": n for c, n in bilan_table.items()})
+    # 🛑 LE TOTAL ADDITIONNE LES TABLES, ET `decp_derniers_marches` EST UN
+    # EXTRAIT DE `decp_marches` : ses 200 lignes y ont le même `uid` ET le même
+    # `objet` (vérifié, 200/200 le 30/08/2026). Une valeur réparée dans les
+    # deux compte donc DEUX FOIS dans le total. C'est un compte d'ÉCRITURES
+    # assainies, pas de valeurs distinctes — et c'est la ventilation, pas le
+    # total, qui permet de le recomposer. Ne pas lire ce nombre comme une
+    # population.
     log.info(
-        "hygiène des chaînes : %d valeur(s) assainie(s) (mojibake, contrôles "
-        "C1 cp1252, espaces) — %s",
+        "hygiène des chaînes : %d valeur(s) assainie(s) au chargement (mojibake, "
+        "contrôles C1 cp1252, espaces ; total sur TOUTES les tables, "
+        "`decp_derniers_marches` étant un extrait de `decp_marches`) — %s",
         sum(bilan_hygiene.values()),
         ", ".join(f"{c}={n}" for c, n in sorted(bilan_hygiene.items())),
     )

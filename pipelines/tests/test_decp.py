@@ -588,6 +588,7 @@ def test_les_marches_sans_ligne_modification_zero_sont_dates(resultat):
 #   M7  `if cellules[i] != v` -> `if True`             -> test_..._compte_par_leur_valeur
 #   M8  amorce `_bilan_hygiene_neuf` réduite à `{}`    -> test_..._journalise_les_colonnes_saines
 #   M9  ligne de journal retirée de `charger`          -> test_..._journalise_les_colonnes_saines
+#   M10 incrément de la branche `indices_moji` retiré  -> test_..._compte_aussi_la_colonne_mojibake
 #
 # CE QUE LA CAMPAGNE A CORRIGÉ, et qui vaut plus que son score : la première
 # version de `test_..._compte_par_leur_valeur` recomptait les écarts entre la
@@ -655,8 +656,11 @@ def test_assainir_lot_ne_fabrique_pas_de_mojibake_visible():
     L'édition NATURELLE — ajouter `reparer_controles_cp1252` en QUEUE de
     l'expression existante — fait bien tomber le compteur de contrôles C1 de
     1 460 à 1, mais en FABRIQUANT du mojibake VISIBLE : « Hp 7488 â€“ mission
-    de moe ». Mesuré le 30/08/2026 sur les 1 460 lignes réelles : 147 lignes
-    visiblement fausses, et TOUS les contrôles d'hygiène du projet au vert.
+    de moe ». Mesuré le 30/08/2026 : **146 des 1 460 lignes réelles** en
+    ressortent différentes de ce que rend le remède retenu — écart entre deux
+    sorties, donc indépendant de toute définition de « marqueur visible »,
+    dont les décomptes varient de 122 à 277. Et TOUS les contrôles d'hygiène
+    du projet seraient restés au vert.
     Mécanisme : `reparer_mojibake` ne voit « â€ » que si l'« € » est déjà un
     « € » ; le placer avant la translation, c'est le faire travailler sur une
     chaîne où le marqueur n'existe pas encore. **L'ordre gouverne**, et il est
@@ -674,7 +678,14 @@ def test_assainir_lot_ne_fabrique_pas_de_mojibake_visible():
 
 
 def test_assainir_lot_laisse_le_residu_hors_table_cp1252_intact():
-    """Le contrôle d'acceptation se formule « plus aucun C1 de la plage cp1252
+    """DOCUMENTAIRE, ET IL FAUT LE DIRE : ce test NE DISCRIMINE RIEN.
+
+    Ses deux assertions passent aussi sous l'ancienne composition, sous M1 et
+    sous M2 — la ligne est inchangée par TOUS les remèdes. Il ne figure donc
+    au catalogue de mutations comme tueur d'aucune. Il fige une ATTENTE, pour
+    qu'une séance future ne lise pas ce résidu comme un échec.
+
+    Le contrôle d'acceptation se formule « plus aucun C1 de la plage cp1252
     ATTRIBUÉE », jamais « plus aucun C1 ».
 
     cp1252 n'affecte que 27 des 32 octets 0x80-0x9F, et `str.translate` laisse
@@ -753,6 +764,38 @@ def test_assainir_lot_laisse_passer_un_lot_sans_colonne_texte():
     assert bilan == {}
 
 
+def test_assainir_lot_compte_aussi_la_colonne_mojibake_seul():
+    """M10. La branche `indices_moji` du compteur — celle de `titulaires_json`
+    — n'était éprouvée par AUCUN test : la seule assertion la concernant était
+    `titulaires_json=0`, qu'un compteur débranché rend tout aussi bien.
+    Trou signalé par une réfutation adversariale, pas par la campagne."""
+    champs = ["uid", "titulaires_json"]
+    bilan = {}
+    ingest_decp._assainir_lot(
+        [("U1", '[{"siret": "123", "nom": "SociÃ©tÃ©  X"}]'),
+         ("U2", '[{"siret": "456", "nom": "SAINE"}]')],
+        champs,
+        bilan,
+    )
+    # Une seule des deux valeurs change : le compteur ne compte pas les lignes.
+    assert bilan == {"titulaires_json": 1}
+
+
+def test_assainir_lot_nullifie_un_mojibake_qui_se_resout_en_blanc():
+    """La face CACHÉE du `or None`, que la docstring ne décrivait que dans un
+    sens. Un mojibake dont la cible est une espace (ici U+2003 cadratin) est
+    matérialisé par la réparation, puis effacé par `normaliser_espaces`, puis
+    NULLifié par le `or None` — là où l'ancienne composition écrivait le
+    mojibake tel quel. Ce n'est pas une régression, c'est le comportement
+    voulu (une valeur qui ne porte que du blanc est une absence de valeur),
+    mais il n'était ni écrit ni verrouillé. Aucun cas réel aujourd'hui : les
+    `objet` qui portent ce motif portent aussi du texte."""
+    (ligne,) = ingest_decp._assainir_lot(
+        [("U1", "\u00e2\u0080\u0083", "ACHETEUR", 1.0)], CHAMPS_MINIMAUX
+    )
+    assert ligne[1] is None
+
+
 def _bilan_du_journal(messages: list[str]) -> list[str]:
     """Les messages de journal portant le bilan d'hygiène, et eux seuls."""
     return [m for m in messages if "valeur(s) assainie(s)" in m]
@@ -786,6 +829,12 @@ def test_charger_compte_les_valeurs_assainies_par_leur_valeur(
     compteur du pipeline. Majoration : chaque valeur texte majore le compteur
     de 1 au plus ; 324 valeurs traversent l'hygiène, 22 seulement diffèrent.
     Un compteur qui compterait tout (`if True`) rendrait donc 324.
+
+    🛑 ET LE 22 EST UN DOUBLE COMPTE, ASSUMÉ ET VÉRIFIÉ ICI : `decp_derniers_
+    marches` est un EXTRAIT de `decp_marches` (mêmes `uid`, mêmes `objet`),
+    donc une valeur réparée compte dans les deux tables. 22 écritures = 11
+    valeurs distinctes. L'assertion de sous-ensemble ci-dessous l'établit, au
+    lieu de laisser le lecteur croire à 22 valeurs fautives.
     """
     import logging
 
@@ -822,6 +871,18 @@ def test_charger_compte_les_valeurs_assainies_par_leur_valeur(
         }
         assert sum(ecarts.values()) == 22 < traversees == 324
 
+        # Le sous-ensemble, qui explique le double compte plutôt que de le taire.
+        derniers = {
+            (r["uid"], r["objet"])
+            for r in conn.execute("SELECT uid, objet FROM decp_derniers_marches")
+        }
+        meres = {
+            (r["uid"], r["objet"])
+            for r in conn.execute("SELECT uid, objet FROM decp_marches")
+        }
+        assert derniers <= meres and len(derniers) == 41
+        assert sum(ecarts.values()) == 2 * (10 + 1)  # 11 valeurs, 22 écritures
+
         # LE COMPTEUR DU PIPELINE, confronté à ce recompte indépendant.
         (bilan,) = _bilan_du_journal(caplog.messages)
         compte = _ventilation(bilan)
@@ -840,10 +901,16 @@ def test_charger_journalise_le_bilan_meme_pour_les_colonnes_saines(
     rien réparer ni rien dire depuis le 20/08/2026.
 
     Le bilan est donc journalisé À CHAQUE cycle, ZÉRO COMPRIS, et ventilé par
-    TABLE et par COLONNE. Un total global ne suffirait pas : mesurée sur la
-    base servie, la bascule est INERTE sur `acheteur_nom` (493 195 valeurs,
-    0 changée) et `titulaire_nom` (469 706, 0) — un chiffre unique aurait
-    laissé croire que le remède portait sur les trois colonnes.
+    TABLE et par COLONNE : un total global masquerait qu'une SEULE colonne est
+    tombée à zéro, ce qui est exactement la manière dont le défaut réparé par
+    cette tranche a vécu dix jours.
+
+    🛑 CE QUE CE BILAN NE DIT PAS, et que trois docstrings ont prétendu qu'il
+    disait : il compte le VOLUME d'hygiène (espaces et mojibake compris), pas
+    le DELTA de la bascule C1. D'où l'assertion `acheteur_nom=1` ci-dessous,
+    sur une colonne où la bascule ne change RIEN — les deux faits coexistent,
+    et le delta se mesure sur la table SOURCE, jamais au journal. Sur le
+    parquet réel, la part due à la bascule est de ~5 % du nombre journalisé.
     """
     import logging
 
