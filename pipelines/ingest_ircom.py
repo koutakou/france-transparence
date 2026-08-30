@@ -267,8 +267,11 @@ def extraire(chemin_xlsx: Path) -> tuple[int, list[dict], int]:
     comme jusqu'au 30/08/2026. POURQUOI, mesuré ce jour-là sur la base SERVIE :
     `ircom_communes.libelle` portait **114 lignes sur 35 156** à contrôle C1,
     un par ligne — 105 × U+009C (« œ »), 4 × U+008C (« Œ »), 5 × U+0092 (« ’ ») —
-    et ce sont des noms de communes françaises : « C\x9cuvres-et-Valsery »,
-    « Schœlcher » écrit « Sch\x9clcher », « Vand\x9cuvre-lès-Nancy ». Le défaut
+    et ce sont des noms de communes françaises : « Cœuvres-et-Valsery »,
+    « Schœlcher » et « Vandœuvre-lès-Nancy » sont en base avec U+009C à la place
+    de leur ligature. (Les octets fautifs ne sont PAS reproduits ici : une
+    docstring est du texte évalué, et un `\\x9c` écrit dans une chaîne non brute
+    y logerait le contrôle même que ce module retire.) Le défaut
     est celui que décrit `reparer_controles_cp1252` : l'amont a décodé du cp1252
     avec la table iso-8859-1. Le fichier reste de l'UTF-8 parfaitement valide —
     aucun contrôle d'encodage ne peut le voir, seule la catégorie Unicode `Cc`
