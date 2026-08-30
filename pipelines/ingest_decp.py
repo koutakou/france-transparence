@@ -1272,16 +1272,29 @@ _TABLES = {
 # SQLite. POURQUOI ces colonnes-là : ce sont les seules chaînes DECP servies
 # à l'écran ou indexées.
 #
-# CHIFFRES RE-MESURÉS LE 30/08/2026 sur la base SERVIE (les précédents
-# dataient du 20/08 et annonçaient 585 503 objets pour une table qui en
-# compte 496 861 — c'est le compteur ajouté ci-dessous qui les tient
-# désormais à jour, faute de quoi rien ne les recompte) :
-# `decp_marches` = 496 861 lignes, `objet` non NULL sur 496 861, dont
-# 1 460 portent au moins un contrôle C1 (U+0080-U+009F) et 19 un U+0002 ;
-# les deux populations sont DISJOINTES (total `Cc` = 1 479).
-# `acheteur_nom` (493 195 valeurs) et `titulaire_nom` (469 706) n'en portent
-# AUCUN : tout le bénéfice de l'hygiène C1 porte sur `objet` seule, et c'est
-# la raison d'être de la ventilation PAR COLONNE du bilan.
+# CHIFFRES RE-MESURÉS LE 30/08/2026 (les précédents dataient du 20/08 et
+# annonçaient 585 503 objets pour une table qui en compte 496 861 — c'est le
+# compteur ajouté ci-dessous qui les tient désormais à jour) :
+# `decp_marches` = 496 861 lignes, `objet` non NULL sur 496 861.
+#
+# 🛑 SOURCE ET SERVI NE DONNENT PAS LE MÊME COMPTE, ET L'ÉCART EST INSTRUCTIF.
+# La table SOURCE porte **1 464** `objet` à contrôle C1 ; la base SERVIE n'en
+# montrait que **1 460**. Les 4 manquantes portent toutes `U+0085`, le SEUL C1
+# que la classe `\s` d'Unicode attrape : `normaliser_espaces` le changeait en
+# espace, **détruisant la trace du défaut en même temps qu'un caractère utile**
+# — `'savons\u0085)'` était servi `'savons )'` là où il fallait `'savons…)'`
+# (uid 44827984400014202600501_33760000 et 44827984400014202600502_39831300).
+# **Un recensement fait sur la base servie est donc un PLANCHER : l'ancien
+# remède effaçait sa propre preuve.** La bascule répare aussi ces 4 lignes.
+# Les 19 `objet` à `U+0002` forment une population DISJOINTE, qu'aucun remède
+# C1 ne touche (`Cc` total servi = 1 479 = 1 460 + 19).
+#
+# `acheteur_nom` (493 195 valeurs) et `titulaire_nom` (469 706) ne portent
+# AUCUN C1 : mesuré sur la source, la bascule y change **0** valeur — son
+# DELTA est nul, alors que l'hygiène, elle, y travaille (3 309 et 2 131
+# valeurs modifiées par cycle, espaces et mojibake). **Delta de bascule et
+# volume d'hygiène sont deux nombres différents ; le bilan journalisé
+# ci-dessous est le SECOND.**
 _COLONNES_ASSAINIES = frozenset({"objet", "acheteur_nom", "titulaire_nom"})
 # `titulaires_json` est du JSON : on y répare le mojibake (qui n'affecte que
 # le contenu des chaînes) mais on n'y touche PAS aux espaces, qui font partie
@@ -1326,9 +1339,12 @@ def _assainir_lot(
     et pas un second membre de retour : le contrat « rendu tel quel » repose
     sur l'IDENTITÉ de l'objet (`_assainir_lot(lot, champs) is lot`), que
     verrouille `test_assainir_lot_laisse_passer_un_lot_sans_colonne_texte`.
-    POURQUOI ventilé par colonne : un total global masquerait que la bascule
-    est INERTE sur `acheteur_nom` et `titulaire_nom`, donc indiscernable d'un
-    remède qui aurait porté sur les trois.
+    POURQUOI ventilé par colonne : un total global masquerait qu'une SEULE
+    colonne est tombée à zéro. C'est exactement ainsi que le défaut réparé ici
+    a vécu dix jours — le maillon tournait sur les trois colonnes et n'en
+    réparait plus une. ⚠️ Ce bilan compte le VOLUME d'hygiène, pas le delta
+    d'un changement de remède : il ne dit pas, et ne peut pas dire, que la
+    bascule est inerte sur les deux colonnes de noms.
     """
     indices_pleins = [i for i, c in enumerate(champs) if c in _COLONNES_ASSAINIES]
     indices_moji = [i for i, c in enumerate(champs) if c in _COLONNES_MOJIBAKE_SEUL]
@@ -1430,15 +1446,14 @@ def charger(conn: sqlite3.Connection, duck: duckdb.DuckDBPyConnection) -> dict[s
     conn.executescript(_SCHEMA)  # idempotent, ne détruit rien
     # Bilan d'hygiène AMORCÉ À ZÉRO, et ventilé par TABLE.COLONNE. Trois
     # raisons, toutes mesurées le 30/08/2026 : (1) un total global masquerait
-    # que la bascule est INERTE sur `acheteur_nom` et `titulaire_nom`, donc
-    # indiscernable d'un remède qui aurait porté sur les trois ; (2) `objet`
-    # est assaini dans `decp_marches` ET dans `decp_derniers_marches`, qui en
-    # dérive et qui est la SEULE des deux réellement affichée — les agréger
-    # sous une clé unique rendrait un nombre que personne ne peut recomposer ;
-    # (3) une colonne saine doit apparaître avec son `0`, faute de quoi un
-    # remède redevenu inopérant serait indiscernable d'une donnée propre.
-    # C'est exactement le défaut que cette tranche corrige : le maillon était
-    # présent et muet depuis le 20/08.
+    # qu'une SEULE colonne est tombée à zéro — c'est ainsi que le défaut
+    # corrigé par cette tranche a vécu dix jours, le maillon tournant sur les
+    # trois colonnes sans plus en réparer une ; (2) `objet` est assaini dans
+    # `decp_marches` ET dans `decp_derniers_marches`, qui en dérive et qui est
+    # la SEULE des deux réellement affichée — les agréger sous une clé unique
+    # rendrait un nombre que personne ne peut recomposer ; (3) une colonne
+    # saine doit apparaître avec son `0`, faute de quoi un remède redevenu
+    # inopérant serait indiscernable d'une donnée propre.
     bilan_hygiene: dict[str, int] = {}
     comptes: dict[str, int] = {}
     for table, (source, champs) in _TABLES.items():

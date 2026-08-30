@@ -574,12 +574,13 @@ def test_les_marches_sans_ligne_modification_zero_sont_dates(resultat):
 # distincts — le remède se teste sur des valeurs réelles passées en dur, le
 # compteur se teste sur la fixture.
 #
-# MUTATIONS TUÉES PAR CE BLOC — campagne jouée le 30/08/2026, 9 sur 9, avec
+# MUTATIONS TUÉES PAR CE BLOC — campagne jouée le 30/08/2026, 10 sur 10, avec
 # CONTRÔLE POSITIF avant la première (56 verts, et la sélection `-k` prouvée
 # non vide), purge des `__pycache__` avant chaque exécution, et contrôle de
 # restauration après chacune :
 #   M1  `assainir_texte_integral` -> `assainir_texte`  -> test_..._repare_les_controles_c1
 #   M2  translation C1 EN QUEUE (l'édition naturelle)  -> test_..._ne_fabrique_pas_de_mojibake
+#   M2b `normaliser_espaces` AVANT la translation C1   -> test_..._preserve_..._u0085
 #   M3  `or None` ôté                                  -> test_..._rend_none_sur_une_valeur_blanche
 #   M4  `titulaires_json` basculé sur `_integral`      -> test_..._ne_touche_pas_aux_espaces
 #   M5  `return lot` -> `return list(lot)`             -> test_..._laisse_passer_un_lot
@@ -610,6 +611,10 @@ OBJET_APOSTROPHE = (  # uid 247600646000192024MEP240101b_71300000
 OBJET_PHOTOVOLTAIQUE = (  # uid 779987486000152025572884000000_31712331
     "INSTALLATION DE CENTRALES PHOTOVOLTA\u00c3\u008fQUE EN OMBRIERES"
     " SUR LES P+R DE METZ METROPOLE"
+)
+OBJET_U0085 = (  # uid 44827984400014202600502_39831300
+    "lot 2 PRODUITS (d\u00e9graissants, d\u00e9tergeants , d\u00e9sinfectants,"
+    " savons\u0085)"
 )
 CHAMPS_MINIMAUX = ["uid", "objet", "acheteur_nom", "montant_retenu"]
 
@@ -684,6 +689,25 @@ def test_assainir_lot_laisse_le_residu_hors_table_cp1252_intact():
     )
     assert ligne[1] == OBJET_PHOTOVOLTAIQUE
     assert "\u008f" in ligne[1]
+
+
+def test_assainir_lot_preserve_les_points_de_suspension_u0085():
+    """M2 bis, et il vaut son propre test : `U+0085` est le SEUL contrôle C1
+    que la classe `\\s` d'Unicode attrape.
+
+    Laissé à `normaliser_espaces`, il devient une ESPACE au lieu de « … » —
+    et le défaut disparaît du recensement en même temps que le caractère
+    utile. C'est ce que l'ancienne composition faisait, sur cette ligne réelle
+    et trois autres : `'savons\u0085)'` était servi `'savons )'`.
+    🛑 **Un recensement de contrôles C1 fait sur la base SERVIE est donc un
+    PLANCHER** : l'ancien remède effaçait sa propre preuve. Source 1 464,
+    servi 1 460 — et l'écart, ce sont exactement ces quatre lignes.
+    """
+    (ligne,) = ingest_decp._assainir_lot(
+        [("U1", OBJET_U0085, "ACHETEUR", 1.0)], CHAMPS_MINIMAUX
+    )
+    assert ligne[1].endswith("savons\u2026)")
+    assert "savons )" not in ligne[1]
 
 
 def test_assainir_lot_rend_none_sur_une_valeur_blanche():
