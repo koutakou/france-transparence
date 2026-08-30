@@ -574,7 +574,10 @@ def test_les_marches_sans_ligne_modification_zero_sont_dates(resultat):
 # distincts — le remède se teste sur des valeurs réelles passées en dur, le
 # compteur se teste sur la fixture.
 #
-# Épreuves de mutation que ce bloc doit tuer :
+# MUTATIONS TUÉES PAR CE BLOC — campagne jouée le 30/08/2026, 9 sur 9, avec
+# CONTRÔLE POSITIF avant la première (56 verts, et la sélection `-k` prouvée
+# non vide), purge des `__pycache__` avant chaque exécution, et contrôle de
+# restauration après chacune :
 #   M1  `assainir_texte_integral` -> `assainir_texte`  -> test_..._repare_les_controles_c1
 #   M2  translation C1 EN QUEUE (l'édition naturelle)  -> test_..._ne_fabrique_pas_de_mojibake
 #   M3  `or None` ôté                                  -> test_..._rend_none_sur_une_valeur_blanche
@@ -584,6 +587,13 @@ def test_les_marches_sans_ligne_modification_zero_sont_dates(resultat):
 #   M7  `if cellules[i] != v` -> `if True`             -> test_..._compte_par_leur_valeur
 #   M8  amorce `_bilan_hygiene_neuf` réduite à `{}`    -> test_..._journalise_les_colonnes_saines
 #   M9  ligne de journal retirée de `charger`          -> test_..._journalise_les_colonnes_saines
+#
+# CE QUE LA CAMPAGNE A CORRIGÉ, et qui vaut plus que son score : la première
+# version de `test_..._compte_par_leur_valeur` recomptait les écarts entre la
+# source et le résultat écrit SANS JAMAIS LIRE LE COMPTEUR. Elle testait donc
+# le remède, pas le compteur, et M6 comme M7 y SURVIVAIENT — le compteur
+# n'était éprouvé que par son existence. Le test confronte désormais le
+# compteur du pipeline, relu au journal, à ce recompte indépendant.
 # ---------------------------------------------------------------------------
 
 # Les trois `objet` SOURCES, tels que l'amont les publie. Écrits en
@@ -724,20 +734,42 @@ def _bilan_du_journal(messages: list[str]) -> list[str]:
     return [m for m in messages if "valeur(s) assainie(s)" in m]
 
 
-def test_charger_compte_les_valeurs_assainies_par_leur_valeur(tmp_path, resultat):
+def _ventilation(message: str) -> dict[str, int]:
+    """La ventilation du bilan, relue DEPUIS LE JOURNAL.
+
+    Le journal est la seule expression publique du compteur — `charger` ne le
+    rend pas, pour ne pas toucher à son type de retour. Le relire ici est donc
+    ce qui confronte le compteur DU PIPELINE à un recompte indépendant ; une
+    version antérieure de ce test recomptait les écarts sans jamais lire le
+    compteur, et laissait survivre les deux mutations qui le débranchent.
+    """
+    _, _, queue = message.partition("— ")
+    return {
+        segment.split("=")[0]: int(segment.split("=")[1])
+        for segment in queue.split(", ")
+    }
+
+
+def test_charger_compte_les_valeurs_assainies_par_leur_valeur(
+    tmp_path, resultat, caplog
+):
     """M6/M7. Le compteur se teste par sa VALEUR, jamais par `>= 0` : un
     compteur débranché rendrait 0 et passerait une telle assertion.
 
-    Preuve de CHAÎNAGE, pour qu'aucun de ces nombres ne soit magique : on
-    recompte les écarts en confrontant la SOURCE (DuckDB) au RÉSULTAT écrit
-    (SQLite), donc sans réappliquer la fonction mesurée. Si le compteur
-    comptait toutes les valeurs texte qui traversent l'hygiène (`if True`), il
-    rendrait 324 et non 22.
+    Preuve de CHAÎNAGE, pour qu'aucun de ces nombres ne soit magique : les
+    écarts sont recomptés en confrontant la SOURCE (DuckDB) au RÉSULTAT écrit
+    (SQLite), donc SANS réappliquer la fonction mesurée, puis confrontés au
+    compteur du pipeline. Majoration : chaque valeur texte majore le compteur
+    de 1 au plus ; 324 valeurs traversent l'hygiène, 22 seulement diffèrent.
+    Un compteur qui compterait tout (`if True`) rendrait donc 324.
     """
+    import logging
+
     duck, _ = resultat
     conn = db.init_db(chemin=tmp_path / "decp_bilan.db")
     try:
-        ingest_decp.charger(conn, duck)
+        with caplog.at_level(logging.INFO):
+            ingest_decp.charger(conn, duck)
         conn.commit()
         traitees = (
             ingest_decp._COLONNES_ASSAINIES | ingest_decp._COLONNES_MOJIBAKE_SEUL
@@ -765,6 +797,12 @@ def test_charger_compte_les_valeurs_assainies_par_leur_valeur(tmp_path, resultat
             "decp_derniers_marches.acheteur_nom": 1,
         }
         assert sum(ecarts.values()) == 22 < traversees == 324
+
+        # LE COMPTEUR DU PIPELINE, confronté à ce recompte indépendant.
+        (bilan,) = _bilan_du_journal(caplog.messages)
+        compte = _ventilation(bilan)
+        assert {c: n for c, n in compte.items() if n} == ecarts
+        assert sum(compte.values()) == 22
     finally:
         conn.close()
 
