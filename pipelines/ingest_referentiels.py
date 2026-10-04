@@ -626,6 +626,52 @@ def extraire_institutions(services: list[dict]) -> list[dict]:
     return institutions
 
 
+def charger_entites_etat(
+    session: requests.Session,
+) -> tuple[list[dict], list[dict], str, str]:
+    """Ministères + institutions clés, avec la source retenue et sa date.
+
+    RefOrgaAdminEtat d'abord ; la liste vérifiée du rapport 03 s'il est
+    indisponible OU aberrant. Le téléchargement est DANS le try : le
+    03/10/2026, echanges.dila.gouv.fr réinitialisait toute connexion HTTPS,
+    et un téléchargement placé hors du try faisait mourir toute l'ingestion
+    au lieu de mener au secours prévu pour ce cas exact.
+    """
+    try:
+        chemin_reforga = telecharger(
+            URL_REFORGA_LATEST, "dila_reforga_admin_etat_latest.zip",
+            max_age_heures=12, session=session,  # flux quotidien
+        )
+        services, date_reforga = charger_reforga(chemin_reforga)
+        ministeres = extraire_ministeres(services)
+        institutions = extraire_institutions(services)
+        if not 12 <= len(ministeres) <= 30:
+            raise ValueError(
+                f"{len(ministeres)} ministères extraits : hors plage"
+                " plausible [12, 30]"
+            )
+    except (requests.RequestException, ValueError, KeyError,
+            json.JSONDecodeError, zipfile.BadZipFile) as exc:
+        log.warning(
+            "RefOrgaAdminEtat inexploitable (%s) → liste vérifiée du"
+            " rapport 03 (décret du 26/02/2026)", exc,
+        )
+        ministeres = [
+            {"nom": nom,
+             "sigle": None,
+             "siren": SIREN_DOCUMENTES.get(_normaliser(nom))}
+            for nom in MINISTERES_RAPPORT_03
+        ]
+        return (
+            ministeres,
+            extraire_institutions([]),
+            "liste vérifiée docs/recherche/03-parlement.md"
+            " (décret du 26/02/2026, Légifrance JORFTEXT000053586369)",
+            "2026-02-26",
+        )
+    return ministeres, institutions, "RefOrgaAdminEtat (DILA)", date_reforga
+
+
 # ---------------------------------------------------------------------------
 # Écriture en base
 # ---------------------------------------------------------------------------
@@ -745,37 +791,8 @@ def main() -> int:
         prefectures = recuperer_prefectures(session)
         villes = construire_villes(communes, prefectures)
 
-        chemin_reforga = telecharger(
-            URL_REFORGA_LATEST, "dila_reforga_admin_etat_latest.zip",
-            max_age_heures=12, session=session,  # flux quotidien
-        )
-        source_ministeres = "RefOrgaAdminEtat (DILA)"
-        try:
-            services, date_reforga = charger_reforga(chemin_reforga)
-            ministeres = extraire_ministeres(services)
-            institutions = extraire_institutions(services)
-            if not 12 <= len(ministeres) <= 30:
-                raise ValueError(
-                    f"{len(ministeres)} ministères extraits : hors plage"
-                    " plausible [12, 30]"
-                )
-        except (ValueError, KeyError, json.JSONDecodeError, zipfile.BadZipFile) as exc:
-            log.warning(
-                "RefOrgaAdminEtat inexploitable (%s) → liste vérifiée du"
-                " rapport 03 (décret du 26/02/2026)", exc,
-            )
-            source_ministeres = (
-                "liste vérifiée docs/recherche/03-parlement.md"
-                " (décret du 26/02/2026, Légifrance JORFTEXT000053586369)"
-            )
-            date_reforga = "2026-02-26"
-            ministeres = [
-                {"nom": nom,
-                 "sigle": None,
-                 "siren": SIREN_DOCUMENTES.get(_normaliser(nom))}
-                for nom in MINISTERES_RAPPORT_03
-            ]
-            institutions = extraire_institutions([])
+        (ministeres, institutions, source_ministeres,
+         date_reforga) = charger_entites_etat(session)
 
         # ------------------------------------------------ écritures
         octets_geojson = ecrire_geojson(geojson)
