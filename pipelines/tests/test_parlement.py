@@ -366,7 +366,9 @@ def test_pipeline_complet_reel(tmp_path, monkeypatch):
     n_dep = conn.execute("SELECT count(*) AS n FROM deputes").fetchone()["n"]
     n_sen = conn.execute("SELECT count(*) AS n FROM senateurs").fetchone()["n"]
     n_scr = conn.execute("SELECT count(*) AS n FROM scrutins").fetchone()["n"]
-    assert n_dep == 577                      # sièges de l'AN, tous pourvus
+    # 577 sièges, mais pas toujours tous pourvus : le 02/10/2026, AMO10 ne
+    # listait que 569 députés actifs (Datan : 569/577), vacances réelles.
+    assert 560 <= n_dep <= 577
     assert 300 <= n_sen <= 348               # 348 sièges (vacances possibles)
     assert n_scr >= 8434                     # au moins l'état du 19/08/2026
     metas = {r["source_id"] for r in conn.execute("SELECT source_id FROM meta_sources")}
