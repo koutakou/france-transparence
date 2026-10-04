@@ -235,8 +235,9 @@ def test_integration_index_et_dernier_jo(tmp_path):
     c = db.init_db(chemin=tmp_path / "test.db")
     c.executescript(_SCHEMA)
     n, dates = ingerer_tarball(chemin, c)
-    # Un JO réel compte typiquement ~50-150 textes.
-    assert n >= 20
+    # Un JO réel compte typiquement ~50-150 textes, mais une livraison
+    # légère existe (4 textes le 01/10/2026) : on n'exige que du contenu.
+    assert n >= 1
     assert dates and all(d.startswith("20") for d in dates)
     exemple = c.execute(
         "SELECT titre, lien_legifrance FROM jorf_textes LIMIT 1"
