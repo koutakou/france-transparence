@@ -7,11 +7,14 @@ jamais de schéma inventé. Un seul test touche le réseau, marqué `reseau`.
 import json
 
 import pytest
+import requests
 
-from pipelines import sirene
+from pipelines import ingest_referentiels, sirene
 from pipelines.ingest_referentiels import (
+    MINISTERES_RAPPORT_03,
     _departement_du_code,
     _slug,
+    charger_entites_etat,
     construire_geojson_departements,
     construire_villes,
     extraire_institutions,
@@ -251,6 +254,25 @@ def test_extraire_institutions_liste_fixe_et_siren():
     assert par_id["inst-cnccfp"]["nom"].startswith("Commission nationale")
     # sans référentiel : la liste reste complète, SIREN simplement absents
     assert len(extraire_institutions([])) == 7
+
+
+def test_dila_injoignable_bascule_sur_la_liste_verifiee(monkeypatch):
+    """Cas réel du 03/10/2026 : echanges.dila.gouv.fr réinitialise la
+    connexion. Le secours doit prendre le relais, pas l'ingestion mourir."""
+    def _connexion_reinitialisee(*args, **kwargs):
+        raise requests.ConnectionError(
+            "('Connection aborted.', ConnectionResetError(104,"
+            " 'Connection reset by peer'))"
+        )
+
+    monkeypatch.setattr(
+        ingest_referentiels, "telecharger", _connexion_reinitialisee)
+    ministeres, institutions, source, date_donnees = charger_entites_etat(
+        requests.Session())
+    assert [m["nom"] for m in ministeres] == MINISTERES_RAPPORT_03
+    assert len(institutions) == 7
+    assert source.startswith("liste vérifiée docs/recherche/03-parlement.md")
+    assert date_donnees == "2026-02-26"   # la liste, pas le jour du cycle
 
 
 def test_slug_stable():
