@@ -7,6 +7,7 @@ import { StatStrip } from "@/components/ui/StatStrip";
 import { TableTronquee } from "@/components/client/TableTronquee";
 import { formatNombre, formatPct } from "@/lib/format";
 import { urlSite } from "@/lib/basePath";
+import { codesAbsents, expliquerAbsences } from "@/lib/absences-electorales";
 // IMPORTATION DE TYPES SEULEMENT (`import type`, effacée à la compilation) :
 // `@/lib/queries/elections` ouvre la base SQLite via `@/lib/db`. Une
 // importation de valeur embarquerait better-sqlite3 et `node:fs` dans le
@@ -246,9 +247,19 @@ export function ParticipationElectorale({
   const lignesCommunes = scrutin.communes.map((l: LigneCompacte) => lireLigne(l, noms));
   const { haut, bas } = extremes(lignesDep);
   const nbCommunes = scrutin.communes.length;
-  const nbSuivies = donnees.nbCommunesSuivies;
-  const communesManquantes = nbSuivies - nbCommunes;
-  const estSecondTour = scrutin.tour === 2;
+  const nbSuivies = donnees.codesCommunesSuivies.length;
+  // Les absentes sont CALCULÉES (suivies − présentes) et chacune reçoit la
+  // raison vraie pour CE scrutin : Saint-Barthélemy et Saint-Martin ne
+  // manquent qu'aux municipales, un second tour de législatives n'est pas un
+  // second tour de municipales.
+  const absentes = codesAbsents(
+    donnees.codesCommunesSuivies,
+    scrutin.communes.map((l: LigneCompacte) => l[0]),
+  );
+  const communesManquantes = absentes.length;
+  const explications = expliquerAbsences(scrutin, absentes, (code) =>
+    noms[code] ? `${noms[code]} (${code})` : code,
+  );
 
   // Fréquence réelle de la source, abrégée pour le badge (« par scrutin »).
   const badge = (
@@ -396,11 +407,10 @@ export function ParticipationElectorale({
             {communesManquantes > 0 && (
               <>
                 {" "}
-                Les {formatNombre(communesManquantes)} autres n&apos;y ont pas voté : aucune ligne
-                n&apos;est fabriquée pour elles, et leur absence ne vaut pas participation nulle.
-                {estSecondTour
-                  ? " À un second tour, une commune manque parce que son conseil a été élu dès le premier."
-                  : " Saint-Barthélemy (97701) et Saint-Martin (97801) élisent un conseil territorial, pas un conseil municipal (collectivités de l’article 74 de la Constitution) ; Uvea (98613) relève de Wallis-et-Futuna, territoire sans communes, dont le ministère publie les résultats sous une entité unique."}
+                {communesManquantes > 1
+                  ? `Les ${formatNombre(communesManquantes)} autres n’y figurent pas : aucune ligne n’est fabriquée pour elles, et leur absence ne vaut pas participation nulle.`
+                  : "La dernière n’y figure pas : aucune ligne n’est fabriquée pour elle, et son absence ne vaut pas participation nulle."}
+                {explications.map((phrase) => ` ${phrase}`).join("")}
               </>
             )}
           </p>

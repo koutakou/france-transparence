@@ -157,8 +157,12 @@ export type DonneesElections = {
   scrutins: Scrutin[];
   /** Libellés par code (départements ET communes), une seule fois. */
   noms: Record<string, string>;
-  /** Communes suivies par le site (ref_villes ∪ collectivites_communes_top200). */
-  nbCommunesSuivies: number;
+  /**
+   * Codes INSEE des communes suivies par le site (ref_villes ∪
+   * collectivites_communes_top200) : de quoi NOMMER celles qui manquent à un
+   * scrutin, et donner la raison propre à chacune.
+   */
+  codesCommunesSuivies: string[];
 };
 
 /**
@@ -272,15 +276,15 @@ export function getDonneesElections(): DonneesElections | null {
        ORDER BY e.id_election DESC, nom`,
     )
     .all() as LigneBrute[];
-  const nbCommunesSuivies = (
+  const codesCommunesSuivies = (
     db
       .prepare(
-        `SELECT count(*) AS n FROM (
-           SELECT code_insee FROM ref_villes
-           UNION SELECT code_insee FROM collectivites_communes_top200)`,
+        `SELECT code_insee FROM ref_villes
+         UNION SELECT code_insee FROM collectivites_communes_top200
+         ORDER BY code_insee`,
       )
-      .get() as { n: number }
-  ).n;
+      .all() as { code_insee: string }[]
+  ).map((l) => l.code_insee);
 
   const parScrutin = new Map<string, { deps: LigneCompacte[]; villes: LigneCompacte[] }>();
   const vide = () => ({ deps: [] as LigneCompacte[], villes: [] as LigneCompacte[] });
@@ -313,7 +317,7 @@ export function getDonneesElections(): DonneesElections | null {
       communes: v,
     }));
 
-  return { meta, scrutins, noms, nbCommunesSuivies };
+  return { meta, scrutins, noms, codesCommunesSuivies };
 }
 
 /** L'identité d'un scrutin sans ses lignes — de quoi dessiner un bouton. */
@@ -332,8 +336,8 @@ export type DonneesElectionsInline = {
   meta: MetaSource;
   /** Libellés par code (départements ET communes), une seule fois. */
   noms: Record<string, string>;
-  /** Communes suivies par le site (ref_villes ∪ collectivites_communes_top200). */
-  nbCommunesSuivies: number;
+  /** Codes INSEE des communes suivies par le site (voir DonneesElections). */
+  codesCommunesSuivies: string[];
   /** Les scrutins ingérés, du plus récent au plus ancien — SANS leurs lignes. */
   resumes: ScrutinResume[];
   /** Le scrutin affiché au chargement, seul rendu côté serveur. */
@@ -355,7 +359,7 @@ export function getDonneesElectionsInline(): DonneesElectionsInline | null {
   return {
     meta: donnees.meta,
     noms: donnees.noms,
-    nbCommunesSuivies: donnees.nbCommunesSuivies,
+    codesCommunesSuivies: donnees.codesCommunesSuivies,
     resumes: donnees.scrutins.map(({ id, libelle, famille, annee, tour, date }) => ({
       id,
       libelle,
