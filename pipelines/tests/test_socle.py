@@ -94,3 +94,19 @@ def test_upsert_meta_insere_puis_met_a_jour(conn):
     assert lignes[0]["date_donnees"] == "2026-07-31"
     assert lignes[0]["date_ingestion"] == "2026-08-19T06:00:00+00:00"
     assert lignes[0]["notes"] is None  # écrasé par l'upsert (None transmis)
+
+
+def test_publication_precedente_exige_une_table_remplie_et_datee(conn):
+    """Le secours « amont injoignable » ne reprend que ce qu'un cycle réussi
+    a laissé : table présente ET non vide ET ligne meta datée."""
+    assert db.publication_precedente(conn, "jorf_textes", "S3") is None
+    conn.execute("CREATE TABLE jorf_textes (texte_id TEXT)")
+    assert db.publication_precedente(conn, "jorf_textes", "S3") is None
+    db.upsert_meta(conn, "S3", "DILA", "https://echanges.dila.gouv.fr/",
+                   "fr-lo", "quotidienne", date_donnees="2026-10-03", lignes=0)
+    # Table vide sous une ligne meta : rien d'honnête à servir.
+    assert db.publication_precedente(conn, "jorf_textes", "S3") is None
+    conn.execute("INSERT INTO jorf_textes VALUES ('JORFTEXT000054708438')")
+    assert db.publication_precedente(conn, "jorf_textes", "S3") == (1, "2026-10-03")
+    # Table remplie sans ligne meta pour CETTE source : rien non plus.
+    assert db.publication_precedente(conn, "jorf_textes", "S43") is None

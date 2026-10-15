@@ -52,7 +52,14 @@ Tables créées (CREATE TABLE IF NOT EXISTS, réexécution sans doublons) :
 meta_sources : source_id 'S3', date_donnees = date du JO le plus récent ingéré.
 
 Exécution : `python -m pipelines.ingest_jorf [--jours 30]`
-Échec réseau ou archive illisible → exit 1 (aucune donnée inventée).
+
+Serveur DILA injoignable (index ou tarball) → secours : RIEN n'est écrit.
+Les tables jorf_* restent celles du dernier cycle réussi et la ligne S3 de
+meta_sources garde sa date : la fraîcheur affichée reste vraie (exit 0,
+WARNING). Tous les tarballs sont téléchargés AVANT la première écriture :
+une panne en cours de route ne laisse pas une fenêtre à moitié renouvelée.
+Base neuve sans JORF à reprendre, archive illisible ou index au format
+inconnu → exit 1 (aucune donnée inventée).
 """
 
 from __future__ import annotations
@@ -95,6 +102,13 @@ JOURS_TOLERES_AVANT_LIVRAISON = 1
 
 # Les tarballs publiés sont immuables : présent en cache = jamais retéléchargé.
 CACHE_IMMUABLE_H = 24 * 365 * 100
+
+# Le 04/10/2026, les 3 tentatives par défaut de session_http étaient épuisées
+# en 7,8 s sur l'index (run CI 37228277308) face aux connexions réinitialisées
+# de echanges.dila.gouv.fr.
+# Plus de patience pour une coupure brève ; une panne longue mène au secours.
+TENTATIVES_DILA = 5
+BACKOFF_DILA = 4.0
 
 RUBRIQUE_NOMINATIONS = "mesures nominatives"
 
@@ -463,6 +477,33 @@ def reconstruire_agregats(conn) -> None:
 # ---------------------------------------------------------------------------
 
 
+def secours_dila_injoignable(motif: str) -> int:
+    """Serveur DILA injoignable : reprendre le JORF du dernier cycle réussi.
+
+    N'écrit rien (voir db.publication_precedente). Exit 0 si un cycle
+    précédent a laissé des textes datés, exit 1 sinon (base neuve).
+    """
+    conn = db.connexion()
+    try:
+        precedent = db.publication_precedente(conn, "jorf_textes", "S3")
+    finally:
+        conn.close()
+    if precedent is None:
+        log.error(
+            "DILA injoignable (%s) et aucun JORF d'un cycle précédent à"
+            " reprendre : échec", motif,
+        )
+        return 1
+    lignes, date_donnees = precedent
+    log.warning(
+        "DILA injoignable (%s) → secours : jorf_textes reprise telle que"
+        " publiée par le dernier cycle réussi (%d textes, JO le plus récent"
+        " du %s) ; rien n'est écrit, meta_sources S3 garde cette date",
+        motif, lignes, date_donnees,
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description="Ingestion du Journal officiel (dumps DILA JORFSIMPLE)."
@@ -475,14 +516,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = ap.parse_args(argv)
 
-    session = session_http()
+    session = session_http(total_retries=TENTATIVES_DILA, backoff=BACKOFF_DILA)
     try:
         log.info("index: %s", URL_JORFSIMPLE)
         r = session.get(URL_JORFSIMPLE, timeout=60)
         r.raise_for_status()
     except requests.RequestException as exc:
-        log.error("échec réseau sur l'index JORFSIMPLE: %s", exc)
-        return 1
+        return secours_dila_injoignable(f"index JORFSIMPLE : {exc}")
 
     nocturnes = livraisons_nocturnes(r.text)
     if not nocturnes:
@@ -494,23 +534,26 @@ def main(argv: list[str] | None = None) -> int:
         len(nocturnes), len(selection), selection[0], selection[-1],
     )
 
+    # Tout le réseau AVANT la première écriture : une coupure au 12e tarball
+    # ne doit pas laisser en base 11 JO neufs sous la date de la veille.
+    chemins: list[tuple[str, Path]] = []
+    for nom in selection:
+        try:
+            chemins.append((nom, telecharger(
+                URL_JORFSIMPLE + nom,
+                f"jorf/{nom}",
+                max_age_heures=CACHE_IMMUABLE_H,  # tarballs immuables
+                session=session,
+            )))
+        except requests.RequestException as exc:
+            return secours_dila_injoignable(f"{nom} : {exc}")
+
     conn = db.init_db()
     conn.executescript(_SCHEMA)
     conn.commit()
 
     total, toutes_dates = 0, []
-    for nom in selection:
-        try:
-            chemin = telecharger(
-                URL_JORFSIMPLE + nom,
-                f"jorf/{nom}",
-                max_age_heures=CACHE_IMMUABLE_H,  # tarballs immuables
-                session=session,
-            )
-        except requests.RequestException as exc:
-            log.error("échec réseau sur %s: %s", nom, exc)
-            conn.close()
-            return 1
+    for nom, chemin in chemins:
         try:
             n, dates_jo = ingerer_tarball(chemin, conn)
         except (tarfile.TarError, ET.ParseError, OSError) as exc:

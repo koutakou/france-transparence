@@ -30,7 +30,12 @@ est : type ∈ {PROJET_LOI, PROPOSITION_LOI, PROJET_ORDONNANCE} ET
 législature = max(legislature_num). Ne pas coder le numéro 17 en dur.
 
 Exécution : python -m pipelines.ingest_dole
-Échec réseau ou archive illisible → exit 1, base intacte.
+
+Serveur DILA injoignable (index, Freemium ou incrément) → secours : RIEN
+n'est écrit. dole_dossiers reste celle du dernier cycle réussi et la ligne
+S43 de meta_sources garde sa date : la fraîcheur affichée reste vraie
+(exit 0, WARNING). Base neuve sans DOLE à reprendre, index au format
+inconnu ou archive illisible → exit 1, base intacte.
 """
 
 from __future__ import annotations
@@ -61,6 +66,11 @@ LIEN_LEGIFRANCE = "https://www.legifrance.gouv.fr/dossierlegislatif/{id}"
 # purge 23 h de ft-deploy annule ce TTL). Incréments immuables.
 CACHE_FREEMIUM_H = 30 * 24
 CACHE_IMMUABLE_H = 24 * 365 * 100
+
+# Même hôte que JORFSIMPLE : voir ingest_jorf.TENTATIVES_DILA (panne du
+# 03-04/10/2026, connexions réinitialisées).
+TENTATIVES_DILA = 5
+BACKOFF_DILA = 4.0
 
 # Le stock DILA depuis ~2002 tient en milliers de dossiers, pas en dizaines.
 N_MIN = 2000
@@ -329,17 +339,47 @@ def _telecharger_plan(
     return freemium, incs
 
 
+def secours_dila_injoignable(motif: str) -> int:
+    """Serveur DILA injoignable : reprendre DOLE du dernier cycle réussi.
+
+    N'écrit rien (voir db.publication_precedente). Exit 0 si un cycle
+    précédent a laissé des dossiers datés, exit 1 sinon (base neuve).
+    """
+    conn = db.connexion()
+    try:
+        precedent = db.publication_precedente(conn, "dole_dossiers", SOURCE_ID)
+    finally:
+        conn.close()
+    if precedent is None:
+        log.error(
+            "DILA injoignable (%s) et aucun DOLE d'un cycle précédent à"
+            " reprendre : échec", motif,
+        )
+        return 1
+    lignes, date_donnees = precedent
+    log.warning(
+        "DILA injoignable (%s) → secours : dole_dossiers reprise telle que"
+        " publiée par le dernier cycle réussi (%d dossiers, modification la"
+        " plus récente du %s) ; rien n'est écrit, meta_sources %s garde"
+        " cette date", motif, lignes, date_donnees, SOURCE_ID,
+    )
+    return 0
+
+
 def main() -> int:
-    session = session_http()
+    session = session_http(total_retries=TENTATIVES_DILA, backoff=BACKOFF_DILA)
     try:
         log.info("index: %s", URL_INDEX)
         r = session.get(URL_INDEX, timeout=60)
         r.raise_for_status()
+    except requests.RequestException as exc:
+        return secours_dila_injoignable(f"index DOLE : {exc}")
+    try:
         # L'index Apache est annoncé charset=ISO-8859-1 ; les noms de
         # fichiers sont ASCII, le décodage ne change rien au listage.
         html = r.content.decode("iso-8859-1", errors="replace")
         plan = lister_index(html)
-    except (requests.RequestException, ValueError) as exc:
+    except ValueError as exc:
         log.error("échec sur l'index DOLE: %s", exc)
         return 1
 
@@ -354,8 +394,7 @@ def main() -> int:
     try:
         chemin_free, chemins_inc = _telecharger_plan(plan, session)
     except requests.RequestException as exc:
-        log.error("échec réseau: %s", exc)
-        return 1
+        return secours_dila_injoignable(f"téléchargement DOLE : {exc}")
 
     corpus: dict[str, Dossier] = {}
     try:

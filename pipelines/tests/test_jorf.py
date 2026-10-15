@@ -8,6 +8,7 @@ import tarfile
 from pathlib import Path
 
 import pytest
+import requests
 
 from pipelines import db, ingest_jorf
 from pipelines.ingest_jorf import (
@@ -370,6 +371,121 @@ def test_base_persistante_polluee_se_repare(monkeypatch, tmp_path, mini_tarball)
     assert c.execute(
         "SELECT count(*) FROM jorf_textes_archive"
         " WHERE texte_id = 'JORFTEXT000000341494'").fetchone()[0] == 1
+    c.close()
+
+
+# ---------------------------------------------------------------------------
+# Serveur DILA injoignable (cas réel des 03 et 04/10/2026) : secours
+# ---------------------------------------------------------------------------
+
+RESET_DILA = (
+    "HTTPSConnectionPool(host='echanges.dila.gouv.fr', port=443): Max retries"
+    " exceeded with url: /OPENDATA/JORFSIMPLE/ (Caused by ProtocolError("
+    "'Connection aborted.', ConnectionResetError(104, 'Connection reset by"
+    " peer')))"
+)
+
+
+def _instantane(chemin_db):
+    c = db.connexion(chemin_db)
+    try:
+        return (
+            [tuple(r) for r in c.execute(
+                "SELECT texte_id, date_publi FROM jorf_textes ORDER BY 1")],
+            [tuple(r) for r in c.execute(
+                "SELECT * FROM meta_sources WHERE source_id = 'S3'")],
+        )
+    finally:
+        c.close()
+
+
+def _base_de_la_veille(monkeypatch, tmp_path, mini_tarball):
+    """Une base qu'un cycle réussi a remplie et datée (JO du 19/08/2026)."""
+    code, c = _jouer_main(
+        monkeypatch, tmp_path, '<a href="JORFSIMPLE_20260819-003035.tar.gz">',
+        {"JORFSIMPLE_20260819-003035.tar.gz": mini_tarball},
+    )
+    c.close()
+    assert code == 0
+    return tmp_path / "jorf.db"
+
+
+def test_index_injoignable_reprend_la_base_de_la_veille(
+    monkeypatch, tmp_path, mini_tarball, caplog
+):
+    """Le cycle ne meurt plus à ingest-jorf : rien n'est écrit, la table et
+    la ligne meta S3 (date des données ET date d'ingestion) restent celles
+    du dernier cycle réussi, donc la fraîcheur affichée reste vraie."""
+    base = _base_de_la_veille(monkeypatch, tmp_path, mini_tarball)
+    avant = _instantane(base)
+    assert avant[0] and "2026-08-19" in avant[1][0]   # date_donnees S3
+
+    class _SessionCoupee:
+        def get(self, url, timeout=None):
+            raise requests.ConnectionError(RESET_DILA)
+
+    monkeypatch.setattr(
+        ingest_jorf, "session_http", lambda *a, **k: _SessionCoupee())
+    assert ingest_jorf.main([]) == 0
+    assert _instantane(base) == avant
+    assert "secours" in caplog.text and "2026-08-19" in caplog.text
+
+
+def test_coupure_en_cours_de_telechargement_n_ecrit_rien(
+    monkeypatch, tmp_path, mini_tarball
+):
+    """Index joignable, coupure au second tarball : le premier, déjà
+    téléchargé, n'entre PAS en base. Sinon la table mélangerait un JO neuf
+    et la date de la veille dans meta_sources."""
+    base = tmp_path / "jorf.db"
+    c = db.init_db(chemin=base)
+    c.executescript(_SCHEMA)
+    c.execute(
+        "INSERT INTO jorf_textes (texte_id, date_publi, titre, lien_legifrance)"
+        " VALUES ('JORFTEXT000054708438', '2026-08-18', 'Arrêté',"
+        " 'https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000054708438')"
+    )
+    db.upsert_meta(c, "S3", "DILA", URL_JORFSIMPLE, "fr-lo", "quotidienne",
+                   date_donnees="2026-08-18", lignes=1)
+    c.close()
+    avant = _instantane(base)
+    monkeypatch.setenv("FT_DB_PATH", str(base))
+
+    class _Session:
+        def get(self, url, timeout=None):
+            return _Reponse(
+                '<a href="JORFSIMPLE_20260819-003035.tar.gz">'
+                '<a href="JORFSIMPLE_20261002-023011.tar.gz">'
+            )
+
+    def _telecharger(url, dest, **k):
+        if url.endswith("JORFSIMPLE_20261002-023011.tar.gz"):
+            raise requests.ConnectionError(RESET_DILA)
+        return mini_tarball
+
+    monkeypatch.setattr(ingest_jorf, "session_http", lambda *a, **k: _Session())
+    monkeypatch.setattr(ingest_jorf, "telecharger", _telecharger)
+    assert ingest_jorf.main([]) == 0
+    assert _instantane(base) == avant
+
+
+def test_dila_injoignable_sur_base_neuve_echoue(monkeypatch, tmp_path):
+    """Rien d'un cycle précédent à reprendre : échec, tout-ou-rien. Test de
+    la limite du secours ; il passe aussi sur le code d'avant."""
+    base = tmp_path / "neuve.db"
+    monkeypatch.setenv("FT_DB_PATH", str(base))
+
+    class _SessionCoupee:
+        def get(self, url, timeout=None):
+            raise requests.ConnectionError(RESET_DILA)
+
+    monkeypatch.setattr(
+        ingest_jorf, "session_http", lambda *a, **k: _SessionCoupee())
+    assert ingest_jorf.main([]) == 1
+    c = db.init_db(chemin=base)
+    assert c.execute(
+        "SELECT count(*) FROM meta_sources WHERE source_id = 'S3'"
+    ).fetchone()[0] == 0
     c.close()
 
 
