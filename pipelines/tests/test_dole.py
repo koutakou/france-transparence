@@ -135,11 +135,13 @@ def test_parse_refuse_un_xml_qui_n_est_pas_un_dossier():
     assert parse_dossier(b"pas de xml") is None
 
 
-def test_lien_legifrance_construit_sur_lid():
+def test_lien_dossier_construit_sur_lid_vers_vie_publique():
+    # L'adresse Légifrance /dossierlegislatif/<id> redirige (302) vers
+    # vie-publique.fr : le lien stocké est la destination.
     d = parse_dossier(_xml("projet_leg99.xml"))
     assert d is not None
     assert d.lien_legifrance == (
-        "https://www.legifrance.gouv.fr/dossierlegislatif/JORFDOLEFAKE000000001"
+        "https://www.vie-publique.fr/dossierlegislatif/JORFDOLEFAKE000000001"
     )
 
 

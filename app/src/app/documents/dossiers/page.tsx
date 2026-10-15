@@ -21,13 +21,14 @@ import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 /**
  * Dossiers législatifs DILA (S43, fonds DOLE). Page STATIQUE, distincte
  * du Journal officiel du jour (S3). Pas d'onglet de navigation : lien
- * interne depuis /documents. Liens Légifrance sortants uniquement.
+ * interne depuis /documents. Liens sortants vers vie-publique.fr (DILA)
+ * uniquement : l'adresse Légifrance d'un dossier y redirige.
  */
 
 const CHEMIN = "/documents/dossiers/";
 const TITRE = "Dossiers législatifs";
 const DESCRIPTION =
-  "Dossiers législatifs DILA : stock du fichier, navette de la législature en cours, lois et ordonnances publiées. Liens vers Légifrance.";
+  "Dossiers législatifs DILA : stock du fichier, navette de la législature en cours, lois et ordonnances publiées. Liens vers vie-publique.fr.";
 
 export const metadata: Metadata = metadonneesPage({
   chemin: CHEMIN,
@@ -51,7 +52,7 @@ const COLONNES_NAVETTE: Colonne<DoleNavetteLigne>[] = [
     cle: "titre",
     entete: "Titre",
     rendu: (l) => (
-      <LienOfficiel href={l.lien_legifrance} source="Légifrance">
+      <LienOfficiel href={l.lien_legifrance} source="vie-publique.fr">
         {l.titre}
       </LienOfficiel>
     ),
@@ -167,8 +168,9 @@ export default async function DossiersLegislatifsPage() {
             Dumps XML DILA du fonds DOLE (Freemium puis incréments,
             last-write-wins), Licence Ouverte 2.0. Producteur&nbsp;: DILA ;
             catalogue data.gouv «&nbsp;dole-les-dossiers-legislatifs&nbsp;»,
-            organisation Premier ministre. Chaque dossier renvoie vers
-            Légifrance (lien sortant, le texte n’est pas recopié ici).
+            organisation Premier ministre. Chaque dossier renvoie vers sa
+            page sur vie-publique.fr, site de la DILA (lien sortant, le
+            texte n’est pas recopié ici).
           </p>
         }
         limites={
