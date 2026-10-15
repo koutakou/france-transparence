@@ -133,6 +133,15 @@
 > hors-site. Pas de page `/archives`. Une copie n'est prise que si le
 > SHA-256 change. Rétention : 14 / 14 / 3 / 30 générations distinctes.
 >
+> **Mise à jour du 15/10/2026.** **S6-ODSEN** lit la date de début du mandat
+> en cours dans la table `elusen` du dump `export_sens.zip` (même portail,
+> Licence Ouverte), et non plus dans `ODSEN_ELUSEN.csv`, qui ne publiait ce
+> jour-là AUCUN mandat en cours (fin maximale au 2026-09-30) quand le dump
+> en porte 348. Le taux de participation Sénat ne dépend d'aucune date : son
+> dénominateur est la liste `votsen` de chaque scrutin (une ligne par
+> sénateur en exercice). Pas de nouvelle ligne `meta_sources` : même
+> producteur, même module, mêmes tables.
+>
 > **Document daté.** Les fraîcheurs et volumétries amont relevées ici l'ont été par appels réels le
 > 19/08/2026 (et le 20/08 pour S38 et S40, le 22/08 soir ~22:30 CEST pour S43, le 23/08 pour S44, S22 et S45) : elles décrivent ces jours-là et **ont dérivé depuis**.
 > Le catalogue vivant, avec la date réellement ingérée de chaque source, est la page `/donnees`
@@ -202,7 +211,7 @@ Contexte 2026 à garder en tête : LFI 2026 promulguée tardivement le 19/02/202
 
 #### S6. Open data Sénat (data.senat.fr) — CSV quotidiens + dumps PostgreSQL
 - **URLs testées** (HTTP 200, last-modified du jour) (03) : `https://data.senat.fr/data/senateurs/ODSEN_GENERAL.csv` (427 Ko, 1 965 sénateurs actifs+anciens, groupe, commission) + ~19 CSV `ODSEN_*` ; questions `…/data/questions/questions-depuis-un-an.csv` (**non ingérées** : 0 table, 0 URL dans `ingest_parlement.py`) ; **Dosleg** `…/data/dosleg/dosleg.zip` (HTTP 200 le 25/08/2026, 15 975 795 o, Last-Modified 25/08 02:21 GMT → dump SQL 126,3 Mo) : tables `scr` (4 764 scrutins publics depuis 2006-10-04 ; session 2025-2026 : 337 ; dernier **2026-07-21**) et `votsen` (1 657 344 votes nominaux). **Ameli** (154 Mo, amendements) : **non ingéré**.
-- **Ingéré** : ODSEN_GENERAL + ODSEN_ELUSEN (`S6-ODSEN`, sénateurs en exercice) ; Dosleg `scr` + `votsen` seulement (`S6-DOSLEG`, COPY sans PostgreSQL). `date_donnees` S6-DOSLEG = date du dernier `scrdat`, jamais Last-Modified du zip.
+- **Ingéré** : ODSEN_GENERAL + table `elusen` du dump `export_sens.zip` (`S6-ODSEN`, sénateurs en exercice et date de début du mandat en cours ; `ODSEN_ELUSEN` lu jusqu'au 15/10/2026) ; Dosleg `scr` + `votsen` seulement (`S6-DOSLEG`, COPY sans PostgreSQL). `date_donnees` S6-DOSLEG = date du dernier `scrdat`, jamais Last-Modified du zip.
 - **Licence** : Licence Ouverte (page `/licence/` 200). **Pièges** : ODSEN = **ISO-8859-1**, séparateur `;`, lignes `%` ; Dosleg SQL = **UTF-8** (ne pas mélanger) ; `scrnum` local à `sesann` (clé composite) ; `senmat` `character(6)` paddé ; `senmatdel` = délégation ≠ présence ; `CREATE TABLE IF NOT EXISTS` ne migre pas `scrutins`/`votes_recents` ; renouvellement du **27/09/2026** (dénominateur = `senateurs` du jour, pas 348 en dur).
 - **Modules** : Élus & Institutions.
 

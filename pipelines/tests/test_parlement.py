@@ -8,6 +8,8 @@ Fixtures 100 % réelles (extraites des dumps du 19/08/2026, < 50 Ko chacune) :
   et commentaires « % » conservés tels quels ;
 - dosleg_extrait.sql : COPY PostgreSQL `scr` + `votsen` au gabarit du dump
   Dosleg du 25/08/2026 (UTF-8, pas ISO-8859-1).
+- export_sens_elusen_extrait.sql : lignes réelles de la table `elusen` du
+  dump export_sens du 15/10/2026 (mandats sénatoriaux, UTF-8).
 
 Le calcul du taux de participation est éprouvé sur un cas construit (c'est un
 test de logique, pas une donnée affichée).
@@ -467,6 +469,10 @@ def test_pipeline_complet_reel(tmp_path, monkeypatch):
     assert {"S5-AMO10", "S5-SCRUTINS", "S6-ODSEN", "S6-DOSLEG", "S7-DATAN"} <= metas
     n_scr_sen = conn.execute("SELECT count(*) AS n FROM scrutins_senat").fetchone()["n"]
     assert n_scr_sen >= 4764
+    # Le 15/10/2026, 348 sur 348 (export_sens elusen) ; 0 via ODSEN_ELUSEN.
+    sans_debut = conn.execute("SELECT count(*) AS n FROM senateurs"
+                              " WHERE date_debut_mandat IS NULL").fetchone()["n"]
+    assert sans_debut <= n_sen // 10
     conn.close()
 
 
@@ -640,12 +646,75 @@ def _senat_jetable(tmp_path, monkeypatch, **substitutions):
     """Câble ingerer_senat sur des fichiers locaux, sans réseau."""
     general = tmp_path / "ODSEN_GENERAL.csv"
     general.write_bytes(_csv_odsen(**substitutions))
-    elusen = tmp_path / "ODSEN_ELUSEN.csv"
-    elusen.write_bytes(b"Matricule,Date de fin de mandat\r\n")
+    export_sens = _zip_export_sens(tmp_path)
     monkeypatch.setattr(p9, "_date_last_modified", lambda *a, **k: "2026-08-29")
     monkeypatch.setattr(
         p9, "telecharger",
-        lambda url, dest, **k: general if "GENERAL" in dest else elusen)
+        lambda url, dest, **k: general if "GENERAL" in dest else export_sens)
+
+
+def _zip_export_sens(tmp_path, sql: bytes | None = None) -> Path:
+    """export_sens.zip jetable autour de l'extrait réel de `elusen`."""
+    if sql is None:
+        sql = (FIXTURES / "export_sens_elusen_extrait.sql").read_bytes()
+    chemin = tmp_path / "export_sens.zip"
+    with zipfile.ZipFile(chemin, "w") as z:
+        z.writestr("export_sens.sql", sql)
+    return chemin
+
+
+def test_lire_debuts_mandat_senat_extrait_reel():
+    """Lignes réelles du dump du 15/10/2026 : ODSEN_ELUSEN ne publiait aucune
+    de ces dates de mandat en cours ; `elusen` les porte toutes."""
+    with open(FIXTURES / "export_sens_elusen_extrait.sql", "rb") as fp:
+        debuts, lues, ambigus = p9.lire_debuts_mandat_senat(fp)
+    assert debuts == {
+        "21071F": "2023-10-02",
+        "20032T": "2026-10-01",   # réélu : le mandat clos le 30/09 est ignoré
+        "21686H": "2026-10-01",   # entrant du renouvellement
+    }                             # 14133K (sortant), 83008P (ancien) : rien
+    assert (lues, ambigus) == (8, 0)
+
+
+def test_lire_debuts_mandat_senat_ne_tranche_pas_deux_mandats_en_cours():
+    """Contre-épreuve construite : la ligne réelle de 21686H dupliquée avec
+    une autre date. Deux mandats en cours pour un matricule = rien de deviné."""
+    sql = (FIXTURES / "export_sens_elusen_extrait.sql").read_bytes()
+    ligne = next(l for l in sql.split(b"\n") if b"\t21686H\t" in l)
+    double = ligne.replace(b"55064\t", b"99999\t").replace(
+        b"2026-10-01 00:00:00", b"2026-10-02 00:00:00", 1)
+    sql = sql.replace(ligne, ligne + b"\n" + double)
+    debuts, _lues, ambigus = p9.lire_debuts_mandat_senat(io.BytesIO(sql))
+    assert "21686H" not in debuts and ambigus == 1
+    assert debuts["21071F"] == "2023-10-02"
+
+
+def test_lire_debuts_mandat_senat_leve_sans_table_elusen():
+    with pytest.raises(RuntimeError, match="elusen absente"):
+        p9.lire_debuts_mandat_senat(io.BytesIO(b"COPY sen (senmat) FROM stdin;\n\\.\n"))
+
+
+def test_ingerer_senat_ecrit_la_date_de_debut_du_mandat_en_cours(tmp_path,
+                                                                monkeypatch):
+    """ODSEN_GENERAL de la fixture (19/08/2026) : 21071F et 14133K ACTIF.
+    Le dump du 15/10/2026 donne la date de 21071F ; 14133K n'y a plus de
+    mandat en cours (non réélu le 27/09) : NULL, rien d'inventé."""
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    _senat_jetable(tmp_path, monkeypatch)
+    p9.ingerer_senat(conn, session=None)
+    debuts = dict(conn.execute(
+        "SELECT matricule, date_debut_mandat FROM senateurs").fetchall())
+    assert debuts["21071F"] == "2023-10-02"
+    assert debuts["14133K"] is None
+    mandats = json.loads(conn.execute(
+        "SELECT mandats FROM elus WHERE matricule_senat = '21071F'").fetchone()[0])
+    assert [m["date_debut"] for m in mandats if m["source"] == "SENAT-P9"] == [
+        "2023-10-02"]
+    notes = conn.execute("SELECT notes FROM meta_sources"
+                         " WHERE source_id = 'S6-ODSEN'").fetchone()[0]
+    assert "(1/2 sénateurs en exercice dotés d'une date)" in notes
+    conn.close()
 
 
 def _senateur_seme(conn):

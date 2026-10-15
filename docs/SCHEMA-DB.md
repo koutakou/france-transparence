@@ -725,7 +725,7 @@ CREATE TABLE senateurs (
     groupe            TEXT,
     groupe_appartenance TEXT,                   -- Membre / Rattaché / Apparenté
     commission        TEXT,
-    date_debut_mandat TEXT,                     -- ODSEN_ELUSEN si publié
+    date_debut_mandat TEXT,                     -- export_sens elusen (mandat en cours)
     date_fin_mandat   TEXT,                     -- NULL : mandat en cours
     date_naissance    TEXT,
     profession        TEXT,
