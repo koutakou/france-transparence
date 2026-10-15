@@ -1,7 +1,11 @@
 """Tests S50 — comptes des APU INSEE.
 
-Les xlsx de fixture sont INVENTÉS (deux millésimes, totaux hors bornes
-d'ampleur). Aucune valeur live de l'Insee Résultats 8988845.
+Deux jeux de fixtures, à ne pas confondre :
+- les xlsx construits par `_xlsx` ci-dessous sont INVENTÉS (deux millésimes,
+  totaux hors bornes d'ampleur), aucune valeur live ;
+- `fixtures/insee_cna_apu/` : les six classeurs RÉELS de l'Insee Résultats
+  8988845 (3.201, 3.202, 3.203, 3.205, 3.212, 3.216), figés tels que
+  téléchargés le 15/10/2026, octets non modifiés.
 """
 
 from __future__ import annotations
@@ -16,6 +20,7 @@ import pytest
 from pipelines import db
 from pipelines.ingest_comptes_apu_insee import (
     SOURCE_ID,
+    FICHIER_PO,
     TABLEAU_PO,
     TABLEAUX_DEP_REC,
     URL_PAGE,
@@ -432,3 +437,35 @@ def test_cle_libelle_ramene_les_apostrophes_typographiques_a_l_ascii():
     attendu = "en milliards d'euros"
     for apostrophe in ("\u2019", "\u2018", "\u02bc", "'"):
         assert cle_libelle(f"En milliards d{apostrophe}euros") == attendu
+
+
+# ---------------------------------------------------------------------------
+# Classeurs réels figés (gabarit amont exercé hors ligne)
+# ---------------------------------------------------------------------------
+
+FIXTURES_REELLES = Path(__file__).parent / "fixtures" / "insee_cna_apu"
+
+
+def _chemins_reels() -> dict[str, Path]:
+    chemins = {t: FIXTURES_REELLES / f for t, f, _ in TABLEAUX_DEP_REC}
+    chemins[TABLEAU_PO] = FIXTURES_REELLES / FICHIER_PO
+    return chemins
+
+
+def test_classeurs_reels_extraits_et_controles(tmp_path):
+    """Le gabarit réel (mise en page Insee, cellules « N.D. » et valeurs
+    nulles du 3.216) passe l'extraction et le contrôle d'ampleur, ce que
+    les classeurs inventés ne peuvent pas éprouver."""
+    observations = extraire_tout(_chemins_reels())
+    controler_ampleur(observations)
+    assert len(observations) == 1798
+    assert len([o for o in observations if o["tableau"] == TABLEAU_PO]) == 1280
+    dep = [o for o in observations
+           if (o["secteur"], o["poste"], o["unite"]) == ("S13", "DEP_TOTAL", "MdEUR")]
+    dernier = max(dep, key=lambda o: o["annee"])
+    assert (dernier["annee"], dernier["valeur_md"]) == (2025, pytest.approx(1714.1117))
+    conn = db.init_db(chemin=tmp_path / "reel.db")
+    try:
+        assert ecrire_db(conn, observations) == "2025-12-31"
+    finally:
+        conn.close()
