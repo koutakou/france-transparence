@@ -204,3 +204,16 @@ header {
 .header-nav summary::-webkit-details-marker {
   display: none;
 }
+
+/* Chrome des relevés de graphique (TooltipGraphique, DATAVIZ §5). Posé UNE
+   fois ici plutôt qu'en attribut style sur chaque relevé : une page en porte
+   jusqu'à une centaine (un par colonne de chaque graphique), et ces quelque
+   140 octets se répétaient dans le HTML comme dans le payload RSC. Le style
+   en ligne du composant ne garde que la position. */
+.ft-tip {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-raised);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  padding: 8px 10px;
+}

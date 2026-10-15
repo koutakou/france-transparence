@@ -4,7 +4,9 @@ import type { CSSProperties } from "react";
  * Tooltip HTML des graphiques (DATAVIZ §5) — pas le `<title>` SVG natif.
  *
  * Chrome : fond `--surface-raised`, bordure `--border-raised`, rayon 8px,
- * ombre `0 8px 24px rgba(0,0,0,0.45)`, padding 8px 10px.
+ * ombre `0 8px 24px rgba(0,0,0,0.45)`, padding 8px 10px — règle `.ft-tip`
+ * de globals.css, posée une fois pour toute la page (le style en ligne ne
+ * porte que la position).
  * Ligne : clé = trait 12×2px de la couleur de série, **valeur d'abord**
  * (semibold `--ink-primary`), nom ensuite (`--ink-secondary`).
  *
@@ -46,13 +48,6 @@ export interface TooltipGraphiqueProps {
   "data-dernier"?: boolean;
 }
 
-const CHROME: CSSProperties = {
-  background: "var(--surface-raised)",
-  border: "1px solid var(--border-raised)",
-  borderRadius: 8,
-  boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
-  padding: "8px 10px",
-};
 
 export function TooltipGraphique({
   lignes,
@@ -69,7 +64,7 @@ export function TooltipGraphique({
       data-i={dataI}
       data-dernier={dataDernier ? "1" : undefined}
       className={`ft-tip pointer-events-none absolute z-20 max-w-[16rem] ${className ?? ""}`}
-      style={{ ...CHROME, ...style }}
+      style={style}
     >
       {titre ? <p className="mb-1 text-[11px] leading-tight text-ink-muted">{titre}</p> : null}
       <ul className="flex flex-col gap-0.5">
