@@ -9,16 +9,19 @@ import json
 import pytest
 import requests
 
-from pipelines import ingest_referentiels, sirene
+from pipelines import db, ingest_referentiels, sirene
 from pipelines.ingest_referentiels import (
     MINISTERES_RAPPORT_03,
+    URL_REFORGA_LATEST,
     _departement_du_code,
     _slug,
     charger_entites_etat,
     construire_geojson_departements,
     construire_villes,
+    ecrire_en_base,
     extraire_institutions,
     extraire_ministeres,
+    meta_entites_etat,
     parser_prefecture,
     valider_geojson_departements,
 )
@@ -252,27 +255,111 @@ def test_extraire_institutions_liste_fixe_et_siren():
     assert par_id["inst-hatvp"]["sigle"] == "HATVP"
     # correspondance par préfixe : le nom RefOrga porte « (CNCCFP) » en plus
     assert par_id["inst-cnccfp"]["nom"].startswith("Commission nationale")
-    # sans référentiel : la liste reste complète, SIREN simplement absents
-    assert len(extraire_institutions([])) == 7
+    # sans référentiel : la liste reste complète ; seuls les SIREN
+    # documentés (SIREN_DOCUMENTES) sont portés, les autres restent absents
+    sans_ref = {i["id"]: i["siren"] for i in extraire_institutions([])}
+    assert len(sans_ref) == 7
+    assert sans_ref["inst-presidence-republique"] == "100000017"
+    assert sans_ref["inst-senat"] is None
+
+
+def _connexion_reinitialisee(*args, **kwargs):
+    raise requests.ConnectionError(
+        "('Connection aborted.', ConnectionResetError(104,"
+        " 'Connection reset by peer'))"
+    )
 
 
 def test_dila_injoignable_bascule_sur_la_liste_verifiee(monkeypatch):
     """Cas réel du 03/10/2026 : echanges.dila.gouv.fr réinitialise la
     connexion. Le secours doit prendre le relais, pas l'ingestion mourir."""
-    def _connexion_reinitialisee(*args, **kwargs):
-        raise requests.ConnectionError(
-            "('Connection aborted.', ConnectionResetError(104,"
-            " 'Connection reset by peer'))"
-        )
-
     monkeypatch.setattr(
         ingest_referentiels, "telecharger", _connexion_reinitialisee)
-    ministeres, institutions, source, date_donnees = charger_entites_etat(
-        requests.Session())
+    ministeres, institutions, source, date_donnees, motif = (
+        charger_entites_etat(requests.Session()))
     assert [m["nom"] for m in ministeres] == MINISTERES_RAPPORT_03
     assert len(institutions) == 7
     assert source.startswith("liste vérifiée docs/recherche/03-parlement.md")
     assert date_donnees == "2026-02-26"   # la liste, pas le jour du cycle
+    assert motif == "serveur injoignable (ConnectionError)"
+
+
+def _ids_et_siren(conn):
+    return {
+        r["id"]: r["siren"]
+        for r in conn.execute(
+            "SELECT id, siren FROM entites"
+            " WHERE type IN ('ministere', 'institution')")
+    }
+
+
+def test_secours_garde_les_identifiants_et_les_siren_du_flux(
+    monkeypatch, tmp_path
+):
+    """Constat du 15/10/2026 : en secours, le Premier ministre devenait
+    min-premier-ministre-charge-de-la-planification-… au lieu de
+    min-premier-ministre, et perdait son SIREN 110001013 ; les 7
+    institutions passaient à siren NULL, Présidence 100000017 comprise,
+    ÉCRASANT la valeur d'un cycle précédent. entites.siren résout les
+    acheteurs des marchés."""
+    # Cycle précédent : RefOrgaAdminEtat a servi. Dans le flux du 15/10/2026
+    # (base complète du jour), le Premier ministre porte son SIREN.
+    services = [
+        {**s, "siren": "110001013"} if s["nom"] == "Premier ministre" else s
+        for s in SERVICES_REFORGA
+    ]
+    conn = db.init_db(chemin=tmp_path / "ref.db")
+    ecrire_en_base(conn, [], [], extraire_ministeres(services),
+                   extraire_institutions(services))
+    avant = _ids_et_siren(conn)
+    assert avant["min-premier-ministre"] == "110001013"
+    assert avant["inst-presidence-republique"] == "100000017"
+
+    # Cycle du jour : DILA injoignable.
+    monkeypatch.setattr(
+        ingest_referentiels, "telecharger", _connexion_reinitialisee)
+    ministeres, institutions, *_ = charger_entites_etat(requests.Session())
+    ecrire_en_base(conn, [], [], ministeres, institutions)
+    apres = _ids_et_siren(conn)
+    conn.close()
+
+    # Mêmes identifiants pour les entités que les deux sources partagent.
+    assert set(avant) <= set(apres)
+    assert not any(i.startswith("min-premier-ministre-") for i in apres)
+    # Aucun SIREN connu n'est perdu.
+    for id_entite, siren in avant.items():
+        if siren is not None:
+            assert apres[id_entite] == siren, id_entite
+
+
+def test_un_siren_absent_du_jour_n_efface_pas_celui_de_la_veille(tmp_path):
+    """L'upsert des institutions garde un SIREN connu quand la source du
+    jour ne le porte pas (COALESCE), même hors de la liste documentée."""
+    conn = db.init_db(chemin=tmp_path / "ref.db")
+    institutions = extraire_institutions(SERVICES_REFORGA)
+    ecrire_en_base(conn, [], [], [], institutions)
+    sans_siren = [{**i, "siren": None} for i in institutions]
+    ecrire_en_base(conn, [], [], [], sans_siren)
+    assert _ids_et_siren(conn)["inst-presidence-republique"] == "100000017"
+    conn.close()
+
+
+def test_meta_s35_nomme_la_source_reellement_utilisee():
+    """En secours, la ligne meta S35 ne dit plus « (DILA) », ne pointe plus
+    le flux RefOrgaAdminEtat et n'y attribue plus le SIREN de la Présidence."""
+    normal = meta_entites_etat("RefOrgaAdminEtat (DILA)", None, "2026-10-15")
+    assert normal["nom"].endswith("(DILA)")
+    assert normal["url"] == URL_REFORGA_LATEST
+
+    secours = meta_entites_etat(
+        "liste vérifiée docs/recherche/03-parlement.md",
+        "serveur injoignable (ConnectionError)", "2026-10-04")
+    assert "(DILA)" not in secours["nom"] and "secours" in secours["nom"]
+    assert secours["url"] != URL_REFORGA_LATEST
+    assert secours["url"].endswith("JORFTEXT000053586369")
+    assert ("inexploitable le 2026-10-04 : serveur injoignable"
+            " (ConnectionError)") in secours["notes"]
+    assert "SIREN Présidence : RefOrgaAdminEtat" not in secours["notes"]
 
 
 def test_slug_stable():
