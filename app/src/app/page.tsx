@@ -25,6 +25,7 @@ import {
   type AlerteAccueil,
 } from "@/lib/queries/accueil";
 import { jsonLdIdentiteSite, metadonneesPage } from "@/lib/seo";
+import { libelleBadgeSource } from "@/lib/libelles-sources";
 
 // Rendu statique : la donnée ne change qu'à l'ingestion, le site est
 // reconstruit après chaque ingestion (docs/deploiement/DECISION.md).
@@ -80,7 +81,7 @@ function BadgeSource({ source, mention }: { source?: MetaSource; mention?: strin
   return (
     <FreshnessBadge
       dateDonnees={source.date_donnees}
-      source={LIBELLES_SOURCES[source.source_id] ?? source.nom}
+      source={libelleBadgeSource(source, LIBELLES_SOURCES)}
       frequence={source.frequence}
       url={source.url}
       mention={mention}
