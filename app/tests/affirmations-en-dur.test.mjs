@@ -17,6 +17,21 @@ const INTERDITS = [
     /mention="J-1"/,
     "« J-1 » ne vaut que si les DECP sont datées de la veille (estVeille)",
   ],
+  [
+    "app/marches/page.tsx",
+    /les 2 derniers mois sont incomplets/,
+    "les mois incomplets se déduisent du 9e décile du délai de publication",
+  ],
+  [
+    "app/marches/page.tsx",
+    /serieMensuelle\.slice\(-12\)/,
+    "la tendance 12 mois ne finit pas sur un mois civil inachevé (moisClos)",
+  ],
+  [
+    "components/client/SerieMensuelleMarches.tsx",
+    /montant_total \?\? 0/,
+    "un mois sans montant connu n'est pas une colonne à zéro",
+  ],
 ];
 
 for (const [fichier, motif, pourquoi] of INTERDITS) {

@@ -40,3 +40,40 @@ export function estVeille(dateDonnees: string, maintenant: Date): boolean {
   const aujourdhui = jourUTC(jourParis(maintenant));
   return donnee !== null && aujourdhui !== null && aujourdhui - donnee === JOUR_MS;
 }
+
+/** Dernier jour (minuit UTC) du mois `AAAA-MM` ; `null` si illisible. */
+function finDeMois(mois: string): number | null {
+  const m = /^(\d{4})-(\d{2})$/.exec(mois.trim());
+  if (!m) return null;
+  return Date.UTC(Number(m[1]), Number(m[2]), 0);
+}
+
+/**
+ * Mois civils CLOS à la date de donnée : un mois dont le dernier jour est
+ * postérieur à `dateDonnees` n'a pas fini d'exister, il ne se compare à
+ * aucun autre. Les mois illisibles sont écartés, pas devinés.
+ */
+export function moisClos<T extends { mois: string }>(serie: T[], dateDonnees: string): T[] {
+  const donnee = jourUTC(dateDonnees);
+  if (donnee === null) return [];
+  return serie.filter((m) => {
+    const fin = finDeMois(m.mois);
+    return fin !== null && fin <= donnee;
+  });
+}
+
+/**
+ * Premier mois `AAAA-MM` encore incomplet au sens d'un délai de publication :
+ * un marché notifié le dernier jour de ce mois, ou plus tard, avait eu moins
+ * de `delaiJours` jours pour être publié à la date de donnée. Avec le 9ᵉ
+ * décile du délai observé, ce sont les mois dont plus d'un marché sur dix
+ * peut encore manquer. `null` si une entrée est illisible.
+ */
+export function premierMoisIncomplet(dateDonnees: string, delaiJours: number): string | null {
+  const donnee = jourUTC(dateDonnees);
+  if (donnee === null || !Number.isFinite(delaiJours) || delaiJours < 0) return null;
+  // Mois de la date `donnee − delai + 1 jour` : sa fin est à moins de
+  // `delai` jours de la donnée, celle du mois précédent à `delai` ou plus.
+  const limite = new Date(donnee - Math.round(delaiJours) * JOUR_MS + JOUR_MS);
+  return limite.toISOString().slice(0, 7);
+}
