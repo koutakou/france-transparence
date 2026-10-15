@@ -214,7 +214,6 @@ from pipelines import db
 from pipelines.common import (
     assainir_texte_integral,
     obtenir_logger,
-    reparer_mojibake,
     telecharger,
 )
 
@@ -1298,11 +1297,44 @@ _TABLES = {
 # volume d'hygiène sont deux nombres différents ; le bilan journalisé
 # ci-dessous est le SECOND.**
 _COLONNES_ASSAINIES = frozenset({"objet", "acheteur_nom", "titulaire_nom"})
-# `titulaires_json` est du JSON : on y répare le mojibake (qui n'affecte que
-# le contenu des chaînes) mais on n'y touche PAS aux espaces, qui font partie
-# de la syntaxe sérialisée. Il ne bascule donc PAS sur
-# `assainir_texte_integral`, qui applique `normaliser_espaces`.
-_COLONNES_MOJIBAKE_SEUL = frozenset({"titulaires_json"})
+# `titulaires_json` est du JSON ([{siret, nom}, …], sérialisé par DuckDB) :
+# l'hygiène ne s'applique PAS à la chaîne sérialisée, dont les espaces
+# seraient alors ceux de la syntaxe, mais à CHAQUE `nom` après décodage —
+# le même remède que `titulaire_nom`, sinon la liste complète et le premier
+# titulaire divergent. Jusqu'au 15/10/2026, seule la réparation du mojibake
+# y passait : 2 484 noms de la base du jour différaient de
+# `assainir_texte_integral(nom)`, uniquement par leurs blancs (« ACME  SA »
+# servi par la liste, « ACME SA » par `titulaire_nom`). Cf.
+# `_assainir_titulaires_json`.
+_COLONNES_JSON_TITULAIRES = frozenset({"titulaires_json"})
+
+
+def _assainir_titulaires_json(valeur: str) -> str:
+    """Applique `assainir_texte_integral` à chaque `nom` de la liste JSON.
+
+    Re-sérialisée SEULEMENT si un nom change, au format compact de DuckDB
+    (`separators=(",", ":")`, UTF-8 non échappé) : mesuré le 15/10/2026,
+    l'aller-retour `json.loads` → `json.dumps` rend à l'identique les
+    478 282 valeurs de la base du jour. Un nom réduit à du blanc devient
+    `null`, comme `titulaire_nom` devient NULL (`or None`). Une valeur qui
+    ne se décode pas n'est pas réécrite : on n'invente pas de JSON.
+    """
+    try:
+        titulaires = json.loads(valeur)
+    except ValueError:
+        return valeur
+    if not isinstance(titulaires, list):
+        return valeur
+    change = False
+    for titulaire in titulaires:
+        if isinstance(titulaire, dict) and isinstance(titulaire.get("nom"), str):
+            propre = assainir_texte_integral(titulaire["nom"]) or None
+            if propre != titulaire["nom"]:
+                titulaire["nom"] = propre
+                change = True
+    if not change:
+        return valeur
+    return json.dumps(titulaires, ensure_ascii=False, separators=(",", ":"))
 
 
 def _assainir_lot(
@@ -1351,8 +1383,8 @@ def _assainir_lot(
     bascule est inerte sur les deux colonnes de noms.
     """
     indices_pleins = [i for i, c in enumerate(champs) if c in _COLONNES_ASSAINIES]
-    indices_moji = [i for i, c in enumerate(champs) if c in _COLONNES_MOJIBAKE_SEUL]
-    if not indices_pleins and not indices_moji:
+    indices_json = [i for i, c in enumerate(champs) if c in _COLONNES_JSON_TITULAIRES]
+    if not indices_pleins and not indices_json:
         return lot
     sorties = []
     for ligne in lot:
@@ -1363,10 +1395,10 @@ def _assainir_lot(
                 cellules[i] = assainir_texte_integral(v) or None
                 if bilan is not None and cellules[i] != v:
                     bilan[champs[i]] = bilan.get(champs[i], 0) + 1
-        for i in indices_moji:
+        for i in indices_json:
             v = cellules[i]
             if isinstance(v, str):
-                cellules[i] = reparer_mojibake(v)
+                cellules[i] = _assainir_titulaires_json(v)
                 if bilan is not None and cellules[i] != v:
                     bilan[champs[i]] = bilan.get(champs[i], 0) + 1
         sorties.append(tuple(cellules))
@@ -1382,7 +1414,7 @@ def _bilan_hygiene_neuf(champs: list[str]) -> dict[str, int]:
     sortie qu'une donnée propre. Une table sans colonne texte rend un
     accumulateur vide, donc n'écrit rien au journal.
     """
-    traitees = _COLONNES_ASSAINIES | _COLONNES_MOJIBAKE_SEUL
+    traitees = _COLONNES_ASSAINIES | _COLONNES_JSON_TITULAIRES
     return {c: 0 for c in champs if c in traitees}
 
 
