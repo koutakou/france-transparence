@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { getDb } from "@/lib/db";
 import { TableParlementaires } from "@/components/client/TableParlementaires";
 import { BarList } from "@/components/ui/BarList";
@@ -163,6 +164,16 @@ export default async function PageElus() {
           Composition réelle des assemblées (AN, Sénat) et répertoire national des élus
           (RNE)&nbsp;: les conseillers municipaux n’entrent dans aucun chiffre de cette
           page. Participation des députés aux scrutins publics, déclarations HATVP.
+        </p>
+        <p className="text-xs text-ink-muted">
+          Toutes les fiches individuelles, en liens simples&nbsp;:{" "}
+          <Link
+            href="/elus/annuaire/"
+            className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
+          >
+            annuaire des fiches d’élus
+          </Link>
+          .
         </p>
       </section>
 
