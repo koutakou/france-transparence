@@ -27,11 +27,13 @@ Table noyau complétée, et — depuis le rattrapage — élaguée :
   (conseils départementaux, conseils régionaux, EPCI). Les colonnes remplies par
   d'autres pipelines (uid_an, matricule_senat) ne sont jamais touchées ; les
   mandats sont fusionnés dans le JSON `mandats` (seules les entrées
-  "source": "RNE" sont remplacées). Croisement HATVP : hatvp_flag passe à 1
-  (jamais remis à 0, pour ne pas écraser un autre pipeline) et hatvp_url
-  (colonne ajoutée par ce pipeline si absente) reçoit le lien de la fiche —
-  uniquement quand le couple nom+prénom est unique des deux côtés (homonymie
-  non tranchée = pas de flag).
+  "source": "RNE" sont remplacées). Croisement HATVP : hatvp_flag et
+  hatvp_url (colonne ajoutée par ce pipeline si absente ; seul ce pipeline
+  écrit les deux) sont recalculés à chaque cycle — flag à 1 et lien de la
+  fiche uniquement quand le couple nom+prénom est unique des deux côtés ET
+  qu'un dossier concorde avec un mandat de la fiche (chambre, département ou
+  nature : `dossier_corrobore_fiche`). Homonymie non tranchée ou concordance
+  absente = pas de flag.
 
 Contrôle d'après-cycle, non bloquant :
 - collisions de clé d'état civil (`controler_collisions_de_cle`) — nombre de
@@ -1251,37 +1253,104 @@ def controler_collisions_de_cle(conn) -> list[dict]:
     return collisions
 
 
-def croiser_hatvp_flag(conn, dossiers: list[dict]) -> int:
-    """hatvp_flag + hatvp_url quand nom+prénom est unique des deux côtés.
+# Nature du mandat déclaré à la HATVP (type_mandat) → types de mandat de la
+# fiche (`elus.mandats`) qui le corroborent quand la HATVP ne publie pas de
+# département (régions, EPCI sans département…).
+NATURES_HATVP = {
+    "commune": {"maire"},
+    "departement": {"president_conseil_departemental"},
+    "region": {"president_conseil_regional"},
+    "epci": {"president_epci"},
+    "depute": {"depute"},
+    "senateur": {"senateur"},
+}
+
+
+def dossier_corrobore_fiche(dossier: dict, mandats: list[dict]) -> bool:
+    """Un dossier HATVP désigne-t-il la personne de cette fiche, au-delà du
+    seul nom+prénom ?
+
+    Oui si un mandat de la fiche concorde : même chambre pour un dossier de
+    député ou de sénateur (la circonscription des Français de l'étranger
+    s'écrit « 99 » à la HATVP, « ZZ » au RNE, en toutes lettres à l'AN) ;
+    sinon même département normalisé quand la HATVP en publie un ; sinon,
+    faute de département, même nature de mandat (NATURES_HATVP).
+    """
+    tm = dossier.get("type_mandat") or ""
+    dep = normaliser_departement(dossier.get("departement"))
+    for m in mandats:
+        if not isinstance(m, dict):
+            continue
+        if tm in ("depute", "senateur") and m.get("type") == tm:
+            return True
+        if dep:
+            if dep == normaliser_departement(m.get("departement")):
+                return True
+        elif m.get("type") in NATURES_HATVP.get(tm, ()):
+            return True
+    return False
+
+
+def croiser_hatvp_flag(conn, dossiers: list[dict]) -> tuple[int, int]:
+    """hatvp_flag + hatvp_url quand la personne est UNE des deux côtés ET
+    qu'un de ses dossiers concorde avec un mandat de la fiche.
 
     Homonymie (plusieurs personnes HATVP ou plusieurs élus pour le même
-    nom+prénom) = pas de flag. Ne remet jamais un flag existant à 0.
+    nom+prénom) = pas de flag. Nom+prénom uniques ne suffisent pas : un
+    patronyme unique dans `elus` peut désigner un autre élu que le déclarant
+    (constat du 15/10/2026 : LEROY Gilles, maire dans l'Aisne, recevait la
+    fiche HATVP d'un vice-président du conseil départemental de
+    Maine-et-Loire). Il faut en plus `dossier_corrobore_fiche` ; sinon on
+    renonce, et le cas est compté.
+
+    Le flag et le lien sont RECALCULÉS à chaque cycle (remis à 0 / NULL
+    d'abord) : seul ce pipeline les écrit, et un flag posé à tort par un
+    cycle précédent ne doit pas survivre au correctif. Tout est dans la
+    transaction de `ecrire()`.
+
+    Retour : (flags posés, appariements nom+prénom uniques écartés faute de
+    concordance).
     """
     colonnes = {r["name"] for r in conn.execute("PRAGMA table_info(elus)")}
     if "hatvp_url" not in colonnes:
         conn.execute("ALTER TABLE elus ADD COLUMN hatvp_url TEXT")
+    conn.execute("UPDATE elus SET hatvp_flag = 0, hatvp_url = NULL"
+                 " WHERE hatvp_flag <> 0 OR hatvp_url IS NOT NULL")
 
     hatvp_par_nom: dict[tuple, dict] = defaultdict(dict)   # nom → {classement: url}
+    dossiers_par_classement: dict[str, list[dict]] = defaultdict(list)
     for d in dossiers:
         cle = (normaliser_texte(d["nom"]), normaliser_texte(d["prenom"]))
         hatvp_par_nom[cle].setdefault(d["classement"],
                                       (URL_HATVP_SITE + d["url_dossier"])
                                       if d["url_dossier"] else URL_HATVP_LISTE)
-    elus_par_nom: dict[tuple, list[str]] = defaultdict(list)
-    for r in conn.execute("SELECT id, nom, prenom FROM elus"):
-        elus_par_nom[(normaliser_texte(r["nom"]), normaliser_texte(r["prenom"]))].append(r["id"])
+        dossiers_par_classement[d["classement"]].append(d)
+    elus_par_nom: dict[tuple, list[tuple[str, str | None]]] = defaultdict(list)
+    for r in conn.execute("SELECT id, nom, prenom, mandats FROM elus"):
+        elus_par_nom[(normaliser_texte(r["nom"]), normaliser_texte(r["prenom"]))].append(
+            (r["id"], r["mandats"]))
 
-    n = 0
+    n = ecartes = 0
     for cle, classements in hatvp_par_nom.items():
         if len(classements) != 1:
             continue
-        ids = elus_par_nom.get(cle, [])
-        if len(ids) != 1:
+        candidats = elus_par_nom.get(cle, [])
+        if len(candidats) != 1:
+            continue
+        ident, brut = candidats[0]
+        try:
+            mandats = json.loads(brut) if brut else []
+        except json.JSONDecodeError:
+            mandats = []
+        classement, url = next(iter(classements.items()))
+        if not any(dossier_corrobore_fiche(d, mandats)
+                   for d in dossiers_par_classement[classement]):
+            ecartes += 1
             continue
         conn.execute("UPDATE elus SET hatvp_flag = 1, hatvp_url = ? WHERE id = ?",
-                     (next(iter(classements.values())), ids[0]))
+                     (url, ident))
         n += 1
-    return n
+    return n, ecartes
 
 
 # ---------------------------------------------------------------------------
@@ -1417,11 +1486,13 @@ def ecrire(conn, dossiers: list[dict], rne: dict, chemins: dict,
     # --- elus : upsert prudent + croisement HATVP ----------------------
     personnes = preparer_personnes(rne)
     inseres, maj, rattrapes = upsert_elus(conn, personnes)
-    flags = croiser_hatvp_flag(conn, dossiers)
+    flags, flags_ecartes = croiser_hatvp_flag(conn, dossiers)
     collisions = controler_collisions_de_cle(conn)
     log.info("elus : %d insérés, %d complétés (fusion mandats), %d rattrapés sur"
-             " une fiche AN/Sénat, %d hatvp_flag posés, %d collision(s) de clé",
-             inseres, maj, rattrapes, flags, len(collisions))
+             " une fiche AN/Sénat, %d hatvp_flag posés, %d appariement(s)"
+             " nom+prénom écarté(s) faute de mandat concordant, %d collision(s)"
+             " de clé", inseres, maj, rattrapes, flags, flags_ecartes,
+             len(collisions))
 
     # --- Conseillers municipaux : agrégats seulement -------------------
     lignes_cm, total_cm = agreger_conseillers_municipaux(chemins["cm"], aujourd_hui)
