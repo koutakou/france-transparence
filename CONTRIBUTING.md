@@ -70,8 +70,10 @@ Précisions utiles à un contributeur :
 
 - **Les tests d'abord, l'ingestion ensuite.** `make test` tourne sans base et
   sans réseau pour l'essentiel : les tests de transformation travaillent sur
-  des extraits réels figés dans `pipelines/tests/fixtures/` (pièges
-  d'encodage inclus) et sur des bases temporaires jetables. Les tests
+  des fixtures figées dans `pipelines/tests/fixtures/` — des extraits réels
+  pour l'essentiel (pièges d'encodage inclus), des fixtures construites pour
+  certains pipelines ou certains cas, toujours annoncées comme telles en tête
+  du fichier de test — et sur des bases temporaires jetables. Les tests
   d'intégration qui téléchargent réellement les sources portent le marqueur
   `reseau` — pour itérer vite : `.venv/bin/pytest pipelines/tests -m 'not reseau'`.
 - **`make ingest` télécharge beaucoup** (les volumes et durées indicatifs

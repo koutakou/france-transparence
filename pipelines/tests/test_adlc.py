@@ -1,7 +1,14 @@
 """Tests S52 — sanctions financières ADLC (CSV 2009+ joint aux métadonnées).
 
-Les CSV de fixture sont INVENTÉS (pièges de grain, personnes physiques).
-Aucune valeur live de l'Autorité de la concurrence.
+Deux jeux de fixtures, à ne pas confondre :
+- `fixtures/adlc/` : CSV CONSTRUITS (pièges de grain, personnes physiques),
+  aucune valeur live de l'Autorité de la concurrence ;
+- `fixtures/adlc_reel/` : EXTRAITS RÉELS figés des deux CSV data.gouv.fr
+  (ressources du 11/10/2026, téléchargées le 15/10/2026). Le CSV des
+  sanctions est entier, moins ses 7 lignes de personnes physiques
+  (minimisation : elles ne sont jamais publiées) ; celui des métadonnées
+  est réduit aux 188 décisions sanctionnées et aux 5 id dupliqués du
+  dump. Valeurs non modifiées (réécriture CSV à l'identique des champs).
 """
 
 from __future__ import annotations
@@ -340,3 +347,44 @@ def test_payload_api_exemple_ne_prend_pas_le_json():
     r = _ressource_csv(payload, TITRE_META, OCTETS_MAX_CSV)
     assert "219mo" not in r["url"]
     assert r["url"].endswith("meta.csv")
+
+
+# ---------------------------------------------------------------------------
+# Extraits réels figés (gabarit amont exercé hors ligne)
+# ---------------------------------------------------------------------------
+
+FIXTURES_REELLES = Path(__file__).parent / "fixtures" / "adlc_reel"
+
+
+def test_extraits_reels_passent_tous_les_controles(tmp_path):
+    """Le gabarit réel (en-têtes, montants « 10000000.0 », listes Python
+    sérialisées, doublons du dump) passe la chaîne entière, contrôle
+    d'ampleur compris — ce que les CSV construits ne peuvent pas éprouver."""
+    c = db.init_db(chemin=tmp_path / "reel.db")
+    try:
+        date = ingere_depuis_fichiers(
+            c,
+            FIXTURES_REELLES / "sanctions-depuis-2009.csv",
+            FIXTURES_REELLES / "metadata-extrait.csv",
+            verifier_ampleur=True,
+        )
+        assert date == "2026-04-16"
+        assert c.execute("SELECT count(*) FROM adlc_decisions").fetchone()[0] == 188
+        assert c.execute("SELECT count(*) FROM adlc_lignes").fetchone()[0] == 1201
+        d = c.execute(
+            "SELECT montant_total, date_decision, annee FROM adlc_decisions "
+            "WHERE id_decision = '26-D-05'").fetchone()
+        assert tuple(d) == (12670000.0, "2026-04-16", 2026)
+        noms = [r[0] for r in c.execute(
+            "SELECT denomination FROM adlc_lignes WHERE id_decision = '26-D-05' "
+            "ORDER BY n_ligne")]
+        assert noms[:2] == ["Synadis Bio", "Greenweez"]
+    finally:
+        c.close()
+
+
+def test_extrait_reel_des_metadonnees_porte_les_doublons_du_dump():
+    """Les 5 id dupliqués et divergents du dump réel, aucun sanctionné."""
+    meta = extraire_meta(FIXTURES_REELLES / "metadata-extrait.csv")
+    divergents = sorted(k for k, v in meta.items() if v.get("doublon_divergent"))
+    assert divergents == ["17-A-05", "19-DCC-112", "24-A-02", "24-A-06", "24-A-08"]

@@ -61,7 +61,7 @@ avec `<source>` parmi les pipelines déclarés dans la variable `PIPELINES` du `
 make test         # suite pytest complète
 ```
 
-Les tests de transformation tournent hors ligne sur des extraits réels figés dans `pipelines/tests/fixtures/` (pièges d'encodage inclus). Les tests d'intégration qui touchent le réseau portent le marqueur `reseau` — les exclure avec `pytest -m 'not reseau'`.
+Les tests de transformation tournent hors ligne sur des fixtures figées dans `pipelines/tests/fixtures/` : des extraits réels pour l'essentiel (pièges d'encodage inclus), et, pour certains pipelines ou certains cas, des fixtures construites, que l'en-tête du fichier de test annonce comme telles. Les tests d'intégration qui touchent le réseau portent le marqueur `reseau` — les exclure avec `pytest -m 'not reseau'`.
 
 ## Architecture
 
