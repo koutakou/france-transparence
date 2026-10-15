@@ -15,6 +15,7 @@ import {
   type LigneTitulaireLobbyiste,
 } from "@/components/client/TitulairesLobbyistes";
 import { formatDateFr, formatEuros, formatNombre, formatPct } from "@/lib/format";
+import { estTrimestreDeLaDonnee } from "@/lib/periodes";
 import {
   getCroisementLobbyingMarches,
   PLAFOND_ECRETAGE,
@@ -933,6 +934,12 @@ export default async function LobbyingPage() {
   );
 
   const dernierTrimestre = trimestres[trimestres.length - 1];
+  // « En cours » seulement si la date de donnée tombe dans ce trimestre : si
+  // elle est du 01/10, le dernier trimestre listé (T3) est clos.
+  const dernierTrimestreEnCours = estTrimestreDeLaDonnee(
+    dernierTrimestre?.trimestre,
+    meta.date_donnees,
+  );
 
   // Croisement HATVP × DECP (S4 × S1). Facultatif par construction : si la
   // source marchés n'est pas ingérée, `null` — la section disparaît au lieu
@@ -1082,7 +1089,7 @@ export default async function LobbyingPage() {
       {/* ── Répartition par fourchette de budget ─────────────────────── */}
       <Card
         titre="Répartition par fourchette de budget"
-        sousTitre={`Entités par fourchette de budget annuel consacré à la représentation d'intérêts — fourchettes natives HATVP, telles que déclarées. ${formatNombre(budgetsCouverture.dansFourchettes)} entités ont déclaré une fourchette, sur ${formatNombre(budgetsCouverture.total)} inscrites.`}
+        sousTitre={`Entités par fourchette de budget annuel consacré à la représentation d'intérêts — fourchettes natives HATVP, telles que déclarées. ${formatNombre(budgetsCouverture.dansFourchettes)} des ${formatNombre(budgetsCouverture.totalActives)} entités actives ont déclaré une fourchette (dernier exercice déclaré) ; les entités cessées ne sont comptées ni d'un côté ni de l'autre.`}
         droite={badge}
       >
         <BarChart
@@ -1135,8 +1142,13 @@ export default async function LobbyingPage() {
         <p className="mt-2 text-xs text-ink-muted">
           Les pics récurrents au premier trimestre correspondent au dépôt des
           déclarations annuelles d&apos;activités de l&apos;exercice précédent.
-          Le trimestre {dernierTrimestre?.trimestre} est en cours :
-          chiffres partiels au {formatDateFr(meta.date_donnees)}.
+          {dernierTrimestreEnCours && (
+            <>
+              {" "}
+              Le trimestre {dernierTrimestre?.trimestre} est en cours :
+              chiffres partiels au {formatDateFr(meta.date_donnees)}.
+            </>
+          )}
         </p>
         <VueTableau>
           <DataTable<TrimestreActivites>
@@ -1198,8 +1210,10 @@ export default async function LobbyingPage() {
                   {formatPct(partTypesInterlocuteur)}
                 </strong>
               )}{" "}
-              des activités rattachées à un destinataire. Aucun chiffre
-              n&apos;est retiré : ils sont ici.
+              des mentions de destinataire — une activité qui vise plusieurs
+              destinataires compte une fois pour chacun, ce n&apos;est donc pas
+              une part d&apos;activités. Aucun chiffre n&apos;est retiré : ils
+              sont ici.
             </p>
             <DataTable<MinistereVise>
               colonnes={[

@@ -149,14 +149,24 @@ export type DonneesLobbying = {
   institutionsDetail: InstitutionDetail[];
   topEntites: TopEntite[];
   budgets: FourchetteBudget[];
-  /** Nb d'entités couvertes par une fourchette (somme des nb_entites). */
-  budgetsCouverture: { dansFourchettes: number; total: number };
+  /**
+   * Entités ACTIVES couvertes par une fourchette (somme des nb_entites de
+   * lobby_agg_budgets, qui ne compte que les actives au dernier exercice
+   * déclaré), sur le total des entités ACTIVES — même périmètre des deux
+   * côtés : les entités cessées n'entrent ni dans l'un ni dans l'autre.
+   */
+  budgetsCouverture: { dansFourchettes: number; totalActives: number };
   trimestres: TrimestreActivites[];
   /** Top 12 des ministères et institutions RÉELLEMENT nommés. */
   ministeres: MinistereVise[];
   /** Types d'interlocuteur déclarés sans nommer d'institution (présentés à part). */
   typesInterlocuteur: MinistereVise[];
-  /** Part des activités déclarées sur un type d'interlocuteur, en %. */
+  /**
+   * Part des MENTIONS de destinataire qui désignent un type d'interlocuteur,
+   * en %. Le dénominateur additionne les lignes de lobby_agg_ministeres :
+   * une activité qui vise plusieurs destinataires y compte une fois pour
+   * chacun. Ce n'est donc pas une part d'activités.
+   */
   partTypesInterlocuteur: number | null;
   /** Alerte agrégée native du pipeline (type lobbying_declaration_incomplete). */
   alerteDefauts: AlerteLigne | null;
@@ -313,9 +323,9 @@ export function getDonneesLobbying(): DonneesLobbying | null {
   const couverture = db
     .prepare(
       `SELECT (SELECT SUM(nb_entites) FROM lobby_agg_budgets) AS dansFourchettes,
-              (SELECT COUNT(*) FROM lobby_entites)            AS total`,
+              (SELECT SUM(active) FROM lobby_entites)         AS totalActives`,
     )
-    .get() as { dansFourchettes: number; total: number };
+    .get() as { dansFourchettes: number; totalActives: number };
 
   const trimestres = db
     .prepare(

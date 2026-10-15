@@ -32,6 +32,11 @@ const INTERDITS = [
     /montant_total \?\? 0/,
     "un mois sans montant connu n'est pas une colonne à zéro",
   ],
+  [
+    "app/lobbying/page.tsx",
+    /des activités rattachées à un destinataire/,
+    "le dénominateur additionne des mentions de destinataire, pas des activités",
+  ],
 ];
 
 for (const [fichier, motif, pourquoi] of INTERDITS) {

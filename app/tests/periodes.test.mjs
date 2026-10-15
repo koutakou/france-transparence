@@ -4,10 +4,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  estTrimestreDeLaDonnee,
   estVeille,
   jourParis,
   moisClos,
   premierMoisIncomplet,
+  trimestreDe,
 } from "../src/lib/periodes.ts";
 
 test("jourParis : 23 h 30 UTC le 14/10 est déjà le 15/10 à Paris", () => {
@@ -25,6 +27,21 @@ test("« J-1 » seulement si la donnée est datée de la veille de la constructi
   // Construction à 00 h 30 (Paris) le 16/10, 22 h 30 UTC le 15/10.
   assert.equal(estVeille("2026-10-15", new Date("2026-10-15T22:30:00Z")), true);
   assert.equal(estVeille("illisible", construction), false);
+});
+
+test("trimestreDe", () => {
+  assert.equal(trimestreDe("2026-10-14"), "2026-T4");
+  assert.equal(trimestreDe("2026-09-30"), "2026-T3");
+  assert.equal(trimestreDe("2026-01-01T00:00:00"), "2026-T1");
+  assert.equal(trimestreDe("2026-13-01"), null);
+});
+
+test("le dernier trimestre listé n'est « en cours » que s'il contient la date de donnée", () => {
+  // Base du 15/10/2026 : registre HATVP (S4) au 14/10, dernier trimestre 2026-T4.
+  assert.equal(estTrimestreDeLaDonnee("2026-T4", "2026-10-14"), true);
+  // Donnée au 01/10 et dernier trimestre listé T3 : T3 est clos.
+  assert.equal(estTrimestreDeLaDonnee("2026-T3", "2026-10-01"), false);
+  assert.equal(estTrimestreDeLaDonnee(undefined, "2026-10-01"), false);
 });
 
 test("moisClos retire le mois civil inachevé à la date de donnée", () => {

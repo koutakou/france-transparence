@@ -41,6 +41,24 @@ export function estVeille(dateDonnees: string, maintenant: Date): boolean {
   return donnee !== null && aujourdhui !== null && aujourdhui - donnee === JOUR_MS;
 }
 
+/** `2026-10-14` → `2026-T4` ; `null` si la date est illisible. */
+export function trimestreDe(dateIso: string): string | null {
+  const m = /^(\d{4})-(\d{2})/.exec(dateIso.trim());
+  if (!m) return null;
+  const mois = Number(m[2]);
+  if (mois < 1 || mois > 12) return null;
+  return `${m[1]}-T${Math.ceil(mois / 3)}`;
+}
+
+/**
+ * Le trimestre `trimestre` (`AAAA-Tn`) contient-il la date de donnée ? Seul
+ * ce cas autorise à le dire « en cours » : si la donnée date du 01/10, le
+ * dernier trimestre listé (T3) est clos.
+ */
+export function estTrimestreDeLaDonnee(trimestre: string | undefined, dateDonnees: string): boolean {
+  return trimestre !== undefined && trimestre === trimestreDe(dateDonnees);
+}
+
 /** Dernier jour (minuit UTC) du mois `AAAA-MM` ; `null` si illisible. */
 function finDeMois(mois: string): number | null {
   const m = /^(\d{4})-(\d{2})$/.exec(mois.trim());
