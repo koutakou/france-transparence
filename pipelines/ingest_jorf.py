@@ -95,6 +95,13 @@ RE_LIVRAISON = re.compile(r'href="(JORFSIMPLE_(\d{8})-(\d{6})\.tar\.gz)"')
 # admis par l'ancien seuil de 12 h, il avait reculé la fenêtre de dix-neuf ans.
 HEURE_MAX_NOCTURNE = 6
 
+# Début de la livraison du soir (~21h-22h45 constaté). Entre HEURE_MAX_NOCTURNE
+# et cette heure, une livraison est un correctif — ou une nocturne en retard :
+# un jour qui n'a QUE cela n'a aucun JO retenu, et c'est dit au journal.
+# Index relu le 15/10/2026 : 2 jours sur 452 dans ce cas (lundis 22/09/2025
+# et 01/06/2026, sans JO), aucune nocturne livrée après 04h21.
+HEURE_MIN_SOIR = 20
+
 # Un texte livré la nuit du jour J paraît au JO du jour J (mesuré sur les 30
 # nocturnes du 12/09 au 15/10/2026 : aucune exception). La veille est tolérée ;
 # plus ancien, c'est une réécriture, écartée et comptée.
@@ -188,6 +195,46 @@ def livraisons_nocturnes(html: str) -> list[str]:
         if aaaammjj not in par_jour or nom < par_jour[aaaammjj]:
             par_jour[aaaammjj] = nom
     return sorted(par_jour.values())
+
+
+def livraisons_de_journee_sans_nocturne(html: str) -> list[str]:
+    """Livraisons de journée (HEURE_MAX_NOCTURNE <= heure < HEURE_MIN_SOIR)
+    des jours qui n'ont AUCUNE nocturne, ordre chronologique.
+
+    POURQUOI : la règle des 06 h écarte les correctifs qui réécrivaient des
+    JO anciens. Mais une nocturne livrée en retard (après 06 h) serait
+    écartée de la même façon, et le JO de ce jour sauterait de la fenêtre
+    sans aucun signe. Ces livraisons ne sont pas ingérées (on ne devine pas
+    qu'un correctif est un JO) : elles sont NOMMÉES au journal du cycle.
+    """
+    nocturnes: set[str] = set()
+    journee: dict[str, list[str]] = {}
+    for nom, aaaammjj, hhmmss in RE_LIVRAISON.findall(html):
+        heure = int(hhmmss[:2])
+        if heure < HEURE_MAX_NOCTURNE:
+            nocturnes.add(aaaammjj)
+        elif heure < HEURE_MIN_SOIR:
+            journee.setdefault(aaaammjj, []).append(nom)
+    return sorted(n for j, noms in journee.items() if j not in nocturnes for n in noms)
+
+
+def signaler_jours_sans_nocturne(html: str, debut: date) -> list[str]:
+    """Journalise, à CHAQUE cycle et zéro compris, les jours de la fenêtre
+    (à partir de `debut`) sans nocturne mais avec une livraison de journée
+    écartée. Avertit sans lever : le JO manquant n'est pas une raison
+    d'arrêter la nuit, mais il ne doit pas manquer en silence."""
+    noms = [n for n in livraisons_de_journee_sans_nocturne(html)
+            if jour_de_livraison(n) >= debut]
+    if noms:
+        log.warning(
+            "%d livraison(s) de journée sur un jour sans nocturne, écartée(s)"
+            " par la règle des %02d h : %s — si c'est une nocturne en retard,"
+            " le JO de ce jour manque à la fenêtre (à vérifier)",
+            len(noms), HEURE_MAX_NOCTURNE, ", ".join(noms),
+        )
+    else:
+        log.info("jours sans nocturne avec livraison de journée dans la fenêtre : 0")
+    return noms
 
 
 def jour_de_livraison(nom_tarball: str) -> date:
@@ -533,6 +580,7 @@ def main(argv: list[str] | None = None) -> int:
         "%d livraisons nocturnes à l'index, %d retenues (%s → %s)",
         len(nocturnes), len(selection), selection[0], selection[-1],
     )
+    signaler_jours_sans_nocturne(r.text, jour_de_livraison(selection[0]))
 
     # Tout le réseau AVANT la première écriture : une coupure au 12e tarball
     # ne doit pas laisser en base 11 JO neufs sous la date de la veille.
