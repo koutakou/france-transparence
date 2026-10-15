@@ -5,6 +5,13 @@
 # les autres (check `construire` : tests, lint, types, build, contrôles de
 # santé). Rien ne fusionne seul.
 #
+# Pour npm et pip, seules les montées MINEURES et CORRECTIVES sont groupées ;
+# chaque montée MAJEURE arrive dans sa propre proposition. La première
+# proposition groupée (#117, 15/10/2026) mêlait sept montées dont trois
+# majeures (TypeScript 7, ESLint 10, @types/node 26) : typescript-eslint ne
+# prenait pas encore TypeScript 7, le build tombait, et les quatre montées
+# compatibles restaient bloquées derrière les trois autres.
+#
 # Les alertes et correctifs de SÉCURITÉ de Dependabot ne dépendent pas de ce
 # fichier : ils s'activent dans les réglages du dépôt (Settings → Code security).
 
@@ -30,6 +37,7 @@ updates:
     groups:
       app:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
     commit-message:
       prefix: "Dépendances app"
 
@@ -41,5 +49,6 @@ updates:
     groups:
       pipelines:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
     commit-message:
       prefix: "Dépendances pipelines"
