@@ -37,7 +37,9 @@ export type PartiTopProduits = {
   nom: string;
   sigle: string | null;
   exercice: number;
-  produits_total: number | null;
+  /** Jamais NULL ici : un parti sans produits publiés n'est pas classable
+   *  par produits (SQL_TOP_PRODUITS l'écarte et le compte). */
+  produits_total: number;
   aide_publique: number;
   dons: number | null;
   cotisations: number;
@@ -206,6 +208,21 @@ export type AlertesRejetsSynthese = {
   source_url: string | null;
 };
 
+/**
+ * Top 10 des partis par produits totaux. Un compte sans produits publiés
+ * (NULL) n'a pas de rang : il est écarté ici et compté par
+ * SQL_NB_SANS_PRODUITS, au lieu de devenir une barre à 0 € (la vue trie en
+ * DESC, NULL en dernier : il ne remontait que s'il restait moins de dix
+ * comptes chiffrés).
+ */
+export const SQL_TOP_PRODUITS = `SELECT parti_id, nom, sigle, exercice, produits_total, aide_publique, dons, cotisations
+       FROM v_partis_top_produits
+       WHERE produits_total IS NOT NULL
+       LIMIT 10`;
+
+export const SQL_NB_SANS_PRODUITS = `SELECT COUNT(*) AS nb FROM v_partis_top_produits
+       WHERE produits_total IS NULL`;
+
 export type DonneesFinancement = {
   /** Fraîcheur S25 (comptes des partis), S29 (campagnes), S37 (décret). */
   metaPartis: MetaSource;
@@ -215,6 +232,9 @@ export type DonneesFinancement = {
   /** Comptes 2023 déposés hors euros (2 XPF + 1 sans unité), exclus des agrégats €. */
   comptesHorsEuros: { nb: number; exercice_min: number | null; exercice_max: number | null };
   topProduits: PartiTopProduits[];
+  /** Comptes du dernier exercice sans produits totaux publiés : écartés du
+   *  classement par produits, comptés ici (manquant ≠ zéro). */
+  nbSansProduits: number;
   ressources2024: RessourcesParType | null;
   /** Aide INSCRITE AUX COMPTES par les partis, par exercice (déclarations). */
   aideEvolution: AidePubliqueAnnee[];
@@ -267,13 +287,10 @@ export function getDonneesFinancement(): DonneesFinancement | null {
     )
     .get() as { nb: number; exercice_min: number | null; exercice_max: number | null };
 
-  const topProduits = db
-    .prepare(
-      `SELECT parti_id, nom, sigle, exercice, produits_total, aide_publique, dons, cotisations
-       FROM v_partis_top_produits
-       LIMIT 10`,
-    )
-    .all() as PartiTopProduits[];
+  const topProduits = db.prepare(SQL_TOP_PRODUITS).all() as PartiTopProduits[];
+  const { nb: nbSansProduits } = db
+    .prepare(SQL_NB_SANS_PRODUITS)
+    .get() as { nb: number };
 
   const ressources2024 =
     (db
@@ -373,6 +390,7 @@ export function getDonneesFinancement(): DonneesFinancement | null {
     kpi,
     comptesHorsEuros,
     topProduits,
+    nbSansProduits,
     ressources2024,
     aideEvolution,
     decretsAide,

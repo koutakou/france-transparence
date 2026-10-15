@@ -113,6 +113,7 @@ export default async function FinancementPage() {
     kpi,
     comptesHorsEuros,
     topProduits,
+    nbSansProduits,
     ressources2024,
     aideEvolution,
     decretsAide,
@@ -382,10 +383,17 @@ export default async function FinancementPage() {
         <BarList
           items={topProduits.map((p) => ({
             libelle: p.nom,
-            valeur: p.produits_total ?? 0,
+            valeur: p.produits_total,
           }))}
           formatValeur={(v) => enMillions(v, 2)}
         />
+        {nbSansProduits > 0 && (
+          <p className="mt-2 text-xs text-ink-muted">
+            {formatNombre(nbSansProduits)} compte
+            {nbSansProduits > 1 ? "s" : ""} sans produits totaux publiés, non
+            classé{nbSansProduits > 1 ? "s" : ""}.
+          </p>
+        )}
         <VueTableau>
           <DataTable<PartiTopProduits>
             colonnes={[
