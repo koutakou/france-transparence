@@ -537,7 +537,17 @@ export default async function Accueil() {
                   </div>
                   <span className="shrink-0 pt-3 text-[13px] [font-variant-numeric:tabular-nums]">
                     {m.montant !== null ? (
-                      <Money valeur={m.montant} />
+                      <span className="inline-flex items-baseline gap-1.5">
+                        <Money valeur={m.montant} />
+                        {m.suspect === 1 && (
+                          <span
+                            className="text-[11px] text-ink-muted"
+                            title="Montant classé suspect : anomalie signalée à la source, ou montant supérieur à 100 M€ (écrêté dans les agrégats)."
+                          >
+                            suspect
+                          </span>
+                        )}
+                      </span>
                     ) : (
                       <span className="text-ink-muted">non publié</span>
                     )}
