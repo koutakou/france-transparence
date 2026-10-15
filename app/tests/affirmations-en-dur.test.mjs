@@ -43,6 +43,21 @@ const INTERDITS = [
     "un mois sans montant connu n'est pas une colonne à zéro",
   ],
   [
+    "app/marches/page.tsx",
+    /montant_hors_suspects \?\? 0/,
+    "un acheteur ou un titulaire sans montant hors suspects n'est pas une barre à 0 € (BarList : « non disponible »)",
+  ],
+  [
+    "app/marches/page.tsx",
+    /taux_dans_delai \?\? 0/,
+    "une année ou une catégorie sans taux n'est pas une barre à 0 %",
+  ],
+  [
+    "components/ui/BarList.tsx",
+    /valeur: number;/,
+    "BarList accepte une valeur manquante (null) et la dit, au lieu d'exiger un nombre que l'appelant inventerait",
+  ],
+  [
     "app/page.tsx",
     /LIBELLES_SOURCES\[source\.source_id\]/,
     "en secours, le badge S35 nomme la source réellement utilisée (libelleBadgeSource)",
