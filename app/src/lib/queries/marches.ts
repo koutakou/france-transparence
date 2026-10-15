@@ -487,7 +487,7 @@ export type DonneesMarches = {
   aoTotalFiltre: number; // total d'AO en cours pour le filtre courant
   aoSansMontantFiltre: number; // dont ni montant ni fourchette publiés
   aoFourchetteSeuleFiltre: number; // dont fourchette seule, sans montant
-  annoncesParJour: AnnoncesJour[]; // 31 jours, ordre chronologique
+  annoncesParJour: AnnoncesJour[]; // 30 jours civils, ordre chronologique
   marchesAVenir: MarcheAVenir[]; // 20 publications prévues les plus proches
   alertes: AlerteMarches[]; // alertes du domaine (vide aujourd'hui)
 };
@@ -1107,8 +1107,8 @@ export function chargerDonneesMarches(
     )
     .all(familleActive, familleActive) as AoEnCours[];
 
-  // 31 jours d'annonces (toutes natures). Vérifié : 9 426 annonces,
-  // 2026-07-20 → 2026-08-19.
+  // 30 jours civils d'annonces, aujourd'hui compris (toutes natures),
+  // fenêtre FENETRE_JOURS d'ingest_boamp.
   const annoncesParJour = db
     .prepare(
       `SELECT jour, nb, nb_appels_offre, nb_attributions

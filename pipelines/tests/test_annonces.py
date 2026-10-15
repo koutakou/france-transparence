@@ -567,3 +567,41 @@ def test_pipeline_ecrit_les_bornes_sur_une_base_servie_anterieure(
     assert lignes["26-100118"] == (None, None, None)
     # Le compte des fourchettes est publié À PART de celui des montants.
     assert "0 avec montant publié dans l'annonce, 2 autres avec seulement une fourchette" in notes
+
+
+# ---------------------------------------------------------------------------
+# BOAMP — fenêtre « 30 j » = 30 jours civils, aujourd'hui compris
+# ---------------------------------------------------------------------------
+
+
+def test_debut_fenetre_couvre_trente_jours_civils_aujourdhui_compris():
+    # Le 15/10/2026, l'ancien calcul (today - 30) commençait au 15/09 :
+    # 31 dates distinctes dans annonces_par_jour, pour une note « 30 j ».
+    debut = ingest_boamp.debut_fenetre(date(2026, 10, 15))
+    assert debut == date(2026, 9, 16)
+    assert (date(2026, 10, 15) - debut).days + 1 == ingest_boamp.FENETRE_JOURS
+
+
+def test_le_filtre_amont_part_du_debut_de_fenetre(
+    tmp_path, monkeypatch, fourchettes, reels
+):
+    class Jour(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 10, 15)
+
+    monkeypatch.setattr(ingest_boamp, "date", Jour)
+    monkeypatch.setenv("FT_DB_PATH", str(tmp_path / "fenetre.db"))
+    filtres = {}
+
+    def exporter(where, select, dest):
+        filtres[dest] = where
+        return {
+            "boamp_ao_en_cours.json": [fourchettes["fourchette_deux_bornes"]],
+            "boamp_annonces_recentes.json": [reels["boamp_attribution"]],
+            "boamp_annonces_liees.json": [],
+        }[dest]
+
+    monkeypatch.setattr(ingest_boamp, "_exporter", exporter)
+    assert ingest_boamp.main() == 0
+    assert filtres["boamp_annonces_recentes.json"] == "dateparution>=date'2026-09-16'"
