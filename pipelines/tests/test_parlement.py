@@ -1361,9 +1361,10 @@ def test_clore_mandats_an_date_le_sortant_et_laisse_les_autres(tmp_path,
     conn.commit()
     zip_path = _zip_amo20(tmp_path)
     monkeypatch.setattr(p9, "telecharger", lambda *a, **k: zip_path)
+    monkeypatch.setattr(p9, "_date_last_modified", lambda *a, **k: "2026-10-15")
     # PA841605 dans AMO10 du jour ; PA841539 et PA999999 sortis, seul le
     # premier a une date de fin publiée.
-    p9.clore_mandats_an(conn, None, {"PA841605"})
+    assert p9.clore_mandats_an(conn, None, {"PA841605"}) == "2026-10-15"
     def fins(uid):
         brut = conn.execute("SELECT mandats FROM elus WHERE id = ?",
                             (uid,)).fetchone()[0]
@@ -1381,8 +1382,9 @@ def test_clore_mandats_an_ne_leve_pas_si_amo20_est_illisible(tmp_path,
     faux = tmp_path / "amo20.zip"
     faux.write_bytes(b"pas un zip")
     monkeypatch.setattr(p9, "telecharger", lambda *a, **k: faux)
+    monkeypatch.setattr(p9, "_date_last_modified", lambda *a, **k: "2026-10-15")
     with caplog.at_level("ERROR"):
-        p9.clore_mandats_an(conn, None, set())       # ne lève pas
+        assert p9.clore_mandats_an(conn, None, set()) is None   # ne lève pas
     assert any("AMO20 illisible" in m for m in caplog.messages)
     conn.close()
 
@@ -1431,4 +1433,10 @@ def test_ingerer_amo10_ecrit_le_code_du_departement(tmp_path, monkeypatch):
         "SELECT mandats FROM elus WHERE uid_an = 'PA841605'").fetchone()[0])
     assert [m["code_departement"] for m in mandats if m["source"] == "AN-P9"] == [
         attendu]
+    # AMO20 est déclaré dans la ligne de fraîcheur de l'AN (ici, le même zip
+    # sert d'AMO20 : lisible, aucun sortant).
+    nom, notes = conn.execute("SELECT nom, notes FROM meta_sources"
+                              " WHERE source_id = 'S5-AMO10'").fetchone()
+    assert "AMO20" in nom
+    assert "AMO20 (données du 2026-08-29" in notes and p9.URL_AMO20 in notes
     conn.close()
