@@ -80,7 +80,7 @@ PIPELINES := referentiels budget_mensuel budget_structure decp boamp approch \
 
 # NB : ne PAS déclarer les cibles ingest-<x> en .PHONY — make saute la
 # recherche de règles implicites (ingest-%) pour les cibles phony.
-.PHONY: venv ingest test dev build build-static serve-static app-install
+.PHONY: venv ingest pipelines test dev build build-static serve-static app-install
 
 venv: $(VENV)/bin/pip
 $(VENV)/bin/pip: requirements.txt
@@ -93,6 +93,12 @@ ingest: $(addprefix ingest-,$(PIPELINES))
 ifeq ($(strip $(PIPELINES)),)
 	@echo "Aucun pipeline câblé pour l'instant (voir PIPELINES dans ce Makefile)."
 endif
+
+# La liste qui fait autorité, un nom par ligne, dans l'ordre d'ingestion : la
+# documentation y renvoie au lieu de la recopier (une copie a dérivé de 24 à 31
+# noms sans que personne la reprenne).
+pipelines:
+	@printf '%s\n' $(PIPELINES)
 
 # Règle générique : make ingest-<source> → python -m pipelines.ingest_<source>
 ingest-%: venv
@@ -118,13 +124,14 @@ dev:
 build:
 	cd app && npm run build
 
-# Export statique (GitHub Pages) : génère app/out/ — nécessite la base
-# (FRANCE_DB_PATH ou data/france.db), tout est pré-rendu au build.
+# Export statique, la forme servie en production par nginx (francetransparence.fr,
+# racine du domaine) : génère app/out/ — nécessite la base (FRANCE_DB_PATH ou
+# data/france.db), tout est pré-rendu au build.
 build-static:
 	cd app && FT_EXPORT=1 npm run build
 
-# Sert app/out/ tel quel sur :3620. NB : en local le build se fait SANS
-# NEXT_PUBLIC_BASE_PATH → site à la racine (http://localhost:3620/), alors
-# que la prod GitHub Pages vit sous /france-transparence/.
+# Sert app/out/ tel quel sur :3620. Le build local est identique à la
+# production : SANS NEXT_PUBLIC_BASE_PATH, site à la racine
+# (http://localhost:3620/), comme sur francetransparence.fr.
 serve-static:
 	cd app && python3 -m http.server 3620 --directory out

@@ -53,7 +53,7 @@ La base `data/france.db` (493 Mo, 81 tables et 6 vues au 24/08/2026 — ça boug
 make ingest-<source>
 ```
 
-avec `<source>` parmi les pipelines déclarés dans la variable `PIPELINES` du `Makefile`, qui fait autorité (24 cibles, dans cet ordre) : `referentiels`, `budget_mensuel`, `budget_structure`, `decp`, `boamp`, `approch`, `jorf`, `parlement`, `integrite`, `hatvp_declarations`, `lobbying`, `financement`, `collectivites`, `elections`, `trainvie`, `cada`, `registre_ue`, `dette_maastricht`, `deficit_maastricht`, `dole`, `agregats_apu`, `cge`, `protection_sociale`, `sirene`.
+avec `<source>` parmi les pipelines déclarés dans la variable `PIPELINES` du `Makefile`, qui fait autorité. La liste n'est pas recopiée ici, elle dériverait : `make pipelines` l'affiche, un nom par ligne, dans l'ordre où `make ingest` les joue (ordre signifiant, expliqué en tête du `Makefile`).
 
 ## Tests
 
