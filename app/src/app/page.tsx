@@ -17,6 +17,7 @@ import { StatStrip } from "@/components/ui/StatStrip";
 import { VueTableau } from "@/components/ui/VueTableau";
 import type { MetaSource } from "@/lib/db";
 import { AO_ACCUEIL_AFFICHEES } from "@/lib/echeances";
+import { estVeille } from "@/lib/periodes";
 import { ESPACE_FINE, formatDateFr, formatNombre } from "@/lib/format";
 import {
   getDonneesAccueil,
@@ -198,6 +199,14 @@ export default async function Accueil() {
     sources,
   } = donnees;
 
+  /* --- « J-1 » sur les pastilles DECP : vrai seulement si la donnée est
+         datée de la veille (heure de Paris) de la construction. Une donnée
+         du jour même, ou en retard de plusieurs jours, ne la porte pas. --- */
+  const mentionDecp =
+    sources.S1 && estVeille(sources.S1.date_donnees, new Date(construitLe))
+      ? "J-1"
+      : undefined;
+
   /* --- Carte : valeurs par département limitées au fond métropole
          (l'outre-mer est hors du rendu — codes 97x/98x écartés).
          Le GeoJSON n'est lu ici QUE pour filtrer les codes : le fond est
@@ -372,7 +381,7 @@ export default async function Accueil() {
         </div>
       </div>
       <div className="flex flex-wrap gap-1.5">
-        <BadgeSource source={sources.S1} mention="J-1" />
+        <BadgeSource source={sources.S1} mention={mentionDecp} />
         <BadgeSource source={sources.S2} />
         <BadgeSource source={sources.S3} />
       </div>
@@ -398,7 +407,7 @@ export default async function Accueil() {
         ]}
       />
       <div className="flex flex-wrap gap-1.5">
-        <BadgeSource source={sources.S1} mention="J-1" />
+        <BadgeSource source={sources.S1} mention={mentionDecp} />
         <BadgeSource source={sources.S16} />
         <BadgeSource source={sources.S17} />
         <BadgeSource source={sources["S35-reforga-admin-etat"]} />
@@ -474,7 +483,7 @@ export default async function Accueil() {
         <Card
           titre="Marchés publics par département"
           sousTitre="Marchés notifiés, 12 derniers mois — montants écrêtés (plafond 100 M€ par marché), acheteurs à département connu · points : préfectures · outre-mer hors carte"
-          droite={<BadgeSource source={sources.S1} mention="J-1" />}
+          droite={<BadgeSource source={sources.S1} mention={mentionDecp} />}
         >
           <div className="mx-auto w-full max-w-[22rem]">
             <CarteDepartements
@@ -497,7 +506,7 @@ export default async function Accueil() {
         <div className="min-w-0">
           <Card
             titre="Derniers marchés notifiés"
-            droite={<BadgeSource source={sources.S1} mention="J-1" />}
+            droite={<BadgeSource source={sources.S1} mention={mentionDecp} />}
           >
             <ul className="flex flex-col">
               {derniersMarches.map((m) => (
