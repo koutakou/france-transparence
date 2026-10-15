@@ -60,7 +60,13 @@ export const metadata: Metadata = {
  *   hébergement statique — sans cette valeur, le site ne s'hydrate pas ;
  * - `style-src 'unsafe-inline'` : attributs style= des composants dataviz ;
  * - `frame-ancestors` est IGNORÉ dans une CSP en <meta> (spec CSP3) : ne pas
- *   l'ajouter ici — risque clickjacking résiduel accepté dans DECISION.md.
+ *   l'ajouter ici — risque clickjacking résiduel accepté dans DECISION.md ;
+ * - la « même politique » du <meta> n'est pas intégrale : Next l'émet APRÈS
+ *   les <script src="/_next/…"> qu'il place en tête du document (sept sur
+ *   l'accueil, mesuré le 15/10/2026), et une CSP en <meta> ne s'applique
+ *   qu'aux éléments qui la suivent. Ces scripts sont de même origine, donc
+ *   autorisés de toute façon par `script-src 'self'` ; seul l'en-tête HTTP
+ *   de nginx couvre réellement tout le document.
  * La meta est émise en production seulement : `next dev` (HMR, eval,
  * websockets) est incompatible avec cette politique.
  */
