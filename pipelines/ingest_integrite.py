@@ -58,7 +58,12 @@ Alerte A1 — règle révisée de docs/SOURCES.md §4 (appliquée à la lettre) 
   présidents de conseils départementaux/régionaux) avec filtre sur la qualité
   déclarée ; le reste (adjoints, vice-présidents, ctsp, gouvernement…) = non
   apparié = non-alerte ; (6) réserve affichée : RNE trimestriel (11/08/2026),
-  dates de fonction possiblement périmées jusqu'à ~3 mois.
+  dates de fonction possiblement périmées jusqu'à ~3 mois ; (7) pas d'alerte
+  pour une chambre dont le dernier renouvellement (lu dans la table de P9)
+  est postérieur à la date de début la plus récente du fichier RNE : un réélu
+  y porte encore la date de son mandat PRÉCÉDENT (constat du 15/10/2026 :
+  « 216 déclarations présumées en retard » pour des sénateurs réélus le
+  27/09/2026, dont l'échéance légale court jusqu'en décembre).
 
 meta_sources : S14 (HATVP liste.csv, date_donnees = Last-Modified réel) et
 S17 (RNE, date_donnees = last_modified des ressources via l'API data.gouv —
@@ -153,9 +158,21 @@ REGLE_A1_RETARD = (
     "jointure nom+prénom+département normalisés, homonyme non tranché = "
     "non-alerte ; documents initiaux seulement (di, dsp, dia) ; qualité "
     "déclarée filtrée sur la population RNE appariée (maires, présidents "
-    "d'exécutifs, parlementaires) ; agrégat non nominatif. Réserve : RNE "
-    "trimestriel, dates de fonction possiblement périmées jusqu'à ~3 mois."
+    "d'exécutifs, parlementaires) ; agrégat non nominatif ; aucune alerte "
+    "pour une chambre dont le dernier renouvellement est postérieur au RNE "
+    "ingéré. Réserve : RNE trimestriel, dates de fonction possiblement "
+    "périmées jusqu'à ~3 mois."
 )
+
+# Garde-fou n° 7 de la règle A1 : le RNE trimestriel ignore-t-il le dernier
+# renouvellement d'une chambre ? La date d'entrée COLLECTIVE est lue dans la
+# table de la chambre en exercice écrite par P9 (lancé avant P7) : la plus
+# récente date de début de mandat partagée par au moins cette part des élus
+# en exercice. Le Sénat se renouvelle par moitié, l'AN en entier : un quart
+# sépare un renouvellement d'une élection partielle ou d'un remplacement.
+TABLES_CHAMBRES = {"depute": "deputes", "senateur": "senateurs"}
+CLES_RNE_CHAMBRES = {"depute": "deputes", "senateur": "senateurs"}
+PART_ENTREE_COLLECTIVE = 0.25
 
 REGLE_A1_NON_DEPOSEE = (
     "Constat officiel HATVP repris tel quel : statut natif « Déclaration non "
@@ -658,9 +675,60 @@ def construire_index_rne(rne: dict[str, list[dict]]) -> dict[str, dict]:
 # ---------------------------------------------------------------------------
 
 
+def derniere_entree_collective(conn, table: str) -> str | None:
+    """Plus récente date de début de mandat partagée par au moins
+    PART_ENTREE_COLLECTIVE des élus en exercice de `table` (deputes ou
+    senateurs, écrites par P9). None si la table est absente, vide, ou
+    qu'aucune date n'atteint ce seuil : rien n'est alors vérifiable."""
+    if table not in TABLES_CHAMBRES.values():
+        raise ValueError(f"table de chambre inconnue : {table!r}")
+    try:
+        total = conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+        lignes = conn.execute(
+            f"SELECT date_debut_mandat, count(*) FROM {table}"
+            " WHERE date_debut_mandat IS NOT NULL GROUP BY 1").fetchall()
+    except sqlite3.OperationalError:
+        return None
+    dates = [d for d, n in lignes if total and n >= PART_ENTREE_COLLECTIVE * total]
+    return max(dates) if dates else None
+
+
+def types_rne_anterieurs(conn, rne: dict[str, list[dict]]) -> dict[str, tuple]:
+    """{type_mandat: (entrée collective de la chambre, début le plus récent
+    du RNE)} pour les chambres dont le RNE ingéré précède le dernier
+    renouvellement. Une chambre non vérifiable (table de P9 absente ou sans
+    date collective) est journalisée et N'EST PAS écartée : le garde-fou ne
+    retire une alerte que sur preuve."""
+    perimes: dict[str, tuple] = {}
+    for tm, table in TABLES_CHAMBRES.items():
+        entree = derniere_entree_collective(conn, table)
+        debuts = [d for d in (_parser_date_iso(r.get("Date de début du mandat"))
+                              for r in rne.get(CLES_RNE_CHAMBRES[tm], [])) if d]
+        plus_recent = max(debuts).isoformat() if debuts else None
+        if entree is None:
+            log.warning("A1 : renouvellement de la chambre « %s » non vérifiable"
+                        " (table %s absente ou sans date d'entrée collective)",
+                        tm, table)
+            continue
+        if plus_recent is None or plus_recent < entree:
+            perimes[tm] = (entree, plus_recent)
+    # Journalisé À CHAQUE CYCLE, vide compris.
+    log.info("A1 : chambres dont le RNE précède le dernier renouvellement"
+             " (retards présumés non calculés) : %s",
+             {tm: f"entrée {e}, RNE au plus tard {r}" for tm, (e, r) in perimes.items()}
+             or "aucune")
+    return perimes
+
+
 def calculer_a1(dossiers: list[dict], index_rne: dict[str, dict],
-                aujourd_hui: date) -> tuple[list[dict], list[dict], Counter]:
+                aujourd_hui: date,
+                types_perimes: frozenset[str] | set[str] = frozenset(),
+                ) -> tuple[list[dict], list[dict], Counter]:
     """Applique la règle A1. Retourne (nominatives, retards_presumes, stats).
+
+    `types_perimes` : types de mandat dont le RNE précède le dernier
+    renouvellement de la chambre (voir types_rne_anterieurs) — aucun retard
+    présumé n'y est calculé, chaque dossier est compté.
 
     - nominatives : dossiers au statut natif « Déclaration non déposée »
       (seuls cas nominatifs autorisés) ;
@@ -686,6 +754,9 @@ def calculer_a1(dossiers: list[dict], index_rne: dict[str, dict],
             continue
         if tm not in index_rne:                # garde-fou n° 5 (périmètre apparié)
             stats["exclu_mandat_hors_perimetre"] += 1
+            continue
+        if tm in types_perimes:                # garde-fou n° 7
+            stats["rne_anterieur_au_renouvellement"] += 1
             continue
         qualite = normaliser_texte(d["qualite"])
         commune_qualite = ""
@@ -1363,7 +1434,9 @@ def ecrire(conn, dossiers: list[dict], rne: dict, chemins: dict,
 
     # --- Alerte A1 ------------------------------------------------------
     index = construire_index_rne(rne)
-    nominatives, retards, stats = calculer_a1(dossiers, index, aujourd_hui)
+    perimes = types_rne_anterieurs(conn, rne)
+    nominatives, retards, stats = calculer_a1(dossiers, index, aujourd_hui,
+                                              frozenset(perimes))
     lignes_alertes = construire_alertes(nominatives, retards, aujourd_hui,
                                         date_hatvp, date_rne)
     ecrire_alertes(conn, lignes_alertes)

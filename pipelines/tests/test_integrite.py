@@ -177,6 +177,76 @@ def test_a1_nominatif_reserve_aux_non_deposees(resultat_a1):
     assert len(ids) == len(set(ids))              # ids déterministes et uniques
 
 
+# ---------------------------------------------------------------------------
+# Garde-fou n° 7 : RNE antérieur au dernier renouvellement d'une chambre
+#
+# Constat du 15/10/2026 : alerte publique « 216 déclaration(s) HATVP
+# présumée(s) en retard — mandat « senateur » ». Le RNE ingéré (millésime
+# d'août) date les sénateurs réélus le 27/09/2026 de leur mandat PRÉCÉDENT
+# (2020-10-01) ; leurs dia/dsp « En cours » relèvent du mandat ouvert le
+# 01/10/2026, dont l'échéance n'est pas échue.
+# ---------------------------------------------------------------------------
+
+
+def _chambre(conn, table, debuts):
+    """Table de chambre minimale, telle que P9 l'écrit (colonnes lues ici)."""
+    cle = "uid_an" if table == "deputes" else "matricule"
+    conn.execute(f"CREATE TABLE {table} ({cle} TEXT PRIMARY KEY,"
+                 " date_debut_mandat TEXT)")
+    conn.executemany(f"INSERT INTO {table} VALUES (?, ?)",
+                     [(f"X{i}", d) for i, d in enumerate(debuts)])
+
+
+def test_a1_pas_de_retard_senateur_quand_le_rne_precede_le_renouvellement(
+        conn, dossiers):
+    # Sénat du 15/10/2026 en proportions : moitié entrée le 01/10/2026,
+    # moitié en 2023, un remplaçant isolé. RNE de la fixture : 2025-09-01.
+    _chambre(conn, "senateurs", ["2026-10-01"] * 4 + ["2023-10-02"] * 4
+             + ["2026-04-13"])
+    _chambre(conn, "deputes", ["2024-07-07"] * 3)
+    perimes = p7.types_rne_anterieurs(conn, charger_rne())
+    assert perimes == {"senateur": ("2026-10-01", "2025-09-01")}
+    _, retards, stats = p7.calculer_a1(dossiers, p7.construire_index_rne(charger_rne()),
+                                       AUJOURD_HUI, frozenset(perimes))
+    assert not [d for d in retards if d["type_mandat"] == "senateur"]
+    assert stats["rne_anterieur_au_renouvellement"] == 2   # dia + dsp BOURGUIGNON
+    assert ("GUERZA", "commune", "di") in {
+        (d["nom"], d["type_mandat"], d["type_document"]) for d in retards}
+
+
+def test_a1_retard_senateur_maintenu_quand_le_rne_suit_le_renouvellement(
+        conn, dossiers):
+    """Contre-épreuve : renouvellement de 2023, RNE de 2025 — l'alerte reste.
+    Un remplaçant isolé (une voix sur neuf) ne fait pas un renouvellement."""
+    _chambre(conn, "senateurs", ["2023-10-02"] * 8 + ["2026-04-13"])
+    _chambre(conn, "deputes", ["2024-07-07"] * 3)
+    assert p7.types_rne_anterieurs(conn, charger_rne()) == {}
+
+
+def test_a1_chambre_non_verifiable_n_ecarte_rien(conn, caplog):
+    """Sans table de P9, rien n'est prouvé : aucune chambre n'est écartée,
+    et le journal le dit."""
+    with caplog.at_level("INFO"):
+        assert p7.types_rne_anterieurs(conn, charger_rne()) == {}
+    assert any("non vérifiable" in m and "senateur" in m for m in caplog.messages)
+
+
+def test_a1_garde_fou_branche_dans_ecrire(tmp_path, dossiers):
+    """Le vrai `ecrire()` : plus d'alerte « mandat senateur » quand la table
+    `senateurs` montre un renouvellement postérieur au RNE."""
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    _chambre(conn, "senateurs", ["2026-10-01"] * 5 + ["2023-10-02"] * 4)
+    _chambre(conn, "deputes", ["2024-07-07"] * 3)
+    conn.commit()
+    p7.ecrire(conn, dossiers, charger_rne(),
+              {"cm": FIXTURES / "rne_cm_extrait.csv"},
+              AUJOURD_HUI, "2026-08-14", "2026-08-11")
+    ids = {r[0] for r in conn.execute(
+        "SELECT id FROM alertes WHERE type = ?", (p7.TYPE_ALERTE_RETARD,))}
+    assert "A1-RP-senateur" not in ids and "A1-RP-commune" in ids
+    conn.close()
+
+
 def test_ecrire_alertes_preserve_les_autres_pipelines(conn, resultat_a1):
     nominatives, retards, _ = resultat_a1
     conn.execute(
