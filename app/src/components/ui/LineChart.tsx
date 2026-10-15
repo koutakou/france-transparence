@@ -171,6 +171,7 @@ export function LineChart({
       )}
       <div
         className="ft-lc relative"
+        role={ariaLabel ? "img" : undefined}
         tabIndex={ariaLabel ? 0 : undefined}
         aria-label={ariaLabel}
       >

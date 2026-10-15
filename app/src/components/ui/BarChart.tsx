@@ -119,6 +119,7 @@ export function BarChart({
   return (
     <div
       className={`ft-bc relative ${className ?? ""}`}
+      role={ariaLabel ? "img" : undefined}
       tabIndex={ariaLabel ? 0 : undefined}
       aria-label={ariaLabel}
     >
