@@ -162,7 +162,9 @@ def cle_libelle(texte: str) -> str:
     """Minuscule, sans accents, espaces collapsés — pour matcher un libellé INSEE."""
     t = unicodedata.normalize("NFKD", texte or "")
     t = "".join(c for c in t if not unicodedata.combining(c))
-    t = t.replace("'", "'").replace("'", "'").replace("'", "'")
+    # Apostrophes typographiques (’ ‘ ʼ) → apostrophe ASCII, écrites en
+    # échappements : la version littérale remplaçait « ' » par lui-même.
+    t = t.replace("\u2019", "'").replace("\u2018", "'").replace("\u02bc", "'")
     return compact(t).lower()
 
 
