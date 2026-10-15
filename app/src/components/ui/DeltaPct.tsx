@@ -1,4 +1,4 @@
-import { formatPct } from "@/lib/format";
+import { estNulAffiche, formatPct } from "@/lib/format";
 
 /**
  * Delta en pourcentage — flèche + signe + période nommée, JAMAIS la couleur
@@ -35,7 +35,8 @@ export function DeltaPct({
   decimales = 1,
   className,
 }: DeltaPctProps) {
-  const nul = !Number.isFinite(valeur) || valeur === 0;
+  // « Nul » se juge sur la valeur affichée : -0,04 % s'écrit « 0 % », sans ▼.
+  const nul = estNulAffiche(valeur, decimales);
   const fleche = nul ? "" : valeur > 0 ? "▲" : "▼";
   let couleur = "var(--ink-secondary)";
   if (upIsGood !== null && !nul) {
