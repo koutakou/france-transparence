@@ -23,6 +23,11 @@ const INTERDITS = [
     "sans JavaScript rien n'est retiré : le sous-titre date la liste, il ne promet pas le re-filtre",
   ],
   [
+    "app/page.tsx",
+    /stock du jour/,
+    "le stock d'appels d'offres en cours est daté de l'instant de construction",
+  ],
+  [
     "app/marches/page.tsx",
     /les 2 derniers mois sont incomplets/,
     "les mois incomplets se déduisent du 9e décile du délai de publication",
