@@ -1864,7 +1864,7 @@ produites avant cette date ne les portent pas.
 | Table.colonne | Convention appliquée | Pourquoi |
 |---|---|---|
 | `ao_en_cours` (table entière) | Un avis dont la date limite dépasse la parution de plus de **15 ans** n'est pas ingéré (`ECART_MAX_LIMITE_ANNEES`) | Coquilles de millésime de l'acheteur (« 2924 » pour « 2024 ») qui laissaient des avis de 2017 dans le compteur « AO en cours » |
-| `campagnes_2024.code_departement` | Code **COG** : zéro initial rétabli (`01`…`09`), `2A`/`2B`, `977` pour Saint-Barthélemy. **NULL** pour les Français établis hors de France | Le CSV CNCCFP publie des codes non INSEE, et rattachait 125 lignes « hors de France » au département 75 (Paris). Joignable à `ref_departements` depuis cette normalisation |
+| `campagnes_2024.code_departement` | Code **COG** : zéro initial rétabli (`01`…`09`), `2A`/`2B`. **NULL** pour les Français établis hors de France et pour `ZX` (circonscription unique « Saint-Barthélémy et Saint-Martin », deux collectivités 977 et 978 : aucun code unique) | Le CSV CNCCFP publie des codes non INSEE, et rattachait 125 lignes « hors de France » au département 75 (Paris). Joignable à `ref_departements` depuis cette normalisation |
 | `campagnes_2024.departement` | `ZZ` → `Français établis hors de France` | Sentinelle de la source, illisible telle quelle |
 | `campagnes_2024.circonscription` | Ordinaux ramenés à `1re` / `Ne` (jamais `1ère` / `Nème`) | Quatre conventions typographiques coexistaient, et deux d'entre elles s'affichaient côte à côte en page Alertes |
 | `decp_marches.duree_mois` | **NULL** hors de l'intervalle `[0, 600]` mois | La source livre des durées négatives et jusqu'à 32 000 mois. NULL dit « non renseigné » ; une durée négative ment |

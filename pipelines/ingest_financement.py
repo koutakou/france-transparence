@@ -400,17 +400,23 @@ def _normaliser_token(token: str) -> str:
 # Rattachement géographique des comptes de campagne (§ M5 QUALITE-DONNEES.md)
 # ---------------------------------------------------------------------------
 
-# POURQUOI ces trois correspondances et pas une table complète : la CNCCFP
+# POURQUOI ces correspondances et pas une table complète : la CNCCFP
 # publie des codes qui ne sont PAS ceux du COG, mais l'écart est systématique
 # et se réduit à trois familles, chacune vérifiée sur le CSV publié le
 # 20/08/2026 (4 010 lignes) :
 #   - un zéro initial perdu par un tableur (« 1 » pour l'Ain) — 216 lignes ;
 #   - la Corse notée « 20A »/« 20B » au lieu de « 2A »/« 2B » — 32 lignes ;
-#   - Saint-Barthélemy notée « ZX », dont le code COG est « 977 » — 8 lignes.
+#   - « ZX » — 8 lignes, toutes de la circonscription « Saint-Barthélémy et
+#     Saint-Martin – Circonscription unique ». Elle couvre DEUX collectivités
+#     (COG 977 et 978) : aucun code unique ne la désigne, et la traduire en
+#     977 rattachait à tort Saint-Martin à Saint-Barthélemy. Le code devient
+#     NULL (« pas de département unique »), comme pour les Français de
+#     l'étranger ; la circonscription garde son libellé source.
 # Tout autre code est rendu tel quel : on corrige ce qui est prouvé, rien de
 # plus. Enjeu concret : sans cela, campagnes_2024 ne peut PAS être jointe à
 # ref_departements, et toute carte des comptes de campagne est impossible.
-_CODES_DEPARTEMENT_CNCCFP = {"20A": "2A", "20B": "2B", "ZX": "977"}
+_CODES_DEPARTEMENT_CNCCFP = {"20A": "2A", "20B": "2B"}
+_CODES_SANS_DEPARTEMENT_UNIQUE = {"ZX"}
 
 # Sentinelle de la CNCCFP pour les onze circonscriptions des Français de
 # l'étranger. Le CSV leur attribue en outre le code département « 75 »
@@ -433,11 +439,14 @@ _ORDINAL_ERE_RE = re.compile(r"(\d+)ère\b")
 
 
 def normaliser_code_departement(code: str | None) -> str | None:
-    """Code département CNCCFP → code COG, ou None si non renseigné."""
+    """Code département CNCCFP → code COG, ou None si non renseigné ou si
+    le code couvre plusieurs collectivités (ZX)."""
     if not code:
         return None
     code = code.strip()
     if not code:
+        return None
+    if code in _CODES_SANS_DEPARTEMENT_UNIQUE:
         return None
     if code in _CODES_DEPARTEMENT_CNCCFP:
         return _CODES_DEPARTEMENT_CNCCFP[code]
