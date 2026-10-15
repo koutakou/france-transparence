@@ -10,8 +10,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import requests
 
-from pipelines import db
+from pipelines import db, ingest_dole
 from pipelines.ingest_dole import (
     LICENCE,
     SOURCE_ID,
@@ -243,3 +244,112 @@ def test_ecrire_db_refuse_une_liste_vide(tmp_path):
     with pytest.raises(ValueError, match="aucun dossier"):
         ecrire_db(c, [])
     c.close()
+
+
+# ---------------------------------------------------------------------------
+# Serveur DILA injoignable (cas réel des 03 et 04/10/2026) : secours
+# ---------------------------------------------------------------------------
+
+RESET_DILA = (
+    "HTTPSConnectionPool(host='echanges.dila.gouv.fr', port=443): Max retries"
+    " exceeded with url: /OPENDATA/DOLE/ (Caused by ProtocolError("
+    "'Connection aborted.', ConnectionResetError(104, 'Connection reset by"
+    " peer')))"
+)
+
+
+class _Reponse:
+    def __init__(self, contenu: bytes):
+        self.content = contenu
+
+    def raise_for_status(self):
+        pass
+
+
+def _instantane(chemin):
+    c = db.connexion(chemin)
+    try:
+        return (
+            [tuple(r) for r in c.execute("SELECT * FROM dole_dossiers ORDER BY 1")],
+            [tuple(r) for r in c.execute(
+                "SELECT * FROM meta_sources WHERE source_id = 'S43'")],
+        )
+    finally:
+        c.close()
+
+
+def _base_de_la_veille(tmp_path, dossiers):
+    chemin = tmp_path / "veille.db"
+    c = db.init_db(chemin=chemin)
+    ecrire_db(c, dossiers)
+    c.close()
+    return chemin
+
+
+def test_index_injoignable_reprend_la_base_de_la_veille(
+    monkeypatch, tmp_path, dossiers, caplog
+):
+    """Rien n'est écrit : dole_dossiers et la ligne S43 (dates comprises)
+    restent celles du dernier cycle réussi. Exit 0, l'ingestion continue."""
+    base = _base_de_la_veille(tmp_path, dossiers)
+    avant = _instantane(base)
+    monkeypatch.setenv("FT_DB_PATH", str(base))
+
+    class _SessionCoupee:
+        def get(self, url, timeout=None):
+            raise requests.ConnectionError(RESET_DILA)
+
+    monkeypatch.setattr(
+        ingest_dole, "session_http", lambda *a, **k: _SessionCoupee())
+    assert ingest_dole.main() == 0
+    assert _instantane(base) == avant
+    assert "secours" in caplog.text
+
+
+def test_telechargement_injoignable_reprend_la_base_de_la_veille(
+    monkeypatch, tmp_path, dossiers
+):
+    base = _base_de_la_veille(tmp_path, dossiers)
+    avant = _instantane(base)
+    monkeypatch.setenv("FT_DB_PATH", str(base))
+    index = (FIX / "index.html").read_bytes()
+
+    class _Session:
+        def get(self, url, timeout=None):
+            return _Reponse(index)
+
+    def _telecharger(*a, **k):
+        raise requests.ConnectionError(RESET_DILA)
+
+    monkeypatch.setattr(ingest_dole, "session_http", lambda *a, **k: _Session())
+    monkeypatch.setattr(ingest_dole, "telecharger", _telecharger)
+    assert ingest_dole.main() == 0
+    assert _instantane(base) == avant
+
+
+def test_dila_injoignable_sur_base_neuve_echoue(monkeypatch, tmp_path):
+    """Rien à reprendre : échec, tout-ou-rien. Test de la limite du
+    secours ; il passe aussi sur le code d'avant."""
+    monkeypatch.setenv("FT_DB_PATH", str(tmp_path / "neuve.db"))
+
+    class _SessionCoupee:
+        def get(self, url, timeout=None):
+            raise requests.ConnectionError(RESET_DILA)
+
+    monkeypatch.setattr(
+        ingest_dole, "session_http", lambda *a, **k: _SessionCoupee())
+    assert ingest_dole.main() == 1
+
+
+def test_index_au_format_inconnu_echoue_toujours(monkeypatch, tmp_path, dossiers):
+    """Le secours couvre l'amont INJOIGNABLE, pas un amont qui a changé de
+    format : celui-là doit continuer d'arrêter le cycle."""
+    base = _base_de_la_veille(tmp_path, dossiers)
+    monkeypatch.setenv("FT_DB_PATH", str(base))
+
+    class _Session:
+        def get(self, url, timeout=None):
+            return _Reponse(b"<html>plus aucun Freemium</html>")
+
+    monkeypatch.setattr(ingest_dole, "session_http", lambda *a, **k: _Session())
+    assert ingest_dole.main() == 1

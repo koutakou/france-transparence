@@ -142,3 +142,37 @@ def upsert_meta(
          date_donnees, date_ingestion, lignes, notes),
     )
     conn.commit()
+
+
+def publication_precedente(
+    conn: sqlite3.Connection, table: str, source_id: str
+) -> tuple[int, str] | None:
+    """(lignes de `table`, date_donnees de `source_id`) laissées par le
+    dernier cycle réussi, ou None s'il n'y a rien à reprendre.
+
+    Sert au secours « serveur amont injoignable » : le pipeline n'écrit
+    RIEN, ni sa table ni sa ligne meta_sources. La table reste celle du
+    cycle précédent, et la ligne meta garde la date de la donnée la plus
+    récente réellement ingérée et la date de cette ingestion : la fraîcheur
+    affichée reste vraie, et le seuil de fraîcheur finit par alerter si la
+    panne dure. Sans table remplie ET datée (base neuve), il n'y a rien
+    d'honnête à servir : le pipeline doit échouer.
+    """
+    presentes = {
+        r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+            " AND name IN (?, 'meta_sources')", (table,),
+        )
+    }
+    if presentes != {table, "meta_sources"}:
+        return None
+    # `table` est un nom de table EXISTANT (vérifié ci-dessus), pas une
+    # chaîne arbitraire : l'interpolation ne peut rien injecter.
+    lignes = conn.execute(f'SELECT count(*) FROM "{table}"').fetchone()[0]
+    meta = conn.execute(
+        "SELECT date_donnees FROM meta_sources WHERE source_id = ?",
+        (source_id,),
+    ).fetchone()
+    if not lignes or meta is None or not meta[0]:
+        return None
+    return lignes, meta[0]
