@@ -337,7 +337,12 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
   const liens: { href: string; texte: string }[] = [];
   if (depute?.url_fiche_an) liens.push({ href: depute.url_fiche_an, texte: "Fiche Assemblée nationale" });
   if (senateur?.url_fiche_senat) liens.push({ href: senateur.url_fiche_senat, texte: "Fiche Sénat" });
-  const urlHatvp = elu.hatvp_url ?? depute?.url_hatvp ?? null;
+  // uri_hatvp de l'AN peut être un chemin relatif de son propre site : seul un
+  // lien absolu vers hatvp.fr est publié (même règle que la liste des députés).
+  const urlHatvpAn = depute?.url_hatvp?.startsWith("https://www.hatvp.fr/")
+    ? depute.url_hatvp
+    : null;
+  const urlHatvp = elu.hatvp_url ?? urlHatvpAn;
   if (urlHatvp) liens.push({ href: urlHatvp, texte: "Fiche HATVP" });
 
   // Décompte des positions sur les scrutins AFFICHÉS (les N derniers).
