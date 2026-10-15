@@ -64,9 +64,13 @@ il est réparable sans rien deviner : le vocabulaire des SENS est fermé et
 connu (cinq valeurs), et tout élément commence par l'un d'eux suivi d'une
 fin de champ ou d'un `/`. Un fragment qui ne répond pas à ce motif est donc
 la suite du précédent, et lui est recollé. Contrôle sur le corpus entier :
-zéro fragment orphelin, cinq sens distincts, un vocabulaire de motivations
-fermé — si l'un de ces trois invariants cassait, le pipeline échouerait au
-lieu de produire des agrégats faux.
+zéro fragment orphelin, cinq sens distincts, et aucun fragment recollé qui
+ait la forme d'un élément (« Mot/… ») — si l'un de ces trois invariants
+cassait, le pipeline échouerait au lieu de produire des agrégats faux
+(`decouper_motivations` pour le premier et le troisième, le contrôle des
+sens d'`executer` pour le deuxième). Le vocabulaire des MOTIVATIONS, lui,
+n'est pas contrôlé : il est ouvert (2 034 motivations distinctes le
+15/10/2026) et n'est compté que tel que publié.
 
 Tables créées (idempotent, intégralement reconstruites à chaque passage) :
 
@@ -164,6 +168,14 @@ TYPES = ("Avis", "Conseil", "Sanction")
 # Un élément de « Sens et motivation » commence par un sens du vocabulaire,
 # suivi d'une fin de champ ou d'un `/`. Tout le reste est une suite recollée.
 _RX_ELEMENT = re.compile(r"^(?:%s)\s*(?:/|$)" % "|".join(map(re.escape, SENS)))
+
+# Un fragment qui A LA FORME d'un élément (« Mot/… », mot court sans
+# virgule) mais dont le mot n'est pas un sens connu : c'est un sens NOUVEAU,
+# pas la suite de la motivation précédente. Mesuré le 15/10/2026 sur le
+# corpus entier (60 941 décisions) : 262 fragments recollés, AUCUN de cette
+# forme — les suites légitimes (« établissement de document ») ne portent
+# pas de « / ».
+_RX_SENS_INCONNU = re.compile(r"^\s*([^/,]{1,40}?)\s*/")
 
 # ---------------------------------------------------------------------------
 # Typologie des administrations mises en cause
@@ -292,9 +304,15 @@ def decouper_motivations(brut: str | None) -> list[str]:
     privée » et « Favorable/Sauf vie privée » sont la même motivation, écrite
     de deux façons selon le millésime).
 
-    Lève ValueError sur un fragment orphelin : un champ dont le premier
-    élément ne commence par aucun sens connu signale un changement de
-    vocabulaire amont, pas une ligne à ignorer discrètement.
+    Lève ValueError dans deux cas, qui signalent tous deux un changement de
+    vocabulaire amont et non une ligne à ignorer discrètement :
+    - un fragment orphelin (le premier élément ne commence par aucun sens
+      connu) ;
+    - un fragment à recoller qui a la forme d'un élément, « Mot/… », avec
+      un `Mot` hors de SENS (« Favorable/Secret, Annulé/Nouveau sens ») :
+      le recoller rangerait en silence un sens inconnu dans la motivation
+      précédente. Avant le 15/10/2026, ce second cas passait sans erreur,
+      contrairement à ce qu'annonçait l'en-tête du module.
     """
     elements: list[str] = []
     for fragment in (brut or "").split(","):
@@ -303,6 +321,10 @@ def decouper_motivations(brut: str | None) -> list[str]:
             continue
         if _RX_ELEMENT.match(fragment):
             elements.append(fragment)
+        elif elements and _RX_SENS_INCONNU.match(fragment):
+            raise ValueError(
+                f"vocabulaire des sens inconnu dans « {brut} » (fragment « {fragment} »)"
+            )
         elif elements:
             elements[-1] += ", " + fragment
         else:
