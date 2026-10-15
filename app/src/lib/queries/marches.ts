@@ -894,6 +894,13 @@ function chargerQualitePublication(db: Db): QualitePublication | null {
   return { synthese, annees, acheteurs };
 }
 
+/** Appels d'offres ouverts (non annulés, date limite à venir) : colonnes
+ *  servies, sans tri ni filtre de famille (l'appelant les ajoute). */
+const SQL_AO_OUVERTES = `SELECT idweb, objet, acheteur, montant_estime, montant_fourchette_basse,
+              montant_fourchette_haute, date_limite_reponse, url_avis
+       FROM ao_en_cours
+       WHERE annulee = 0 AND datetime(date_limite_reponse) > datetime('now')`;
+
 /**
  * Charge tout le nécessaire de la page /marches en une passe.
  * `null` tant que la base n'existe pas (message honnête côté page).
@@ -1109,16 +1116,16 @@ export function chargerDonneesMarches(
 
   // AO_AFFICHEES échéances les plus proches pour le filtre courant, rendues
   // dans le HTML. Quand l'une d'elles expire à l'heure du visiteur, le
-  // navigateur complète depuis le fragment ao.json, qui porte la réserve
-  // (RESERVE_HEURES, lib/echeances.ts) : elle ne pèse pas sur la page.
+  // navigateur complète depuis la tranche horaire de l'heure qu'il vit
+  // (/data/marches/ao-toutes/<heure>.json, lib/echeances.ts) : elle ne pèse
+  // pas sur la page. Même ordre que les tranches, départage compris : sans
+  // `idweb`, les 20 premières d'un lot de clôtures simultanées n'étaient pas
+  // forcément celles du fragment.
   const ao = db
     .prepare(
-      `SELECT idweb, objet, acheteur, montant_estime, montant_fourchette_basse,
-              montant_fourchette_haute, date_limite_reponse, url_avis
-       FROM ao_en_cours
-       WHERE annulee = 0 AND datetime(date_limite_reponse) > datetime('now')
+      `${SQL_AO_OUVERTES}
          AND (? IS NULL OR famille = ?)
-       ORDER BY date_limite_reponse ASC LIMIT ${AO_AFFICHEES}`,
+       ORDER BY datetime(date_limite_reponse), idweb LIMIT ${AO_AFFICHEES}`,
     )
     .all(familleActive, familleActive) as AoEnCours[];
 
@@ -1206,7 +1213,7 @@ export type VueAoFamille = {
 
 export type AoParFamille = {
   familles: FamilleAO[];
-  /** Vues par famille — clé `""` = toutes familles confondues. */
+  /** Vues par famille (la vue « Toutes » n'y est pas : HTML + tranches horaires). */
   vues: Record<string, VueAoFamille>;
 };
 
@@ -1244,10 +1251,7 @@ export function getAoParFamille(): AoParFamille | null {
       .get(famille, famille) as { nb: number; sans: number; fourchette: number };
     const lignes = db
       .prepare(
-        `SELECT idweb, objet, acheteur, montant_estime, montant_fourchette_basse,
-                montant_fourchette_haute, date_limite_reponse, url_avis
-         FROM ao_en_cours
-         WHERE annulee = 0 AND datetime(date_limite_reponse) > datetime('now')
+        `${SQL_AO_OUVERTES}
            AND (? IS NULL OR famille = ?)
          ORDER BY datetime(date_limite_reponse), idweb`,
       )
@@ -1260,7 +1264,24 @@ export function getAoParFamille(): AoParFamille | null {
     };
   };
 
-  const vues: Record<string, VueAoFamille> = { "": vuePour(null) };
+  // La vue « Toutes » n'y est plus : ses totaux sont dans le HTML de la page,
+  // ses échéances dans les tranches horaires (getAoOuvertesTriees). La
+  // répéter ici doublait le fichier, que l'on charge au clic sur une famille.
+  const vues: Record<string, VueAoFamille> = {};
   for (const f of familles) vues[f.famille] = vuePour(f.famille);
   return { familles, vues };
+}
+
+/**
+ * Tous les appels d'offres ouverts à la construction, toutes familles, dans
+ * l'ordre d'affichage (date limite, puis idweb). Les tranches horaires
+ * /data/marches/ao-toutes/<heure>.json n'en retiennent que l'affichable
+ * (`contenuTranche`). `null` si la base est absente.
+ */
+export function getAoOuvertesTriees(): AoEnCours[] | null {
+  const db = getDb();
+  if (!db) return null;
+  return db
+    .prepare(`${SQL_AO_OUVERTES} ORDER BY datetime(date_limite_reponse), idweb`)
+    .all() as AoEnCours[];
 }

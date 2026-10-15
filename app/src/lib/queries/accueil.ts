@@ -25,7 +25,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { FeatureCollection, Geometry } from "geojson";
 import { getDb, type MetaSource } from "@/lib/db";
-import { AO_ACCUEIL_AFFICHEES, RESERVE_HEURES, reserveEcheances } from "@/lib/echeances";
+import { AO_ACCUEIL_AFFICHEES } from "@/lib/echeances";
 import { getIdsFichesStatiques } from "@/lib/queries/elus";
 
 /* ------------------------------------------------------------------ */
@@ -158,26 +158,15 @@ const SQL_AO_CLOTURE = `SELECT idweb AS id,
         ORDER BY datetime(date_limite_reponse), idweb`;
 
 /**
- * Réserve d'échéances de l'accueil (fragment /data/accueil/ao-cloture.json) :
- * toutes les clôtures des RESERVE_HEURES qui suivent la construction, puis
- * AO_ACCUEIL_AFFICHEES de plus. Le navigateur y prend les premières encore
- * ouvertes à son heure. `null` si la base est absente.
+ * Toutes les échéances ouvertes à la construction, dans l'ordre d'affichage :
+ * les tranches horaires /data/accueil/ao-cloture/<heure>.json n'en retiennent
+ * que l'affichable (`contenuTranche`, lib/echeances.ts). `null` si la base
+ * est absente.
  */
-export function getReserveAoAccueil(): { construitLe: number; lignes: AoProcheCloture[] } | null {
+export function getAoClotureTriees(): AoProcheCloture[] | null {
   const db = getDb();
   if (!db) return null;
-  const construitLe = Date.now();
-  const toutes = db.prepare(SQL_AO_CLOTURE).all() as AoProcheCloture[];
-  return {
-    construitLe,
-    lignes: reserveEcheances(
-      toutes,
-      (a) => a.dateLimite,
-      construitLe,
-      RESERVE_HEURES,
-      AO_ACCUEIL_AFFICHEES,
-    ),
-  };
+  return db.prepare(SQL_AO_CLOTURE).all() as AoProcheCloture[];
 }
 
 export type AlerteAccueil = {
@@ -451,9 +440,9 @@ export function getDonneesAccueil(): DonneesAccueil | null {
     .all() as TexteJo[];
 
   /* --- Flux : AO proches de la clôture (non annulés, limite future).
-         AO_ACCUEIL_AFFICHEES lignes dans le HTML ; la réserve que le
-         navigateur re-filtre à son heure est le fragment
-         /data/accueil/ao-cloture.json (getReserveAoAccueil). --- */
+         AO_ACCUEIL_AFFICHEES lignes dans le HTML ; le navigateur complète
+         à son heure depuis la tranche horaire de l'heure qu'il vit
+         (/data/accueil/ao-cloture/<heure>.json, getAoClotureTriees). --- */
   const aoCloture = db
     .prepare(
       `${SQL_AO_CLOTURE}

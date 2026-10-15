@@ -1,37 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Money } from "@/components/ui/Money";
-import { urlSite } from "@/lib/basePath";
 import { AO_ACCUEIL_AFFICHEES, echeancesOuvertes } from "@/lib/echeances";
 import type { AoProcheCloture } from "@/lib/queries/accueil";
 import { useHorloge } from "@/lib/useHorloge";
-
-/**
- * Appels d'offres proches de la clôture (accueil), re-filtrés À L'HEURE DU
- * VISITEUR.
- *
- * Le HTML porte les AO_ACCUEIL_AFFICHEES premières échéances ouvertes à la
- * construction : c'est ce que lit un visiteur sans JavaScript, et la page le
- * date. Dès que l'une d'elles est passée à l'heure du navigateur, la réserve
- * /data/accueil/ao-cloture.json (toutes les clôtures des RESERVE_HEURES qui
- * suivent la construction, et quelques-unes au-delà) est chargée une fois,
- * et les premières encore ouvertes s'affichent.
- *
- * Si même la réserve est épuisée (publications en échec plusieurs jours de
- * suite), la liste le dit — sans jamais affirmer qu'aucun appel d'offres
- * n'est ouvert : elle ne sait que ce qu'elle a reçu.
- */
-type Reserve = { construitLe: number; lignes: AoProcheCloture[] };
-
-let promesse: Promise<Reserve | null> | null = null;
-
-function chargerReserve(): Promise<Reserve | null> {
-  promesse ??= fetch(urlSite("/data/accueil/ao-cloture.json"))
-    .then((rep) => (rep.ok ? (rep.json() as Promise<Reserve | null>) : null))
-    .catch(() => null);
-  return promesse;
-}
+import { useTrancheEcheances } from "@/lib/useTrancheEcheances";
 
 /** ISO → `JJ/MM HH:MM`, heure de Paris. */
 function formatDateHeureFr(iso: string): string {
@@ -46,6 +19,21 @@ function formatDateHeureFr(iso: string): string {
   }).format(d);
 }
 
+/**
+ * Appels d'offres proches de la clôture (accueil), re-filtrés À L'HEURE DU
+ * VISITEUR.
+ *
+ * Le HTML porte les AO_ACCUEIL_AFFICHEES premières échéances ouvertes à la
+ * construction : c'est ce que lit un visiteur sans JavaScript, et la page le
+ * date. Dès que l'une d'elles est passée à l'heure du navigateur, la tranche
+ * horaire de cette heure (/data/accueil/ao-cloture/<heure>.json : les seules
+ * lignes affichables pendant l'heure, lib/echeances.ts) est chargée, et les
+ * premières encore ouvertes s'affichent ; une heure plus tard, la suivante.
+ *
+ * Si même la dernière tranche est épuisée (publications en échec plusieurs
+ * jours de suite), la liste le dit — sans jamais affirmer qu'aucun appel
+ * d'offres n'est ouvert : elle ne sait que ce qu'elle a reçu.
+ */
 export function AoProchesCloture({
   initiales,
   construitLe,
@@ -57,32 +45,23 @@ export function AoProchesCloture({
   libelleConstruction: string;
 }) {
   const maintenant = useHorloge(construitLe);
-  const [reserve, setReserve] = useState<Reserve | null>(null);
-  const [indisponible, setIndisponible] = useState(false);
 
   const dateLimite = (a: AoProcheCloture) => a.dateLimite;
   // Moins de lignes initiales que d'emplacements : il n'en existait pas
-  // d'autres à la construction, la réserve n'apporterait rien.
-  const besoinReserve =
+  // d'autres à la construction, une tranche n'apporterait rien.
+  const besoinTranche =
     initiales.length >= AO_ACCUEIL_AFFICHEES &&
     echeancesOuvertes(initiales, dateLimite, maintenant, AO_ACCUEIL_AFFICHEES).length <
       AO_ACCUEIL_AFFICHEES;
-
-  useEffect(() => {
-    if (!besoinReserve || reserve !== null || indisponible) return;
-    let monte = true;
-    chargerReserve().then((r) => {
-      if (!monte) return;
-      if (r === null) setIndisponible(true);
-      else setReserve(r);
-    });
-    return () => {
-      monte = false;
-    };
-  }, [besoinReserve, reserve, indisponible]);
+  const tranche = useTrancheEcheances<AoProcheCloture>(
+    "/data/accueil/ao-cloture",
+    construitLe,
+    maintenant,
+    besoinTranche,
+  );
 
   const lignes = echeancesOuvertes(
-    reserve?.lignes ?? initiales,
+    tranche.lignes ?? initiales,
     dateLimite,
     maintenant,
     AO_ACCUEIL_AFFICHEES,
