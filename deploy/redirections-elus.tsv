@@ -45,6 +45,23 @@
 # permanent. Si l'une de ces fiches revient un jour, elle sera servie
 # directement : aucune règle ne la masquera (c'est ce que R1c surveille).
 #
+# AJOUTS DU 15/10/2026 (proposition « parlementaires-mandats-participation »).
+# Les fiches de députés sont désormais énumérées par la table `deputes` (AMO10
+# du jour), comme celles des sénateurs par `senateurs`. Huit anciennes fiches
+# PA* de députés devenus sénateurs le 01/10/2026 cessent d'être engendrées :
+# chacune redirige vers la fiche SEN-* de la MÊME personne. Identité vérifiée
+# sur le site servi le 15/10/2026 : nom, prénom et date de naissance
+# identiques des deux côtés (balisage birthDate des deux fiches), soit la clé
+# d'état civil du projet — pas une inférence par le seul nom.
+# Cessent aussi d'être engendrées, SANS ligne ici faute de fiche pour la même
+# personne (règle ci-dessus : ne pas inventer de cible, 404 franc) :
+#   PA841017 (HUWART Harold, sorti de l'AN, maire et président d'EPCI : pas de
+#   fiche pour ces mandats) ; rne-9d8eafca03bfb18c (BELLAMY Béatrice),
+#   rne-eb40d32ab399cd92 (RIST Stéphanie), rne-b4ef3c48aba5341f (VIGIER Peter,
+#   paire laissée non appariée ci-dessus : sa page disparaît, la surveillance
+#   P7 reste) — trois fiches que seul le RNE trimestriel disait « député » ;
+#   rne-5c691fc4a3cae13b (HUWART Harold sur une base neuve, jamais servie).
+#
 # id retire	id conserve	personne
 rne-9b0690c3380e2630	PA793214	ABADIE Audrey
 rne-458f0cdc332b255b	PA267042	FAVENNEC Yannick
@@ -61,3 +78,11 @@ rne-41ab8e76d2734fcb	PA841377	REY Emeline
 rne-ba7be78a29b1e987	PA840657	VAGINAY Sophie
 rne-5ecb0e21f6eac401	PA841575	VOS Frédéric
 rne-1b9578695735474d	SEN-21030V	XOWIE Robert
+PA718884	SEN-18503J	BAZIN-MALGRAS Valérie
+PA719052	SEN-18543S	KERVRAN Loïc
+PA793572	SEN-20718T	PLASSARD Christophe
+PA793928	SEN-20390P	DIAZ Edwige
+PA794906	SEN-20684B	AMARD Gabriel
+PA796034	SEN-20874F	GILETTI Frank
+PA841075	SEN-21217F	JOSSERAND Sylvie
+PA841131	SEN-21223D	BOUQUIN Manon

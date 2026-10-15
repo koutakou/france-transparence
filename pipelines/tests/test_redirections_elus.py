@@ -42,7 +42,13 @@ def test_la_table_est_bien_formee(couples):
     for champs in couples:
         assert len(champs) == 3, f"3 colonnes attendues, {len(champs)} : {champs}"
         retire, conserve, personne = champs
-        assert re.fullmatch(r"rne-[0-9a-f]{16}", retire), retire
+        # Deux origines de retrait : la fusion d'un doublon `rne-*` (P7), et,
+        # depuis le 15/10/2026, l'ancienne fiche d'un député devenu sénateur
+        # (fiches de députés énumérées par la table `deputes`).
+        assert re.fullmatch(r"rne-[0-9a-f]{16}|PA\d+", retire), retire
+        if retire.startswith("PA"):
+            assert conserve.startswith("SEN-"), \
+                f"{retire} -> {conserve} : une fiche de député retirée ne mène qu'à la fiche de sénateur de la même personne"
         assert personne.strip(), f"{retire} sans libellé de personne"
 
 
