@@ -6,8 +6,10 @@ détails docs/recherche/03-parlement.md) :
   législature courante — JAMAIS AMO50 (figé au 11/07/2024) ;
 - S5 Scrutins.json.zip (AN, quotidien) : tous les scrutins publics de la
   législature, votes nominaux par député ;
-- S6 ODSEN_GENERAL.csv + ODSEN_ELUSEN.csv (Sénat, quotidien, ISO-8859-1,
-  lignes de commentaire « % » en tête) : sénateurs en exercice ;
+- S6 ODSEN_GENERAL.csv (Sénat, quotidien, ISO-8859-1, lignes de
+  commentaire « % » en tête) : sénateurs en exercice ; table `elusen` du
+  dump export_sens.zip (même portail, UTF-8, COPY PostgreSQL) : date de
+  début du mandat en cours ;
 - S6 Dosleg dosleg.zip (Sénat, quotidien, UTF-8) : dump PostgreSQL, tables
   `scr` + `votsen` seulement — COPY parsé sans serveur Postgres ; pas Ameli,
   pas questions, pas TAP export_sens ;
@@ -34,10 +36,10 @@ Tables écrites (CREATE TABLE IF NOT EXISTS, run idempotent) :
 - senateurs : matricule (PK), nom, prenom, sexe, circonscription
   (département d'élection ; la série de renouvellement n'est pas publiée
   dans ODSEN), groupe, groupe_appartenance (Membre/Rattaché/Apparenté),
-  commission, date_debut_mandat / date_fin_mandat (ODSEN_ELUSEN, mandat en
-  cours ; fin vide tant que le mandat court — constaté le 19/08/2026 :
-  aucune date de fin future publiée avant le renouvellement du 27/09/2026,
-  et ELUSEN ne couvre qu'une partie des mandats en cours → NULL assumés),
+  commission, date_debut_mandat (export_sens `elusen`, mandat en cours :
+  ligne sans date de fin à l'état ACTIF — ODSEN_ELUSEN, lu jusqu'au
+  15/10/2026, n'en publiait aucune pour les mandats ouverts le 01/10/2026),
+  date_fin_mandat (NULL : la table ne porte que des mandats en cours),
   date_naissance, profession, email, url_fiche_senat (motif d'URL officiel
   senat.fr/senateur/<nom>_<prenom><matricule>.html, vérifié sur échantillon).
   Table = sénateurs en exercice (état ACTIF) du jour.
@@ -131,7 +133,12 @@ URL_AMO10 = (f"{BASE_AN}/amo/deputes_actifs_mandats_actifs_organes/"
              "AMO10_deputes_actifs_mandats_actifs_organes.json.zip")
 URL_SCRUTINS = f"{BASE_AN}/loi/scrutins/Scrutins.json.zip"
 URL_ODSEN_GENERAL = "https://data.senat.fr/data/senateurs/ODSEN_GENERAL.csv"
-URL_ODSEN_ELUSEN = "https://data.senat.fr/data/senateurs/ODSEN_ELUSEN.csv"
+# Dump PostgreSQL du Sénat (Licence Ouverte, même portail qu'ODSEN) : seule la
+# table `elusen` (mandats sénatoriaux) est lue. ODSEN_ELUSEN.csv en est une
+# vue filtrée (`evetempub='OUI'`, d'après la requête imprimée en tête du CSV)
+# qui ne publiait, le 15/10/2026, AUCUN mandat en cours — fin maximale au
+# 2026-09-30 —, alors que le dump porte les 348 mandats ouverts.
+URL_EXPORT_SENS = "https://data.senat.fr/data/senateurs/export_sens.zip"
 URL_DOSLEG = "https://data.senat.fr/data/dosleg/dosleg.zip"
 # posvotcod Dosleg (table posvot) — votes exprimés = 1/2/3, pas le 4.
 POSVOT_SENAT = {
@@ -221,7 +228,7 @@ CREATE TABLE IF NOT EXISTS senateurs (
     groupe            TEXT,
     groupe_appartenance TEXT,                   -- Membre / Rattaché / Apparenté
     commission        TEXT,
-    date_debut_mandat TEXT,                     -- ODSEN_ELUSEN si publié
+    date_debut_mandat TEXT,                     -- export_sens elusen (mandat en cours)
     date_fin_mandat   TEXT,                     -- NULL : mandat en cours
     date_naissance    TEXT,
     profession        TEXT,
@@ -1279,13 +1286,41 @@ def ingerer_scrutins(conn, session: requests.Session) -> None:
              len(metas), dernier["numero"], dernier["date_scrutin"])
 
 
+def lire_debuts_mandat_senat(fp) -> tuple[dict[str, str], int, int]:
+    """Table `elusen` du dump export_sens → date de début du mandat EN COURS.
+
+    Mandat en cours = ligne sans `eludatfin` et à l'état `temvalcod` ACTIF.
+    Retour : (matricule → date ISO, nombre de lignes `elusen` lues, nombre de
+    matricules écartés parce que PLUSIEURS mandats en cours y sont publiés —
+    rien n'est deviné : pas de date pour eux, et ils sont comptés).
+
+    Lève si la table est absente ou vide : un dump qui ne la porte plus n'est
+    pas une absence de mandats, c'est une rupture de format.
+    """
+    debuts: dict[str, list[str | None]] = {}
+    lues = 0
+    for _table, row in iterer_copy_postgres(fp, {"elusen"}):
+        lues += 1
+        matricule = _matricule_dosleg(row.get("senmat"))
+        if not matricule or row.get("eludatfin") is not None:
+            continue
+        if (row.get("temvalcod") or "").strip() != "ACTIF":
+            continue
+        debuts.setdefault(matricule, []).append(_date_copy(row.get("eludatdeb")))
+    if not lues:
+        raise RuntimeError("export_sens : table elusen absente ou vide")
+    ambigus = {m for m, d in debuts.items() if len(d) > 1}
+    return ({m: d[0] for m, d in debuts.items() if m not in ambigus and d[0]},
+            lues, len(ambigus))
+
+
 def ingerer_senat(conn, session: requests.Session) -> None:
     """Sénat ODSEN → senateurs (en exercice) + elus."""
     date_donnees = _date_last_modified(session, URL_ODSEN_GENERAL)
     chemin_general = telecharger(URL_ODSEN_GENERAL, "parlement/ODSEN_GENERAL.csv",
                                  max_age_heures=MAX_AGE_H, session=session)
-    chemin_elusen = telecharger(URL_ODSEN_ELUSEN, "parlement/ODSEN_ELUSEN.csv",
-                                max_age_heures=MAX_AGE_H, session=session)
+    chemin_export_sens = telecharger(URL_EXPORT_SENS, "parlement/export_sens.zip",
+                                     max_age_heures=MAX_AGE_H, session=session)
     lignes = lire_csv_senat(chemin_general.read_bytes())
     actifs = [r for r in lignes if r.get("État") == "ACTIF"]
     if not actifs:
@@ -1293,13 +1328,10 @@ def ingerer_senat(conn, session: requests.Session) -> None:
     log.info("ODSEN : %d sénateurs en exercice (%d lignes au total)",
              len(actifs), len(lignes))
 
-    # Dates de mandat en cours (ODSEN_ELUSEN, partiel — constaté 19/08/2026).
-    mandats_en_cours: dict[str, tuple[str | None, str | None]] = {}
-    for r in lire_csv_senat(chemin_elusen.read_bytes()):
-        if r.get("Date de fin de mandat"):
-            continue
-        mandats_en_cours[r.get("Matricule")] = (
-            nettoyer_date_senat(r.get("Date de début de mandat")), None)
+    # Date de début du mandat en cours : table `elusen` du dump export_sens.
+    with zipfile.ZipFile(chemin_export_sens) as z, \
+            z.open("export_sens.sql") as fp:
+        debuts_mandat, lignes_elusen, ambigus = lire_debuts_mandat_senat(fp)
 
     preserves_senateurs = preserves_elus = 0
     refus_senateurs = refus_elus = 0
@@ -1308,7 +1340,7 @@ def ingerer_senat(conn, session: requests.Session) -> None:
             matricule = r["Matricule"]
             nom, prenom = r.get("Nom usuel"), r.get("Prénom usuel")
             naissance = nettoyer_date_senat(r.get("Date naissance"))
-            debut, fin = mandats_en_cours.get(matricule, (None, None))
+            debut, fin = debuts_mandat.get(matricule), None
             # Route la plus exposée des trois : un CSV ne peut rendre que ''
             # (restval=None sur toute ligne courte), et ODSEN est décodé en
             # ISO-8859-1, où l'octet 0xA0 est l'insécable.
@@ -1371,18 +1403,23 @@ def ingerer_senat(conn, session: requests.Session) -> None:
             f"DELETE FROM senateurs WHERE matricule NOT IN ({marqueurs})",
             matricules,
         )
+    avec_debut = sum(1 for r in actifs if r["Matricule"] in debuts_mandat)
     db.upsert_meta(
         conn, source_id="S6-ODSEN",
-        nom="Sénat — sénateurs en exercice (ODSEN_GENERAL + ODSEN_ELUSEN)",
+        nom="Sénat — sénateurs en exercice (ODSEN_GENERAL + export_sens elusen)",
         url=URL_ODSEN_GENERAL, licence="Licence Ouverte",
         frequence="quotidienne", date_donnees=date_donnees,
         lignes=len(actifs),
-        notes=("ISO-8859-1, lignes % sautées ; renouvellement par moitié le "
-               "27/09/2026 (aucune date de fin de mandat future publiée dans "
-               "ODSEN au 19/08/2026 → date_fin_mandat NULL, recharger après "
-               "le scrutin) ; dates de début via ODSEN_ELUSEN, partiel"),
+        notes=("ISO-8859-1, lignes % sautées ; date de début du mandat en "
+               "cours lue dans la table elusen du dump export_sens "
+               f"({avec_debut}/{len(actifs)} sénateurs en exercice dotés "
+               "d'une date) ; date_fin_mandat NULL tant que le mandat court"),
     )
-    # Compte journalisé À CHAQUE CYCLE, zéro compris (cf. AMO10).
+    # Comptes journalisés À CHAQUE CYCLE, zéros compris (cf. AMO10).
+    log.info("Sénat : date de début du mandat en cours connue pour %d/%d"
+             " sénateurs en exercice (%d lignes elusen lues, %d matricule(s)"
+             " à plusieurs mandats en cours publiés, laissés sans date)",
+             avec_debut, len(actifs), lignes_elusen, ambigus)
     log.info("Sénat : %d sénateurs écrits ; état civil : %d champ(s)"
              " préservé(s) sur senateurs, %d sur elus ; %d fiche(s) senateurs"
              " et %d fiche(s) elus non écrite(s) faute de patronyme",
