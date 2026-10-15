@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type PointerEvent } from "react";
+import { useId, useState, type PointerEvent } from "react";
 import { formatNombre } from "@/lib/format";
 import {
   projectionFrance,
@@ -33,9 +33,12 @@ import { TooltipGraphique } from "./TooltipGraphique";
  *
  * Choroplèthe (DATAVIZ §8) : rampe séquentielle ORDINALE, 5 classes max
  * (`--seq-3` → `--seq-7`), seuils par quantiles, légende d'échelle
- * obligatoire (rendue sous la carte) ; département sans valeur :
- * `--map-manquant` (#0d1930, hors rampe) + mention « donnée manquante »
- * dans le tooltip et la légende. Contours 1px `--map-contour`.
+ * obligatoire (rendue sous la carte) ; département sans valeur : HACHURES
+ * `--map-manquant-hachure` sur fond `--map-manquant` (hors rampe) + mention
+ * « donnée manquante » dans le tooltip et la légende. Un aplat sombre seul
+ * se lisait à 1,04:1 contre la carte, indiscernable du fond et des valeurs
+ * faibles ; la texture distingue le manque sans dépendre de la couleur.
+ * Contours 1px `--map-contour`.
  *
  * Points « villes lumineuses » (§8) : l'AIRE encode le poids
  * (r = 3 + 11 × √(poids/max), donc 3 → 14px), couleur `--viz-serie-1`
@@ -105,6 +108,11 @@ export function MapFrance({
     x: number;
     y: number;
   } | null>(null);
+  // Identifiants de <defs> propres à CETTE carte : deux cartes sur une page
+  // (/collectivites) ne doivent pas dupliquer un id.
+  const idUnique = useId().replace(/[^A-Za-z0-9_-]/g, "");
+  const idHalo = `ft-map-halo-${idUnique}`;
+  const idHachures = `ft-map-manquant-${idUnique}`;
   const departements = carte.departements;
   if (departements.length === 0) return null;
   const { largeur, hauteur } = carte;
@@ -140,7 +148,7 @@ export function MapFrance({
   const remplissage = (dep: TraceDepartement) => {
     if (!choroplethe) return "var(--surface-raised)"; // carte neutre (pas d'encodage)
     const v = valeurs?.[dep.code];
-    if (v === undefined || !Number.isFinite(v)) return "var(--map-manquant)";
+    if (v === undefined || !Number.isFinite(v)) return `url(#${idHachures})`;
     return pasRampe[classeDe(v)];
   };
 
@@ -170,10 +178,20 @@ export function MapFrance({
           @media (prefers-reduced-motion: reduce) { .ft-map-dep:hover, .ft-map-pt:hover circle { filter: none; } }`}</style>
         <defs>
           {/* halo « lumineux » : même teinte que le point, 0,35 → 0 (§8) */}
-          <radialGradient id="ft-map-halo">
+          <radialGradient id={idHalo}>
             <stop offset="0%" style={{ stopColor: "var(--viz-serie-1)", stopOpacity: 0.35 }} />
             <stop offset="100%" style={{ stopColor: "var(--viz-serie-1)", stopOpacity: 0 }} />
           </radialGradient>
+          <pattern
+            id={idHachures}
+            patternUnits="userSpaceOnUse"
+            width={6}
+            height={6}
+            patternTransform="rotate(45)"
+          >
+            <rect width={6} height={6} fill="var(--map-manquant)" />
+            <line x1={0} y1={0} x2={0} y2={6} stroke="var(--map-manquant-hachure)" strokeWidth={2} />
+          </pattern>
         </defs>
         {/* départements */}
         {departements.map((dep, i) => {
@@ -213,7 +231,7 @@ export function MapFrance({
               onPointerEnter={(e) => poserTip(e, p.label, formatValeur(p.poids))}
               onPointerMove={(e) => poserTip(e, p.label, formatValeur(p.poids))}
             >
-              <circle cx={x} cy={y} r={r * 2.5} fill="url(#ft-map-halo)" />
+              <circle cx={x} cy={y} r={r * 2.5} fill={`url(#${idHalo})`} />
               <circle cx={x} cy={y} r={r} fill="var(--viz-serie-1)" />
               {/* cible de survol ≥ 24px (§5/§8) */}
               <circle cx={x} cy={y} r={Math.max(12, r)} fill="transparent" />
@@ -247,8 +265,9 @@ export function MapFrance({
                     key={i}
                     className="inline-block h-2.5 w-6"
                     style={{ background: c }}
-                    aria-label={`${formatValeur(bornes[i])} – ${formatValeur(bornes[i + 1])}`}
-                  />
+                  >
+                    <span className="sr-only">{`${formatValeur(bornes[i])} – ${formatValeur(bornes[i + 1])}`}</span>
+                  </span>
                 ))}
               </span>
               <span className="text-ink-muted">{formatValeur(bornes[bornes.length - 1])}</span>
@@ -256,7 +275,14 @@ export function MapFrance({
           )}
           {manquants && (
             <span className="inline-flex items-center gap-1.5 text-ink-muted">
-              <span className="inline-block h-2.5 w-2.5 rounded-[3px]" style={{ background: "var(--map-manquant)" }} />
+              <span
+                aria-hidden="true"
+                className="inline-block h-2.5 w-2.5 rounded-[3px]"
+                style={{
+                  background:
+                    "repeating-linear-gradient(45deg, var(--map-manquant-hachure) 0 1.5px, var(--map-manquant) 1.5px 4px)",
+                }}
+              />
               donnée manquante
             </span>
           )}

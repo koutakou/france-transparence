@@ -52,7 +52,7 @@ Tout graphique référence ces custom properties, jamais un hex en dur dans le J
   --viz-serie-6: #008300;   /* vert     — 3,41:1 */
   --viz-serie-7: #9085e9;   /* violet   — 5,40:1 */
   --viz-serie-8: #e66767;   /* rouge    — 5,23:1 — voir règle rouge, § 3.5 */
-  --viz-autre:   #4c5f80;   /* « Autre » + séries de contexte (dé-emphase) */
+  --viz-autre:   #747487;   /* « Autre » + séries de contexte (dé-emphase) — 3,69:1 */
 
   /* Rampe séquentielle (magnitude) — bleu électrique, sombre → lumineux */
   --seq-1: #132a4d;  --seq-2: #1a3d74;  --seq-3: #22539c;  --seq-4: #2c6cc4;
@@ -463,8 +463,11 @@ Fond de carte sur `--surface-card` ; contours des départements 1px `#22375a`.
   seuils ronds ou quantiles, légende d'échelle obligatoire (barres + bornes chiffrées).
 - Évolution (hausse/baisse des dépenses) : la divergente du § 3.3, milieu
   `--div-zero`, légende nommant les pôles — pas de vert/rouge (§ 3.5).
-- **Donnée manquante** : `#0d1930` (plus sombre que le pas 1, hors rampe) +
-  mention « donnée manquante » dans le tooltip et la légende — jamais un gris
+- **Donnée manquante** : HACHURES `--map-manquant-hachure` `#8798b1` (5,75:1 sur
+  la carte) sur fond `--map-manquant` `#0d1930` (hors rampe) + mention « donnée
+  manquante » dans le tooltip et la légende. L'aplat `#0d1930` seul se lisait à
+  1,04:1 contre la carte : invisible, et confondu avec les valeurs faibles
+  (audit du 15/10/2026). Jamais un gris
   confondable avec un pas de la rampe.
 
 ---
