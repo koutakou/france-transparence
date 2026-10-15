@@ -63,7 +63,7 @@ from pipelines.common import (
     assainir_texte_integral,
     obtenir_logger,
     session_http,
-    telecharger,
+    telecharger_ressource,
 )
 
 log = obtenir_logger("ircom")
@@ -505,8 +505,10 @@ def ecrire_db(conn, annee: int, lignes: list[dict]) -> str:
     return date_donnees
 
 
-def url_zip_courant(session=None) -> str:
-    """URL de la ressource zip IRCOM la plus récente, via l'API data.gouv.
+def url_zip_courant(session=None) -> tuple[str, str]:
+    """(URL, dernière modification) de la ressource zip IRCOM la plus
+    récente, via l'API data.gouv. La date (`last_modified`, vide si absente)
+    invalide le cache local quand la ressource change.
 
     Les chemins static.data.gouv.fr portent un horodatage : on ne les
     fige pas. Un zip dont le titre ne dit pas IRCOM / revenus est ignoré.
@@ -529,7 +531,7 @@ def url_zip_courant(session=None) -> str:
         raise ValueError("aucune ressource zip IRCOM (revenus) sur le dataset")
     cands.sort(reverse=True)
     log.info("ressource IRCOM retenue : %s", cands[0][2])
-    return cands[0][1]
+    return cands[0][1], cands[0][0]
 
 
 def xlsx_communes_dans_zip(chemin_zip: Path, dest_xlsx: Path) -> Path:
@@ -555,9 +557,12 @@ def xlsx_communes_dans_zip(chemin_zip: Path, dest_xlsx: Path) -> Path:
 def main() -> int:
     try:
         s = session_http()
-        url = url_zip_courant(s)
-        chemin_zip = telecharger(
-            url, FICHIER_ZIP, max_age_heures=CACHE_HEURES, session=s
+        url, modifiee_le = url_zip_courant(s)
+        # Nom de cache FIXE, invalidé dès que la ressource est plus récente
+        # que la copie : sans cela, le millésime précédent restait publié
+        # jusqu'à CACHE_HEURES après la parution du suivant.
+        chemin_zip = telecharger_ressource(
+            url, FICHIER_ZIP, modifiee_le, max_age_heures=CACHE_HEURES, session=s
         )
         xlsx = xlsx_communes_dans_zip(
             Path(chemin_zip), Path(chemin_zip).parent / "ircom_communes.xlsx"

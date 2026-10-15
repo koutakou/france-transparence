@@ -434,3 +434,42 @@ def test_la_ressource_consolidee_existe_toujours():
     assert ressource["url"].startswith("https://")
     assert ressource["url"].endswith(".csv")
     assert len(ressource["derniere_modification"]) == 10
+
+
+def test_un_nouveau_lot_n_est_pas_masque_par_le_cache(tmp_path, monkeypatch):
+    """Audit du 15/10/2026 : un nouveau lot paraît (autre URL, autre date) ;
+    l'ancien code agrégeait le CSV en cache sous la date de versement du
+    nouveau lot, et le « retard de versement » publié était faux."""
+    import os
+    import time
+    from datetime import datetime, timezone
+
+    import pipelines.common as common
+    import pipelines.ingest_cada as cada
+    from pipelines.tests.session_factice import SessionFactice
+
+    monkeypatch.setattr(common, "RAW_DIR", tmp_path / "raw")
+    cache = tmp_path / "raw" / "cada" / "cada-consolide.csv"
+    cache.parent.mkdir(parents=True)
+    cache.write_text("ancien lot, illisible pour ce test\n", encoding="utf-8")
+    il_y_a_une_heure = time.time() - 3600
+    os.utime(cache, (il_y_a_une_heure, il_y_a_une_heure))
+    monkeypatch.setattr(cada, "FICHIER_CACHE", cache)
+
+    url = "https://exemple.invalid/20271001-120000/cada-2027-10-01.csv"
+    maintenant = datetime.now(timezone.utc).isoformat()
+    session = SessionFactice({
+        cada.URL_DATASET_API: {"resources": [{
+            "title": "Avis et conseils CADA - ensemble consolidé",
+            "url": url, "last_modified": maintenant, "filesize": 1,
+        }]},
+        url: FIXTURE.read_bytes(),
+    })
+    monkeypatch.setattr(cada, "session_http", lambda: session)
+    monkeypatch.setattr(common, "session_http", lambda: session)
+
+    stats = executer(chemin_db=tmp_path / "cada.db")
+    assert url in session.appels
+    assert cache.read_bytes() == FIXTURE.read_bytes()
+    assert stats["decisions"] == DECISIONS
+    assert stats["date_donnees"] == DERNIERE_SEANCE

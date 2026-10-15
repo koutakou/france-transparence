@@ -228,6 +228,60 @@ def test_csv_dans_zip_extrait(tmp_path, csv_path):
     assert len(lignes) == 4
 
 
+def test_un_nouveau_millesime_n_est_pas_masque_par_le_cache(tmp_path, monkeypatch):
+    """Constat de l'audit du 15/10/2026 : le zip REI 2025 en cache (< 7 j)
+    et l'API qui annonce REI-2026. L'ancien code resservait le zip 2025 et
+    levait « année CSV 2025 ≠ année zip 2026 » : `main()` rendait 1 et
+    arrêtait toute l'ingestion jusqu'à expiration du cache."""
+    import io
+    import os
+    import time
+    from datetime import datetime, timezone
+
+    import pipelines.common as common
+    import pipelines.ingest_rei as rei
+    from pipelines.tests.session_factice import SessionFactice
+
+    def zip_avec(nom_csv: str) -> bytes:
+        tampon = io.BytesIO()
+        with zipfile.ZipFile(tampon, "w") as z:
+            z.writestr(nom_csv, "DEP;COM\n")
+        return tampon.getvalue()
+
+    monkeypatch.setattr(common, "RAW_DIR", tmp_path / "raw")
+    cache = tmp_path / "raw" / rei.FICHIER_ZIP
+    cache.parent.mkdir(parents=True)
+    cache.write_bytes(zip_avec("REI_2025.csv"))
+    il_y_a_une_heure = time.time() - 3600
+    os.utime(cache, (il_y_a_une_heure, il_y_a_une_heure))
+
+    url_2026 = "https://exemple.invalid/rei_2026_fichier_notice_trace_zip"
+    session = SessionFactice({
+        rei.URL_API_DATASET: {"resources": [{
+            "title": "REI-2026-fichier-notice-trace.zip", "format": "zip",
+            "url": url_2026,
+            "last_modified": datetime.now(timezone.utc).isoformat(),
+        }]},
+        url_2026: zip_avec("REI_2026.csv"),
+    })
+    monkeypatch.setattr(rei, "session_http", lambda: session)
+    lu = {}
+    monkeypatch.setattr(rei, "extraire", lambda chemin, annee: lu.update(
+        chemin=chemin, annee=annee) or ([], {}))
+    monkeypatch.setattr(rei, "controler_ampleur", lambda *a: None)
+    monkeypatch.setattr(rei, "ecrire_db", lambda *a: "2026-12-31")
+    monkeypatch.setattr(rei.db, "init_db", lambda: sqlite3_memoire())
+
+    assert rei.main() == 0
+    assert url_2026 in session.appels
+    assert lu["annee"] == 2026 and lu["chemin"].name == "REI_2026.csv"
+
+
+def sqlite3_memoire():
+    import sqlite3
+    return sqlite3.connect(":memory:")
+
+
 # ---------------------------------------------------------------------------
 # Contrat avec l'interface : le total « FDL » de rei.ts
 # ---------------------------------------------------------------------------

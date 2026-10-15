@@ -67,7 +67,7 @@ from pipelines.common import (
     assainir_texte,
     obtenir_logger,
     session_http,
-    telecharger,
+    telecharger_ressource,
 )
 
 log = obtenir_logger("rei")
@@ -539,13 +539,15 @@ def ecrire_db(
     return date_donnees
 
 
-def url_zip_courant(session=None) -> tuple[str, int]:
-    """URL du zip REI du millésime le plus récent, via l'API data.gouv."""
+def url_zip_courant(session=None) -> tuple[str, int, str]:
+    """(URL, millésime, dernière modification) du zip REI le plus récent,
+    via l'API data.gouv. La date (`last_modified`, vide si absente) invalide
+    le cache local quand la ressource change (cf. `telecharger_ressource`)."""
     s = session or session_http()
     r = s.get(URL_API_DATASET, timeout=60)
     r.raise_for_status()
     data = r.json()
-    cands: list[tuple[int, str, str]] = []
+    cands: list[tuple[int, str, str, str]] = []
     for res in data.get("resources") or []:
         titre = res.get("title") or ""
         fmt = (res.get("format") or "").lower()
@@ -555,12 +557,12 @@ def url_zip_courant(session=None) -> tuple[str, int]:
         m = re.search(r"REI[-_](20\d{2})", titre, re.I)
         if not m:
             continue
-        cands.append((int(m.group(1)), url, titre))
+        cands.append((int(m.group(1)), url, titre, res.get("last_modified") or ""))
     if not cands:
         raise ValueError("aucune ressource zip REI-YYYY sur le dataset")
     cands.sort(reverse=True)
     log.info("ressource REI retenue : %s", cands[0][2])
-    return cands[0][1], cands[0][0]
+    return cands[0][1], cands[0][0], cands[0][3]
 
 
 def csv_dans_zip(chemin_zip: Path, dest_csv: Path, annee_attendue: int) -> Path:
@@ -589,9 +591,14 @@ def csv_dans_zip(chemin_zip: Path, dest_csv: Path, annee_attendue: int) -> Path:
 def main() -> int:
     try:
         s = session_http()
-        url, annee = url_zip_courant(s)
-        chemin_zip = telecharger(
-            url, FICHIER_ZIP, max_age_heures=CACHE_HEURES, session=s
+        url, annee, modifiee_le = url_zip_courant(s)
+        # Nom de cache FIXE (référencé côté serveur), mais invalidé dès que
+        # la ressource est plus récente que la copie : sans cela, le zip du
+        # millésime précédent était resservi jusqu'à CACHE_HEURES après la
+        # parution du suivant, et `csv_dans_zip` levait « année CSV ≠ année
+        # zip », arrêtant toute l'ingestion.
+        chemin_zip = telecharger_ressource(
+            url, FICHIER_ZIP, modifiee_le, max_age_heures=CACHE_HEURES, session=s
         )
         csv_path = csv_dans_zip(
             Path(chemin_zip),
