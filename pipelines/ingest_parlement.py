@@ -29,7 +29,8 @@ Tables écrites (CREATE TABLE IF NOT EXISTS, run idempotent) :
   datan_score_loyaute / datan_score_majorite / datan_source / datan_date
   (scores Datan, étiquetés ; les deux familles de scores coexistent).
   La table reflète les députés EN EXERCICE (AMO10 du jour) : les sortants
-  sont supprimés de deputes (ils restent dans elus).
+  sont supprimés de deputes ; ils restent dans elus, leur mandat AN-P9 daté
+  de la fin publiée par AMO20 (clore_mandats_an).
 - groupes_an : organe_ref (PK), legislature, sigle, nom, effectif (compté
   sur les mandats GP actifs d'AMO10, acteurs distincts), couleur
   (couleurAssociee AN), position (préséance AN).
@@ -42,7 +43,9 @@ Tables écrites (CREATE TABLE IF NOT EXISTS, run idempotent) :
   date_fin_mandat (NULL : la table ne porte que des mandats en cours),
   date_naissance, profession, email, url_fiche_senat (motif d'URL officiel
   senat.fr/senateur/<nom>_<prenom><matricule>.html, vérifié sur échantillon).
-  Table = sénateurs en exercice (état ACTIF) du jour.
+  Table = sénateurs en exercice (état ACTIF) du jour. Les sortants en sont
+  retirés ; dans elus, leur mandat SENAT-P9 reçoit la date de fin publiée
+  par `elusen` (clore_mandats_sortis).
 - scrutins : uid (PK), legislature, numero (UNIQUE avec legislature), date_scrutin,
   titre, type_vote (libellé AN), sort (« adopté »/« rejeté »), demandeur,
   nombre_votants, suffrages_exprimes, pour, contre, abstentions, non_votants,
@@ -132,6 +135,11 @@ BASE_AN = ("https://data.assemblee-nationale.fr/static/openData/repository/"
 URL_AMO10 = (f"{BASE_AN}/amo/deputes_actifs_mandats_actifs_organes/"
              "AMO10_deputes_actifs_mandats_actifs_organes.json.zip")
 URL_SCRUTINS = f"{BASE_AN}/loi/scrutins/Scrutins.json.zip"
+# AMO20 : députés, sénateurs et ministres de la législature, TOUS mandats —
+# anciens compris, avec dateFin. Lu pour la seule date de fin des mandats de
+# député sortis d'AMO10 (2,6 Mo le 15/10/2026). AMO10 n'en garde aucune trace.
+URL_AMO20 = (f"{BASE_AN}/amo/deputes_senateurs_ministres_legislature/"
+             "AMO20_dep_sen_min_tous_mandats_et_organes.json.zip")
 URL_ODSEN_GENERAL = "https://data.senat.fr/data/senateurs/ODSEN_GENERAL.csv"
 # Dump PostgreSQL du Sénat (Licence Ouverte, même portail qu'ODSEN) : seule la
 # table `elusen` (mandats sénatoriaux) est lue. ODSEN_ELUSEN.csv en est une
@@ -1168,6 +1176,7 @@ def ingerer_amo10(conn, session: requests.Session) -> None:
                 (ref, LEGISLATURE, o["sigle"], o["nom"], len(membres),
                  o["couleur"], o["position"]),
             )
+    clore_mandats_an(conn, session, {a["uid"] for a in acteurs})
     db.upsert_meta(
         conn, source_id="S5-AMO10",
         nom="AN — députés, mandats, organes actifs (AMO10)",
@@ -1184,6 +1193,34 @@ def ingerer_amo10(conn, session: requests.Session) -> None:
              " %d fiche(s) elus non écrite(s) faute de patronyme",
              len(acteurs), len(effectifs), preserves_deputes, preserves_elus,
              refus_deputes, refus_elus)
+
+
+def clore_mandats_an(conn, session, actifs: set[str]) -> None:
+    """Date la fin des mandats AN-P9 des députés sortis d'AMO10 (via AMO20).
+
+    N'ARRÊTE PAS le cycle : AMO10 est déjà écrit, et un mandat non clos ce
+    soir le sera au cycle suivant (doctrine : refuser par non-écriture quand
+    le cycle suivant répare). L'échec est journalisé en erreur, et les
+    comptes le sont à chaque cycle, zéros compris.
+    """
+    try:
+        chemin = telecharger(URL_AMO20,
+                             "parlement/AMO20_dep_sen_min_tous_mandats_et_organes.json.zip",
+                             max_age_heures=MAX_AGE_H, session=session)
+        fins = lire_fins_mandat_an(chemin)
+    except (requests.RequestException, OSError, zipfile.BadZipFile,
+            RuntimeError, ValueError, KeyError, AttributeError) as e:
+        log.error("AMO20 illisible (%s) : mandats AN-P9 des sortants non clos"
+                  " ce cycle", e)
+        return
+    with conn:
+        closes, sans_date = clore_mandats_sortis(
+            conn, cle="uid_an", source="AN-P9", actifs=actifs, fins=fins)
+    log.info("AMO10 : %d mandat(s) AN-P9 de sortants clos à leur date de fin"
+             " publiée (AMO20, %d députés de la législature sans mandat en"
+             " cours) ; %d fiche(s) de sortant sans date de fin publiée,"
+             " laissée(s) telle(s) quelle(s)%s", closes, len(fins),
+             len(sans_date), f" : {' '.join(sans_date)}" if sans_date else "")
 
 
 def ingerer_scrutins(conn, session: requests.Session) -> None:
@@ -1296,23 +1333,35 @@ def ingerer_scrutins(conn, session: requests.Session) -> None:
              len(metas), dernier["numero"], dernier["date_scrutin"])
 
 
-def lire_debuts_mandat_senat(fp) -> tuple[dict[str, str], int, int]:
-    """Table `elusen` du dump export_sens → date de début du mandat EN COURS.
+def lire_mandats_senat(
+    fp,
+) -> tuple[dict[str, str], dict[str, str], int, int]:
+    """Table `elusen` du dump export_sens → débuts des mandats EN COURS, et
+    fin du dernier mandat des matricules qui n'en ont plus aucun en cours.
 
     Mandat en cours = ligne sans `eludatfin` et à l'état `temvalcod` ACTIF.
-    Retour : (matricule → date ISO, nombre de lignes `elusen` lues, nombre de
-    matricules écartés parce que PLUSIEURS mandats en cours y sont publiés —
-    rien n'est deviné : pas de date pour eux, et ils sont comptés).
+    Retour : (matricule → date ISO de début du mandat en cours ;
+    matricule → date ISO de fin de son mandat le plus récent, pour les seuls
+    matricules SANS mandat en cours ; nombre de lignes `elusen` lues ; nombre
+    de matricules écartés parce que PLUSIEURS mandats en cours y sont publiés
+    — rien n'est deviné : pas de date pour eux, et ils sont comptés).
 
     Lève si la table est absente ou vide : un dump qui ne la porte plus n'est
     pas une absence de mandats, c'est une rupture de format.
     """
     debuts: dict[str, list[str | None]] = {}
+    derniers_clos: dict[str, tuple[str, str]] = {}   # matricule → (début, fin)
     lues = 0
     for _table, row in iterer_copy_postgres(fp, {"elusen"}):
         lues += 1
         matricule = _matricule_dosleg(row.get("senmat"))
-        if not matricule or row.get("eludatfin") is not None:
+        if not matricule:
+            continue
+        fin = _date_copy(row.get("eludatfin"))
+        if fin:
+            debut = _date_copy(row.get("eludatdeb")) or ""
+            if matricule not in derniers_clos or debut > derniers_clos[matricule][0]:
+                derniers_clos[matricule] = (debut, fin)
             continue
         if (row.get("temvalcod") or "").strip() != "ACTIF":
             continue
@@ -1320,8 +1369,82 @@ def lire_debuts_mandat_senat(fp) -> tuple[dict[str, str], int, int]:
     if not lues:
         raise RuntimeError("export_sens : table elusen absente ou vide")
     ambigus = {m for m, d in debuts.items() if len(d) > 1}
+    fins = {m: f for m, (_d, f) in derniers_clos.items() if m not in debuts}
     return ({m: d[0] for m, d in debuts.items() if m not in ambigus and d[0]},
-            lues, len(ambigus))
+            fins, lues, len(ambigus))
+
+
+def lire_fins_mandat_an(chemin_zip, legislature: int = LEGISLATURE) -> dict[str, str]:
+    """AMO20 → uid_an → date de fin du dernier mandat de député (ASSEMBLEE) de
+    la législature, pour les seuls députés qui n'y ont PLUS de mandat en cours.
+    Un acteur dont un mandat ASSEMBLEE est encore ouvert n'y figure pas."""
+    fins: dict[str, str] = {}
+    with zipfile.ZipFile(chemin_zip) as z:
+        for nom_fichier in z.namelist():
+            if "/acteur/" not in nom_fichier or not nom_fichier.endswith(".json"):
+                continue
+            acteur = json.loads(z.read(nom_fichier)).get("acteur") or {}
+            uid = (acteur.get("uid") or {}).get("#text")
+            mandats = (acteur.get("mandats") or {}).get("mandat") or []
+            if isinstance(mandats, dict):
+                mandats = [mandats]
+            assemblee = [m for m in mandats
+                         if m.get("typeOrgane") == "ASSEMBLEE"
+                         and str(m.get("legislature")) == str(legislature)]
+            if not uid or not assemblee:
+                continue
+            if any(not m.get("dateFin") for m in assemblee):
+                continue
+            dernier = max(assemblee, key=lambda m: m.get("dateDebut") or "")
+            fins[uid] = dernier["dateFin"][:10]
+    return fins
+
+
+def clore_mandats_sortis(conn, *, cle: str, source: str, actifs: set[str],
+                         fins: dict[str, str]) -> tuple[int, list[str]]:
+    """Date la fin des mandats `source` des élus sortis de la chambre.
+
+    `upsert_elu` ne réécrit que les élus présents dans le dump du jour : un
+    sortant gardait donc indéfiniment son entrée `source` sans date de fin,
+    et la base persistante servait comme « en cours » le mandat d'un ancien
+    député ou sénateur (la CI, dont la base naît neuve, ne le voyait pas).
+
+    Pour chaque fiche dont `cle` n'est plus parmi `actifs` : chaque entrée
+    `source` sans `date_fin` reçoit la date de fin PUBLIÉE par la chambre
+    (`fins`). Sans date publiée, l'entrée reste telle quelle — aucune date
+    n'est inventée, ni celle du jour du constat — et l'identifiant est rendu
+    pour être nommé au journal. Rien n'est supprimé : une entrée retirée
+    pourrait faire disparaître une fiche publiée et ses redirections.
+
+    Retour : (entrées closes, ids de fiche laissés faute de date publiée).
+    """
+    if cle not in ("uid_an", "matricule_senat"):
+        raise ValueError(f"clé de chambre inconnue : {cle!r}")
+    closes = 0
+    sans_date: list[str] = []
+    for r in conn.execute(
+        f"SELECT id, {cle} AS cle, mandats FROM elus WHERE {cle} IS NOT NULL"
+    ).fetchall():
+        if r["cle"] in actifs or not r["mandats"]:
+            continue
+        try:
+            mandats = json.loads(r["mandats"])
+        except json.JSONDecodeError:
+            continue
+        a_clore = [m for m in mandats if isinstance(m, dict)
+                   and m.get("source") == source and not m.get("date_fin")]
+        if not a_clore:
+            continue
+        fin = fins.get(r["cle"])
+        if not fin:
+            sans_date.append(r["id"])
+            continue
+        for m in a_clore:
+            m["date_fin"] = fin
+        closes += len(a_clore)
+        conn.execute("UPDATE elus SET mandats = ? WHERE id = ?",
+                     (json.dumps(mandats, ensure_ascii=False), r["id"]))
+    return closes, sans_date
 
 
 def ingerer_senat(conn, session: requests.Session) -> None:
@@ -1341,7 +1464,7 @@ def ingerer_senat(conn, session: requests.Session) -> None:
     # Date de début du mandat en cours : table `elusen` du dump export_sens.
     with zipfile.ZipFile(chemin_export_sens) as z, \
             z.open("export_sens.sql") as fp:
-        debuts_mandat, lignes_elusen, ambigus = lire_debuts_mandat_senat(fp)
+        debuts_mandat, fins_mandat, lignes_elusen, ambigus = lire_mandats_senat(fp)
 
     preserves_senateurs = preserves_elus = 0
     refus_senateurs = refus_elus = 0
@@ -1413,6 +1536,10 @@ def ingerer_senat(conn, session: requests.Session) -> None:
             f"DELETE FROM senateurs WHERE matricule NOT IN ({marqueurs})",
             matricules,
         )
+        # … et leur mandat SENAT-P9 dans elus reçoit sa date de fin publiée.
+        clos_senat, sans_fin_senat = clore_mandats_sortis(
+            conn, cle="matricule_senat", source="SENAT-P9",
+            actifs=set(matricules), fins=fins_mandat)
     avec_debut = sum(1 for r in actifs if r["Matricule"] in debuts_mandat)
     db.upsert_meta(
         conn, source_id="S6-ODSEN",
@@ -1430,6 +1557,11 @@ def ingerer_senat(conn, session: requests.Session) -> None:
              " sénateurs en exercice (%d lignes elusen lues, %d matricule(s)"
              " à plusieurs mandats en cours publiés, laissés sans date)",
              avec_debut, len(actifs), lignes_elusen, ambigus)
+    log.info("Sénat : %d mandat(s) SENAT-P9 de sortants clos à leur date de"
+             " fin publiée (elusen) ; %d fiche(s) de sortant sans date de fin"
+             " publiée, laissée(s) telle(s) quelle(s)%s", clos_senat,
+             len(sans_fin_senat),
+             f" : {' '.join(sans_fin_senat)}" if sans_fin_senat else "")
     log.info("Sénat : %d sénateurs écrits ; état civil : %d champ(s)"
              " préservé(s) sur senateurs, %d sur elus ; %d fiche(s) senateurs"
              " et %d fiche(s) elus non écrite(s) faute de patronyme",

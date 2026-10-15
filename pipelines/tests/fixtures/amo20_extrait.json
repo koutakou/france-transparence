@@ -1,0 +1,72 @@
+{
+ "_note": "Extrait réel de AMO20_dep_sen_min_tous_mandats_et_organes.json.zip (AN, 15/10/2026, Last-Modified 00:00:39 GMT) : pour trois acteurs, uid et mandats ASSEMBLEE seulement, champs copiés tels quels. PA841539 : démission le 2026-04-19 ; PA841605 : en exercice ; PA718674 : sorti le 2024-10-21 (Gouvernement) puis revenu, mandat ouvert.",
+ "acteurs": [
+  {
+   "acteur": {
+    "uid": {
+     "@xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+     "@xsi:type": "IdActeur_type",
+     "#text": "PA841539"
+    },
+    "mandats": {
+     "mandat": [
+      {
+       "uid": "PM843119",
+       "legislature": "17",
+       "typeOrgane": "ASSEMBLEE",
+       "dateDebut": "2024-07-07",
+       "dateFin": "2026-04-19"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "acteur": {
+    "uid": {
+     "@xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+     "@xsi:type": "IdActeur_type",
+     "#text": "PA841605"
+    },
+    "mandats": {
+     "mandat": [
+      {
+       "uid": "PM843167",
+       "legislature": "17",
+       "typeOrgane": "ASSEMBLEE",
+       "dateDebut": "2024-07-07",
+       "dateFin": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "acteur": {
+    "uid": {
+     "@xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+     "@xsi:type": "IdActeur_type",
+     "#text": "PA718674"
+    },
+    "mandats": {
+     "mandat": [
+      {
+       "uid": "PM842372",
+       "legislature": "17",
+       "typeOrgane": "ASSEMBLEE",
+       "dateDebut": "2024-07-07",
+       "dateFin": "2024-10-21"
+      },
+      {
+       "uid": "PM858386",
+       "legislature": "17",
+       "typeOrgane": "ASSEMBLEE",
+       "dateDebut": "2024-07-07",
+       "dateFin": null
+      }
+     ]
+    }
+   }
+  }
+ ]
+}
