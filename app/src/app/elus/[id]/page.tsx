@@ -288,8 +288,10 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
     senateur,
     votes,
     nb_scrutins_base,
+    nb_scrutins_total,
     votes_senat,
     nb_scrutins_senat_base,
+    nb_scrutins_senat_total,
     declarations,
   } = fiche;
 
@@ -602,7 +604,11 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
               </h3>
               <p className="mt-1 mb-2 text-xs text-ink-muted">
                 {nb_scrutins_base !== null && nb_scrutins_base > votes.length
-                  ? `Affichage des ${formatNombre(votes.length)} derniers scrutins sur ${formatNombre(nb_scrutins_base)} présents en base. `
+                  ? `Affichage des ${formatNombre(votes.length)} plus récents parmi les ${formatNombre(nb_scrutins_base)} scrutins dont le détail nominal est conservé ici${
+                      nb_scrutins_total !== null
+                        ? ` (${formatNombre(nb_scrutins_total)} scrutins publics de la législature en base)`
+                        : ""
+                    }. `
                   : ""}
                 Sur ces scrutins&nbsp;: Pour {formatNombre(decomptes.pour)} · Contre{" "}
                 {formatNombre(decomptes.contre)} · Abstention{" "}
@@ -697,11 +703,16 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
           {votes_senat && votes_senat.length > 0 && (
             <div className="mt-5">
               <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-secondary">
-                Positions sur les {formatNombre(votes_senat.length)} derniers scrutins
+                Positions sur les {formatNombre(votes_senat.length)} derniers scrutins au détail
+                publié
               </h3>
               <p className="mt-1 mb-2 text-xs text-ink-muted">
                 {nb_scrutins_senat_base !== null && nb_scrutins_senat_base > votes_senat.length
-                  ? `Affichage des ${formatNombre(votes_senat.length)} derniers scrutins sur ${formatNombre(nb_scrutins_senat_base)} présents en base. `
+                  ? `Affichage des ${formatNombre(votes_senat.length)} plus récents parmi les ${formatNombre(nb_scrutins_senat_base)} scrutins dont le détail nominal est conservé ici${
+                      nb_scrutins_senat_total !== null
+                        ? ` (${formatNombre(nb_scrutins_senat_total)} scrutins publics du Sénat en base, détail publié ou non)`
+                        : ""
+                    }. `
                   : ""}
                 Sur ces scrutins&nbsp;: Pour {formatNombre(decomptesSenat.pour)} · Contre{" "}
                 {formatNombre(decomptesSenat.contre)} · Abstention{" "}
