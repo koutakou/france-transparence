@@ -1152,6 +1152,10 @@ def ingerer_amo10(conn, session: requests.Session) -> None:
                     "date_debut": ass.get("date_debut"),
                     "date_fin": ass.get("date_fin"),
                     "departement": ass.get("departement"),
+                    # Code officiel (numDepartement d'AMO10) à côté du nom :
+                    # P7 rapproche les dossiers HATVP, qui ne portent que
+                    # le code, des mandats de la fiche.
+                    "code_departement": ass.get("num_departement"),
                     "circonscription": ass.get("num_circo"),
                     "groupe": groupe.get("sigle"),
                 },
@@ -1336,6 +1340,7 @@ def ingerer_scrutins(conn, session: requests.Session) -> None:
 
 def lire_mandats_senat(
     fp,
+    codes_departement: dict[str, str] | None = None,
 ) -> tuple[dict[str, str], dict[str, str], int, int]:
     """Table `elusen` du dump export_sens → débuts des mandats EN COURS, et
     fin du dernier mandat des matricules qui n'en ont plus aucun en cours.
@@ -1349,11 +1354,23 @@ def lire_mandats_senat(
 
     Lève si la table est absente ou vide : un dump qui ne la porte plus n'est
     pas une absence de mandats, c'est une rupture de format.
+
+    `codes_departement`, s'il est fourni, reçoit matricule → code du
+    département (ou de la collectivité) du mandat en cours, lu dans la table
+    `dpt` du même dump (`dptnum` → `dptcod`, « 92 », « 987 »… ; les deux
+    séries des Français établis hors de France y portent 998 et 997, codes du
+    Sénat). La table `dpt` précède `elusen` dans le dump.
     """
     debuts: dict[str, list[str | None]] = {}
     derniers_clos: dict[str, tuple[str, str]] = {}   # matricule → (début, fin)
+    dpt: dict[str, str] = {}                         # dptnum → dptcod
+    dpt_en_cours: dict[str, str | None] = {}         # matricule → dptnum
     lues = 0
-    for _table, row in iterer_copy_postgres(fp, {"elusen"}):
+    for table, row in iterer_copy_postgres(fp, {"elusen", "dpt"}):
+        if table == "dpt":
+            if row.get("dptnum") and row.get("dptcod"):
+                dpt[row["dptnum"].strip()] = row["dptcod"].strip()
+            continue
         lues += 1
         matricule = _matricule_dosleg(row.get("senmat"))
         if not matricule:
@@ -1367,10 +1384,15 @@ def lire_mandats_senat(
         if (row.get("temvalcod") or "").strip() != "ACTIF":
             continue
         debuts.setdefault(matricule, []).append(_date_copy(row.get("eludatdeb")))
+        dpt_en_cours[matricule] = (row.get("dptnum") or "").strip() or None
     if not lues:
         raise RuntimeError("export_sens : table elusen absente ou vide")
     ambigus = {m for m, d in debuts.items() if len(d) > 1}
     fins = {m: f for m, (_d, f) in derniers_clos.items() if m not in debuts}
+    if codes_departement is not None:
+        codes_departement.update(
+            {m: dpt[n] for m, n in dpt_en_cours.items()
+             if n in dpt and len(debuts.get(m, ())) == 1})
     return ({m: d[0] for m, d in debuts.items() if m not in ambigus and d[0]},
             fins, lues, len(ambigus))
 
@@ -1473,7 +1495,9 @@ def ingerer_senat(conn, session: requests.Session) -> None:
     # Date de début du mandat en cours : table `elusen` du dump export_sens.
     with zipfile.ZipFile(chemin_export_sens) as z, \
             z.open("export_sens.sql") as fp:
-        debuts_mandat, fins_mandat, lignes_elusen, ambigus = lire_mandats_senat(fp)
+        codes_senat: dict[str, str] = {}
+        debuts_mandat, fins_mandat, lignes_elusen, ambigus = lire_mandats_senat(
+            fp, codes_senat)
 
     preserves_senateurs = preserves_elus = 0
     refus_senateurs = refus_elus = 0
@@ -1532,6 +1556,8 @@ def ingerer_senat(conn, session: requests.Session) -> None:
                     "type": "senateur",
                     "date_debut": debut, "date_fin": fin,
                     "departement": r.get("Circonscription"),
+                    # Code du Sénat (table `dpt` d'export_sens), pour P7.
+                    "code_departement": codes_senat.get(matricule),
                     "groupe": r.get("Groupe politique"),
                 },
                 source_mandat="SENAT-P9",

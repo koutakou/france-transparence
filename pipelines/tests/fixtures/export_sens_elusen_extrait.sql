@@ -1,9 +1,18 @@
--- Extrait export_sens (dump PostgreSQL du Sénat, UTF-8), table elusen seulement.
+-- Extrait export_sens (dump PostgreSQL du Sénat, UTF-8), tables dpt et elusen.
 -- data.senat.fr/data/senateurs/export_sens.zip, Last-Modified 15/10/2026 01:47 GMT.
 -- Lignes réelles, copiées telles quelles : 21071F (mandat ouvert en 2023),
 -- 20032T (réélu : mandat clos le 30/09/2026 puis mandat ouvert le 01/10/2026),
 -- 21686H (entrant du 01/10/2026), 14133K (sortant au 30/09/2026),
--- 83008P (ancien, deux mandats clos).
+-- 83008P (ancien, deux mandats clos). Table `dpt` (codes des départements
+-- du Sénat) réduite aux cinq lignes que ces mandats référencent, telle quelle.
+
+COPY dpt (dptnum, dptcod, dptlib, dptnbrsen, dptmodscrsen, dptser, regcod, dptnumtri, dptlic, dptart, dptlibtri, temvalcod, evelic, evelib, evelil, dptser2004, dptcmt, dptdatdeb, dptdatfin, dpturlcmp, syscredat, sysmajdat) FROM stdin;
+973	973	Guyane	2	SM	A	51	972	Guyane	de la 	Guyane	ACTIF	Guyane	Guyane	Guyane	2	\N	1959-04-28 00:00:00	\N	\N	\N	\N
+335	92	Hauts-de-Seine	7	RP	C	10	920	Hauts-de-Seine	des 	Hauts-de-Seine	ACTIF	Hauts-de-Seine	Hauts-de-Seine	Hauts-de-Seine	1	\N	1968-01-01 00:00:00	\N	http://www.cg92.fr/	\N	\N
+650	65	Hautes-Pyrénées	2	SM	B	29	650	Hautes-Pyrénées	des 	Pyrénées Hautes	ACTIF	Hautes-Pyrénées	Hautes-Pyrénées	Hautes-Pyrénées	1	\N	1959-04-28 00:00:00	\N	http://www.cg65.fr/	\N	\N
+120	12	Aveyron	2	SM	A	29	120	Aveyron	de l'	Aveyron	ACTIF	Aveyron	Aveyron	Aveyron	2	\N	1959-04-28 00:00:00	\N	http://www.cg12.fr/	\N	\N
+140	14	Calvados	3	RP	A	25	140	Calvados	du 	Calvados	ACTIF	Calvados	Calvados	Calvados	2	\N	1959-04-28 00:00:00	\N	http://www.calvados.fr	\N	\N
+\.
 
 COPY elusen (eluid, dptnum, eludatdeb, eludatelu, eludatfin, etadebmancod, etafinmancod, temvalcod, evelic, evelib, evelil, eluanndeb, eluannfin, typmancod, senmat, eludatcum, turelucod, syscredat, sysmajdat) FROM stdin;
 53297	335	2023-10-02 00:00:00	2023-09-24 00:00:00	\N	ELECTION	ACTIF	ACTIF	\N	\N	\N	\N	\N	SENAT	21071F	\N	NR	\N	\N

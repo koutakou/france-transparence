@@ -692,6 +692,29 @@ def test_lire_mandats_senat_extrait_reel():
     assert (lues, ambigus) == (8, 0)
 
 
+def test_lire_mandats_senat_code_du_departement_du_mandat_en_cours():
+    """`dptnum` d'`elusen` est un numéro interne du Sénat (335 pour les
+    Hauts-de-Seine) : le code officiel vient de la table `dpt` du dump."""
+    codes: dict[str, str] = {}
+    with open(FIXTURES / "export_sens_elusen_extrait.sql", "rb") as fp:
+        p9.lire_mandats_senat(fp, codes)
+    assert codes == {"21071F": "92", "20032T": "12", "21686H": "973"}
+
+
+def test_lire_mandats_senat_ignore_un_mandat_ouvert_qui_n_est_pas_actif():
+    """Contre-épreuve construite sur la ligne réelle de 21686H : sans date de
+    fin mais à l'état FUTUR (valeur que la requête d'ODSEN_ELUSEN filtre),
+    ce n'est pas un mandat en cours. Tue la mutation qui retire le filtre
+    ACTIF."""
+    sql = (FIXTURES / "export_sens_elusen_extrait.sql").read_bytes()
+    ligne = next(l for l in sql.split(b"\n") if b"\t21686H\t" in l)
+    assert b"\tACTIF\tACTIF\t" in ligne, "prémisse : gabarit de la ligne réelle"
+    sql = sql.replace(ligne, ligne.replace(b"\tACTIF\tACTIF\t", b"\tACTIF\tFUTUR\t"))
+    debuts, _fins, _lues, _ambigus = p9.lire_mandats_senat(io.BytesIO(sql))
+    assert "21686H" not in debuts
+    assert debuts["21071F"] == "2023-10-02"
+
+
 def test_lire_mandats_senat_ne_tranche_pas_deux_mandats_en_cours():
     """Contre-épreuve construite : la ligne réelle de 21686H dupliquée avec
     une autre date. Deux mandats en cours pour un matricule = rien de deviné."""
@@ -725,8 +748,8 @@ def test_ingerer_senat_ecrit_la_date_de_debut_du_mandat_en_cours(tmp_path,
     assert debuts["14133K"] is None
     mandats = json.loads(conn.execute(
         "SELECT mandats FROM elus WHERE matricule_senat = '21071F'").fetchone()[0])
-    assert [m["date_debut"] for m in mandats if m["source"] == "SENAT-P9"] == [
-        "2023-10-02"]
+    assert [(m["date_debut"], m["code_departement"]) for m in mandats
+            if m["source"] == "SENAT-P9"] == [("2023-10-02", "92")]
     notes = conn.execute("SELECT notes FROM meta_sources"
                          " WHERE source_id = 'S6-ODSEN'").fetchone()[0]
     assert "(1/2 sénateurs en exercice dotés d'une date)" in notes
@@ -1381,4 +1404,31 @@ def test_ingerer_senat_dit_pourquoi_aucun_actif(tmp_path, monkeypatch):
         octets.replace(b",ACTIF,", b",ANCIEN,"))
     with pytest.raises(RuntimeError, match=r"3 ligne\(s\).*'ANCIEN': 3"):
         p9.ingerer_senat(conn, session=None)
+    conn.close()
+
+
+def test_ingerer_amo10_ecrit_le_code_du_departement(tmp_path, monkeypatch):
+    """Fiche AMO10 réelle PA841605 (mandat ASSEMBLEE complet) : le mandat
+    AN-P9 porte, à côté du nom du département, son code `numDepartement`,
+    que P7 compare aux codes de la HATVP."""
+    data = json.loads((FIXTURES / "acteur_PA841605.json").read_text("utf-8"))
+    mandats = data["acteur"]["mandats"]["mandat"]
+    # Seul le mandat ASSEMBLEE est gardé : aucun organe à résoudre.
+    data["acteur"]["mandats"]["mandat"] = [
+        m for m in (mandats if isinstance(mandats, list) else [mandats])
+        if m.get("typeOrgane") == "ASSEMBLEE"]
+    chemin = tmp_path / "amo10.zip"
+    with zipfile.ZipFile(chemin, "w") as z:
+        z.writestr("json/acteur/PA841605.json", json.dumps(data))
+    attendu = p9.parser_acteur(data)["assemblee"]["num_departement"]
+    assert attendu, "prémisse : la fiche réelle porte un numDepartement"
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    monkeypatch.setattr(p9, "_date_last_modified", lambda *a, **k: "2026-08-29")
+    monkeypatch.setattr(p9, "telecharger", lambda *a, **k: chemin)
+    p9.ingerer_amo10(conn, session=None)
+    mandats = json.loads(conn.execute(
+        "SELECT mandats FROM elus WHERE uid_an = 'PA841605'").fetchone()[0])
+    assert [m["code_departement"] for m in mandats if m["source"] == "AN-P9"] == [
+        attendu]
     conn.close()
