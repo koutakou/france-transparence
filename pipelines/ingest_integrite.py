@@ -1321,6 +1321,21 @@ def dossier_corrobore_fiche(dossier: dict, mandats: list[dict],
     sans eux : 14 désignaient vraisemblablement la bonne personne (maire de
     Trélivan, vice-présidente de Dinan Agglomération…).
 
+    Faute de département, la nature suffit : le NOM de l'intercommunalité ou
+    de la région n'est pas comparé, et c'est mesuré. Le 15/10/2026, sur une
+    copie de l'ingestion du jour (P9 et P7 rejoués), exiger en plus que les
+    mots du libellé RNE (`Libellé de l'EPCI`, `Libellé de la région`, formes
+    juridiques retirées) figurent dans la `qualite` HATVP faisait passer les
+    flags de 3 572 à 3 523 : 444 reposent sur la seule nature, 49 seraient
+    perdus, tous des EPCI (aucune région). 15 des 49, relus : 14 désignent la
+    même intercommunalité écrite autrement (« Ca Du Grand Avignon (Ga) » /
+    « communauté d'agglomération du Grand Avignon », « Cc Pays Pontchateau St
+    Gildas Des Bois », « Ca Civis » / « communauté intercommunale des Villes
+    Solidaires »…). Le rapprochement par nom ferait perdre de vrais liens :
+    il n'est pas appliqué. Le quinzième (rne-21dc0877411d1a6f : RNE
+    « Cc De L'Ouest Guyanais », HATVP « Territoire de la Côte Ouest », à La
+    Réunion) est douteux et reste à relire.
+
     Le département d'un mandat AN-P9 ou SENAT-P9 est un NOM (« Rhône ») :
     c'est son `code_departement`, écrit par P9 depuis la source officielle de
     chaque chambre, qui est comparé au code HATVP. Sans lui, une députée du
