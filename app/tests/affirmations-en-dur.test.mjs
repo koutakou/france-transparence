@@ -77,6 +77,16 @@ const INTERDITS = [
     /environ \d+ communes manquent/,
     "le nombre de communes se lit en base",
   ],
+  [
+    "app/depenses/page.tsx",
+    /formatValeur=\{\(v\) => formatEuros\(v, "Md"\)\}/,
+    "un montant en Md€ s'arrondit à une décimale fixe, comme sur l'accueil",
+  ],
+  [
+    "app/depenses/destination/page.tsx",
+    /formatValeur=\{\(v\) => formatEuros\(v, "Md"\)\}/,
+    "un montant en Md€ s'arrondit à une décimale fixe, comme sur l'accueil",
+  ],
 ];
 
 for (const [fichier, motif, pourquoi] of INTERDITS) {

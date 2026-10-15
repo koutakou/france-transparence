@@ -7,7 +7,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { StatStrip } from "@/components/ui/StatStrip";
-import { ESPACE_FINE, formatEuros, formatNombre } from "@/lib/format";
+import { ESPACE_FINE, formatNombre } from "@/lib/format";
 import {
   getMissionsDestination2025Liste,
   getSourcesBudget,
@@ -173,7 +173,7 @@ export default async function PageDestination() {
               libelle: t.libelle ?? `Titre ${t.titre}`,
               valeur: t.cp,
             }))}
-            formatValeur={(v) => formatEuros(v, "Md")}
+            formatValeur={(v) => enMd(v, 1)}
           />
           <details className="mt-3">
             <summary className="w-fit cursor-pointer select-none text-xs text-ink-muted transition-colors hover:text-ink-secondary">
