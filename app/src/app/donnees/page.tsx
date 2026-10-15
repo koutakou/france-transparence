@@ -6,6 +6,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { formatDateFr, formatNombre } from "@/lib/format";
 import {
   getCatalogueSources,
+  constatAttente,
   getCouvertureBudgetMensuel,
   getCouvertureMarchesAgregats,
   getDerniereIngestion,
@@ -74,9 +75,10 @@ function libelleSeuil(f: Fraicheur, jours: number): string {
 /**
  * La phrase exacte derrière le badge — factuelle et datée.
  *
- * Pour une source en attente, elle ne dit RIEN de l'avenir ni de
- * l'intention de l'éditeur : seulement qu'aucune édition plus récente
- * n'était parue à la date du build. C'est le seul fait vérifiable.
+ * Pour une source en attente, elle ne dit RIEN de l'amont, de l'avenir ni
+ * de l'intention de l'éditeur : seulement qu'aucune édition plus récente
+ * n'était INGÉRÉE à la date du build (`constatAttente`). C'est le seul fait
+ * que le site vérifie.
  */
 function phraseFraicheur(s: SourceCataloguee): string {
   const f = s.fraicheur;
@@ -86,7 +88,8 @@ function phraseFraicheur(s: SourceCataloguee): string {
   }
   const seuils = `seuils calibrés pour cette source : ${libelleSeuil(f, f.seuilRetardJours ?? 0)} (à surveiller) / ${libelleSeuil(f, f.seuilAlerteJours ?? 0)} (alerte)`;
   if (f.niveau === "attente_edition") {
-    return `${donneesAu}. Aucune édition plus récente n’a été publiée à ce jour — ${libelleAge(f)}, ${seuils}.`;
+    const constat = constatAttente(f);
+    return `${donneesAu}. ${constat.charAt(0).toUpperCase()}${constat.slice(1)} — ${libelleAge(f)}, ${seuils}.`;
   }
   return `${donneesAu}, soit ${libelleAge(f)} — ${seuils}.`;
 }
@@ -414,8 +417,8 @@ export default async function PageDonnees() {
                 >
                   <span className="text-ink">{s.nom}</span>{" "}
                   <span className="text-[11px] text-ink-muted">({s.source_id})</span>{" "}
-                  — données au {formatDateFr(s.date_donnees)} ; aucune édition plus
-                  récente n’a été publiée à ce jour ({libelleAge(s.fraicheur)}).
+                  — données au {formatDateFr(s.date_donnees)} ;{" "}
+                  {constatAttente(s.fraicheur)} ({libelleAge(s.fraicheur)}).
                 </li>
               ))}
             </ul>
@@ -517,10 +520,11 @@ export default async function PageDonnees() {
               «&nbsp;En attente d’une édition&nbsp;» décrit la source, pas le
               site
             </span>{" "}
-            — à cette date, aucune édition plus récente n’a été publiée en
-            amont. Ce n’est ni une panne du dashboard, ni un pronostic&nbsp;:
-            l’édition suivante peut paraître à tout moment, et la première
-            ingestion qui la trouve la publiera.
+            — à cette date, aucune édition plus récente n’a été ingérée. Le
+            site ne vérifie pas l’amont : ce n’est ni le constat qu’aucune
+            édition n’y a paru, ni une panne du dashboard, ni un
+            pronostic. Quand le pipeline vise un millésime fixé, le badge le
+            dit : une édition suivante n’y entrerait pas sans le modifier.
           </p>
         </div>
       </Card>
