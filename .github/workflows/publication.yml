@@ -237,6 +237,15 @@ jobs:
           FT_EXPORT: "1"
           FRANCE_DB_PATH: ${{ github.workspace }}/data/france.db
 
+      # Budget de poids : < 500 Ko de HTML brut par page, fragment chargé sans
+      # geste compris (app/scripts/poids-pages.mjs, testé par npm test). Quatre
+      # pages l'avaient dépassé sans qu'aucun contrôle ne le voie (725 Ko pour
+      # /lobbying le 15/10/2026). Les pages les plus lourdes sont journalisées
+      # à chaque passage, même au vert.
+      - name: Budget de poids des pages
+        run: node scripts/poids-pages.mjs out
+        working-directory: app
+
       - name: Contrôles de santé du site généré
         run: |
           set -eu
