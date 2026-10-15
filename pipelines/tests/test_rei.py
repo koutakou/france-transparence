@@ -10,6 +10,7 @@ Les garde-fous d'ampleur se testent à part.
 
 from __future__ import annotations
 
+import re
 import zipfile
 from pathlib import Path
 
@@ -174,16 +175,8 @@ def test_ecrire_db_agrege_et_metadonnees(tmp_path, extrait):
     assert nat["teom"] == pytest.approx(80 + 10 + 30 + 5)
     assert nat["cfe"] == pytest.approx(55 + 10 + 15 + 1)
     assert nat["teomi"] == pytest.approx(4.0)
-    # Contrat UI (rei.ts) : TIEOM est une part de F13, pas dans le FDL.
-    fdl_affiche = (
-        nat["tfpb"] + nat["tfpnb"] + nat["ths"] + nat["thlv"]
-        + nat["cfe"] + nat["teom"] + nat["tascom"]
-        + nat["ifer_local"] + nat["ifer_reg"]
-        + nat["tse"] + nat["gemapi"] + nat["tasa"] + nat["tafnb"]
-        + nat["tsc"]
-    )
-    assert fdl_affiche == pytest.approx(nat["teom"] + (fdl_affiche - nat["teom"]))
-    assert fdl_affiche + nat["teomi"] != fdl_affiche
+    # Le contrat UI (TEOMI hors du total FDL) se vérifie sur rei.ts même :
+    # test_contrat_ui_total_fdl_exclut_teomi.
     assert nat["ifer_reg"] == pytest.approx(1040.0)  # 1000 + 40 + 0
     ain = conn.execute(
         "SELECT * FROM rei_departements WHERE dep_carte = '01'"
@@ -233,3 +226,47 @@ def test_csv_dans_zip_extrait(tmp_path, csv_path):
     assert out.exists()
     lignes, _ifer = extraire(out, 2025)
     assert len(lignes) == 4
+
+
+# ---------------------------------------------------------------------------
+# Contrat avec l'interface : le total « FDL » de rei.ts
+# ---------------------------------------------------------------------------
+
+REI_TS = Path(__file__).resolve().parents[2] / "app" / "src" / "lib" / "queries" / "rei.ts"
+
+
+def _champs_nat(source: str, nom: str) -> set[str]:
+    """Colonnes `nat.<x>` sommées dans `const <nom> = … ;`, en développant
+    les constantes locales (`ifer`, `additionnelles`) qu'elle référence."""
+    m = re.search(rf"const {nom}\s*=\s*(.*?);", source, re.S)
+    assert m, f"`const {nom}` introuvable dans rei.ts"
+    expr = m.group(1)
+    champs = set(re.findall(r"\bnat\.(\w+)", expr))
+    sans_nat = re.sub(r"\bnat\.\w+", "", expr)
+    for locale in set(re.findall(r"\b([A-Za-z_]\w*)\b", sans_nat)):
+        champs |= _champs_nat(source, locale)
+    return champs
+
+
+def test_contrat_ui_total_fdl_exclut_teomi(tmp_path, extrait):
+    """TEOMI (TIEOM*) est une PART de F13 (CGI 1522 bis), pas une taxe en
+    plus : le total « FDL » que rei.ts affiche somme les 14 postes de
+    `rei_national` sauf `teomi`.
+
+    L'ancienne version de ce contrôle recalculait la somme en Python et la
+    comparait à elle-même (x == t + (x − t)) : vraie pour toute valeur, elle
+    ne lisait pas rei.ts. Celui-ci lit l'expression réellement compilée ; il
+    tue la mutation qui ajoute `nat.teomi` à `totalFdl` (ou à
+    `additionnelles`) et celle qui en retire un poste."""
+    source = REI_TS.read_text(encoding="utf-8")
+    sommes = _champs_nat(source, "totalFdl")
+    conn = db.init_db(chemin=tmp_path / "rei.db")
+    ecrire_db(conn, 2025, *extrait)  # crée rei_national avec son vrai schéma
+    colonnes = {
+        r[1] for r in conn.execute("PRAGMA table_info(rei_national)")
+        if r[2] == "REAL"
+    }
+    conn.close()
+    assert "teomi" not in sommes
+    assert sommes == colonnes - {"teomi"}
+    assert len(sommes) == 14
