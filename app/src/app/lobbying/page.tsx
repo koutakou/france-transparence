@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
 import { AlertItem, type Gravite } from "@/components/ui/AlertItem";
-import { BarChart } from "@/components/ui/BarChart";
-import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
-import { DataTable } from "@/components/ui/DataTable";
+import { TableCompacte } from "@/components/ui/TableCompacte";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
-import { LienOfficiel, PuceOfficielle } from "@/components/ui/LienOfficiel";
-import { LineChart } from "@/components/ui/LineChart";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { VueTableau } from "@/components/ui/VueTableau";
 import { DefautsLobbying } from "@/components/client/DefautsLobbying";
+import {
+  TableDefautsTitulaires,
+  TableTopEntites,
+  type LigneDefautTitulaire,
+} from "@/components/client/TablesLobbying";
+import { BarChartIle, BarListIle, LineChartIle } from "@/components/client/Graphiques";
 import {
   TitulairesLobbyistes,
   type LigneTitulaireLobbyiste,
@@ -31,10 +33,8 @@ import {
   type FourchetteBudget,
   type InstitutionDetail,
   type MinistereVise,
-  type TopEntite,
   type TrimestreActivites,
 } from "@/lib/queries/lobbying";
-import { urlAnnuaireEntreprise } from "@/lib/urlOfficielle";
 import { OrganisationsRegistreUe } from "@/components/client/OrganisationsRegistreUe";
 import {
   getDonneesRegistreUe,
@@ -87,33 +87,6 @@ function graviteUi(g: string): { gravite: Gravite; libelle: string } {
   if (g === "haute") return { gravite: "serieux", libelle: "Gravité haute" };
   if (g === "moyenne") return { gravite: "attention", libelle: "Gravité moyenne" };
   return { gravite: "attention", libelle: "Info" };
-}
-
-/** Nom = fiche HATVP ; puce Sirene seulement si SIREN 9 chiffres déjà en S18. */
-function NomHatvp({
-  denomination,
-  urlFiche,
-  sirenPourAnnuaire,
-}: {
-  denomination: string;
-  urlFiche: string | null;
-  sirenPourAnnuaire: string | null;
-}) {
-  const hrefSirene = urlAnnuaireEntreprise(sirenPourAnnuaire);
-  return (
-    <span>
-      {urlFiche ? (
-        <LienOfficiel href={urlFiche} source="HATVP">
-          {denomination}
-        </LienOfficiel>
-      ) : (
-        denomination
-      )}
-      {hrefSirene ? (
-        <PuceOfficielle href={hrefSirene} libelle="Sirene" nom={denomination} />
-      ) : null}
-    </span>
-  );
 }
 
 /** `10 000` → `10 k€`, `1 250 000` → `1,25 M€` (étiquettes d'axe compactes). */
@@ -170,17 +143,6 @@ function ligneTitulaire(
 }
 
 /** Ligne de la table « en défaut de déclaration ET titulaire de marchés ». */
-type LigneDefautTitulaire = {
-  siren: string;
-  denomination: string;
-  categorie: string | null;
-  url_fiche: string | null;
-  dans_sirene: number;
-  nb_marches_tous: number;
-  montant_tous_meur: number | null;
-  nb_marches_hors_ac: number;
-  montant_hors_ac_meur: number | null;
-};
 
 /**
  * Croisement RÉPERTOIRE DES REPRÉSENTANTS D'INTÉRÊTS × MARCHÉS PUBLICS
@@ -529,52 +491,7 @@ function SectionCroisement({
             accords-cadres, dont le montant est un maximum et non une dépense.
           </p>
 
-          <DataTable<LigneDefautTitulaire>
-            colonnes={[
-              {
-                cle: "denomination",
-                entete: "Entité en défaut de déclaration",
-                rendu: (l) => (
-                  <NomHatvp
-                    denomination={l.denomination}
-                    urlFiche={l.url_fiche}
-                    sirenPourAnnuaire={l.dans_sirene === 1 ? l.siren : null}
-                  />
-                ),
-              },
-              { cle: "categorie", entete: "Catégorie (libellé natif HATVP)" },
-              {
-                cle: "nb_marches_tous",
-                entete: "Marchés (tous)",
-                type: "nombre",
-                largeur: "6rem",
-              },
-              {
-                cle: "montant_tous_meur",
-                entete: "Montant (M€, tous)",
-                type: "montant",
-                decimales: 1,
-                largeur: "7rem",
-              },
-              {
-                cle: "nb_marches_hors_ac",
-                entete: "Marchés (hors AC)",
-                type: "nombre",
-                largeur: "6rem",
-              },
-              {
-                cle: "montant_hors_ac_meur",
-                entete: "Montant (M€, hors AC)",
-                type: "montant",
-                decimales: 1,
-                largeur: "7rem",
-              },
-            ]}
-            lignes={enDefaut}
-            cleLigne={(l) => l.siren}
-            vide="Aucun représentant d'intérêts en défaut de déclaration n'est titulaire d'un marché public dans les DECP."
-            hauteurMax="24rem"
-          />
+          <TableDefautsTitulaires lignes={enDefaut} />
           <p className="text-xs leading-relaxed text-ink-muted">
             « AC » = accord-cadre. Montants écrêtés à{" "}
             {formatEuros(PLAFOND_ECRETAGE)} par marché puis répartis entre
@@ -756,12 +673,12 @@ function SectionRegistreUe({ donnees }: { donnees: DonneesRegistreUe }) {
             </p>
           </div>
 
-          <BarList
+          <BarListIle
             items={paysTete.map((p) => ({
               libelle: p.pays,
               valeur: p.nb_organisations,
             }))}
-            formatValeur={(v) => formatNombre(v)}
+            format={{ type: "nombre" }}
             largeurLibelle="38%"
           />
           <p className="text-xs leading-relaxed text-ink-muted">
@@ -773,7 +690,7 @@ function SectionRegistreUe({ donnees }: { donnees: DonneesRegistreUe }) {
           </p>
 
           <VueTableau>
-            <DataTable<CategorieUe>
+            <TableCompacte<CategorieUe>
               colonnes={[
                 {
                   cle: "categorie",
@@ -786,7 +703,7 @@ function SectionRegistreUe({ donnees }: { donnees: DonneesRegistreUe }) {
                 },
               ]}
               lignes={donnees.categoriesFrance}
-              cleLigne={(l) => l.categorie}
+              cleChamp="categorie"
             />
           </VueTableau>
         </div>
@@ -798,7 +715,7 @@ function SectionRegistreUe({ donnees }: { donnees: DonneesRegistreUe }) {
         sousTitre={`Organisations à siège en France par fourchette de coûts annuels consacrés aux activités de représentation d'intérêts auprès des institutions de l'Union — fourchettes natives du registre, telles que publiées. ${formatNombre(france.avecCout)} des ${formatNombre(france.total)} inscrits français en déclarent une.`}
         droite={badgeUe}
       >
-        <DataTable<CoutUe>
+        <TableCompacte<CoutUe>
           colonnes={[
             { cle: "fourchette", entete: "Fourchette de coûts annuels (libellé natif)" },
             {
@@ -808,7 +725,7 @@ function SectionRegistreUe({ donnees }: { donnees: DonneesRegistreUe }) {
             },
           ]}
           lignes={donnees.coutsFrance}
-          cleLigne={(l) => l.fourchette}
+          cleChamp="fourchette"
           hauteurMax="20rem"
         />
         <p className="mt-2 text-xs leading-relaxed text-ink-muted">
@@ -835,12 +752,12 @@ function SectionRegistreUe({ donnees }: { donnees: DonneesRegistreUe }) {
             <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
               Domaines d&apos;intérêt les plus déclarés (organisations françaises)
             </h3>
-            <BarList
+            <BarListIle
               items={donnees.domainesFrance.map((d) => ({
                 libelle: d.domaine,
                 valeur: d.nb_france,
               }))}
-              formatValeur={(v) => formatNombre(v)}
+              format={{ type: "nombre" }}
               largeurLibelle="45%"
             />
             <p className="mt-2 text-xs text-ink-muted">
@@ -1002,16 +919,16 @@ export default async function LobbyingPage() {
         sousTitre="Cumul historique des activités déclarées, par catégorie de responsables publics visés. Une même activité peut viser plusieurs catégories : ces lignes ne s’additionnent pas, leur somme dépasse le total des activités déclarées. La donnée source ne sépare pas l'Assemblée nationale du Sénat : ils forment la seule catégorie « Parlement (AN + Sénat) »."
         droite={badge}
       >
-        <BarList
+        <BarListIle
           items={institutions.map((i) => ({
             libelle: i.groupe,
             valeur: i.nb_activites_total,
           }))}
-          formatValeur={(v) => formatNombre(v)}
+          format={{ type: "nombre" }}
           largeurLibelle="38%"
         />
         <VueTableau>
-          <DataTable<InstitutionDetail>
+          <TableCompacte<InstitutionDetail>
             colonnes={[
               { cle: "institution", entete: "Catégorie de responsables publics (libellé natif)" },
               { cle: "groupe", entete: "Groupe", largeur: "12rem" },
@@ -1020,7 +937,7 @@ export default async function LobbyingPage() {
               { cle: "nb_entites", entete: "Entités", type: "nombre" },
             ]}
             lignes={institutionsDetail}
-            cleLigne={(l) => l.institution}
+            cleChamp="institution"
           />
         </VueTableau>
       </Card>
@@ -1062,29 +979,18 @@ export default async function LobbyingPage() {
         sousTitre="Top 20 par nombre d'activités publiées sur les 12 derniers mois."
         droite={badge}
       >
-        <DataTable<TopEntite>
-          colonnes={[
-            { cle: "rang", entete: "Rang", type: "nombre", largeur: "3.5rem" },
-            {
-              cle: "denomination",
-              entete: "Entité",
-              rendu: (l) => (
-                <NomHatvp
-                  denomination={l.denomination}
-                  urlFiche={l.url_fiche}
-                  sirenPourAnnuaire={
-                    l.type_identifiant === "SIREN" && l.dans_sirene === 1
-                      ? l.identifiant_national
-                      : null
-                  }
-                />
-              ),
-            },
-            { cle: "categorie", entete: "Catégorie" },
-            { cle: "nb_activites_12m", entete: "Activités (12 mois)", type: "nombre" },
-          ]}
-          lignes={topEntites}
-          cleLigne={(l) => String(l.rang)}
+        <TableTopEntites
+          lignes={topEntites.map((l) => ({
+            rang: l.rang,
+            denomination: l.denomination,
+            categorie: l.categorie,
+            nb_activites_12m: l.nb_activites_12m,
+            url_fiche: l.url_fiche,
+            siren_annuaire:
+              l.type_identifiant === "SIREN" && l.dans_sirene === 1
+                ? l.identifiant_national
+                : null,
+          }))}
         />
       </Card>
 
@@ -1094,12 +1000,12 @@ export default async function LobbyingPage() {
         sousTitre={`Entités par fourchette de budget annuel consacré à la représentation d'intérêts — fourchettes natives HATVP, telles que déclarées. ${formatNombre(budgetsCouverture.dansFourchettes)} des ${formatNombre(budgetsCouverture.totalActives)} entités actives ont déclaré une fourchette (dernier exercice déclaré) ; les entités cessées ne sont comptées ni d'un côté ni de l'autre.`}
         droite={badge}
       >
-        <BarChart
+        <BarChartIle
           items={budgets.map((b) => ({
             libelle: libelleFourchetteCourt(b),
             valeur: b.nb_entites,
           }))}
-          formatValeur={(v) => formatNombre(v)}
+          format={{ type: "nombre" }}
           largeur={1000}
           hauteur={260}
           ariaLabel="Nombre d'entités par fourchette de budget annuel déclaré"
@@ -1110,13 +1016,13 @@ export default async function LobbyingPage() {
           (« ≥ 10 000 000 € »).
         </p>
         <VueTableau>
-          <DataTable<FourchetteBudget>
+          <TableCompacte<FourchetteBudget>
             colonnes={[
               { cle: "fourchette", entete: "Fourchette de budget (libellé natif)" },
               { cle: "nb_entites", entete: "Entités", type: "nombre" },
             ]}
             lignes={budgets}
-            cleLigne={(l) => l.fourchette}
+            cleChamp="fourchette"
             hauteurMax="20rem"
           />
         </VueTableau>
@@ -1128,7 +1034,7 @@ export default async function LobbyingPage() {
         sousTitre={`Trimestre de publication des déclarations d'activités (${trimestres[0]?.trimestre} → ${dernierTrimestre?.trimestre}).`}
         droite={badge}
       >
-        <LineChart
+        <LineChartIle
           labels={trimestres.map((t) => t.trimestre)}
           series={[
             {
@@ -1136,7 +1042,7 @@ export default async function LobbyingPage() {
               valeurs: trimestres.map((t) => t.nb_activites),
             },
           ]}
-          formatValeur={(v) => formatNombre(v)}
+          format={{ type: "nombre" }}
           largeur={880}
           hauteur={260}
           ariaLabel="Nombre d'activités de représentation d'intérêts publiées par trimestre"
@@ -1153,14 +1059,14 @@ export default async function LobbyingPage() {
           )}
         </p>
         <VueTableau>
-          <DataTable<TrimestreActivites>
+          <TableCompacte<TrimestreActivites>
             colonnes={[
               { cle: "trimestre", entete: "Trimestre" },
               { cle: "nb_activites", entete: "Activités publiées", type: "nombre" },
               { cle: "nb_entites", entete: "Entités déclarantes", type: "nombre" },
             ]}
             lignes={trimestres}
-            cleLigne={(l) => l.trimestre}
+            cleChamp="trimestre"
             hauteurMax="20rem"
           />
         </VueTableau>
@@ -1172,7 +1078,7 @@ export default async function LobbyingPage() {
         sousTitre="Top 12 par nombre d'activités déclarées (historique), parmi les destinataires RÉELLEMENT NOMMÉS — ministères, autorités indépendantes, collectivités. Le champ « département ministériel » de la HATVP accepte plusieurs valeurs et son export CSV les sépare par une virgule, sans distinguer cette virgule de celle qui appartient au nom d'un ministère : « Environnement, énergie et mer » y figure en deux lignes. Les portefeuilles connus sont donc reconstitués à partir d'une liste de correspondances fermée, vérifiée sur les identifiants d'activité ; les autres libellés restent tels que déclarés. Une même activité pouvant viser plusieurs destinataires, les lignes ne se cumulent pas."
         droite={badge}
       >
-        <DataTable<MinistereVise>
+        <TableCompacte<MinistereVise>
           colonnes={[
             {
               cle: "ministere",
@@ -1183,7 +1089,7 @@ export default async function LobbyingPage() {
             { cle: "nb_entites", entete: "Entités", type: "nombre" },
           ]}
           lignes={ministeres}
-          cleLigne={(l) => l.ministere}
+          cleChamp="ministere"
         />
 
         {/* Ces libellés étaient auparavant classés AVEC les ministères : le
@@ -1217,7 +1123,7 @@ export default async function LobbyingPage() {
               une part d&apos;activités. Aucun chiffre n&apos;est retiré : ils
               sont ici.
             </p>
-            <DataTable<MinistereVise>
+            <TableCompacte<MinistereVise>
               colonnes={[
                 {
                   cle: "ministere",
@@ -1228,7 +1134,7 @@ export default async function LobbyingPage() {
                 { cle: "nb_entites", entete: "Entités", type: "nombre" },
               ]}
               lignes={typesInterlocuteur}
-              cleLigne={(l) => l.ministere}
+              cleChamp="ministere"
             />
           </div>
         )}
