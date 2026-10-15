@@ -503,7 +503,7 @@ export default async function PageMarches() {
   const totalProcedures = procedures.reduce((s, r) => s + r.nb_marches, 0);
 
   /* ---- BOAMP : compteurs du bloc annonces ---- */
-  const totalAnnonces31j = donnees.annoncesParJour.reduce((s, j) => s + j.nb, 0);
+  const totalAnnonces30j = donnees.annoncesParJour.reduce((s, j) => s + j.nb, 0);
 
   const badgeS1 = meta.s1 && (
     <FreshnessBadge
@@ -1429,16 +1429,16 @@ export default async function PageMarches() {
             )
           }
         >
-          {/* rythme de publication : sparkline 31 jours + vue tableau */}
+          {/* rythme de publication : sparkline 30 jours + vue tableau */}
           <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
             <Sparkline
               valeurs={donnees.annoncesParJour.map((j) => j.nb)}
               largeur={240}
               hauteur={40}
-              ariaLabel={`Annonces publiées par jour au BOAMP sur 31 jours, ${formatNombre(totalAnnonces31j)} au total`}
+              ariaLabel={`Annonces publiées par jour au BOAMP sur 30 jours, ${formatNombre(totalAnnonces30j)} au total`}
             />
             <p className="text-xs text-ink-secondary">
-              {formatNombre(totalAnnonces31j)} annonces publiées en 31 jours
+              {formatNombre(totalAnnonces30j)} annonces publiées en 30 jours
               (toutes natures : appels d’offres, attributions, rectificatifs)
               {donnees.annoncesParJour.length > 0 && (
                 <span className="text-ink-muted">
@@ -1449,7 +1449,7 @@ export default async function PageMarches() {
               )}
             </p>
           </div>
-          <VueTableau resume="Vue tableau — annonces par jour (31 j)">
+          <VueTableau resume="Vue tableau — annonces par jour (30 j)">
             <DataTable
               hauteurMax="280px"
               colonnes={[

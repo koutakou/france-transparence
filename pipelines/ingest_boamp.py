@@ -78,8 +78,21 @@ EXPORT_URL = (
     "/api/explore/v2.1/catalog/datasets/boamp/exports/json"
 )
 
-#: Fenêtre du flux « annonces récentes » (jours).
+#: Fenêtre du flux « annonces récentes », en jours CIVILS, aujourd'hui compris.
 FENETRE_JOURS = 30
+
+
+def debut_fenetre(aujourdhui: date) -> date:
+    """Premier jour de la fenêtre de FENETRE_JOURS jours civils finissant
+    aujourd'hui.
+
+    `- FENETRE_JOURS - 1` et non `- FENETRE_JOURS` : le filtre amont est
+    `dateparution >= début` et le jour courant est publié le matin même, donc
+    compté. Avec `- 30`, la fenêtre couvrait 31 jours civils (mesuré le
+    15/10/2026 : 31 dates distinctes, du 15/09 au 15/10) alors que la note S2
+    annonçait « 30 j ».
+    """
+    return aujourdhui - timedelta(days=FENETRE_JOURS - 1)
 
 #: Clés portant un montant dans le JSON `donnees`, par ordre de préférence
 #: (constatées sur enregistrements réels du 19/08/2026 : schémas eForms et FNS).
@@ -230,16 +243,16 @@ COLONNES_ANNONCES_RECENTES = (
 
 
 def archiver_annonces_hors_fenetre(
-    conn, debut_fenetre: str, archive_le: str
+    conn, debut: str, archive_le: str
 ) -> int:
-    """Copie les annonces dont date_parution < début de fenêtre (30 j)."""
+    """Copie les annonces dont date_parution < début de fenêtre."""
     return archiver_sortie_fenetre(
         conn,
         source="annonces_recentes",
         archive="annonces_recentes_archive",
         colonnes=COLONNES_ANNONCES_RECENTES,
         where="date_parution < ?",
-        params=(debut_fenetre,),
+        params=(debut,),
         archive_le=archive_le,
     )
 
@@ -594,7 +607,7 @@ def _exporter(where: str, select: str, dest: str) -> list[dict]:
 
 def _executer() -> None:
     aujourdhui = date.today()
-    debut_fenetre = (aujourdhui - timedelta(days=FENETRE_JOURS)).isoformat()
+    debut = debut_fenetre(aujourdhui).isoformat()
 
     # 1. Appels d'offres à clôture future (~9 000 constatés le 19/08/2026).
     brut_ao = _exporter(
@@ -604,7 +617,7 @@ def _executer() -> None:
     )
     # 2. Flux des annonces parues sur la fenêtre (attributions incluses).
     brut_annonces = _exporter(
-        f"dateparution>=date'{debut_fenetre}'",
+        f"dateparution>=date'{debut}'",
         CHAMPS_ANNONCE,
         "boamp_annonces_recentes.json",
     )
@@ -675,7 +688,7 @@ def _executer() -> None:
         migrer_ao_en_cours(conn)
         # Réécriture idempotente en une transaction.
         n_arch = archiver_annonces_hors_fenetre(
-            conn, debut_fenetre, aujourdhui.isoformat()
+            conn, debut, aujourdhui.isoformat()
         )
         if n_arch:
             log.info(
@@ -758,7 +771,8 @@ def _executer() -> None:
                 f"{nb_montants} avec montant publié dans l'annonce, "
                 f"{nb_fourchettes} autres avec seulement une fourchette "
                 f"d'estimation, jamais comptée comme un montant) ; "
-                f"{len(annonces)} annonces sur {FENETRE_JOURS} j ; "
+                f"{len(annonces)} annonces sur {FENETRE_JOURS} jours civils "
+                f"(aujourd'hui compris) ; "
                 "via /exports/json (plafond /records 10 000)"
             ),
         )
