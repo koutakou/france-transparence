@@ -205,15 +205,40 @@ header {
   display: none;
 }
 
-/* Chrome des relevés de graphique (TooltipGraphique, DATAVIZ §5). Posé UNE
-   fois ici plutôt qu'en attribut style sur chaque relevé : une page en porte
-   jusqu'à une centaine (un par colonne de chaque graphique), et ces quelque
-   140 octets se répétaient dans le HTML comme dans le payload RSC. Le style
-   en ligne du composant ne garde que la position. */
-.ft-tip {
-  background: var(--surface-raised);
-  border: 1px solid var(--border-raised);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-  padding: 8px 10px;
+/* Relevés de graphique (TooltipGraphique, DATAVIZ §5). Habillage et gabarit
+   posés UNE fois ici plutôt que sur chaque relevé : une page en porte jusqu'à
+   une centaine (un par colonne de chaque graphique), et ces attributs se
+   répétaient dans le HTML comme dans le payload RSC. Mêmes utilitaires
+   qu'avant (@apply), dans la couche components : une classe passée par
+   l'appelant garde la priorité. Le style en ligne ne garde que la position
+   et la couleur de série. */
+@layer components {
+  .ft-tip {
+    @apply pointer-events-none absolute z-20 max-w-[16rem];
+    background: var(--surface-raised);
+    border: 1px solid var(--border-raised);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    padding: 8px 10px;
+  }
+  .ft-tip-titre {
+    @apply mb-1 text-[11px] leading-tight text-ink-muted;
+  }
+  .ft-tip-lignes {
+    @apply flex flex-col gap-0.5;
+  }
+  .ft-tip-ligne {
+    @apply flex items-baseline gap-2 text-[12px] leading-tight;
+  }
+  .ft-tip-cle {
+    @apply inline-block shrink-0 self-center rounded-full;
+    width: 12px;
+    height: 2px;
+  }
+  .ft-tip-valeur {
+    @apply font-semibold text-ink;
+  }
+  .ft-tip-nom {
+    @apply text-ink-secondary;
+  }
 }
