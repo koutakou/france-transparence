@@ -134,8 +134,7 @@ def nettoyer_etat_administratif(s: str | None) -> str | None:
     NB : les 262 valeurs de la forme « Fermé <nombre> » sont laissées INTACTES.
     Le nombre est un numéro de série de date, mais l'époque de référence n'est
     pas documentée par la source ; la convertir reviendrait à publier une date
-    devinée. Constat et élimination des hypothèses : § M6 de
-    doc/QUALITE-DONNEES.md.
+    devinée.
     """
     valeur = nettoyer_texte(s)
     return None if valeur in _ETATS_ADMINISTRATIFS_VIDES else valeur

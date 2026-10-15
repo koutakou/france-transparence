@@ -296,7 +296,7 @@ def test_integration_p1_p2_base_jetable(monkeypatch, tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Scories Chorus du jaune budgétaire (§ M6 de doc/QUALITE-DONNEES.md)
+# Scories Chorus du jaune budgétaire
 # ---------------------------------------------------------------------------
 
 
