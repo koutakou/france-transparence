@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { estActif } from "@/lib/navigation";
 
 /**
  * Navigation principale.
@@ -155,10 +156,6 @@ const ITEMS: ItemNav[] = [
     ),
   },
 ];
-
-function estActif(href: string, pathname: string): boolean {
-  return href === "/" ? pathname === "/" : pathname.startsWith(href);
-}
 
 /**
  * POURQUOI `prefetch={false}` + réarmement manuel au survol.
