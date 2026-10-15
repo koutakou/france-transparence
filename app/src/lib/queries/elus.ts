@@ -140,9 +140,13 @@ export const PERIMETRE_ELUS_EN_BASE =
 export const PERIMETRE_PARTICIPATION_FT =
   "scrutins publics de l’AN, 12 derniers mois depuis l’entrée en mandat — votes exprimés";
 
-/** Même formule, chambre Sénat. Une délégation n'est pas une présence. */
+/**
+ * Chambre Sénat : le dénominateur est la liste publiée par le Sénat pour
+ * chaque scrutin (une ligne par sénateur en exercice), pas une date
+ * d’entrée en mandat. Une délégation n’est pas une présence.
+ */
 export const PERIMETRE_PARTICIPATION_FT_SENAT =
-  "scrutins publics du Sénat, 12 derniers mois depuis l’entrée en mandat — votes exprimés, pas une présence";
+  "scrutins publics du Sénat des 12 derniers mois où il ou elle siégeait (liste officielle du scrutin) — votes exprimés, pas une présence";
 
 /** Même fenêtre que le taux — un tiret n’est pas un zéro. */
 export const PERIMETRE_VOTES_12M =

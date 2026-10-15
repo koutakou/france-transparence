@@ -111,7 +111,12 @@ def test_votes_recents_archive_avant_purge(tmp_path):
 
 
 def test_ingerer_dosleg_archive_les_votes_hors_100(tmp_path, monkeypatch):
-    """Un scrutin déjà en table, absent du dump, sort vers l'archive."""
+    """Un scrutin déjà en table, absent du dump, sort vers l'archive.
+
+    Seuls les quatre matricules que la fixture `votsen` liste sont semés :
+    ingerer_dosleg refuse d'écrire quand la liste d'un scrutin ne couvre pas
+    les sénateurs en exercice (controler_listes_votsen), et ce test-ci porte
+    sur l'archive, pas sur cette prémisse."""
     conn = db.init_db(chemin=tmp_path / "t.db")
     conn.executescript(_SCHEMA_P9)
     conn.executemany(
@@ -122,8 +127,6 @@ def test_ingerer_dosleg_archive_les_votes_hors_100(tmp_path, monkeypatch):
             ("19489J", "Kerrouche", "2020-10-01"),
             ("01008M", "Del", "2020-10-01"),
             ("98046X", "Nonvotant", "2020-10-01"),
-            ("99999Z", "Absent", "2020-10-01"),
-            ("88888Y", "Nouveau", "2026-08-01"),
         ],
     )
     conn.execute(

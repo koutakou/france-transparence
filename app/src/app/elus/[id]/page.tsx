@@ -669,7 +669,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
                 perimetre: PERIMETRE_PARTICIPATION_FT_SENAT,
               },
               {
-                label: "Votes exprimés / scrutins du mandat (12 mois)",
+                label: "Votes exprimés / scrutins où il ou elle siégeait (12 mois)",
                 valeur:
                   senateur.nb_votes_12m !== null && senateur.nb_scrutins_12m !== null
                     ? `${formatNombre(senateur.nb_votes_12m)} / ${formatNombre(senateur.nb_scrutins_12m)}`
