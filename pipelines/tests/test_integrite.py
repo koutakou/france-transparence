@@ -1013,7 +1013,7 @@ def test_le_controle_est_branche_dans_ecrire(tmp_path, dossiers, caplog):
 
 def test_croiser_hatvp_flag_unique_des_deux_cotes(conn, dossiers):
     p7.upsert_elus(conn, p7.preparer_personnes(charger_rne()))
-    n = p7.croiser_hatvp_flag(conn, dossiers)
+    n, _ecartes = p7.croiser_hatvp_flag(conn, dossiers)
     assert n >= 1
     guerza = conn.execute(
         "SELECT hatvp_flag, hatvp_url FROM elus WHERE nom = 'GUERZA'").fetchone()
@@ -1022,6 +1022,86 @@ def test_croiser_hatvp_flag_unique_des_deux_cotes(conn, dossiers):
     # Homonymie côté élus (deux LEFEVRE Philippe) → pas de flag.
     for r in conn.execute("SELECT hatvp_flag FROM elus WHERE nom = 'LEFEVRE'"):
         assert r["hatvp_flag"] == 0
+
+
+def _dossier_hatvp(nom, prenom, type_mandat, departement, qualite,
+                   classement=None):
+    """Dossier au gabarit de parser_liste_hatvp (colonnes réelles)."""
+    return {"civilite": "M.", "prenom": prenom, "nom": nom,
+            "classement": classement or f"{nom}{prenom}1",
+            "type_mandat": type_mandat, "qualite": qualite,
+            "type_document": "di", "departement": departement,
+            "date_publication": "", "date_depot": "", "nom_fichier": "",
+            "url_dossier": f"/pages_nominatives/{nom.lower()}-1",
+            "open_data": "", "statut_publication": "Livrée", "id_origine": "",
+            "url_photo": ""}
+
+
+def _fiche(conn, ident, nom, prenom, mandats):
+    conn.execute("INSERT INTO elus (id, nom, prenom, mandats) VALUES (?, ?, ?, ?)",
+                 (ident, nom, prenom, json.dumps(mandats)))
+
+
+def test_hatvp_flag_refuse_un_homonyme_d_un_autre_departement(conn):
+    """Constat du 15/10/2026 (cas relevé sur la base servie) : LEROY Gilles,
+    maire de Courtrizy-et-Fussigny (02), recevait la fiche HATVP d'un
+    vice-président du conseil départemental de Maine-et-Loire (49). Nom et
+    prénom uniques des deux côtés : l'ancien code posait le flag."""
+    _fiche(conn, "rne-leroy", "LEROY", "Gilles",
+           [{"source": "RNE", "type": "maire", "departement": "02",
+             "commune": "Courtrizy-Et-Fussigny"}])
+    hatvp = [_dossier_hatvp("LEROY", "Gilles", "departement", "49",
+                            "Vice-président du conseil départemental de Maine-et-Loire")]
+    assert p7.croiser_hatvp_flag(conn, hatvp) == (0, 1)
+    assert tuple(conn.execute("SELECT hatvp_flag, hatvp_url FROM elus"
+                              " WHERE id = 'rne-leroy'").fetchone()) == (0, None)
+
+
+def test_hatvp_flag_pose_quand_le_departement_concorde(conn):
+    """Contre-épreuve : le même dossier, la fiche dans le 49 → flag."""
+    _fiche(conn, "rne-leroy", "LEROY", "Gilles",
+           [{"source": "RNE", "type": "maire", "departement": "49"}])
+    hatvp = [_dossier_hatvp("LEROY", "Gilles", "departement", "49",
+                            "Vice-président du conseil départemental de Maine-et-Loire")]
+    assert p7.croiser_hatvp_flag(conn, hatvp) == (1, 0)
+
+
+def test_hatvp_flag_concordance_par_chambre_et_par_nature(conn):
+    """Français de l'étranger : « 99 » à la HATVP, « ZZ » au RNE, en toutes
+    lettres à l'AN — la chambre suffit. Région sans département à la HATVP :
+    la nature du mandat (présidence de région) suffit ; un maire, non."""
+    _fiche(conn, "PA721004", "LAKRAFI", "Amélia",
+           [{"source": "AN-P9", "type": "depute",
+             "departement": "Français établis hors de France"},
+            {"source": "RNE", "type": "depute", "departement": "ZZ"}])
+    _fiche(conn, "rne-pcr", "PRESIDENTE", "Région",
+           [{"source": "RNE", "type": "president_conseil_regional"}])
+    _fiche(conn, "rne-maire", "MAIRE", "Ailleurs",
+           [{"source": "RNE", "type": "maire", "departement": "87"}])
+    hatvp = [
+        _dossier_hatvp("LAKRAFI", "Amélia", "depute", "99", "Députée"),
+        _dossier_hatvp("PRESIDENTE", "Région", "region", "",
+                       "Présidente du conseil régional"),
+        _dossier_hatvp("MAIRE", "Ailleurs", "region", "",
+                       "Vice-président du conseil régional"),
+    ]
+    assert p7.croiser_hatvp_flag(conn, hatvp) == (2, 1)
+    flags = dict(conn.execute("SELECT id, hatvp_flag FROM elus").fetchall())
+    assert flags == {"PA721004": 1, "rne-pcr": 1, "rne-maire": 0}
+
+
+def test_hatvp_flag_d_un_cycle_precedent_ne_survit_pas(conn):
+    """Le flag était « jamais remis à 0 » : un flag posé à tort restait servi
+    sur la base persistante même une fois l'appariement corrigé."""
+    _fiche(conn, "rne-leroy", "LEROY", "Gilles",
+           [{"source": "RNE", "type": "maire", "departement": "02"}])
+    conn.execute("ALTER TABLE elus ADD COLUMN hatvp_url TEXT")  # comme un cycle passé
+    conn.execute("UPDATE elus SET hatvp_flag = 1, hatvp_url ="
+                 " 'https://www.hatvp.fr/pages_nominatives/leroy-1'")
+    hatvp = [_dossier_hatvp("LEROY", "Gilles", "departement", "49",
+                            "Vice-président du conseil départemental de Maine-et-Loire")]
+    p7.croiser_hatvp_flag(conn, hatvp)
+    assert tuple(conn.execute("SELECT hatvp_flag, hatvp_url FROM elus").fetchone()) == (0, None)
 
 
 # ---------------------------------------------------------------------------
