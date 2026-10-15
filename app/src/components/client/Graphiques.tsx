@@ -2,6 +2,7 @@
 
 import { BarChart, type BarChartProps } from "@/components/ui/BarChart";
 import { BarList, type BarListProps } from "@/components/ui/BarList";
+import { Donut, type DonutProps } from "@/components/ui/Donut";
 import { LineChart, type LineChartProps } from "@/components/ui/LineChart";
 import { formateur, type FormatValeur } from "@/lib/formatValeur";
 
@@ -38,4 +39,11 @@ export function BarListIle({
   ...props
 }: Omit<BarListProps, "formatValeur"> & { format?: FormatValeur }) {
   return <BarList {...props} formatValeur={formateur(format)} />;
+}
+
+export function DonutIle({
+  format,
+  ...props
+}: Omit<DonutProps, "formatValeur"> & { format?: FormatValeur }) {
+  return <Donut {...props} formatValeur={formateur(format)} />;
 }
