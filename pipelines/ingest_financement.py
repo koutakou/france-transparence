@@ -88,8 +88,10 @@ meta_sources : S25, S29, S37 (date_donnees = date réelle de la donnée,
 jamais la date de modification du dataset — SOURCES.md §0.2).
 
 Exécution : python -m pipelines.ingest_financement (FT_DB_PATH pour base
-jetable). Échec → code retour 1, rien d'inventé, rien de partiellement écrit
-(chaque chargement est transactionnel).
+jetable). Échec → code retour 1, rien d'inventé, rien de partiellement écrit :
+tout est téléchargé et parsé AVANT la première écriture, puis toutes les
+écritures (tables, vues, alertes, trois lignes meta) tiennent dans UNE
+transaction, validée à la fin ou annulée en bloc.
 """
 
 from __future__ import annotations
@@ -833,7 +835,12 @@ def parser_campagnes(brut: bytes) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Chargements (chacun transactionnel)
+# Chargements — AUCUN ne valide : ils écrivent dans la transaction que
+# `main` ouvre, et que `main` valide ou annule en bloc. Avant le 15/10/2026,
+# chacun portait son `with conn:` (qui valide en sortie de bloc) : un échec
+# après `charger_partis` laissait les partis réécrits, les campagnes
+# d'avant, et aucune ligne meta — pendant que le journal affirmait « base
+# laissée en l'état antérieur ».
 # ---------------------------------------------------------------------------
 
 
@@ -951,75 +958,73 @@ def charger_partis(conn, comptes_par_exercice: dict[int, list[dict]]) -> tuple[i
     for ligne in sorted(toutes, key=lambda l: l["exercice"]):
         referentiel[ligne["code"]] = ligne  # le dernier exercice publié gagne
 
-    with conn:
-        conn.execute("DELETE FROM partis_comptes")
-        conn.execute("DELETE FROM partis")
-        for code, ligne in referentiel.items():
-            parti_id = f"PARTI-{code}"
-            sigle = extraire_sigle(ligne["nom"])
-            conn.execute(
-                """
-                INSERT INTO entites (id, type, nom, sigle)
-                VALUES (?, 'parti', ?, ?)
-                ON CONFLICT(id) DO UPDATE SET nom = excluded.nom,
-                                              sigle = excluded.sigle
-                """,
-                (parti_id, ligne["nom"], sigle),
-            )
-            conn.execute(
-                """
-                INSERT INTO partis (id, code_cnccfp, nom, sigle, dernier_exercice)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (parti_id, code, ligne["nom"], sigle, ligne["exercice"]),
-            )
-        conn.executemany(
+    conn.execute("DELETE FROM partis_comptes")
+    conn.execute("DELETE FROM partis")
+    for code, ligne in referentiel.items():
+        parti_id = f"PARTI-{code}"
+        sigle = extraire_sigle(ligne["nom"])
+        conn.execute(
             """
-            INSERT INTO partis_comptes
-                (parti_id, exercice, nom_declare, unite, produits_total, dons,
-                 cotisations_adherents, cotisations_elus, aide_publique_f1,
-                 aide_publique_f2, autres_aides_publiques, contributions_recues,
-                 charges_total, resultat)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO entites (id, type, nom, sigle)
+            VALUES (?, 'parti', ?, ?)
+            ON CONFLICT(id) DO UPDATE SET nom = excluded.nom,
+                                          sigle = excluded.sigle
             """,
-            [
-                (
-                    f"PARTI-{l['code']}", l["exercice"], l["nom"], l["unite"],
-                    l["produits_total"], l["dons"], l["cotisations_adherents"],
-                    l["cotisations_elus"], l["aide_publique_f1"],
-                    l["aide_publique_f2"], l["autres_aides_publiques"],
-                    l["contributions_recues"], l["charges_total"], l["resultat"],
-                )
-                for l in toutes
-            ],
+            (parti_id, ligne["nom"], sigle),
         )
+        conn.execute(
+            """
+            INSERT INTO partis (id, code_cnccfp, nom, sigle, dernier_exercice)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (parti_id, code, ligne["nom"], sigle, ligne["exercice"]),
+        )
+    conn.executemany(
+        """
+        INSERT INTO partis_comptes
+            (parti_id, exercice, nom_declare, unite, produits_total, dons,
+             cotisations_adherents, cotisations_elus, aide_publique_f1,
+             aide_publique_f2, autres_aides_publiques, contributions_recues,
+             charges_total, resultat)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                f"PARTI-{l['code']}", l["exercice"], l["nom"], l["unite"],
+                l["produits_total"], l["dons"], l["cotisations_adherents"],
+                l["cotisations_elus"], l["aide_publique_f1"],
+                l["aide_publique_f2"], l["autres_aides_publiques"],
+                l["contributions_recues"], l["charges_total"], l["resultat"],
+            )
+            for l in toutes
+        ],
+    )
     return len(referentiel), len(toutes)
 
 
 def charger_campagnes(conn, lignes: list[dict]) -> int:
-    with conn:
-        conn.execute("DELETE FROM campagnes_2024")
-        conn.executemany(
-            """
-            INSERT INTO campagnes_2024
-                (candidat_id, nom, marqueur_etoile, scrutin, circonscription,
-                 departement, code_departement, nuance, depenses_declarees,
-                 depenses_retenues, recettes_declarees, recettes_retenues,
-                 remboursement_etat, decision, decision_famille)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                (
-                    l["candidat_id"], l["nom"], int(l["marqueur_etoile"]),
-                    l["scrutin"], l["circonscription"],
-                    l["departement"], l["code_departement"], l["nuance"],
-                    l["depenses_declarees"], l["depenses_retenues"],
-                    l["recettes_declarees"], l["recettes_retenues"],
-                    l["remboursement_etat"], l["decision"], l["decision_famille"],
-                )
-                for l in lignes
-            ],
-        )
+    conn.execute("DELETE FROM campagnes_2024")
+    conn.executemany(
+        """
+        INSERT INTO campagnes_2024
+            (candidat_id, nom, marqueur_etoile, scrutin, circonscription,
+             departement, code_departement, nuance, depenses_declarees,
+             depenses_retenues, recettes_declarees, recettes_retenues,
+             remboursement_etat, decision, decision_famille)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                l["candidat_id"], l["nom"], int(l["marqueur_etoile"]),
+                l["scrutin"], l["circonscription"],
+                l["departement"], l["code_departement"], l["nuance"],
+                l["depenses_declarees"], l["depenses_retenues"],
+                l["recettes_declarees"], l["recettes_retenues"],
+                l["remboursement_etat"], l["decision"], l["decision_famille"],
+            )
+            for l in lignes
+        ],
+    )
     return len(lignes)
 
 
@@ -1030,31 +1035,33 @@ def charger_decrets_aide(conn) -> int:
     n'est interpolée ni reconduite. Ne pas confondre avec partis_comptes, qui
     porte l'aide déclarée par les partis (autre nature de donnée).
     """
-    with conn:
-        conn.execute("DELETE FROM partis_aide_annuelle")
-        conn.executemany(
-            """
-            INSERT INTO partis_aide_annuelle
-                (annee, montant_total_eur, fraction1_eur, fraction2_eur,
-                 perimetre, reference, source_url, note)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                (
-                    d["annee"], d["montant_total_eur"], d["fraction1_eur"],
-                    d["fraction2_eur"], d["perimetre"], d["reference"],
-                    d["source_url"], d["note"],
-                )
-                for d in DECRETS_AIDE_PUBLIQUE
-            ],
-        )
+    conn.execute("DELETE FROM partis_aide_annuelle")
+    conn.executemany(
+        """
+        INSERT INTO partis_aide_annuelle
+            (annee, montant_total_eur, fraction1_eur, fraction2_eur,
+             perimetre, reference, source_url, note)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                d["annee"], d["montant_total_eur"], d["fraction1_eur"],
+                d["fraction2_eur"], d["perimetre"], d["reference"],
+                d["source_url"], d["note"],
+            )
+            for d in DECRETS_AIDE_PUBLIQUE
+        ],
+    )
     return len(DECRETS_AIDE_PUBLIQUE)
 
 
 def creer_vues(conn) -> None:
-    """Agrégats servis au front. Les lignes XPF/unité vide sont hors agrégats €."""
-    with conn:
-        conn.executescript(
+    """Agrégats servis au front. Les lignes XPF/unité vide sont hors agrégats €.
+
+    Instruction par instruction, jamais `executescript` : il validerait la
+    transaction de `main` au beau milieu des écritures.
+    """
+    for instruction in db.instructions_sql(
             """
             DROP VIEW IF EXISTS v_partis_top_produits;
             CREATE VIEW v_partis_top_produits AS
@@ -1154,7 +1161,8 @@ def creer_vues(conn) -> None:
             FROM campagnes_2024
             ORDER BY COALESCE(depenses_retenues, 0) DESC;
             """
-        )
+    ):
+        conn.execute(instruction)
 
 
 # ---------------------------------------------------------------------------
@@ -1339,16 +1347,15 @@ def calculer_alertes(conn, url_avis_2024: str | None) -> int:
             )
         )
 
-    with conn:
-        marqueurs = ",".join("?" for _ in TYPES_ALERTES)
-        conn.execute(f"DELETE FROM alertes WHERE type IN ({marqueurs})", TYPES_ALERTES)
-        conn.executemany(
-            """INSERT INTO alertes
-                   (id, type, gravite, titre, detail, regle, base_legale,
-                    source_url, date_calcul)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            alertes,
-        )
+    marqueurs = ",".join("?" for _ in TYPES_ALERTES)
+    conn.execute(f"DELETE FROM alertes WHERE type IN ({marqueurs})", TYPES_ALERTES)
+    conn.executemany(
+        """INSERT INTO alertes
+               (id, type, gravite, titre, detail, regle, base_legale,
+                source_url, date_calcul)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        alertes,
+    )
     return len(alertes)
 
 
@@ -1359,12 +1366,13 @@ def calculer_alertes(conn, url_avis_2024: str | None) -> int:
 
 def main() -> int:
     depart = time.monotonic()
+    conn = None
     try:
+        # 1. TOUT ce qui peut échouer sans écrire : résolution, téléchargements,
+        #    parsing. Rien n'est écrit tant que les deux sources ne sont pas
+        #    parsées.
         session = session_http()
         ressources = resoudre_ressources(session)
-
-        conn = db.init_db()
-        creer_tables(conn)
 
         comptes: dict[int, list[dict]] = {}
         for exercice in EXERCICES:
@@ -1377,8 +1385,6 @@ def main() -> int:
             comptes[exercice] = parser_partis(chemin.read_bytes(), exercice)
             log.info("exercice %d : %d partis", exercice, len(comptes[exercice]))
 
-        nb_partis, nb_comptes = charger_partis(conn, comptes)
-
         chemin_campagnes = telecharger(
             ressources["campagnes"],
             "financement/comptes-campagne-legislatives-2024.csv",
@@ -1386,6 +1392,18 @@ def main() -> int:
             session=session,
         )
         lignes_campagnes = parser_campagnes(chemin_campagnes.read_bytes())
+
+        # 2. Schéma, hors de la transaction : `creer_tables` passe par
+        #    `executescript` et valide. Idempotent et sans perte : CREATE IF
+        #    NOT EXISTS, colonne ajoutée, et seul l'ancien `partis_aide_2026`,
+        #    remplacé par `partis_aide_annuelle`, est supprimé.
+        conn = db.init_db()
+        creer_tables(conn)
+
+        # 3. UNE transaction pour toutes les écritures, lignes meta comprises.
+        #    `IMMEDIATE` : le verrou d'écriture est pris d'emblée.
+        conn.execute("BEGIN IMMEDIATE")
+        nb_partis, nb_comptes = charger_partis(conn, comptes)
         nb_candidats = charger_campagnes(conn, lignes_campagnes)
 
         nb_decrets = charger_decrets_aide(conn)
@@ -1405,6 +1423,7 @@ def main() -> int:
                   "dépôt N+1, publication N+2) est paru le 10/02/2026 et reste "
                   "le plus récent publié. 2 lignes en XPF et 1 sans "
                   "unité (2023) exclues des agrégats en euros.",
+            commit=False,
         )
         db.upsert_meta(
             conn,
@@ -1423,6 +1442,7 @@ def main() -> int:
                   "(51 noms) sorti du nom, signification non documentée par "
                   "la CNCCFP. Municipales 2026 : aucun dataset publié au "
                   "19/08/2026, instruction CNCCFP en cours.",
+            commit=False,
         )
         dernier_decret = max(DECRETS_AIDE_PUBLIQUE, key=lambda d: d["annee"])
         db.upsert_meta(
@@ -1446,7 +1466,9 @@ def main() -> int:
                   "enveloppes ne sont PAS "
                   "comparables aux aides inscrites aux comptes des partis "
                   "(partis_comptes), qui sont des déclarations cumulées.",
+            commit=False,
         )
+        conn.commit()
 
         duree = time.monotonic() - depart
         log.info(
@@ -1455,11 +1477,15 @@ def main() -> int:
             "publique (totaux nationaux seuls)",
             duree, nb_partis, nb_comptes, nb_candidats, nb_alertes, nb_decrets,
         )
-        conn.close()
         return 0
     except Exception:
+        if conn is not None:
+            conn.rollback()
         log.exception("échec du pipeline financement — base laissée en l'état antérieur")
         return 1
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 if __name__ == "__main__":
