@@ -562,8 +562,8 @@ def construire_url_senateur(nom: str, prenom: str, matricule: str) -> str:
 
 def calculer_participation(
     scrutins_fenetre: list[tuple[str, set[str]]],
-    debut_mandat: dict[str, str],
-) -> dict[str, tuple[int, int, float | None]]:
+    debut_mandat: dict[str, str | None],
+) -> dict[str, tuple[int | None, int | None, float | None]]:
     """Taux de participation par député sur une fenêtre de scrutins.
 
     - scrutins_fenetre : liste (date_scrutin ISO, ensemble des uid_an ayant
@@ -575,13 +575,23 @@ def calculer_participation(
     Le dénominateur d'un député = scrutins de la fenêtre postérieurs ou
     égaux à son entrée en mandat (un élu de mars n'est pas pénalisé des
     scrutins de janvier). Taux None si aucun scrutin éligible.
+
+    Sans date d'entrée en mandat, AUCUN taux : (None, None, None). L'ancien
+    code ignorait alors la borne et comptait toute la fenêtre, sous un
+    libellé public qui affirme « depuis l'entrée en mandat » — c'est ce qui
+    affichait « 0 / 338 » aux sénateurs entrés le 01/10/2026 (constat du
+    15/10/2026). Le Sénat ne passe plus par ici (calculer_participation_senat)
+    ; à l'AN, AMO10 datait tous les mandats en cours le même jour.
     """
-    resultat: dict[str, tuple[int, int, float | None]] = {}
+    resultat: dict[str, tuple[int | None, int | None, float | None]] = {}
     for uid, debut in debut_mandat.items():
+        if not debut:
+            resultat[uid] = (None, None, None)
+            continue
         eligibles = 0
         votes = 0
         for date_scrutin, participants in scrutins_fenetre:
-            if debut and date_scrutin < debut:
+            if date_scrutin < debut:
                 continue
             eligibles += 1
             if uid in participants:

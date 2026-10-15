@@ -260,6 +260,17 @@ def test_ingerer_dosleg_refuse_d_ecrire_si_votsen_ne_liste_que_les_votants(
     conn.close()
 
 
+def test_calcul_participation_sans_date_d_entree_ne_publie_rien():
+    """Sans date d'entrée en mandat, le libellé « depuis l'entrée en mandat »
+    serait faux : ni taux, ni compte, plutôt qu'une fenêtre entière."""
+    r = p9.calculer_participation([("2026-01-10", {"PA1"}),
+                                   ("2026-02-10", set())],
+                                  {"PA1": None, "PA2": "", "PA3": "2026-02-01"})
+    assert r["PA1"] == (None, None, None)       # l'ancien code : (1, 2, 50.0)
+    assert r["PA2"] == (None, None, None)
+    assert r["PA3"] == (0, 1, 0.0)
+
+
 def test_calcul_participation_sans_scrutin_eligible():
     r = p9.calculer_participation([("2026-01-10", {"PA1"})],
                                   {"PA9": "2026-06-01"})
