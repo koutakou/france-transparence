@@ -1,4 +1,5 @@
 import { getAlertesExport } from "@/lib/queries/alertes";
+import { GRAVITES_ALERTE, indiceGravite } from "@/lib/gravites";
 
 /**
  * Fragment statique : les 1 590 alertes, format compact (la règle et la
@@ -30,7 +31,7 @@ export async function GET() {
   const exporte = getAlertesExport();
   if (!exporte) return Response.json(null);
 
-  const gravites = ["haute", "moyenne", "info"];
+  const gravites = [...GRAVITES_ALERTE];
   const typeIdx = new Map(exporte.types.map((t, i) => [t.type, i]));
   const urls: string[] = [];
   const urlIdx = new Map<string, number>();
@@ -49,7 +50,7 @@ export async function GET() {
     }
     return [
       typeIdx.get(a.type) ?? -1,
-      Math.max(gravites.indexOf(a.gravite), 0),
+      indiceGravite(a.gravite),
       a.titre,
       a.detail,
       iUrl,
