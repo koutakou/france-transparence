@@ -62,8 +62,9 @@ const PRIORITE_MANDATS = [
 /**
  * Libellés de mandat, indexés — les variantes « (RNE, trimestriel) »
  * signalent un mandat parlementaire connu du seul répertoire trimestriel
- * (l'élu n'est plus dans les flux quotidiens AN/Sénat), comme le faisait
- * l'ancienne API.
+ * (l'élu n'est pas dans les flux quotidiens AN/Sénat du jour), comme le
+ * faisait l'ancienne API. « Ancien·ne » : élu qui porte l'identifiant de la
+ * chambre (uid AN, matricule Sénat) mais qu'elle ne liste plus en exercice.
  */
 const LIBELLES_MANDAT = [
   "Député·e", // 0
@@ -75,6 +76,8 @@ const LIBELLES_MANDAT = [
   "Élu·e", // 6 (aucun mandat exploitable — réel dans le RNE)
   "Député·e (RNE, trimestriel)", // 7
   "Sénateur·rice (RNE, trimestriel)", // 8
+  "Ancien·ne député·e", // 9 (la chambre ne liste plus cet élu)
+  "Ancien·ne sénateur·rice", // 10 (idem)
 ] as const;
 
 type LigneElu = {
@@ -86,6 +89,10 @@ type LigneElu = {
   mandats: string | null;
   dep_an: string | null;
   dep_senat: string | null;
+  /** Non nul si l'élu figure parmi les députés EN EXERCICE (table `deputes`). */
+  an_actif: string | null;
+  /** Non nul si l'élu figure parmi les sénateurs EN EXERCICE (`senateurs`). */
+  senat_actif: string | null;
 };
 
 type LigneEntite = {
@@ -127,7 +134,8 @@ export function construireIndexRecherche(): IndexRecherche | null {
   const lignes = db
     .prepare(
       `SELECT e.id, e.nom, e.prenom, e.uid_an, e.matricule_senat, e.mandats,
-              d.departement AS dep_an, s.circonscription AS dep_senat
+              d.departement AS dep_an, s.circonscription AS dep_senat,
+              d.uid_an AS an_actif, s.matricule AS senat_actif
        FROM elus e
        LEFT JOIN deputes d ON d.uid_an = e.uid_an
        LEFT JOIN senateurs s ON s.matricule = e.matricule_senat
@@ -164,8 +172,26 @@ export function construireIndexRecherche(): IndexRecherche | null {
 
     // Mandat principal par priorité (même règle que l'ancienne API).
     let principal: MandatJson | undefined;
-    for (const type of PRIORITE_MANDATS) {
-      principal = mandats.find((m) => m.type === type);
+    // Un mandat daté d'une fin (député ou sénateur sorti : P9 date la fin
+    // publiée par la chambre au lieu de retirer l'entrée) ne peut pas donner
+    // son libellé à l'élu tant qu'un mandat en cours existe ; à défaut,
+    // l'ordre de priorité s'applique à tous (libellé « Ancien·ne » ci-dessous).
+    // Même règle pour un mandat parlementaire que les chambres ne confirment
+    // pas, dès que l'élu leur est connu (uid AN ou matricule Sénat) : un
+    // sénateur élu le 27/09/2026 que le RNE d'août dit encore député n'est
+    // pas « Député·e ».
+    const connuDesChambres = !!(e.uid_an || e.matricule_senat);
+    const enCours = mandats.filter(
+      (m) =>
+        !m.date_fin &&
+        !(connuDesChambres && m.type === "depute" && !e.an_actif) &&
+        !(connuDesChambres && m.type === "senateur" && !e.senat_actif),
+    );
+    for (const vivier of [enCours, mandats]) {
+      for (const type of PRIORITE_MANDATS) {
+        principal = vivier.find((m) => m.type === type);
+        if (principal) break;
+      }
       if (principal) break;
     }
     principal = principal ?? mandats[0];
@@ -181,13 +207,19 @@ export function construireIndexRecherche(): IndexRecherche | null {
       if (m.departement) return nomsDep.get(m.departement) ?? m.libelle ?? m.departement;
       return m.libelle ?? m.region ?? null;
     };
+    // « Député·e » / « Sénateur·rice » sans réserve seulement si la chambre
+    // liste l'élu AUJOURD'HUI (tables `deputes` / `senateurs`). Porter un
+    // uid_an ou un matricule ne le prouve pas : un sortant les garde, et la
+    // chambre qui l'a connu ne le liste plus — elle fait foi sur le RNE
+    // trimestriel, qui peut encore le dire parlementaire (« Ancien·ne »).
+    // Sans identifiant de chambre, seul le RNE en parle (« RNE, trimestriel »).
     switch (principal?.type) {
       case "depute":
-        typeIdx = e.uid_an ? 0 : 7;
+        typeIdx = e.an_actif ? 0 : e.uid_an ? 9 : 7;
         dep = e.dep_an ?? depDuMandat(principal);
         break;
       case "senateur":
-        typeIdx = e.matricule_senat ? 1 : 8;
+        typeIdx = e.senat_actif ? 1 : e.matricule_senat ? 10 : 8;
         dep = e.dep_senat ?? depDuMandat(principal);
         break;
       case "president_conseil_regional":
@@ -207,11 +239,11 @@ export function construireIndexRecherche(): IndexRecherche | null {
         dep = depDuMandat(principal);
         break;
       default:
-        // uid_an / matricule sans mandat JSON exploitable (défensif).
-        if (e.uid_an) {
+        // Élu en exercice sans mandat JSON exploitable (défensif).
+        if (e.an_actif) {
           typeIdx = 0;
           dep = e.dep_an;
-        } else if (e.matricule_senat) {
+        } else if (e.senat_actif) {
           typeIdx = 1;
           dep = e.dep_senat;
         }

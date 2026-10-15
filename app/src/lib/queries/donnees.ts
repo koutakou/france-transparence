@@ -509,7 +509,13 @@ export type EluExport = {
   uid_an?: string;
   matricule_senat?: string;
   hatvp_url?: string;
-  /** Types de mandat distincts portés par le JSON `mandats`. */
+  /**
+   * Types des mandats EN COURS portés par le JSON `mandats` : un mandat daté
+   * d'une fin en est exclu, et `depute` / `senateur` ne figurent que si la
+   * chambre liste l'élu aujourd'hui (tables `deputes` / `senateurs`). Un
+   * sortant garde son entrée (datée), et le RNE trimestriel peut encore dire
+   * parlementaire quelqu'un que la chambre ne liste plus : la chambre fait foi.
+   */
   types_mandats?: string[];
 };
 
@@ -525,8 +531,12 @@ export function getElusExport(): EluExport[] | null {
   if (!db) return null;
   const lignes = db
     .prepare(
-      `SELECT id, nom, prenom, uid_an, matricule_senat, hatvp_url, mandats
-       FROM elus ORDER BY nom, prenom`,
+      `SELECT e.id, e.nom, e.prenom, e.uid_an, e.matricule_senat, e.hatvp_url,
+              e.mandats, d.uid_an AS an_actif, s.matricule AS senat_actif
+       FROM elus e
+       LEFT JOIN deputes d ON d.uid_an = e.uid_an
+       LEFT JOIN senateurs s ON s.matricule = e.matricule_senat
+       ORDER BY e.nom, e.prenom`,
     )
     .all() as {
     id: string;
@@ -536,6 +546,8 @@ export function getElusExport(): EluExport[] | null {
     matricule_senat: string | null;
     hatvp_url: string | null;
     mandats: string | null;
+    an_actif: string | null;
+    senat_actif: string | null;
   }[];
   return lignes.map((l) => {
     const e: EluExport = { id: l.id, nom: l.nom };
@@ -547,11 +559,15 @@ export function getElusExport(): EluExport[] | null {
       try {
         const brut: unknown = JSON.parse(l.mandats);
         if (Array.isArray(brut)) {
+          const horsExercice = (t: string): boolean =>
+            (t === "depute" && !l.an_actif) || (t === "senateur" && !l.senat_actif);
           const types = [
             ...new Set(
               brut
+                .filter((m) => !(m as { date_fin?: unknown }).date_fin)
                 .map((m) => (m as { type?: unknown }).type)
-                .filter((t): t is string => typeof t === "string"),
+                .filter((t): t is string => typeof t === "string")
+                .filter((t) => !horsExercice(t)),
             ),
           ].sort();
           if (types.length > 0) e.types_mandats = types;
