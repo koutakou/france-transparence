@@ -210,8 +210,8 @@ export const PERIMETRE_LFI2026_SENAT =
 
 /**
  * Charge tout le module en une passe.
- * Testé le 19/08/2026 : 56 faits (7 catégories), 8 opacités,
- * meta S31 date_donnees = 2026-05-13.
+ * Testé le 19/08/2026 : 56 faits (7 catégories), 8 opacités. La date
+ * meta S31 est calculée par le pipeline (document source le plus récent).
  *
  * @returns `null` si la base n'existe pas encore (page → message honnête).
  */

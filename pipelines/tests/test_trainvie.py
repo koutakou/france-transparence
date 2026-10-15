@@ -13,7 +13,14 @@ import pytest
 import requests
 
 from pipelines import db
-from pipelines.ingest_trainvie import CATEGORIES, SOURCE_ID, ingester
+from pipelines.ingest_trainvie import (
+    CATEGORIES,
+    DATE_CONSULTATION,
+    FAITS,
+    OPACITES,
+    SOURCE_ID,
+    ingester,
+)
 
 
 @pytest.fixture()
@@ -190,8 +197,30 @@ def test_meta_source_s31(conn):
         "+ (SELECT count(*) FROM trainvie_opacites) AS n"
     ).fetchone()["n"]
     assert meta["lignes"] == nb
-    assert meta["date_donnees"] == "2026-05-13"  # rapport déontologue AN, le plus récent
+    # Calculée, plus écrite en dur : le document le plus récent est le refus
+    # écrit des deux chambres du 11/06/2026 (opacité « justificatifs »), et
+    # non le rapport du déontologue du 13/05/2026 que la constante annonçait.
+    assert meta["date_donnees"] == "2026-06-11"
     assert meta["date_ingestion"]
+
+
+def test_date_donnees_est_la_date_de_document_la_plus_recente(conn):
+    """`date_donnees` = la date de DOCUMENT la plus récente du corpus, jamais
+    une date de CONSULTATION (pages sans date propre, datées du jour où le
+    chiffre y a été lu). Tout ajout d'un fait ou d'une opacité plus récent la
+    fait avancer, sans constante à retoucher."""
+    meta = conn.execute(
+        "SELECT date_donnees FROM meta_sources WHERE source_id = ?", (SOURCE_ID,)
+    ).fetchone()
+    dates = [f["date_source"] for f in FAITS] + [o["date"] for o in OPACITES]
+    documents = [d for d in dates if d != DATE_CONSULTATION]
+    assert len(documents) < len(dates)  # le corpus porte bien les deux sortes
+    assert meta["date_donnees"] == max(documents)
+    assert len(meta["date_donnees"]) == 10  # AAAA-MM-JJ, jamais « 2026-01 »
+    # Les dates de consultation sont dites comme telles dans le fait même.
+    for f in FAITS:
+        if f["date_source"] == DATE_CONSULTATION:
+            assert "consultée le 19/08/2026" in (f["notes"] or ""), f["id"]
 
 
 # ---------------------------------------------------------------------------
