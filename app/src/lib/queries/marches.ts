@@ -94,7 +94,14 @@ export type TopAcheteur = {
   /** Établissements distincts regroupés sous ce SIREN sur la fenêtre. */
   nb_etablissements: number;
   nb_marches: number;
-  montant_total: number | null; // écrêté
+  montant_total: number | null; // écrêté, suspects compris
+  /** Part de `montant_total` sur les marchés à `montant_suspect = 0` : c'est
+   *  elle qui fixe le rang (cf. ingest_decp). NULL si aucun montant sain. */
+  montant_hors_suspects: number | null;
+  /** Marchés au drapeau « montant suspect », et leur part écrêtée : publiés
+   *  à côté du rang, jamais retirés. */
+  nb_marches_suspects: number;
+  montant_suspects: number | null;
   /** 1 si le SIREN figure dans `sirene_unites_legales` (S18) — sinon pas d'annuaire. */
   dans_sirene: number;
 };
@@ -706,6 +713,9 @@ const SQL_TOP_TITULAIRES = `
          t.nb_etablissements,
          t.nb_marches,
          t.montant_total,
+         t.montant_hors_suspects,
+         t.nb_marches_suspects,
+         t.montant_suspects,
          CASE WHEN s.siren IS NOT NULL THEN 1 ELSE 0 END AS dans_sirene
     FROM decp_top_titulaires t
     LEFT JOIN sirene_unites_legales s ON s.siren = t.siren
@@ -718,6 +728,9 @@ const SQL_TOP_ACHETEURS = `
          a.nb_etablissements,
          a.nb_marches,
          a.montant_total,
+         a.montant_hors_suspects,
+         a.nb_marches_suspects,
+         a.montant_suspects,
          CASE WHEN s.siren IS NOT NULL THEN 1 ELSE 0 END AS dans_sirene
     FROM decp_top_acheteurs a
     LEFT JOIN sirene_unites_legales s ON s.siren = a.siren
@@ -732,11 +745,13 @@ const SQL_TOP_ACHETEURS = `
  */
 const SQL_TOP_TITULAIRES_SANS_SIRENE = `
   SELECT rang, siren, nom, categorie, nb_etablissements, nb_marches,
-         montant_total, 0 AS dans_sirene
+         montant_total, montant_hors_suspects, nb_marches_suspects,
+         montant_suspects, 0 AS dans_sirene
     FROM decp_top_titulaires ORDER BY rang LIMIT 10`;
 
 const SQL_TOP_ACHETEURS_SANS_SIRENE = `
   SELECT rang, siren, nom, nb_etablissements, nb_marches, montant_total,
+         montant_hors_suspects, nb_marches_suspects, montant_suspects,
          0 AS dans_sirene
     FROM decp_top_acheteurs ORDER BY rang LIMIT 10`;
 

@@ -160,14 +160,16 @@ def test_tops_ecretes_et_repartis(resultat):
         "SELECT rang, siren, montant_total FROM t_top_acheteurs ORDER BY rang"
     ).fetchall()
     # L'acheteur du géant plafonne à exactement 100 M€ au lieu de 12,3 Md€.
-    assert top_a[0][1] == "255801185"        # SIREN de 25580118500018
-    assert top_a[0][2] == pytest.approx(100_000_000.0)
+    # (Depuis le 15/10/2026, ce montant SUSPECT ne lui donne plus le rang 1 :
+    # cf. test_le_rang_ignore_les_montants_suspects_sans_les_retirer.)
+    geant = {r[1]: r for r in top_a}["255801185"]   # SIREN de 25580118500018
+    assert geant[2] == pytest.approx(100_000_000.0)
     assert [r[0] for r in top_a] == list(range(1, len(top_a) + 1))
 
     top_t = duck.execute(
         "SELECT siren, nb_marches, montant_total FROM t_top_titulaires ORDER BY rang"
     ).fetchall()
-    assert top_t[0][2] == pytest.approx(100_000_000.0)  # titulaire du géant
+    assert max(r[2] or 0 for r in top_t) == pytest.approx(100_000_000.0)  # titulaire du géant
     # Marché multi-titulaires : montant divisé entre les 3 co-titulaires.
     part = {r[0]: r[2] for r in top_t}["381810852"]   # SIREN de 38181085200057
     assert part == pytest.approx(94_100.0 / 3)
@@ -177,6 +179,27 @@ def test_tops_ecretes_et_repartis(resultat):
     for table in ("t_top_acheteurs", "t_top_titulaires"):
         cles = [c for (c,) in duck.execute(f"SELECT siren FROM {table}").fetchall()]
         assert cles and all(len(c) == 9 and c.isdigit() for c in cles)
+
+
+def test_le_rang_ignore_les_montants_suspects_sans_les_retirer(resultat):
+    """Audit du 15/10/2026 : deux maisons de retraite aux rangs 5 et 6 du top
+    acheteurs, portées par 27 marchés à 999 999 999 € que la source classe
+    elle-même « suspect »/« aberrant ». Le rang se fixe désormais sur la part
+    hors suspects ; la part suspecte reste en table, comptée et montrée."""
+    duck, _ = resultat
+    for table in ("t_top_acheteurs", "t_top_titulaires"):
+        lignes = duck.execute(
+            f"SELECT siren, montant_total, montant_hors_suspects, "
+            f"nb_marches_suspects, montant_suspects FROM {table} ORDER BY rang"
+        ).fetchall()
+        suspects = [l for l in lignes if l[3] > 0]
+        # Le géant (12,3 Md€ écrêtés à 100 M€) est TOUJOURS là, signalé…
+        assert any(l[4] == pytest.approx(100_000_000.0) for l in suspects), table
+        # … mais ne passe plus devant une entreprise dont les montants sont sains.
+        assert lignes[0][3] == 0 and lignes[0][2] is not None, table
+        for siren, total, hors, nb_susp, montant_susp in lignes:
+            # Les deux parts recomposent le total : rien n'est retiré.
+            assert (total or 0) == pytest.approx((hors or 0) + (montant_susp or 0)), siren
 
 
 def test_repartition_normalisee(resultat):
@@ -1951,18 +1974,19 @@ def test_les_deux_classements_sont_ordonnes_et_bornes(resultat):
     for table, source in (("t_top_acheteurs", "acheteurs_conformes"),
                           ("t_top_titulaires", "titulaires_conformes")):
         lignes = duck.execute(
-            f"SELECT rang, siren, nb_etablissements, nb_marches, montant_total "
-            f"FROM {table} ORDER BY rang"
+            f"SELECT rang, siren, nb_etablissements, nb_marches, montant_total, "
+            f"montant_hors_suspects FROM {table} ORDER BY rang"
         ).fetchall()
         assert [l[0] for l in lignes] == list(range(1, len(lignes) + 1))
         # Une entreprise, une ligne.
         assert len({l[1] for l in lignes}) == len(lignes)
-        # Montants décroissants, les montants absents (NULL) en queue.
-        montants = [l[4] for l in lignes]
+        # Montants HORS SUSPECTS décroissants (c'est eux qui fixent le rang),
+        # les absents (NULL) en queue.
+        montants = [l[5] for l in lignes]
         connus = [m for m in montants if m is not None]
         assert connus == sorted(connus, reverse=True)
         assert montants[: len(connus)] == connus
-        for _, _, nb_etab, nb_marches, montant in lignes:
+        for _, _, nb_etab, nb_marches, montant, _ in lignes:
             # Chaque établissement regroupé est entré par au moins un marché.
             assert 1 <= nb_etab <= nb_marches
             # L'écrêtage vaut aussi après regroupement : aucune entreprise ne
