@@ -242,7 +242,7 @@ export function AlertesListe({ types, parGravite, total, initiales }: AlertesLis
   return (
     <>
       {/* Rangée de filtres (une seule, au-dessus de la liste — DATAVIZ §5) */}
-      <div className="flex flex-col gap-2" aria-label="Filtres des alertes">
+      <div role="group" className="flex flex-col gap-2" aria-label="Filtres des alertes">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="mr-1 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
             Gravité

@@ -115,6 +115,7 @@ export function Donut({
   return (
     <div
       className={`ft-donut relative flex flex-wrap items-center gap-x-6 gap-y-4 ${className ?? ""}`}
+      role={ariaLabel ? "group" : undefined}
       tabIndex={ariaLabel ? 0 : undefined}
       aria-label={ariaLabel}
     >
