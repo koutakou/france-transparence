@@ -29,6 +29,7 @@ import pytest
 
 from pipelines import db
 from pipelines import ingest_hatvp_declarations as p15
+from pipelines.tests.reseau import sauter_si_indisponible
 
 FIXTURES = Path(__file__).parent / "fixtures" / "hatvp"
 EXTRAIT_REEL = FIXTURES / "declarations_extrait.xml"
@@ -1613,14 +1614,16 @@ def test_reseau_url_reelle_et_ancienne_url_morte():
     from pipelines.common import session_http
     session = session_http()
     reponse = session.head(p15.URL_DECLARATIONS, timeout=60, allow_redirects=True)
+    sauter_si_indisponible(reponse, p15.URL_DECLARATIONS)
     assert reponse.status_code == 200
     assert int(reponse.headers["Content-Length"]) > 50_000_000
     date_lm = p15.date_derniere_modification(session, p15.URL_DECLARATIONS)
     assert date_lm and len(date_lm) == 10
     # L'URL que l'on trouve encore citée ailleurs ne répond plus : le test le
     # dit, pour qu'on ne « corrige » pas l'URL du pipeline vers elle.
-    morte = session.head("https://www.hatvp.fr/livraison/opendata/declarations.xml",
-                         timeout=60, allow_redirects=True)
+    ancienne = "https://www.hatvp.fr/livraison/opendata/declarations.xml"
+    morte = session.head(ancienne, timeout=60, allow_redirects=True)
+    sauter_si_indisponible(morte, ancienne)
     assert morte.status_code == 404
 
 

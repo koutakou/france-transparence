@@ -13,6 +13,7 @@ import pytest
 import requests
 
 from pipelines import db
+from pipelines.tests.reseau import sauter_si_indisponible
 from pipelines.ingest_trainvie import (
     CATEGORIES,
     DATE_CONSULTATION,
@@ -316,4 +317,5 @@ def test_urls_sources_vivantes(url):
         )
     except (requests.ConnectionError, requests.Timeout):
         pytest.skip("réseau indisponible ou source trop lente (> 3 s)")
+    sauter_si_indisponible(r, url)
     assert r.status_code in (200, 301, 302), url
