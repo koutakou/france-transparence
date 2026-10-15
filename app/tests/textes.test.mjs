@@ -12,3 +12,13 @@ test("/comprendre : S.1311 est l'administration centrale, pas « l'État seul »
   const s = aplati("app/comprendre/page.tsx");
   assert.doesNotMatch(s, /État seul \((sous-secteur )?S\.?1311\)/);
 });
+
+test("/elus : « affiché·es » d'un seul tenant (JSX joint deux lignes par une espace)", () => {
+  const s = aplati("components/client/TableParlementaires.tsx");
+  assert.doesNotMatch(s, /affiché ·e/);
+});
+
+test("fragment indisponible : « (filtrés) » n'est jamais dit d'une liste non filtrée", () => {
+  const s = aplati("components/client/FluxTextes.tsx");
+  assert.doesNotMatch(s, /filtreActif \? " \(filtrés\)" : ""/);
+});
