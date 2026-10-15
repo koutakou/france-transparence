@@ -103,6 +103,7 @@ from __future__ import annotations
 
 import csv
 import io
+from collections import Counter
 import json
 import os
 import re
@@ -1454,10 +1455,18 @@ def ingerer_senat(conn, session: requests.Session) -> None:
                                  max_age_heures=MAX_AGE_H, session=session)
     chemin_export_sens = telecharger(URL_EXPORT_SENS, "parlement/export_sens.zip",
                                      max_age_heures=MAX_AGE_H, session=session)
-    lignes = lire_csv_senat(chemin_general.read_bytes())
+    octets_general = chemin_general.read_bytes()
+    lignes = lire_csv_senat(octets_general)
     actifs = [r for r in lignes if r.get("État") == "ACTIF"]
     if not actifs:
-        raise RuntimeError("ODSEN_GENERAL : aucun sénateur ACTIF")
+        # Le diagnostic est dans le message : un export vide (run du
+        # 06/10/2026, fichier de moins de 52 Ko) ne se répare pas comme un
+        # export complet sans aucun ACTIF (colonne renommée, état recodé).
+        etats = Counter(r.get("État") for r in lignes)
+        raise RuntimeError(
+            f"ODSEN_GENERAL : aucun sénateur ACTIF — {len(octets_general)} "
+            f"octet(s), {len(lignes)} ligne(s) lue(s) hors commentaires ; "
+            f"valeurs de « État » : {dict(etats) or 'aucune'}")
     log.info("ODSEN : %d sénateurs en exercice (%d lignes au total)",
              len(actifs), len(lignes))
 

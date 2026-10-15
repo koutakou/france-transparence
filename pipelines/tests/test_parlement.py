@@ -1362,3 +1362,23 @@ def test_clore_mandats_an_ne_leve_pas_si_amo20_est_illisible(tmp_path,
         p9.clore_mandats_an(conn, None, set())       # ne lève pas
     assert any("AMO20 illisible" in m for m in caplog.messages)
     conn.close()
+
+
+def test_ingerer_senat_dit_pourquoi_aucun_actif(tmp_path, monkeypatch):
+    """Run du 06/10/2026 : CSV quasi vides, et l'erreur disait seulement
+    « aucun sénateur ACTIF ». Le message distingue l'export vide (0 ligne)
+    d'un export plein sans ACTIF."""
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    _senat_jetable(tmp_path, monkeypatch)
+    octets = (FIXTURES / "odsen_extrait.csv").read_bytes()
+    entete = b"\n".join(l for l in octets.split(b"\n")
+                         if l.startswith(b"%") or l.startswith(b"Matricule,"))
+    (tmp_path / "ODSEN_GENERAL.csv").write_bytes(entete)
+    with pytest.raises(RuntimeError, match=r"0 ligne\(s\) lue\(s\).*aucune"):
+        p9.ingerer_senat(conn, session=None)
+    (tmp_path / "ODSEN_GENERAL.csv").write_bytes(
+        octets.replace(b",ACTIF,", b",ANCIEN,"))
+    with pytest.raises(RuntimeError, match=r"3 ligne\(s\).*'ANCIEN': 3"):
+        p9.ingerer_senat(conn, session=None)
+    conn.close()
