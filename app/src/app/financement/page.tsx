@@ -20,7 +20,9 @@ import {
   PERIMETRE_PRODUITS_PARTIS,
   PERIMETRE_REMBOURSEMENT,
   PERIMETRE_TAUX_REJET,
+  exercicesSansDecret,
   perimetreEnveloppeDecret,
+  sensEcartEnveloppe,
   type AidePubliqueAnnee,
   type CampagneTopDepense,
   type DecisionDetail,
@@ -170,6 +172,13 @@ export default async function FinancementPage() {
     ecartDeclareEnveloppe2024 !== null && decret2024
       ? (ecartDeclareEnveloppe2024 / decret2024.montant_total_eur) * 100
       : null;
+  const sensEcart2024 =
+    ecartDeclareEnveloppe2024 !== null ? sensEcartEnveloppe(ecartDeclareEnveloppe2024) : null;
+  /** Exercices déclarés sans décret en base : aucune comparaison possible. */
+  const sansDecret = exercicesSansDecret(aideEvolution, decretsAide);
+  const listeSansDecret = new Intl.ListFormat("fr", { type: "conjunction" }).format(
+    sansDecret.map(String),
+  );
   /** Comptes effectivement déposés = candidats − dispensés − absences (règle de la vue). */
   const comptesDeposes =
     campagnes.nb_candidats - campagnes.nb_dispenses_depot - campagnes.nb_absences_depot;
@@ -267,17 +276,29 @@ export default async function FinancementPage() {
             <strong className="font-semibold text-ink">
               l&apos;aide inscrite aux comptes
             </strong>{" "}
-            est la somme de ce que {formatNombre(kpi.depots2024)} partis ont
-            déclaré avoir perçu — une même aide peut y figurer deux fois,
-            chez la structure qui la perçoit et chez celle à qui elle est
-            reversée. En 2024, les déclarations dépassent l&apos;enveloppe de{" "}
-            {ecartDeclareEnveloppe2024 !== null
-              ? enMillions(ecartDeclareEnveloppe2024, 2)
-              : "—"}
-            {ecartDeclareEnveloppe2024Pct !== null
-              ? ` (${formatPct(ecartDeclareEnveloppe2024Pct, 1, true)})`
-              : ""}
-            .
+            est la somme de ce que {formatNombre(aide2024.nb_partis_aides)}{" "}
+            {aide2024.nb_partis_aides > 1 ? "partis ont" : "parti a"} déclaré
+            avoir perçu, sur les {formatNombre(kpi.depots2024)} comptes 2024
+            déposés — une même aide peut y figurer deux fois, chez la structure
+            qui la perçoit et chez celle à qui elle est reversée.
+            {ecartDeclareEnveloppe2024 !== null && sensEcart2024 !== null && (
+              <>
+                {" "}
+                En 2024, les déclarations{" "}
+                {sensEcart2024 === "egal" ? (
+                  <>égalent l&apos;enveloppe</>
+                ) : (
+                  <>
+                    {sensEcart2024 === "dessus" ? "dépassent" : "restent sous"}{" "}
+                    l&apos;enveloppe de {enMillions(Math.abs(ecartDeclareEnveloppe2024), 2)}
+                    {ecartDeclareEnveloppe2024Pct !== null
+                      ? ` (${formatPct(ecartDeclareEnveloppe2024Pct, 1, true)})`
+                      : ""}
+                  </>
+                )}
+                .
+              </>
+            )}
           </p>
           {ecartDecrets !== null && decretRecent && (
             <p className="mt-2">
@@ -295,11 +316,18 @@ export default async function FinancementPage() {
             </p>
           )}
           <p className="mt-2">
-            La série déclarée suit l&apos;ordre de grandeur des enveloppes en
-            2021 ({aide2021 ? enMillions(aide2021.aide_f1_f2, 2) : "—"}) et 2022
-            ({aide2022 ? enMillions(aide2022.aide_f1_f2, 2) : "—"}), puis change
-            de niveau en 2023 ({aide2023 ? enMillions(aide2023.aide_f1_f2, 2) : "—"})
+            La série déclarée vaut{" "}
+            {aide2021 ? enMillions(aide2021.aide_f1_f2, 2) : "—"} en 2021 et{" "}
+            {aide2022 ? enMillions(aide2022.aide_f1_f2, 2) : "—"} en 2022, puis
+            change de niveau en 2023 ({aide2023 ? enMillions(aide2023.aide_f1_f2, 2) : "—"})
             et s&apos;y maintient en 2024 ({enMillions(aide2024.aide_f1_f2, 2)}).
+            {sansDecret.length > 0 && (
+              <>
+                {" "}
+                Aucune enveloppe décrétée n&apos;est en base pour {listeSansDecret} : la
+                série n&apos;y est comparée à aucune.
+              </>
+            )}
             Cette datation de la rupture est établie ; sa cause ne l&apos;est
             pas. Une piste à vérifier : la structure « ENSEMBLE ! (MAJORITÉ
             PRÉSIDENTIELLE) » apparaît dans les comptes en 2023 et y déclare une
@@ -446,8 +474,10 @@ export default async function FinancementPage() {
           ariaLabel="Évolution de l'aide publique inscrite aux comptes des partis de 2021 à 2024"
         />
         <p className="mt-2 text-xs text-ink-muted">
-          Série de déclarations : le changement de niveau visible en 2023 ne
-          correspond à aucune hausse de l&apos;enveloppe fixée par décret.
+          Série de déclarations
+          {sansDecret.length > 0
+            ? `, sans enveloppe décrétée en base pour ${listeSansDecret} : elle n’est comparée à aucun décret sur ces exercices.`
+            : " : les enveloppes décrétées se lisent à part, ci-dessous."}
         </p>
         <div className="mt-3">
           <DataTable<AidePubliqueAnnee>
@@ -693,8 +723,8 @@ export default async function FinancementPage() {
       </Card>
 
       <p className="text-xs text-ink-muted">
-        Municipales 2026 : aucun compte de campagne n’est publié à ce jour —
-        l’instruction de la CNCCFP est en cours.
+        Municipales 2026 : comptes de campagne non ingérés à ce jour — seuls
+        ceux des législatives 2024 figurent ici.
       </p>
     </section>
   );

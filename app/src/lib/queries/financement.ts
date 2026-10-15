@@ -82,6 +82,29 @@ export type DecretAidePublique = {
   note: string | null;
 };
 
+/**
+ * Sens de l'écart « aide déclarée − enveloppe du décret », au centime : la
+ * phrase qui le lit ne peut pas figer « dépassent », l'écart est calculé et
+ * peut changer de signe à la prochaine édition des comptes.
+ */
+export function sensEcartEnveloppe(ecartEuros: number): "dessus" | "dessous" | "egal" {
+  const centimes = Math.round(ecartEuros * 100);
+  return centimes > 0 ? "dessus" : centimes < 0 ? "dessous" : "egal";
+}
+
+/**
+ * Exercices dont l'aide déclarée est en base SANS décret d'enveloppe en
+ * regard (partis_aide_annuelle est volontairement trouée) : sur ceux-là, le
+ * site ne peut rien affirmer d'une comparaison aux enveloppes.
+ */
+export function exercicesSansDecret(
+  aides: Pick<AidePubliqueAnnee, "exercice">[],
+  decrets: Pick<DecretAidePublique, "annee">[],
+): number[] {
+  const annees = new Set(decrets.map((d) => d.annee));
+  return aides.map((a) => a.exercice).filter((e) => !annees.has(e));
+}
+
 /** Agrégats des comptes de campagne (v_campagnes_2024_agregats). */
 export type CampagnesAgregats = {
   nb_candidats: number;
