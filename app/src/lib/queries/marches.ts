@@ -60,7 +60,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { FeatureCollection, Geometry } from "geojson";
 import { getDb, type MetaSource } from "@/lib/db";
-import { AO_AFFICHEES, AO_LIVREES } from "@/lib/echeances";
+import { AO_AFFICHEES, RESERVE_HEURES, reserveEcheances } from "@/lib/echeances";
 
 /* ------------------------------------------------------------------ */
 /* Types de lignes                                                     */
@@ -1079,8 +1079,8 @@ export function chargerDonneesMarches(
 
   // AO_AFFICHEES échéances les plus proches pour le filtre courant, rendues
   // dans le HTML. Quand l'une d'elles expire à l'heure du visiteur, le
-  // navigateur complète depuis le fragment ao.json, qui en livre AO_LIVREES :
-  // la réserve ne pèse pas sur la page.
+  // navigateur complète depuis le fragment ao.json, qui porte la réserve
+  // (RESERVE_HEURES, lib/echeances.ts) : elle ne pèse pas sur la page.
   const ao = db
     .prepare(
       `SELECT idweb, objet, acheteur, montant_estime, date_limite_reponse,
@@ -1165,8 +1165,9 @@ export type VueAoFamille = {
   total: number;
   /** Dont montant non publié dans l'annonce. */
   sansMontant: number;
-  /** Les AO_LIVREES échéances les plus proches pour ce filtre (le
-   *  navigateur en affiche AO_AFFICHEES encore ouvertes, lib/echeances.ts). */
+  /** Réserve pour ce filtre : toutes les échéances des RESERVE_HEURES qui
+   *  suivent la construction, puis RESERVE_AU_DELA de plus (le navigateur
+   *  en affiche AO_AFFICHEES encore ouvertes, lib/echeances.ts). */
   lignes: AoEnCours[];
 };
 
@@ -1178,8 +1179,9 @@ export type AoParFamille = {
 
 /**
  * Pré-calcule, pour CHAQUE famille BOAMP (et « toutes »), la vue servie par
- * le filtre client de /marches : total, part sans montant, AO_LIVREES
- * échéances les plus proches. Instantané re-filtré (annulations, échéances
+ * le filtre client de /marches : total, part sans montant, réserve
+ * d'échéances (`reserveEcheances` : RESERVE_HEURES depuis la construction,
+ * puis RESERVE_AU_DELA de plus). Instantané re-filtré (annulations, échéances
  * passées) à la construction du site — même SQL que `chargerDonneesMarches` ;
  * le navigateur re-filtre ensuite les échéances à son heure.
  */
@@ -1195,6 +1197,8 @@ export function getAoParFamille(): AoParFamille | null {
     )
     .all() as FamilleAO[];
 
+  // Instant de la construction, celui où `datetime('now')` est évalué.
+  const construitLe = Date.now();
   const vuePour = (famille: string | null): VueAoFamille => {
     const compte = db
       .prepare(
@@ -1211,10 +1215,14 @@ export function getAoParFamille(): AoParFamille | null {
          FROM ao_en_cours
          WHERE annulee = 0 AND datetime(date_limite_reponse) > datetime('now')
            AND (? IS NULL OR famille = ?)
-         ORDER BY date_limite_reponse ASC LIMIT ${AO_LIVREES}`,
+         ORDER BY datetime(date_limite_reponse), idweb`,
       )
       .all(famille, famille) as AoEnCours[];
-    return { total: compte.nb, sansMontant: compte.sans, lignes };
+    return {
+      total: compte.nb,
+      sansMontant: compte.sans,
+      lignes: reserveEcheances(lignes, (a) => a.date_limite_reponse, construitLe, RESERVE_HEURES),
+    };
   };
 
   const vues: Record<string, VueAoFamille> = { "": vuePour(null) };

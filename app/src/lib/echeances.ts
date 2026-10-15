@@ -2,22 +2,57 @@
  * Échéances d'appels d'offres — fonctions PURES, sans import.
  *
  * Le site est un export statique : `datetime('now')` est évalué UNE fois, à
- * la construction (vers 05 h 20, heure de Paris), et la page est ensuite
- * servie toute la journée — plusieurs jours si une publication échoue. Une
- * liste « proches de la clôture » arrêtée à la construction montre donc,
- * l'après-midi, des appels d'offres déjà clos. La construction en livre
- * davantage que ce qui s'affiche ; le navigateur retire ceux dont la date
- * limite est passée À SON HEURE, et n'en garde que le nombre voulu.
+ * la construction (tôt le matin, heure de Paris), et la page est ensuite servie
+ * jusqu'à la publication suivante — plusieurs jours si une publication
+ * échoue. Une liste « proches de la clôture » arrêtée à la construction
+ * montre donc, l'après-midi, des appels d'offres déjà clos. Le navigateur
+ * retire ceux dont la date limite est passée À SON HEURE ; pour qu'il lui en
+ * reste à montrer, la construction livre une RÉSERVE définie par une DURÉE,
+ * pas par un nombre de lignes : environ 480 appels d'offres ferment par jour
+ * ouvré (481 le 16/10/2026 dans la base du 15/10, dont 133 à midi pile), un
+ * nombre fixe de lignes est épuisé en quelques heures.
  */
 
 /** Lignes affichées par la liste de /marches (et par famille). */
 export const AO_AFFICHEES = 20;
-/** Lignes livrées par la construction pour /marches : réserve de la journée. */
-export const AO_LIVREES = 60;
 /** Lignes affichées sur l'accueil. */
 export const AO_ACCUEIL_AFFICHEES = 4;
-/** Lignes livrées par la construction pour l'accueil. */
-export const AO_ACCUEIL_LIVREES = 20;
+/**
+ * Durée couverte par la réserve, depuis la construction : jusqu'au lendemain
+ * soir et au-delà de la publication suivante (une page construite à 07 h est
+ * encore pleine à 23 h le lendemain, 40 h plus tard ; ce cas est testé).
+ */
+export const RESERVE_HEURES = 48;
+/** Échéances livrées en plus, au-delà de la durée de réserve. */
+export const RESERVE_AU_DELA = AO_AFFICHEES;
+
+/**
+ * Réserve livrée par la construction : toutes les lignes (déjà triées par
+ * date limite croissante, déjà ouvertes à `construitLe`) dont la date limite
+ * tombe dans les `heures` qui suivent la construction, puis les `auDela`
+ * suivantes. Une date illisible n'entre pas dans la réserve.
+ */
+export function reserveEcheances<T>(
+  lignesTriees: readonly T[],
+  dateLimite: (l: T) => string,
+  construitLe: number,
+  heures: number = RESERVE_HEURES,
+  auDela: number = RESERVE_AU_DELA,
+): T[] {
+  const borne = construitLe + heures * 3_600_000;
+  const reserve: T[] = [];
+  let ajoutees = 0;
+  for (const l of lignesTriees) {
+    const t = Date.parse(dateLimite(l));
+    if (!Number.isFinite(t)) continue;
+    if (t > borne) {
+      if (ajoutees >= auDela) break;
+      ajoutees += 1;
+    }
+    reserve.push(l);
+  }
+  return reserve;
+}
 
 /**
  * Les `maxi` premières lignes dont la date limite est STRICTEMENT postérieure
