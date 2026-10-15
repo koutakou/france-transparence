@@ -641,6 +641,7 @@ export default async function PageMarches() {
       {/* Carte des montants par département                          */}
       {/* ---------------------------------------------------------- */}
       <Card
+        id="montants-par-departement"
         titre="Montants par département"
         sousTitre="Marchés notifiés sur 12 mois (notification initiale) — montants écrêtés, acheteurs à département connu"
         droite={badgeS1}

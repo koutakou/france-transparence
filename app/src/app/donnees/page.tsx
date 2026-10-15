@@ -99,22 +99,32 @@ function BadgeFraicheur({ source }: { source: SourceCataloguee }) {
   const f = source.fraicheur;
   const n = NIVEAUX[f.niveau];
   const detaille = f.niveau === "en_retard" || f.niveau === "attente_edition";
+  // La phrase complète (date, âge, seuils propres à la source) se déplie au
+  // clic, au clavier et au doigt : un attribut `title` ne s'ouvre qu'au
+  // survol de la souris.
   return (
-    <span className="inline-flex flex-col gap-0.5" title={phraseFraicheur(source)}>
-      <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-        <span
-          aria-hidden="true"
-          className="inline-block size-2 shrink-0 rounded-full"
-          style={{ background: n.jeton }}
-        />
-        <span className="text-ink-secondary">{n.libelle}</span>
-      </span>
-      {detaille && (
-        <span className="whitespace-nowrap pl-3.5 text-[11px] text-ink-muted">
-          {libelleAge(f)}
+    <details className="group">
+      <summary className="inline-flex cursor-pointer list-none flex-col gap-0.5 [&::-webkit-details-marker]:hidden">
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+          <span
+            aria-hidden="true"
+            className="inline-block size-2 shrink-0 rounded-full"
+            style={{ background: n.jeton }}
+          />
+          <span className="text-ink-secondary underline decoration-dotted underline-offset-2">
+            {n.libelle}
+          </span>
         </span>
-      )}
-    </span>
+        {detaille && (
+          <span className="whitespace-nowrap pl-3.5 text-[11px] text-ink-muted">
+            {libelleAge(f)}
+          </span>
+        )}
+      </summary>
+      <p className="mt-1 max-w-[16rem] whitespace-normal pl-3.5 text-[11px] leading-snug text-ink-muted">
+        {phraseFraicheur(source)}
+      </p>
+    </details>
   );
 }
 

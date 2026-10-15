@@ -216,7 +216,12 @@ export function AppelsOffres({ familles, vueToutes, aoEnCours, construitLe }: Ap
         aria-label="Filtrer les appels d’offres par famille"
         className="mb-3 mt-4 flex flex-wrap items-center gap-1.5 text-xs"
       >
-        <button type="button" onClick={() => choisir("")} className={stylePilule(famille === "")}>
+        <button
+          type="button"
+          aria-pressed={famille === ""}
+          onClick={() => choisir("")}
+          className={stylePilule(famille === "")}
+        >
           {famille === "" && (
             <span aria-hidden="true" className="font-bold">
               ✓
@@ -228,6 +233,7 @@ export function AppelsOffres({ familles, vueToutes, aoEnCours, construitLe }: Ap
           <button
             key={f.famille}
             type="button"
+            aria-pressed={famille === f.famille}
             onClick={() => choisir(f.famille)}
             className={stylePilule(famille === f.famille)}
           >

@@ -22,11 +22,14 @@ export interface CardProps {
   droite?: ReactNode;
   children: ReactNode;
   className?: string;
+  /** Ancre de la section (cible d'un lien interne). */
+  id?: string;
 }
 
-export function Card({ titre, sousTitre, droite, children, className }: CardProps) {
+export function Card({ titre, sousTitre, droite, children, className, id }: CardProps) {
   return (
     <section
+      id={id}
       className={`rounded-xl border border-card-border bg-card p-4 sm:p-5 ${className ?? ""}`}
     >
       {(titre || droite) && (
