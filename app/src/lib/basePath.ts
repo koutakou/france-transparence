@@ -1,5 +1,7 @@
 /**
- * Préfixe de base du site (GitHub Pages sert sous /france-transparence).
+ * Préfixe de base du site : VIDE en production (site à la racine de
+ * francetransparence.fr). Conservé pour un miroir ou un fork servi sous un
+ * sous-chemin (`NEXT_PUBLIC_BASE_PATH`, voir next.config.ts).
  *
  * `NEXT_PUBLIC_BASE_PATH` est inliné AU BUILD par Next : côté client, la
  * valeur est figée dans le bundle. Tout `fetch()` client vers une ressource

@@ -5,7 +5,8 @@
  * (type, gravité) se fait chez le réutilisateur — plus de paramètres d'URL.
  *
  * Base absente au build → erreur franche : on ne publie JAMAIS un snapshot
- * vide (la CI ne déploie pas, le site de la veille reste servi tel quel).
+ * vide (le build échoue, `ft-deploy` ne bascule pas : la release précédente
+ * reste servie telle quelle).
  */
 import { NextResponse } from "next/server";
 import { getAlertesStats, getAlertesToutes } from "@/lib/queries/alertes";

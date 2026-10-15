@@ -16,7 +16,8 @@ export const dynamic = "force-static";
  *   écrit ici : il dérive à chaque ingestion, et c'est getIdsFichesStatiques()
  *   qui en décide.
  *
- * URLs absolues en dur sur SITE_URL (GitHub Pages, basePath inclus) et
+ * URLs absolues en dur sur SITE_URL (racine du domaine en production ; un
+ * site servi sous un sous-chemin le porte dans NEXT_PUBLIC_SITE_URL) et
  * TRAILING SLASH systématique (le site statique sert des index.html).
  *
  * `lastmod` — c'est la date de la DERNIÈRE INGESTION (MAX

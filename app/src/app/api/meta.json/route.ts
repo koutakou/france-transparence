@@ -1,6 +1,6 @@
 /**
  * GET /api/meta.json — export statique généré au build : le catalogue
- * meta_sources complet (28 sources tracées) avec nom, URL amont, licence,
+ * meta_sources complet (toutes les sources tracées) avec nom, URL amont, licence,
  * fréquence, date des données, date d'ingestion, volumétrie, notes et
  * fraîcheur relative calculée : niveau, âge, unité de comptage et les deux
  * seuils calibrés pour la source (règle et seuils détaillés sur /donnees).
@@ -9,7 +9,8 @@
  * déploiement : le site est reconstruit après chaque ingestion quotidienne.
  *
  * Base absente au build → erreur franche : on ne publie JAMAIS un snapshot
- * vide (la CI ne déploie pas, le site de la veille reste servi tel quel).
+ * vide (le build échoue, `ft-deploy` ne bascule pas : la release précédente
+ * reste servie telle quelle).
  */
 import { NextResponse } from "next/server";
 import { getCatalogueSources, getDerniereIngestion } from "@/lib/queries/donnees";
