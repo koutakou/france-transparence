@@ -145,7 +145,7 @@ Assumées et affichées dans l'interface — l'honnêteté est le principe produ
 - **Montants d'accords-cadres** : ce sont des maximums contractuels, pas des paiements — libellés « marchés notifiés », jamais « dépensé ».
 - **DECP** : latence légale de publication jusqu'à 2 mois — mention « en cours de consolidation » partout où le flux apparaît. Un marché est daté de sa **notification initiale** et non de son dernier avenant : c'est cette date qui décide de la fenêtre et du mois où il est compté, tandis que le montant, l'objet et les titulaires affichés sont ceux de sa version courante.
 - **Lobbying** : la donnée HATVP ne sépare pas AN et Sénat (« Parlement » agrégé) et les dépenses sont déclarées par exercice annuel. Le registre européen, lui, ne publie aucun identifiant national d'entreprise (ni SIREN, ni TVA) : aucun rapprochement automatique n'est possible entre les deux registres, et aucun n'est tenté.
-- **Comptes locaux 2025** : provisoires (chargés en juillet 2026, ~97 communes manquantes).
+- **Comptes locaux 2025** : provisoires (chargés en juillet 2026 ; le nombre de communes encore sans comptes est relu à chaque ingestion et figure dans la note S16 de `/donnees`).
 - **Outre-mer** : hors rendu de la carte (présent dans les tableaux et agrégats).
 - **Scrutins du Sénat** : dump Dosleg `scr` + `votsen` ingéré (tous les scrutins publics ; fenêtre nominale des derniers). Le taux affiché sur la fiche est calculé ici sur les votes exprimés — ce n'est pas une présence en séance, pas un score Datan. Ameli (amendements) n'est pas ingéré.
 

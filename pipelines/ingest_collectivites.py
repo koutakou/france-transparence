@@ -64,9 +64,9 @@ Tables produites (SQLite, possédées par ce pipeline, delete+insert idempotent)
 Module UI : « Finances locales » (carte départementale, fiches région/
 département avec séries par grande catégorie, grandes communes avec séries
 2018-2025 comparées à la médiane de leur strate, dotations DGF) + carte de
-l'Accueil. Fraîcheur affichable : « Comptes 2025 provisoires
-(chargés juillet 2026 ; ~97 communes manquantes jusqu'en décembre 2026) » ·
-« Dotations de l'État : exercice 2026 ».
+l'Accueil. Fraîcheur affichable : « Comptes N provisoires jusqu'en décembre
+N+1 » (le nombre de communes sans comptes est relu à chaque cycle dans le jeu
+OFGL « Disponibilité des comptes des communes », DATASET_DISPONIBILITE) · « Dotations de l'État : exercice N ».
 
 Exécution : `python -m pipelines.ingest_collectivites` (FT_DB_PATH pour une
 base jetable). Idempotent ; échec → exit 1 sans données partielles commitées.
@@ -96,6 +96,9 @@ DGF_ANNEES = list(range(2018, 2027))  # 2018 → 2026 inclus
 ANNEE_DGF_DETAIL = 2026
 
 TOP_COMMUNES = 200
+# Jeu OFGL qui dit, commune par commune, si les comptes d'un exercice sont
+# publiés : source du nombre de communes manquantes de la note S16.
+DATASET_DISPONIBILITE = "disponibilite-des-comptes-des-communes"
 SEUIL_POP_TOP_FLOP = 20_000  # top/flop DGF/hab restreints aux communes ≥ 20 000 hab.
 NB_TOP_FLOP = 20
 
@@ -680,6 +683,67 @@ def communes_dgf_retenues(
 # ---------------------------------------------------------------------------
 
 
+def nb_communes_avec_comptes(conn, exercice: int) -> int | None:
+    """Communes présentes dans les agrégats départementaux de l'exercice
+    (budgets principaux ayant rendu leurs comptes). None si l'exercice est
+    absent : la note le dit plutôt que d'écrire 0."""
+    (n,) = conn.execute(
+        "SELECT SUM(nb_communes) FROM collectivites_departements WHERE exercice = ?",
+        (exercice,),
+    ).fetchone()
+    return n
+
+
+def compter_disponibilite(resultats: list[dict]) -> tuple[int, int]:
+    """(communes sans comptes, communes avec comptes) d'après le group_by
+    `presence_budget` du jeu « Disponibilité des comptes des communes »
+    (« 0 » / « 1 »). Une modalité absente vaut 0 commune : c'est un
+    dénombrement, pas une valeur manquante."""
+    parmod = {str(r["presence_budget"]): int(r["n"]) for r in resultats}
+    inconnues = set(parmod) - {"0", "1"}
+    if inconnues:
+        raise ValueError(f"presence_budget inattendu : {sorted(inconnues)}")
+    return parmod.get("0", 0), parmod.get("1", 0)
+
+
+def disponibilite_comptes(session: requests.Session, exercice: int) -> tuple[int, int] | None:
+    """Dénombre, pour l'exercice, les communes existantes au 1er janvier
+    dont l'OFGL publie ou non les comptes. None si le jeu est injoignable ou
+    illisible : la note dit alors « non disponible », sans faire échouer la
+    nuit pour une phrase (avertissement journalisé)."""
+    try:
+        resultats = _records(
+            session,
+            DATASET_DISPONIBILITE,
+            {
+                "where": f"annee = date'{exercice}'",
+                "group_by": "presence_budget",
+                "select": "count(*) as n",
+                "limit": 10,
+            },
+        )
+        return compter_disponibilite(resultats)
+    except (requests.RequestException, KeyError, ValueError, TypeError) as exc:
+        log.warning("disponibilité des comptes %s illisible (%s) : la note S16 dira « non disponible »",
+                    exercice, type(exc).__name__)
+        return None
+
+
+def _nombre(n: int) -> str:
+    return f"{n:_d}".replace("_", "\u202f")
+
+
+def phrase_comptes_provisoires(exercice: int, disponibilite: tuple[int, int] | None) -> str:
+    """Début de la note S16, dérivé des données (aucun compte en dur)."""
+    debut = f"Comptes {exercice} provisoires jusqu'à déc. {exercice + 1}"
+    if disponibilite is None:
+        return f"{debut} (nombre de communes sans comptes publiés : non disponible)"
+    sans, avec = disponibilite
+    return (f"{debut} ({_nombre(sans)} communes sans comptes publiés sur "
+            f"{_nombre(sans + avec)} existantes au 1er janvier {exercice}, "
+            f"d'après le jeu OFGL « Disponibilité des comptes des communes »)")
+
+
 def charger(
     conn,
     deps: list[tuple],
@@ -904,6 +968,7 @@ def executer() -> None:
     chemins_series = telecharger_series_communes(session, codes_top)
     series_com = series_communes(chemins_series, codes_top)
     strates = medianes_strates(chemins["strates"])
+    disponibilite = disponibilite_comptes(session, EXERCICE_COMPTES)
 
     conn = db.init_db()
     try:
@@ -912,7 +977,20 @@ def executer() -> None:
             series_com, strates,
         )
         verifier(conn)
+        nb_agreges = nb_communes_avec_comptes(conn, EXERCICE_COMPTES)
         conn.commit()
+        # Journalisé à chaque cycle, écart compris : les agrégats et le jeu
+        # de disponibilité doivent compter les mêmes communes avec comptes.
+        if disponibilite is None:
+            log.warning("communes %s : %s dans les agrégats, disponibilité OFGL non lue",
+                        EXERCICE_COMPTES, nb_agreges)
+        else:
+            sans, avec = disponibilite
+            ecart = None if nb_agreges is None else nb_agreges - avec
+            (log.info if ecart == 0 else log.warning)(
+                "communes %s : %d sans comptes, %d avec (disponibilité OFGL) ; "
+                "%s dans les agrégats (écart %s)",
+                EXERCICE_COMPTES, sans, avec, nb_agreges, ecart)
         db.upsert_meta(
             conn,
             source_id="S16",
@@ -923,7 +1001,7 @@ def executer() -> None:
             date_donnees=f"{EXERCICE_COMPTES}-12-31",
             lignes=sum(comptes.values()),
             notes=(
-                f"Comptes {EXERCICE_COMPTES} provisoires (~97 communes manquantes jusqu'à déc. 2026) ; "
+                f"{phrase_comptes_provisoires(EXERCICE_COMPTES, disponibilite)} ; "
                 f"dotations DGF jusqu'à l'exercice {ANNEE_DGF_DETAIL}. "
                 f"Séries communales {SERIE_DEBUT}-{EXERCICE_COMPTES} (top {TOP_COMMUNES}, "
                 f"budgets principaux) et médianes d'€/hab par strate démographique "

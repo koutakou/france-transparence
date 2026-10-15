@@ -341,3 +341,69 @@ def test_pipeline_complet_sur_base_jetable(tmp_path, monkeypatch):
     ).fetchone()
     assert meta is not None and meta[0] == "2025-12-31" and meta[1] > 0
     conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Note S16 : le nombre de communes se lit en base, pas en dur
+# ---------------------------------------------------------------------------
+
+
+def _base_departements(lignes):
+    conn = sqlite3.connect(":memory:")
+    conn.execute(
+        "CREATE TABLE collectivites_departements (code_dep TEXT, nom TEXT,"
+        " nb_communes INTEGER, exercice INTEGER)"
+    )
+    conn.executemany("INSERT INTO collectivites_departements VALUES (?, ?, ?, ?)", lignes)
+    return conn
+
+
+def test_nb_communes_avec_comptes_lu_dans_les_agregats():
+    """Lignes réelles de la base du 15/10/2026 (Ain 391, Lozère 150)."""
+    conn = _base_departements([("01", "Ain", 391, 2025), ("48", "Lozère", 150, 2025),
+                               ("01", "Ain", 393, 2024)])
+    assert p11.nb_communes_avec_comptes(conn, 2025) == 541
+    assert p11.nb_communes_avec_comptes(conn, 2026) is None
+
+
+# Réponse réelle de l'API OFGL le 15/10/2026 (group_by presence_budget,
+# annee = 2025) : 97 communes sans comptes, 34 778 avec — le même 34 778
+# que la somme des agrégats départementaux de la base du même jour.
+DISPONIBILITE_2025 = [{"presence_budget": "0", "n": 97},
+                      {"presence_budget": "1", "n": 34778}]
+
+
+def test_note_s16_derive_les_communes_manquantes_des_donnees():
+    dispo = p11.compter_disponibilite(DISPONIBILITE_2025)
+    assert dispo == (97, 34778)
+    phrase = p11.phrase_comptes_provisoires(2025, dispo)
+    assert phrase.startswith("Comptes 2025 provisoires jusqu'à déc. 2026 (97 communes sans "
+                             "comptes publiés sur 34\u202f875 existantes au 1er janvier 2025")
+    # Un autre état de la source donne une autre phrase : rien n'est figé.
+    autre = p11.phrase_comptes_provisoires(2026, p11.compter_disponibilite(
+        [{"presence_budget": "1", "n": 34875}]))
+    assert "(0 communes sans comptes publiés sur 34\u202f875" in autre
+    assert "déc. 2027" in autre and "97" not in autre
+
+
+def test_note_s16_disponibilite_illisible_ne_devient_pas_zero():
+    phrase = p11.phrase_comptes_provisoires(2025, None)
+    assert phrase.endswith("(nombre de communes sans comptes publiés : non disponible)")
+    with pytest.raises(ValueError):
+        p11.compter_disponibilite([{"presence_budget": "2", "n": 1}])
+
+
+def test_disponibilite_injoignable_avertit_sans_lever(caplog):
+    class SessionEnPanne:
+        def get(self, *a, **k):
+            raise p11.requests.ConnectionError("connexion réinitialisée")
+    with caplog.at_level("WARNING"):
+        assert p11.disponibilite_comptes(SessionEnPanne(), 2025) is None
+    assert "ConnectionError" in caplog.text
+
+
+def test_note_s16_sans_compte_de_communes_en_dur():
+    """Garde documentaire : la note n'écrit plus de nombre de communes figé."""
+    import re
+    source = Path(p11.__file__).read_text(encoding="utf-8")
+    assert not re.search(r"~\d+ communes manquantes", source)
