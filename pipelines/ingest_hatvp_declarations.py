@@ -274,10 +274,16 @@ assert not (set(RUBRIQUES) & (BALISES_PATRIMOINE | BALISES_TIERS)), (
 )
 
 # Types de mandat (JSON `elus.mandats`) ouvrant droit à une fiche publiée.
-# Copie DÉLIBÉRÉE de TYPES_FICHE_STATIQUE de app/src/app/elus/[id]/page.tsx :
-# le pipeline ne peut pas lire le front, et l'inverse serait pire (ingérer des
-# données personnelles « au cas où »). Si les deux divergent, il manque de la
-# donnée — cas déjà géré à l'écran — jamais l'inverse.
+# Copie DÉLIBÉRÉE de la règle de getIdsFichesStatiques()
+# (app/src/lib/queries/elus.ts) : le pipeline ne peut pas lire le front, et
+# l'inverse serait pire (ingérer des données personnelles « au cas où »). Si
+# les deux divergent, il manque de la donnée — cas déjà géré à l'écran —
+# jamais l'inverse. ⚠️ La copie n'est pas exacte pour les parlementaires : le
+# front les énumère par les tables `deputes` et `senateurs` (en exercice), ce
+# pipeline par le type JSON, que garde aussi un sortant (son mandat AN-P9 ou
+# SENAT-P9 est daté, pas retiré) et qu'un millésime RNE en retard peut encore
+# porter. Un sortant reste donc apparié ici, ce qui est sans effet à l'écran
+# (pas de page) et évite de lire sa sortie comme une perte de rattachement.
 TYPES_FICHE = ("depute", "senateur",
                "president_conseil_departemental", "president_conseil_regional")
 
@@ -1136,9 +1142,13 @@ def pertes_de_rattachement(
 
         perte = uuid déjà rattaché  ∩  uuid encore publié  −  uuid rattaché
 
-    restreinte aux élus qui PORTENT ENCORE UNE FICHE (`fiches`) : un
-    parlementaire dont le mandat s'achève sort de `elus`, ses déclarations
-    cessent d'être rattachables, et ce n'est pas une régression.
+    restreinte aux élus qui PORTENT ENCORE UNE FICHE (`fiches`) : un élu qui
+    perd son dernier mandat de type TYPES_FICHE (ses entrées RNE disparaissent
+    au millésime suivant) cesse d'être rattachable, et ce n'est pas une
+    régression. ⚠️ Un parlementaire sorti, lui, NE sort PAS de `elus` : P9 date
+    la fin de son mandat AN-P9/SENAT-P9 sans retirer l'entrée, et le type
+    reste. Il garde donc ses rattachements ici, même quand le site ne lui
+    publie plus de page (voir TYPES_FICHE).
 
     Ce que ce contrôle laisse VOLONTAIREMENT passer, pour ne pas hurler à tort :
       · la déclaration retirée de la source (cas 1 ci-dessus) ;
@@ -1205,7 +1215,14 @@ def elus_avec_fiche(conn) -> set[str]:
     ouvert — et c'est exactement le régime d'incident que ce garde-fou couvre.
 
     La requête est celle des deux index d'appariement, sans AUCUN de leurs
-    filtres : c'est la population que le site publie.
+    filtres. C'est la population que le site publie, À UNE EXCEPTION PRÈS :
+    les parlementaires sortis, dont le mandat AN-P9/SENAT-P9 est daté mais
+    garde son type (et ceux qu'un RNE en retard dit encore parlementaires), y
+    restent alors que le front, qui énumère les parlementaires par les tables
+    `deputes` et `senateurs`, ne leur génère plus de page (voir TYPES_FICHE).
+    L'écart est délibéré : l'aligner ferait passer leurs détachements du
+    chemin qui lève (perte) à celui qui se contente d'avertir (`hors_fiche`),
+    et affaiblirait le garde-fou sans rien changer à ce qui est publié.
     """
     marques = ", ".join("?" for _ in TYPES_FICHE)
     return {r["id"] for r in conn.execute(

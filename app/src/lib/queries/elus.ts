@@ -644,12 +644,16 @@ export function getFicheElu(id: string): FicheElu | null {
 }
 
 /**
- * Identifiants des fiches statiques : députés et exécutifs CD/CR depuis
- * le JSON des mandats ; sénateurs depuis la table `senateurs` (ODSEN
- * ACTIF), pas depuis `json_extract(type)='senateur'` — le JSON des mandats
- * conserve un mandat sénatorial que la table a déjà purgé, et l'écart entre
- * les deux dérive à chaque ingestion (aucun chiffre écrit ici pour cette
- * raison : il serait faux à la publication suivante).
+ * Identifiants des fiches statiques : exécutifs CD/CR depuis le JSON des
+ * mandats ; parlementaires depuis les tables des chambres EN EXERCICE —
+ * `deputes` (AMO10 du jour) et `senateurs` (ODSEN ACTIF) —, pas depuis
+ * `json_extract(type)` : le JSON des mandats conserve le mandat d'un sortant
+ * (daté de sa fin par P9, jamais retiré) et le mandat parlementaire que le
+ * RNE trimestriel n'a pas encore retiré. Avant le 15/10/2026, les députés
+ * passaient encore par le JSON : des sortants, dont certains devenus
+ * sénateurs, gardaient une fiche « Député·e » en double de leur fiche de
+ * sénateur. L'écart dérive à chaque ingestion (aucun chiffre écrit ici :
+ * il serait faux à la publication suivante).
  *
  * SEULE VÉRITÉ des fiches /elus/<id> : generateStaticParams, le sitemap et
  * l'index de recherche consomment tous les trois cette fonction. Ne pas
@@ -659,19 +663,25 @@ export function getFicheElu(id: string): FicheElu | null {
 export function getIdsFichesStatiques(): string[] {
   const db = getDb();
   if (!db) return [];
-  const typesHorsSenat = [
-    "depute",
+  const typesExecutifs = [
     "president_conseil_departemental",
     "president_conseil_regional",
   ];
-  const marques = typesHorsSenat.map(() => "?").join(", ");
+  const marques = typesExecutifs.map(() => "?").join(", ");
   const autres = db
     .prepare(
       `SELECT DISTINCT e.id
        FROM elus e, json_each(e.mandats) je
        WHERE json_extract(je.value, '$.type') IN (${marques})`,
     )
-    .all(...typesHorsSenat) as { id: string }[];
+    .all(...typesExecutifs) as { id: string }[];
+  const dep = db
+    .prepare(
+      `SELECT e.id
+       FROM deputes d
+       JOIN elus e ON e.uid_an = d.uid_an`,
+    )
+    .all() as { id: string }[];
   const sen = db
     .prepare(
       `SELECT e.id
@@ -681,6 +691,7 @@ export function getIdsFichesStatiques(): string[] {
     .all() as { id: string }[];
   const ids = new Set<string>();
   for (const r of autres) ids.add(r.id);
+  for (const r of dep) ids.add(r.id);
   for (const r of sen) ids.add(r.id);
   return [...ids].sort();
 }
