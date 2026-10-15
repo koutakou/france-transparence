@@ -1858,7 +1858,7 @@ CREATE INDEX idx_sirene_etat
 Le bloc `CREATE TABLE` ci-dessus est un dump : il donne les types, pas le
 sens des valeurs. Les normalisations suivantes sont appliquées **à
 l'ingestion** et ne sont donc lisibles nulle part dans le schéma. Elles
-datent du 20/08/2026 (§ 5 de `doc/QUALITE-DONNEES.md`) : les tables
+datent du 20/08/2026 : les tables
 produites avant cette date ne les portent pas.
 
 | Table.colonne | Convention appliquée | Pourquoi |
