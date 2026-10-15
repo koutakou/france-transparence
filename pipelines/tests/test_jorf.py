@@ -18,6 +18,7 @@ from pipelines.ingest_jorf import (
     est_nomination,
     ingerer_tarball,
     jour_de_livraison,
+    livraisons_de_journee_sans_nocturne,
     livraisons_nocturnes,
     ministere_du_chemin,
     parser_sommaire,
@@ -103,6 +104,48 @@ def test_livraisons_nocturnes_une_seule_par_jour():
         '<a href="JORFSIMPLE_20261001-035959.tar.gz">'
     )
     assert livraisons_nocturnes(html) == ["JORFSIMPLE_20261001-012453.tar.gz"]
+
+
+def test_livraisons_de_journee_sans_nocturne_extrait_reel():
+    """Sur l'extrait réel du 15/10/2026 : seul le lundi 01/06/2026 (pas de
+    JO) n'a qu'un correctif de journée ; les correctifs du 12/03 et du
+    01/10 tombent des jours qui ont leur nocturne, et le soir est ignoré."""
+    assert livraisons_de_journee_sans_nocturne(INDEX_EXTRAIT_15_10) == [
+        "JORFSIMPLE_20260601-104919.tar.gz",
+    ]
+
+
+# Nocturne en retard : le JO du jour livré à 06h12 (heure constatée nulle
+# part à ce jour — la plus tardive de l'index est 04h21 ; cas construit).
+INDEX_NOCTURNE_EN_RETARD = INDEX_EXTRAIT_15_10 + (
+    '<a href="JORFSIMPLE_20261003-061204.tar.gz">'
+    '<a href="JORFSIMPLE_20261003-214500.tar.gz">'
+)
+
+
+def test_nocturne_en_retard_est_signalee_au_journal(caplog):
+    """Avant : la livraison de 06h12 était écartée par la règle des 06 h et
+    le JO du 03/10 sautait de la fenêtre sans compteur ni avertissement."""
+    from datetime import date
+    assert "JORFSIMPLE_20261003-061204.tar.gz" not in livraisons_nocturnes(
+        INDEX_NOCTURNE_EN_RETARD)
+    with caplog.at_level("INFO"):
+        noms = ingest_jorf.signaler_jours_sans_nocturne(
+            INDEX_NOCTURNE_EN_RETARD, date(2026, 10, 1))
+    assert noms == ["JORFSIMPLE_20261003-061204.tar.gz"]
+    assert "1 livraison(s) de journée sur un jour sans nocturne" in caplog.text
+    assert "JORFSIMPLE_20261003-061204.tar.gz" in caplog.text
+    assert caplog.records[-1].levelname == "WARNING"
+
+
+def test_compteur_journalise_a_zero(caplog):
+    """Le compteur parle aussi quand il n'y a rien : le lundi 01/06/2026 est
+    hors de la fenêtre qui commence le 01/10/2026."""
+    from datetime import date
+    with caplog.at_level("INFO"):
+        assert ingest_jorf.signaler_jours_sans_nocturne(
+            INDEX_EXTRAIT_15_10, date(2026, 10, 1)) == []
+    assert "dans la fenêtre : 0" in caplog.text
 
 
 def test_jour_de_livraison():
@@ -341,6 +384,24 @@ def test_fenetre_bornee_malgre_un_correctif_a_l_index(
         "SELECT notes FROM meta_sources WHERE source_id = 'S3'").fetchone()[0]
     assert "2007" not in notes and "2024" not in notes
     c.close()
+
+
+def test_cycle_signale_une_nocturne_en_retard(monkeypatch, tmp_path, mini_tarball, caplog):
+    """main() : le JO du 19/08 est ingéré, la livraison de 06h12 du 20/08
+    (cas construit) est écartée ET nommée au journal du cycle."""
+    index = (
+        '<a href="JORFSIMPLE_20260819-003035.tar.gz">'
+        '<a href="JORFSIMPLE_20260820-061204.tar.gz">'
+    )
+    with caplog.at_level("INFO"):
+        code, c = _jouer_main(monkeypatch, tmp_path, index, {
+            "JORFSIMPLE_20260819-003035.tar.gz": mini_tarball,
+        })
+    assert code == 0
+    c.close()
+    alertes = [r for r in caplog.records if r.levelname == "WARNING"
+               and "JORFSIMPLE_20260820-061204.tar.gz" in r.getMessage()]
+    assert len(alertes) == 1
 
 
 def test_base_persistante_polluee_se_repare(monkeypatch, tmp_path, mini_tarball):
