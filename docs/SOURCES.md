@@ -272,7 +272,7 @@ Contexte 2026 à garder en tête : LFI 2026 promulguée tardivement le 19/02/202
 #### S16. OFGL — data.ofgl.fr ★ source pivot des finances locales
 - **URLs testées** : `https://data.ofgl.fr/api/explore/v2.1/catalog/datasets/ofgl-base-communes/records` (200, API ODS sans clé) ; export filtré testé : **toutes les communes × 1 agrégat × 2025 = 34 778 lignes, 1,9 Mo, 2,8 s** ; `group_by=dep_code` serveur → 101 départements en 1 requête (06-finances-locales.md).
 - **Granularité/période** : 1 ligne = collectivité × exercice × budget × agrégat (55 agrégats, `euros_par_habitant` déjà calculé) ; communes 2018-**2025** (21,97 M lignes, maj 29/07/2026), départements/régions 2012-2025, **dotations 2018-2026** (27,1 M lignes, maj 04/08/2026 ; DGF 2026 de Lyon = 56 959 311 € testé) (06).
-- **Fraîcheur** : millésime N chargé en juillet N+1 (provisoire), consolidé en décembre N+1 ; **~97 communes sans comptes 2025 avant décembre 2026** (06).
+- **Fraîcheur** : millésime N chargé en juillet N+1 (provisoire), consolidé en décembre N+1 ; des communes restent sans comptes jusqu'en décembre, dénombrées à chaque ingestion par le jeu OFGL `disponibilite-des-comptes-des-communes` (group_by `presence_budget`) et reprises dans la note S16 (06).
 - **Licence** : LO 2.0. **Pièges** : `exer` est une date → `year(exer)=2025` sinon HTTP 400 ; filtrer `type_de_budget="Budget principal"` ou prendre les bases `-consolidee` ; dotations en format long `variable`/`valeur` (7 variantes « DGF ») ; millésimes anciens déplacés en pièces jointes (06).
 - **Modules** : Finances locales (carte, fiches, dotations), Accueil.
 
@@ -667,7 +667,7 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 
 ### Finances locales
 - **Sources** : S16 (OFGL : comptes + dotations), **S48** (REI, fiscalité directe locale, bloc cloisonné), S27 (fonds de carte + population), S28 (balances, drill-down non ingéré), S33 (strates, non ingéré), S32 (subventions locales, panel non ingéré).
-- **Fraîcheur affichable** : « Comptes 2025 provisoires (chargés juillet 2026 ; ~97 communes manquantes jusqu'en décembre 2026) » (06) · « Dotations de l'État : exercice 2026 » (06).
+- **Fraîcheur affichable** : « Comptes 2025 provisoires jusqu'à déc. 2026 (N communes sans comptes publiés sur M existantes au 1er janvier 2025…) », N et M relus à chaque ingestion (06) · « Dotations de l'État : exercice 2026 » (06).
 - **Contenu concret** : carte départementale en 1 requête `group_by` (101 départements) ; carte communale pré-calculée (34 778 communes, €/habitant natif) ; fiches collectivité (séries 2012/2018→2025, DGF 2018-2026, comparaison de strate) ; drill-down comptable par SIREN à la demande. **Jamais** de vue « subventions France entière » (aucune consolidation nationale SCDL, 06).
 
 ### Documents/JO
