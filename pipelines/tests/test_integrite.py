@@ -1213,7 +1213,7 @@ def test_reseau_resolution_rne_data_gouv():
 
 
 # ---------------------------------------------------------------------------
-# Hygiène de liste.csv (§ M4 de doc/QUALITE-DONNEES.md)
+# Hygiène de liste.csv (docs/SCHEMA-DB.md, § « Conventions de valeurs »)
 # ---------------------------------------------------------------------------
 
 

@@ -210,7 +210,7 @@ def test_approch_api_contrat_projets_futurs():
 
 
 # ---------------------------------------------------------------------------
-# Garde-fou sur la date limite de réponse (§ M2 de doc/QUALITE-DONNEES.md)
+# Garde-fou sur la date limite de réponse (docs/SCHEMA-DB.md, § « Conventions de valeurs »)
 # ---------------------------------------------------------------------------
 
 

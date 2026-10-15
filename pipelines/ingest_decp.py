@@ -668,7 +668,8 @@ def transformer(
                    -- au-delà du plus long marché public concevable : aucune
                    -- valeur légitime n'est perdue. Mesuré le 20/08/2026 sur
                    -- la base de production : 22 durées < 0 et 119 > 600 sur
-                   -- 585 503 marchés (§ M3 de QUALITE-DONNEES.md).
+                   -- 585 503 marchés (docs/SCHEMA-DB.md,
+                   -- § « Conventions de valeurs »).
                    CASE WHEN any_value(dureeMois) BETWEEN 0 AND 600
                         THEN any_value(dureeMois) END               AS duree_mois,
                    any_value("procedure")                         AS procedure,

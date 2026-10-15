@@ -399,7 +399,7 @@ def _normaliser_token(token: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Rattachement géographique des comptes de campagne (§ M5 QUALITE-DONNEES.md)
+# Rattachement géographique des comptes de campagne (docs/SCHEMA-DB.md)
 # ---------------------------------------------------------------------------
 
 # POURQUOI ces correspondances et pas une table complète : la CNCCFP
@@ -768,7 +768,8 @@ def parser_campagnes(brut: bytes) -> list[dict]:
     Et depuis le 20/08/2026, le rattachement géographique est normalisé
     (normaliser_geographie_campagne) : codes département ramenés au COG,
     sentinelle « ZZ » des Français de l'étranger explicitée, ordinaux de
-    circonscription unifiés. Voir § M5 de doc/QUALITE-DONNEES.md.
+    circonscription unifiés. Voir docs/SCHEMA-DB.md,
+    § « Conventions de valeurs ».
     """
     texte, encodage = decoder_campagnes(brut)
     log.info("comptes de campagne : encodage retenu = %s", encodage)

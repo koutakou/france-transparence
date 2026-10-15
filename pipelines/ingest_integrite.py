@@ -932,9 +932,11 @@ def _rattraper(p: dict, index_nom: dict, garde: set) -> dict | None:
     `(nom, prénom, date de naissance)` normalisés. Elle est juste, et elle doit
     le rester : 588 couples nom+prénom sont partagés par au moins deux
     personnes dans `elus`, et c'est la date de naissance qui les sépare
-    (cf. tests de P15 et EXPLOITATION.md § 9.6). Mais elle échoue chaque fois
-    que le RNE et la chambre n'écrivent pas l'état civil de la MÊME façon —
-    mesuré le 26/08/2026 sur les 36 020 lignes de la base servie, 17 fois :
+    (cf. tests de P15, et § 9.6 de la documentation d'exploitation, tenue
+    HORS DU DÉPÔT sur le serveur : /srv/france-transparence/doc/EXPLOITATION.md).
+    Mais elle échoue chaque fois que le RNE et la chambre n'écrivent pas
+    l'état civil de la MÊME façon — mesuré le 26/08/2026 sur les 36 020
+    lignes de la base servie, 17 fois :
 
       · le RNE tronque un nom composé que la chambre porte en entier
         (RNE « FAVENNEC » / AN « Favennec-Bécot », 4 cas), ou l'inverse
