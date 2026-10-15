@@ -56,9 +56,6 @@
  * sont éprouvées sur une base bâtie à ce schéma, remplie depuis la base
  * réelle en lecture seule (21/08/2026).
  */
-import fs from "node:fs";
-import path from "node:path";
-import type { FeatureCollection, Geometry } from "geojson";
 import { getDb, type MetaSource } from "@/lib/db";
 
 /* ------------------------------------------------------------------ */
@@ -1214,36 +1211,4 @@ export function getAoParFamille(): AoParFamille | null {
   const vues: Record<string, VueAoFamille> = { "": vuePour(null) };
   for (const f of familles) vues[f.famille] = vuePour(f.famille);
   return { familles, vues };
-}
-
-/* ------------------------------------------------------------------ */
-/* Fond de carte                                                       */
-/* ------------------------------------------------------------------ */
-
-export type GeoDepartements = FeatureCollection<
-  Geometry,
-  { code?: string; nom?: string } & Record<string, unknown>
->;
-
-/** Chemin du GeoJSON départements : ../data/geo relatif à app/ (cwd de next). */
-const GEOJSON_PATH = path.resolve(
-  process.cwd(),
-  "..",
-  "data",
-  "geo",
-  "departements.geojson",
-);
-
-/**
- * Fond de carte des départements (101 features, properties.code / .nom).
- * `null` si le fichier n'existe pas encore — la page affiche alors le
- * tableau seul, sans carte, avec un message honnête.
- */
-export function chargerGeoDepartements(): GeoDepartements | null {
-  if (!fs.existsSync(GEOJSON_PATH)) return null;
-  try {
-    return JSON.parse(fs.readFileSync(GEOJSON_PATH, "utf-8")) as GeoDepartements;
-  } catch {
-    return null;
-  }
 }

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev -p 3620",
     "build": "next build",
+    "typecheck": "next typegen && tsc --noEmit",
     "start": "next start -p 3620",
     "lint": "eslint"
   },

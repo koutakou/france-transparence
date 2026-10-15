@@ -146,7 +146,7 @@ Chaque module affiche, pour chacune de ses sources, un badge :
 
 > **Données au JJ/MM/AAAA · <nom court de la source> · <fréquence>**
 
-- Alimenté exclusivement par `meta_sources` (helper `getMetaSources()` de `app/src/lib/db.ts`, format via `formatDateFr()`).
+- Alimenté exclusivement par `meta_sources` (type `MetaSource` de `app/src/lib/db.ts`, lu par les requêtes de chaque module — `getMetaSourcesParIds()` de `app/src/lib/queries/donnees.ts` et ses homologues —, format via `formatDateFr()` de `app/src/lib/format.ts`).
 - `JJ/MM/AAAA` = `date_donnees` (la donnée la plus récente réellement en base), jamais la date du jour, jamais la date de modif du dataset amont.
 - Mentions obligatoires héritées de SOURCES.md : « PLF » (S20), « en cours de consolidation » (S1, latence légale 2 mois), « provisoire » (OFGL 2025), crédit Datan/consolidation DECP, attribution ODbL le cas échéant.
 - La page `/donnees` expose le catalogue complet de `meta_sources` (le « moniteur de santé des sources »).

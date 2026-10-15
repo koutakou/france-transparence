@@ -52,10 +52,6 @@ export const PERIMETRE_GRAVITE_INFO =
 export const GRAVITES_ALERTE = ["haute", "moyenne", "info"] as const;
 export type GraviteAlerte = (typeof GRAVITES_ALERTE)[number];
 
-export function estGraviteAlerte(v: string): v is GraviteAlerte {
-  return (GRAVITES_ALERTE as readonly string[]).includes(v);
-}
-
 /** Une ligne de la table `alertes` (schéma docs/SCHEMA-DB.md). */
 export type Alerte = {
   id: string;

@@ -16,8 +16,7 @@
  *
  * Toutes les fonctions renvoient `null` tant que la base n'est pas
  * construite (`getDb()` → null) : la page affiche alors un message honnête.
- * SQL 100 % paramétré — jamais d'interpolation de valeur ; les motifs LIKE
- * sont échappés via `echappeLike` (ESCAPE '\').
+ * SQL 100 % paramétré — jamais d'interpolation de valeur.
  */
 import { getDb, type MetaSource } from "@/lib/db";
 
@@ -680,84 +679,4 @@ export function getIdsFichesStatiques(): string[] {
   for (const r of autres) ids.add(r.id);
   for (const r of sen) ids.add(r.id);
   return [...ids].sort();
-}
-
-/* ------------------------------------------------------------------ */
-/* Recherche (héritage de l'ancienne route serveur)                    */
-/* ------------------------------------------------------------------ */
-
-/** Échappe `\`, `%` et `_` pour un motif LIKE … ESCAPE '\'. */
-export function echappeLike(brut: string): string {
-  return brut.replace(/[\\%_]/g, (c) => `\\${c}`);
-}
-
-export type EluRecherche = {
-  id: string;
-  nom: string;
-  prenom: string | null;
-  uid_an: string | null;
-  matricule_senat: string | null;
-  /** Département AN (nom) si député. */
-  dep_an: string | null;
-  /** Département Sénat (circonscription) si sénateur. */
-  dep_senat: string | null;
-  mandats: string | null;
-};
-
-/**
- * Recherche d'élus par nom/prénom — LIKE insensible à la casse (ASCII),
- * motif échappé. Parlementaires d'abord, puis préfixe de nom, puis alpha.
- */
-export function rechercheElus(q: string, limite = 8): EluRecherche[] | null {
-  const db = getDb();
-  if (!db) return null;
-  const motif = `%${echappeLike(q)}%`;
-  const prefixe = `${echappeLike(q)}%`;
-  return db
-    .prepare(
-      `SELECT e.id, e.nom, e.prenom, e.uid_an, e.matricule_senat,
-              d.departement AS dep_an, s.circonscription AS dep_senat, e.mandats
-       FROM elus e
-       LEFT JOIN deputes d ON d.uid_an = e.uid_an
-       LEFT JOIN senateurs s ON s.matricule = e.matricule_senat
-       WHERE e.nom LIKE ? ESCAPE '\\' OR e.prenom LIKE ? ESCAPE '\\'
-       ORDER BY CASE WHEN e.uid_an IS NOT NULL OR e.matricule_senat IS NOT NULL THEN 0 ELSE 1 END,
-                CASE WHEN e.nom LIKE ? ESCAPE '\\' THEN 0 ELSE 1 END,
-                e.nom, e.prenom
-       LIMIT ?`,
-    )
-    .all(motif, motif, prefixe, limite) as EluRecherche[];
-}
-
-export type EntiteRecherche = {
-  id: string;
-  type: "ministere" | "institution" | "collectivite" | "parti";
-  nom: string;
-  sigle: string | null;
-};
-
-/**
- * Recherche d'entités par nom/sigle (4 types routables : ministère,
- * institution, collectivité, parti). Institutions d'abord (peu nombreuses
- * et très demandées), puis ministères, collectivités, partis.
- */
-export function rechercheEntites(q: string, limite = 4): EntiteRecherche[] | null {
-  const db = getDb();
-  if (!db) return null;
-  const motif = `%${echappeLike(q)}%`;
-  return db
-    .prepare(
-      `SELECT id, type, nom, sigle
-       FROM entites
-       WHERE (nom LIKE ? ESCAPE '\\' OR sigle LIKE ? ESCAPE '\\')
-         AND type IN ('ministere', 'institution', 'collectivite', 'parti')
-       ORDER BY CASE type
-                  WHEN 'institution' THEN 0
-                  WHEN 'ministere' THEN 1
-                  WHEN 'collectivite' THEN 2
-                  ELSE 3
-                END, nom
-       LIMIT ?`,
-    )
-    .all(motif, motif, limite) as EntiteRecherche[];
 }

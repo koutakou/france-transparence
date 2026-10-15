@@ -22,7 +22,6 @@
  * null) — la page affiche alors un message honnête, jamais un montant vide.
  * Toutes les requêtes ont été testées sur data/france.db en lecture seule.
  */
-import fs from "node:fs";
 import path from "node:path";
 import type { FeatureCollection, Geometry } from "geojson";
 import { getDb, type MetaSource } from "@/lib/db";
@@ -243,42 +242,6 @@ export type SerieAnnuelle = {
   investissement: number | null;
   epargne_brute: number | null;
 };
-
-/** Série pluriannuelle (2018 → 2025) des 3 agrégats clés d'une région. */
-export function getSerieRegion(codeRegion: string): SerieAnnuelle[] | null {
-  const db = getDb();
-  if (!db) return null;
-  return db
-    .prepare(
-      `SELECT exercice,
-              MAX(CASE WHEN agregat = 'Dépenses de fonctionnement' THEN montant END) AS fonctionnement,
-              MAX(CASE WHEN agregat = 'Dépenses d''investissement' THEN montant END) AS investissement,
-              MAX(CASE WHEN agregat = 'Epargne brute' THEN montant END) AS epargne_brute
-       FROM collectivites_regions
-       WHERE code_region = ?
-       GROUP BY exercice
-       ORDER BY exercice`,
-    )
-    .all(codeRegion) as SerieAnnuelle[];
-}
-
-/** Série pluriannuelle (2018 → 2025) des 3 agrégats clés d'un conseil départemental. */
-export function getSerieConseilDepartemental(codeDep: string): SerieAnnuelle[] | null {
-  const db = getDb();
-  if (!db) return null;
-  return db
-    .prepare(
-      `SELECT exercice,
-              MAX(CASE WHEN agregat = 'Dépenses de fonctionnement' THEN montant END) AS fonctionnement,
-              MAX(CASE WHEN agregat = 'Dépenses d''investissement' THEN montant END) AS investissement,
-              MAX(CASE WHEN agregat = 'Epargne brute' THEN montant END) AS epargne_brute
-       FROM collectivites_conseils_departementaux
-       WHERE code_dep = ?
-       GROUP BY exercice
-       ORDER BY exercice`,
-    )
-    .all(codeDep) as SerieAnnuelle[];
-}
 
 /* ------------------------------------------------------------------ */
 /* Grandes communes                                                    */
@@ -594,22 +557,3 @@ export const GEOJSON_DEPARTEMENTS_PATH = path.resolve(
   "departements.geojson",
 );
 
-let geojsonCache: GeojsonDepartements | null = null;
-
-/**
- * FeatureCollection des 101 départements (`properties.code` = code INSEE).
- * `null` si le fichier n'existe pas encore (référentiel non ingéré) —
- * la page garde alors le tableau et signale l'absence de carte.
- */
-export function getGeojsonDepartements(): GeojsonDepartements | null {
-  if (geojsonCache) return geojsonCache;
-  if (!fs.existsSync(GEOJSON_DEPARTEMENTS_PATH)) return null;
-  try {
-    geojsonCache = JSON.parse(
-      fs.readFileSync(GEOJSON_DEPARTEMENTS_PATH, "utf-8"),
-    ) as GeojsonDepartements;
-    return geojsonCache;
-  } catch {
-    return null;
-  }
-}

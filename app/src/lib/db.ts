@@ -47,28 +47,3 @@ export type MetaSource = {
   lignes: number;
   notes: string | null;
 };
-
-/**
- * Fraîcheur de toutes les sources ingérées (pour le bandeau
- * « Données au JJ/MM/AAAA · source · fréquence » et la page /donnees).
- * `null` tant que la base n'existe pas.
- */
-export function getMetaSources(): MetaSource[] | null {
-  const db = getDb();
-  if (!db) return null;
-  return db
-    .prepare("SELECT * FROM meta_sources ORDER BY source_id")
-    .all() as MetaSource[];
-}
-
-/** Formatte une date ISO en JJ/MM/AAAA (convention d'affichage fraîcheur). */
-export function formatDateFr(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return new Intl.DateTimeFormat("fr-FR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    timeZone: "Europe/Paris",
-  }).format(d);
-}

@@ -463,66 +463,6 @@ export const TYPES_MANDAT = [
   "president_conseil_departemental",
   "president_conseil_regional",
 ] as const;
-export type TypeMandat = (typeof TYPES_MANDAT)[number];
-
-export function estTypeMandat(v: string): v is TypeMandat {
-  return (TYPES_MANDAT as readonly string[]).includes(v);
-}
-
-/** Champs PUBLICS d'un élu exposés par l'API (tous issus de l'open data). */
-export type EluPublic = {
-  id: string;
-  nom: string;
-  prenom: string | null;
-  profession: string | null;
-  uid_an: string | null;
-  matricule_senat: string | null;
-  hatvp_url: string | null;
-  /** JSON brut de la colonne `mandats` (parsé par la route avant envoi). */
-  mandats: string | null;
-};
-
-/** Échappe `%`, `_` et `\` pour un motif LIKE … ESCAPE '\'. */
-function echappeLike(texte: string): string {
-  return texte.replace(/[\\%_]/g, (c) => `\\${c}`);
-}
-
-/**
- * Recherche d'élus : `q` sur nom/prénom (sous-chaîne, insensible à la
- * casse), `mandat` sur le type de mandat porté par le JSON `mandats`
- * (json_each). Tri nom/prénom, plafond `limite` (max 500 côté route).
- */
-export function rechercheElus(options: {
-  q?: string;
-  mandat?: TypeMandat;
-  limite: number;
-}): EluPublic[] | null {
-  const db = getDb();
-  if (!db) return null;
-  const conditions: string[] = [];
-  const params: (string | number)[] = [];
-  if (options.q) {
-    conditions.push("(nom LIKE ? ESCAPE '\\' OR prenom LIKE ? ESCAPE '\\')");
-    const motif = `%${echappeLike(options.q)}%`;
-    params.push(motif, motif);
-  }
-  if (options.mandat) {
-    conditions.push(
-      `EXISTS (SELECT 1 FROM json_each(elus.mandats) j
-               WHERE json_extract(j.value, '$.type') = ?)`,
-    );
-    params.push(options.mandat);
-  }
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-  return db
-    .prepare(
-      `SELECT id, nom, prenom, profession, uid_an, matricule_senat, hatvp_url, mandats
-       FROM elus ${where}
-       ORDER BY nom, prenom
-       LIMIT ?`,
-    )
-    .all(...params, options.limite) as EluPublic[];
-}
 
 /** Ligne compacte de l'export /api/elus.json (clés absentes = non renseigné). */
 export type EluExport = {
@@ -673,45 +613,4 @@ export function getBudgetMensuelComplet(): BudgetMensuelLigne[] | null {
        ORDER BY date_fin_mois, ordre`,
     )
     .all() as BudgetMensuelLigne[];
-}
-
-/**
- * Série budgétaire mensuelle :
- * - sans filtre → photographie du DERNIER mois publié (26 lignes) ;
- * - `annee` → tous les mois publiés de l'année (≤ 312 lignes) ;
- * - `ligne` (ligne_id) → série complète 2013→courant de cette ligne ;
- * les deux filtres se combinent. Tri chronologique puis ordre de tableau.
- */
-export function getBudgetMensuel(options: {
-  annee?: number;
-  ligne?: string;
-}): BudgetMensuelLigne[] | null {
-  const db = getDb();
-  if (!db) return null;
-  const conditions: string[] = [];
-  const params: (string | number)[] = [];
-  if (options.annee !== undefined) {
-    conditions.push("annee = ?");
-    params.push(options.annee);
-  }
-  if (options.ligne) {
-    conditions.push("ligne_id = ?");
-    params.push(options.ligne);
-  }
-  if (conditions.length === 0) {
-    return db
-      .prepare(
-        `SELECT ${COLONNES_BUDGET} FROM budget_mensuel
-         WHERE date_fin_mois = (SELECT MAX(date_fin_mois) FROM budget_mensuel)
-         ORDER BY ordre`,
-      )
-      .all() as BudgetMensuelLigne[];
-  }
-  return db
-    .prepare(
-      `SELECT ${COLONNES_BUDGET} FROM budget_mensuel
-       WHERE ${conditions.join(" AND ")}
-       ORDER BY date_fin_mois, ordre`,
-    )
-    .all(...params) as BudgetMensuelLigne[];
 }
