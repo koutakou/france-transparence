@@ -1181,15 +1181,21 @@ def ingerer_amo10(conn, session: requests.Session) -> None:
                 (ref, LEGISLATURE, o["sigle"], o["nom"], len(membres),
                  o["couleur"], o["position"]),
             )
-    clore_mandats_an(conn, session, {a["uid"] for a in acteurs})
+    date_amo20 = clore_mandats_an(conn, session, {a["uid"] for a in acteurs})
     db.upsert_meta(
         conn, source_id="S5-AMO10",
-        nom="AN — députés, mandats, organes actifs (AMO10)",
+        nom="AN — députés, mandats, organes actifs (AMO10) ; fins de mandat "
+            "des sortants (AMO20)",
         url=URL_AMO10, licence="Licence Ouverte (AN)", frequence="quotidienne",
         date_donnees=date_donnees, lignes=len(acteurs),
         notes=(f"législature {LEGISLATURE} ; {len(effectifs)} groupes ; "
                "AMO50 proscrit (figé au 11/07/2024) ; lien HATVP fourni par "
-               "le champ uri_hatvp de l'AN"),
+               "le champ uri_hatvp de l'AN ; AMO20 "
+               + (f"(données du {date_amo20}, {URL_AMO20}) lu pour la seule "
+                  "date de fin des mandats de député sortis d'AMO10"
+                  if date_amo20 else
+                  "illisible ce cycle : fins de mandat des sortants non "
+                  "mises à jour")),
     )
     # Compte journalisé À CHAQUE CYCLE, zéro compris : un contrôle muet au
     # vert est indiscernable d'un contrôle débranché.
@@ -1200,15 +1206,19 @@ def ingerer_amo10(conn, session: requests.Session) -> None:
              refus_deputes, refus_elus)
 
 
-def clore_mandats_an(conn, session, actifs: set[str]) -> None:
+def clore_mandats_an(conn, session, actifs: set[str]) -> str | None:
     """Date la fin des mandats AN-P9 des députés sortis d'AMO10 (via AMO20).
 
     N'ARRÊTE PAS le cycle : AMO10 est déjà écrit, et un mandat non clos ce
     soir le sera au cycle suivant (doctrine : refuser par non-écriture quand
     le cycle suivant répare). L'échec est journalisé en erreur, et les
     comptes le sont à chaque cycle, zéros compris.
+
+    Retourne la date des données d'AMO20 (Last-Modified, comme AMO10), que
+    la ligne S5-AMO10 de meta_sources déclare ; None si AMO20 est illisible.
     """
     try:
+        date_amo20 = _date_last_modified(session, URL_AMO20)
         chemin = telecharger(URL_AMO20,
                              "parlement/AMO20_dep_sen_min_tous_mandats_et_organes.json.zip",
                              max_age_heures=MAX_AGE_H, session=session)
@@ -1217,7 +1227,7 @@ def clore_mandats_an(conn, session, actifs: set[str]) -> None:
             RuntimeError, ValueError, KeyError, AttributeError) as e:
         log.error("AMO20 illisible (%s) : mandats AN-P9 des sortants non clos"
                   " ce cycle", e)
-        return
+        return None
     with conn:
         closes, sans_date = clore_mandats_sortis(
             conn, cle="uid_an", source="AN-P9", actifs=actifs, fins=fins)
@@ -1226,6 +1236,7 @@ def clore_mandats_an(conn, session, actifs: set[str]) -> None:
              " cours) ; %d fiche(s) de sortant sans date de fin publiée,"
              " laissée(s) telle(s) quelle(s)%s", closes, len(fins),
              len(sans_date), f" : {' '.join(sans_date)}" if sans_date else "")
+    return date_amo20
 
 
 def ingerer_scrutins(conn, session: requests.Session) -> None:
