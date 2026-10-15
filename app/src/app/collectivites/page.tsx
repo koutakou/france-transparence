@@ -161,13 +161,15 @@ export default async function PageCollectivites() {
   const avecValeur = departements.filter((d) => d.euros_par_hab !== null);
   const maxDep = avecValeur[0];
   const minDep = avecValeur[avecValeur.length - 1];
-  const top10Dep = departements.slice(0, 10).map((d) => ({
+  const top10Dep = avecValeur.slice(0, 10).map((d) => ({
     code: d.code,
     departement: `${d.nom} (${d.code})`,
     euros_par_hab: d.euros_par_hab,
     population: d.population,
   }));
-  const flop10Dep = departements
+  // Sur `avecValeur` : un département sans montant (NULL) ne se range pas
+  // parmi « les plus faibles », il n'a pas de valeur.
+  const flop10Dep = avecValeur
     .slice(-10)
     .reverse()
     .map((d) => ({

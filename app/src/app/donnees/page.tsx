@@ -334,7 +334,6 @@ export default async function PageDonnees() {
     );
   }
 
-  const totalLignes = sources.reduce((s, x) => s + x.lignes, 0);
 
   /* Synthèse de fraîcheur, en tête du tableau : combien de sources sont à
      jour au regard de LEUR seuil, et lesquelles attendent une édition plus
@@ -385,8 +384,7 @@ export default async function PageDonnees() {
           >
             Comprendre les données
           </Link>
-          . {formatNombre(sources.length)} sources tracées,{" "}
-          {formatNombre(totalLignes)} lignes ingérées
+          . {formatNombre(sources.length)} sources tracées
           {derniereIngestion
             ? `, dernière ingestion le ${formatDateFr(derniereIngestion)}`
             : ""}
@@ -661,8 +659,9 @@ export default async function PageDonnees() {
             agrégats ESA (recettes et dépenses) et dépenses par fonction
             (CFAP)&nbsp;: Eurostat (décision 2011/833/UE) ; comptes des
             APU (dépenses et recettes par sous-secteur, prélèvements
-            obligatoires)&nbsp;: INSEE (Licence Ouverte 2.0) ; avis et
-            conseils&nbsp;: CADA ; registre de
+            obligatoires)&nbsp;: INSEE (Licence Ouverte 2.0) ; sanctions
+            financières&nbsp;: Autorité de la concurrence (Licence Ouverte
+            2.0) ; avis et conseils&nbsp;: CADA ; registre de
             transparence de l’Union européenne (décision 2011/833/UE) ; fond de
             carte&nbsp;: france-geojson (contours IGN/Etalab).
           </p>
@@ -723,14 +722,11 @@ export default async function PageDonnees() {
       >
         <div className="flex flex-col gap-3 text-[13px] leading-relaxed text-ink-secondary">
           <p>
-            Les pipelines Python (référentiels, budget, marchés, BOAMP,
-            APProch, JO, Parlement, intégrité, déclarations HATVP, lobbying,
-            financement, collectivités, élections, train de vie, CADA,
-            registre UE, dette des APU (Maastricht), déficit des APU
-            (Maastricht), DOLE, agrégats ESA des APU, CGE, protection sociale,
-            Sirene) téléchargent
-            les sources ouvertes et
-            construisent l’unique base{" "}
+            Les pipelines Python, un par source (liste et ordre
+            d’exécution&nbsp;: variable{" "}
+            <code className="rounded bg-raised px-1 py-0.5 text-xs">PIPELINES</code> du{" "}
+            <code className="rounded bg-raised px-1 py-0.5 text-xs">Makefile</code>),
+            téléchargent les sources ouvertes et construisent l’unique base{" "}
             <code className="rounded bg-raised px-1 py-0.5 text-xs">data/france.db</code>{" "}
             (SQLite) — l’application ne fait aucun appel externe au runtime,
             elle ne lit que cette base.

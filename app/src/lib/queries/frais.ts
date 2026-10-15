@@ -378,7 +378,7 @@ export function getVerrousCada(): VerrousCadaData | null {
   const categories = db
     .prepare(
       `SELECT a.categorie,
-              COUNT(*)                   AS libelles,
+              COUNT(DISTINCT a.id)       AS libelles,
               COALESCE(SUM(s.nb_dossiers), 0) AS dossiers,
               (SELECT COALESCE(SUM(x.nb_dossiers), 0)
                  FROM cada_sens x
