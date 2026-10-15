@@ -255,7 +255,14 @@ export function FluxTextes({
           <span aria-live="polite">
             Page {formatNombre(pageAffichee)} sur {formatNombre(nbPages)} ·{" "}
             {formatNombre(totalFiltre)} textes
-            {filtreActif ? " (filtrés)" : ""} · {formatNombre(PAR_PAGE)} par page
+            {filtreActif
+              ? depuisFragment
+                ? " (filtrés)"
+                : indisponible
+                  ? " — filtre non appliqué : le flux complet n’a pas pu être chargé"
+                  : ""
+              : ""}{" "}
+            · {formatNombre(PAR_PAGE)} par page
             {chargement ? " · chargement du flux complet…" : ""}
           </span>
           <span className="flex gap-2">

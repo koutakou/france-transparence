@@ -274,6 +274,11 @@ export function TableParlementaires({
   );
   const tronque = !besoinComplets && initiaux.length < total;
   const filtreActif = groupe !== "" || departement !== "";
+  // Fragment en échec : le filtre ne porte que sur les premières lignes
+  // embarquées. Le dire, et ne jamais conclure « aucun député ».
+  const filtrePartiel = filtreActif && indisponible && initiaux.length < total;
+
+  const videPartiel = `Aucune ligne parmi les ${formatNombre(initiaux.length)} premières chargées — la liste complète n’a pas pu être chargée : ce filtre n’a pas été appliqué à tous les ${cfg.pluriel}.`;
 
   return (
     <div>
@@ -333,8 +338,11 @@ export function TableParlementaires({
           </>
         ) : (
           <>
-            {formatNombre(lignes.length)} {lignes.length > 1 ? cfg.pluriel : cfg.singulier} affiché
-            ·e{lignes.length > 1 ? "s" : ""}
+            {formatNombre(lignes.length)} {lignes.length > 1 ? cfg.pluriel : cfg.singulier}{" "}
+            {lignes.length > 1 ? "affiché·es" : "affiché·e"}
+            {filtrePartiel
+              ? ` · filtre appliqué aux ${formatNombre(initiaux.length)} premières lignes seulement, la liste complète n’a pas pu être chargée`
+              : ""}
             {groupe ? ` · groupe ${groupe}` : ""}
             {departement ? ` · ${departement}` : ""}
             {chargement ? " · chargement de la liste complète…" : ""}
@@ -356,7 +364,7 @@ export function TableParlementaires({
             lignes={lignes as DeputeLigne[]}
             cleLigne={(l) => l.uid_an}
             hauteurMax="30rem"
-            vide={cfg.vide}
+            vide={filtrePartiel ? videPartiel : cfg.vide}
           />
         ) : (
           <DataTable
@@ -364,7 +372,7 @@ export function TableParlementaires({
             lignes={lignes as SenateurLigne[]}
             cleLigne={(l) => l.matricule}
             hauteurMax="30rem"
-            vide={cfg.vide}
+            vide={filtrePartiel ? videPartiel : cfg.vide}
           />
         )}
       </div>
