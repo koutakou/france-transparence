@@ -43,6 +43,11 @@ const INTERDITS = [
     "un mois sans montant connu n'est pas une colonne à zéro",
   ],
   [
+    "app/page.tsx",
+    /LIBELLES_SOURCES\[source\.source_id\]/,
+    "en secours, le badge S35 nomme la source réellement utilisée (libelleBadgeSource)",
+  ],
+  [
     "app/financement/page.tsx",
     /produits_total \?\? 0/,
     "un parti sans produits publiés n'est pas une barre à zéro",
