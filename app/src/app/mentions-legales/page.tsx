@@ -11,7 +11,7 @@ import {
 } from "@/lib/hebergeur";
 import { CONTACT_EMAIL, CONTACT_ISSUES_URL, REPO_URL } from "@/lib/site";
 import { JsonLd } from "@/components/JsonLd";
-import { jsonLdPage, metadonneesPage } from "@/lib/seo";
+import { jsonLdPage, metadonneesPage, URL_LICENCE } from "@/lib/seo";
 
 /**
  * Page /mentions-legales — obligations d'identification de la LCEN
@@ -222,7 +222,7 @@ export default function PageMentionsLegales() {
             Leur licence, en revanche, n&apos;est pas uniforme : la plupart des
             sources sont diffusées sous{" "}
             <a
-              href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/"
+              href={URL_LICENCE}
               target="_blank"
               rel="noopener noreferrer"
               className={LIEN}

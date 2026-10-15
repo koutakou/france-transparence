@@ -43,3 +43,19 @@ test("élections : pas de « 1er tour » pour les européennes (un seul tour)", 
   const s = aplati("lib/queries/elections.ts");
   assert.match(s, /codeFamille === "euro"/);
 });
+
+test("Licence Ouverte : aucun lien vers l'adresse etalab.gouv.fr redirigée vers l'accueil de data.gouv.fr", async () => {
+  const { readdirSync, statSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const racine = new URL("../src", import.meta.url).pathname;
+  const fautes = [];
+  const parcourir = (d) => {
+    for (const n of readdirSync(d)) {
+      const p = join(d, n);
+      if (statSync(p).isDirectory()) parcourir(p);
+      else if (/\.tsx?$/.test(p) && readFileSync(p, "utf8").includes("etalab.gouv.fr/licence-ouverte")) fautes.push(p);
+    }
+  };
+  parcourir(racine);
+  assert.deepEqual(fautes, []);
+});

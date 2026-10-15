@@ -3,7 +3,7 @@ import Link from "next/link";
 import { LogoBouclier } from "@/components/LogoBouclier";
 import { MainNav } from "@/components/MainNav";
 import { SearchBox } from "@/components/ui/SearchBox";
-import { IMAGE_PARTAGE, openGraphPage } from "@/lib/seo";
+import { IMAGE_PARTAGE, openGraphPage, URL_LICENCE } from "@/lib/seo";
 import { REPO_URL, SITE_URL } from "@/lib/site";
 import "./globals.css";
 
@@ -139,7 +139,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <p>
               Données publiques, pour la plupart sous{" "}
               <a
-                href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/"
+                href={URL_LICENCE}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"

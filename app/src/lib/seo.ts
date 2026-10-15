@@ -38,8 +38,13 @@ export const NOM_SITE = "France Transparence";
 const DESCRIPTION_SITE =
   "Dépenses de l'État, marchés publics, élus, lobbying, financement de la vie politique : données publiques officielles, fraîcheur mesurée et affichée, sources et limites documentées.";
 
-/** Licence des agrégats publiés par le site (cf. pied de page et /donnees). */
-export const URL_LICENCE = "https://www.etalab.gouv.fr/licence-ouverte-open-licence/";
+/**
+ * Texte de la Licence Ouverte 2.0, seule adresse du site pour cette licence
+ * (pied de page, mentions légales, JSON-LD). L'ancienne page etalab.gouv.fr
+ * redirige vers l'accueil de data.gouv.fr (301, constaté le 15/10/2026),
+ * qui n'est pas le texte de la licence.
+ */
+export const URL_LICENCE = "https://www.data.gouv.fr/pages/legal/licences/etalab-2.0";
 
 /** Identifiant du nœud « projet » (éditeur/producteur), référencé partout. */
 export const ID_PROJET = `${SITE_URL}/#projet`;
