@@ -583,6 +583,10 @@ def test_les_marches_sans_ligne_modification_zero_sont_dates(resultat):
 #   M2b `normaliser_espaces` AVANT la translation C1   -> test_..._preserve_..._u0085
 #   M3  `or None` ôté                                  -> test_..._rend_none_sur_une_valeur_blanche
 #   M4  `titulaires_json` basculé sur `_integral`      -> test_..._ne_touche_pas_aux_espaces
+#       (⚠️ 15/10/2026 : ce test verrouillait un DÉFAUT — les blancs des noms
+#       gardés dans la liste, pas dans `titulaire_nom`. Remplacé par
+#       test_assainir_lot_nettoie_chaque_nom_du_json_titulaires, qui exige
+#       le remède intégral sur chaque `nom` ET une syntaxe JSON intacte.)
 #   M5  `return lot` -> `return list(lot)`             -> test_..._laisse_passer_un_lot
 #   M6  `bilan[...] = ... + 1` retiré                  -> test_..._compte_par_leur_valeur
 #   M7  `if cellules[i] != v` -> `if True`             -> test_..._compte_par_leur_valeur
@@ -741,15 +745,40 @@ def test_assainir_lot_rend_none_sur_une_valeur_blanche():
     assert [ligne[2] for ligne in lignes] == [None, None, "OK"]
 
 
-def test_assainir_lot_ne_touche_pas_aux_espaces_du_json_titulaires():
-    """M4. `titulaires_json` est de la syntaxe : on y répare le mojibake, pas
-    les espaces, qui sont porteurs de sens dans une chaîne sérialisée. C'est
-    ce qui l'exclut de la bascule — `assainir_texte_integral` applique
-    `normaliser_espaces`, qui écraserait le double espace ci-dessous."""
-    champs = ["uid", "titulaires_json"]
-    valeur = '[{"siret": "123", "nom": "SociÃ©tÃ©  X"}]'
-    (ligne,) = ingest_decp._assainir_lot([("U1", valeur)], champs)
-    assert ligne[1] == '[{"siret": "123", "nom": "Société  X"}]'
+def test_assainir_lot_nettoie_chaque_nom_du_json_titulaires():
+    """`titulaires_json` reçoit, nom par nom, le MÊME remède que
+    `titulaire_nom` : la liste complète et le premier titulaire ne peuvent
+    plus diverger. La syntaxe JSON n'est pas touchée par l'hygiène : la
+    chaîne est décodée, chaque `nom` assaini, puis re-sérialisée au format
+    compact de DuckDB. Avant le 15/10/2026, seul le mojibake était réparé
+    et « ACME  SA » restait dans la liste quand `titulaire_nom` valait
+    « ACME SA » (2 484 noms sur la base du jour)."""
+    champs = ["uid", "titulaire_nom", "titulaires_json"]
+    valeur = '[{"siret":"123","nom":"ACME  SA "},{"siret":"456","nom":"SociÃ©tÃ©  X"}]'
+    (ligne,) = ingest_decp._assainir_lot([("U1", "ACME  SA ", valeur)], champs)
+    titulaires = json.loads(ligne[2])
+    assert titulaires[0]["nom"] == "ACME SA" == ligne[1]
+    assert titulaires[1]["nom"] == "Société X"
+    assert [t["siret"] for t in titulaires] == ["123", "456"]
+    assert ligne[2] == '[{"siret":"123","nom":"ACME SA"},{"siret":"456","nom":"Société X"}]'
+
+
+def test_assainir_lot_rend_tel_quel_un_json_titulaires_sain():
+    """Aucun nom à reprendre : la valeur sort à l'IDENTIQUE (aucune
+    re-sérialisation), et le compteur ne la compte pas."""
+    valeur = '[{"siret": "456", "nom": "SAINE"}]'
+    bilan = {}
+    (ligne,) = ingest_decp._assainir_lot([("U2", valeur)], ["uid", "titulaires_json"], bilan)
+    assert ligne[1] is valeur
+    assert bilan == {}  # l'accumulateur n'est incrémenté que sur un changement
+
+
+def test_assainir_lot_nom_blanc_du_json_titulaires_devient_null():
+    """Comme `titulaire_nom` devient NULL (`or None`), jamais \"\"."""
+    (ligne,) = ingest_decp._assainir_lot(
+        [("U1", '[{"siret":"123","nom":"  "}]')], ["uid", "titulaires_json"]
+    )
+    assert json.loads(ligne[1]) == [{"siret": "123", "nom": None}]
 
 
 def test_assainir_lot_laisse_passer_un_lot_sans_colonne_texte():
@@ -764,8 +793,8 @@ def test_assainir_lot_laisse_passer_un_lot_sans_colonne_texte():
     assert bilan == {}
 
 
-def test_assainir_lot_compte_aussi_la_colonne_mojibake_seul():
-    """M10. La branche `indices_moji` du compteur — celle de `titulaires_json`
+def test_assainir_lot_compte_aussi_la_colonne_json_titulaires():
+    """M10. La branche `indices_json` (ex-`indices_moji`) du compteur — celle de `titulaires_json`
     — n'était éprouvée par AUCUN test : la seule assertion la concernant était
     `titulaires_json=0`, qu'un compteur débranché rend tout aussi bien.
     Trou signalé par une réfutation adversariale, pas par la campagne."""
@@ -845,7 +874,7 @@ def test_charger_compte_les_valeurs_assainies_par_leur_valeur(
             ingest_decp.charger(conn, duck)
         conn.commit()
         traitees = (
-            ingest_decp._COLONNES_ASSAINIES | ingest_decp._COLONNES_MOJIBAKE_SEUL
+            ingest_decp._COLONNES_ASSAINIES | ingest_decp._COLONNES_JSON_TITULAIRES
         )
         ecarts, traversees = {}, 0
         for table in ("decp_marches", "decp_derniers_marches"):
