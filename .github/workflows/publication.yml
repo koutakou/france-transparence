@@ -203,6 +203,14 @@ jobs:
         run: npm ci
         working-directory: app
 
+      # Les tests de l'app (`node --test`, app/tests/*.test.mjs) n'étaient
+      # joués par rien ni personne avant la fusion. Ils ne lisent pas
+      # data/france.db (chaque fichier crée sa base SQLite jetable) : l'étape
+      # tourne donc à l'identique en mode ingestion et en mode cache, sans `if:`.
+      - name: Tests app (npm test)
+        run: npm test
+        working-directory: app
+
       # Depuis Next 16, `next build` ne lance plus ESLint : sans cette étape, le
       # lint n'était joué par rien ni personne avant la fusion.
       - name: Lint app (ESLint)
