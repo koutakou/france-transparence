@@ -19,6 +19,7 @@
  * SQL 100 % paramétré — jamais d'interpolation de valeur.
  */
 import { getDb, type MetaSource } from "@/lib/db";
+import { comparerNomPrenom } from "@/lib/tri";
 
 /* ------------------------------------------------------------------ */
 /* Sources (FreshnessBadge)                                            */
@@ -238,7 +239,8 @@ export function getDeputes(filtres: FiltresListe = {}): DeputeLigne[] | null {
     params.push(filtres.departement);
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-  return db
+  // Ordre alphabétique français (lib/tri.ts) : le tri SQL est binaire.
+  return (db
     .prepare(
       `SELECT d.uid_an, e.id AS elu_id, d.nom, d.prenom, d.groupe_sigle,
               d.groupe_nom, d.departement,
@@ -248,7 +250,7 @@ export function getDeputes(filtres: FiltresListe = {}): DeputeLigne[] | null {
        ${where}
        ORDER BY d.nom, d.prenom`,
     )
-    .all(...params) as DeputeLigne[];
+    .all(...params) as DeputeLigne[]).sort(comparerNomPrenom);
 }
 
 /** Départements d'élection des députés (noms, triés). */
@@ -297,7 +299,7 @@ export function getSenateurs(filtres: FiltresListe = {}): SenateurLigne[] | null
     params.push(filtres.departement);
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-  return db
+  return (db
     .prepare(
       `SELECT s.matricule, e.id AS elu_id, s.nom, s.prenom, s.groupe,
               s.groupe_appartenance, s.circonscription, s.commission,
@@ -309,7 +311,7 @@ export function getSenateurs(filtres: FiltresListe = {}): SenateurLigne[] | null
        ${where}
        ORDER BY s.nom, s.prenom`,
     )
-    .all(...params) as SenateurLigne[];
+    .all(...params) as SenateurLigne[]).sort(comparerNomPrenom);
 }
 
 /** Départements (circonscriptions) des sénateurs, triés. */
