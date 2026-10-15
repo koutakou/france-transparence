@@ -320,14 +320,19 @@ def test_assainir_texte_NE_repare_TOUJOURS_PAS_les_controles_c1():
 
 
 def test_assainir_texte_integral_ne_regenere_aucun_controle():
-    """MUTATION TUÉE : point fixe réduit à DEUX passages.
+    """MUTATION TUÉE : point fixe réduit à UN passage (M4). Le réduire à DEUX
+    passages ne le fait PAS rougir (M7, survivante assumée en tête de bloc ;
+    rejoué le 15/10/2026). Cette docstring affirmait jusque-là le contraire.
 
     C'est le piège symétrique du composite, et il mord dans l'autre sens : sur
-    « Â » + U+0092, le premier passage ne voit rien (U+0092 n'a pas d'encodage
-    cp1252, l'aller-retour de `reparer_mojibake` échoue), la réparation des C1
-    rend « Â’ », le second passage de `reparer_mojibake` en refait **un
-    contrôle** U+0092 — et une hygiène s'arrêtant là RÉGÉNÉRERAIT le défaut
-    qu'elle est censée supprimer. Seul le point fixe le reprend.
+    « Â » + U+0092, le `reparer_mojibake` du premier passage ne voit rien
+    (U+0092 n'a pas d'encodage cp1252, l'aller-retour échoue), la réparation
+    des C1 rend « Â’ », le `reparer_mojibake` du second passage en refait **un
+    contrôle** U+0092 — et une hygiène s'arrêtant au premier passage laisserait
+    « Â’ », mojibake non réparé, tandis qu'une hygiène qui ne réparerait pas
+    les C1 après ce second `reparer_mojibake` RÉGÉNÉRERAIT le défaut qu'elle
+    est censée supprimer. Le second passage complet (mojibake PUIS C1) le
+    reprend ; le point fixe le constate au troisième.
 
     Le critère est formulé juste : « plus aucun Cc DE LA PLAGE CP1252
     ATTRIBUÉE », jamais « plus aucun Cc » — les cinq octets sans affectation
