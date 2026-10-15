@@ -4,6 +4,8 @@ Relevé du 2026-08-19 sur le M4 Max (Darwin 25.6.0, arm64). Méthode : `command 
 
 *État constaté le 19/08/2026 : c'est l'inventaire d'une machine à une date, pas une description de l'installation courante. Deux points ont changé depuis et ne doivent pas être suivis tels quels — le dépôt git existe désormais (voir le § GitHub), et le site n'est plus publié depuis cette machine mais reconstruit chaque matin sur le serveur dédié ([RUNBOOK.md](RUNBOOK.md)).*
 
+*Rectification du 15/10/2026 : l'adresse IP, le port SSH et l'utilisateur du VPS OVH relevés ici ont été retirés de ce document public — une cartographie gratuite d'un serveur qui est peut-être encore actif. Ils restent dans `~/.ssh/config` de la machine de travail (hôte `koutakou.fr`). Le reste du relevé est inchangé.*
+
 ## CLIs présents
 
 ### Plateformes de déploiement (PaaS)
@@ -58,10 +60,10 @@ Un seul hôte :
 
 | Host | HostName | User | Port |
 |---|---|---|---|
-| koutakou.fr | 51.83.96.83 | ubuntu | 24533 |
+| koutakou.fr | *(retiré)* | *(retiré)* | *(port non standard, retiré)* |
 
-- Reverse DNS : `ns3147856.ip-51-83-96.eu` → VPS **OVH**.
-- **Injoignable au moment du relevé** : timeout de connexion sur les ports 24533, 22, 80 et 443, alors que la sortie réseau générale de la machine fonctionne (contrôle : HTTPS vers un site tiers en 0,08 s). Serveur éteint, résilié, ou IP changée — à vérifier dans le manager OVH avant de compter dessus.
+- Reverse DNS : un nom d'hôte OVH → VPS **OVH**.
+- **Injoignable au moment du relevé** : timeout de connexion sur le port SSH configuré et sur les ports 22, 80 et 443, alors que la sortie réseau générale de la machine fonctionne (contrôle : HTTPS vers un site tiers en 0,08 s). Serveur éteint, résilié, ou IP changée — à vérifier dans le manager OVH avant de compter dessus.
 - La config date de sept. 2024.
 
 ### Clés présentes (noms de fichiers seulement)
@@ -119,7 +121,7 @@ Aucune variable de plateforme (pas de `FLY_API_TOKEN`, `VERCEL_TOKEN`, `HCLOUD_T
 
 **Configuré mais hors service :**
 
-- **VPS OVH `koutakou.fr` (51.83.96.83:24533, user ubuntu)** : le seul serveur que la machine connaisse. Injoignable au relevé (aucun port ne répond). S'il est simplement éteint, le rallumer en ferait la cible de déploiement la plus directe (clés ssh locales disponibles) ; s'il est résilié, il ne compte pas.
+- **VPS OVH `koutakou.fr`** : le seul serveur que la machine connaisse. Injoignable au relevé (aucun port ne répond). S'il est simplement éteint, le rallumer en ferait la cible de déploiement la plus directe (clés ssh locales disponibles) ; s'il est résilié, il ne compte pas.
 
 **Tout le reste demande création de compte + installation de CLI :**
 

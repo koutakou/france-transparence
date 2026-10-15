@@ -12,6 +12,11 @@
 > La règle en vigueur depuis le 21/08/2026 prend les ATTRIBUTS sur la version courante mais la
 > DATE sur `min(dateNotification)` de toutes les lignes du marché — voir `docs/SOURCES.md`
 > (fiche S1). Conformément au principe de ce document, rien n'est réécrit ci-dessous.
+>
+> **Rectification datée du 15/10/2026 — une suppression, non une réécriture.** L'adresse IP et le
+> port SSH du VPS OVH cités au § 9 en ont été retirés (« [adresse retirée] ») : ce dépôt
+> est public, et ils cartographiaient gratuitement un serveur peut-être encore actif. Rien
+> d'autre ne change.
 
 ---
 
@@ -139,7 +144,7 @@ Documentées dans docs/SOURCES.md §5, aucune ne conditionne un module ingéré 
 
 ### Pourquoi GitHub Pages (docs/deploiement/DECISION.md)
 
-- **Fait décisif : la seule voie exécutable sans action humaine** (docs/deploiement/machine-locale.md et plateformes.md). Seul GitHub est authentifié sur la machine (`koutakou`) ; toutes les plateformes à disque persistant exigent compte + CB en 2026 (tier gratuit Fly mort, Railway « post-paid », Render crons sans disque, Koyeb volumes « testing only », Clever FS incompatible better-sqlite3) ; le VPS OVH 51.83.96.83 est injoignable (ping OK, ports 24533/22/80/443 fermés) et koutakou.fr a expiré (AFNIC : NOT FOUND).
+- **Fait décisif : la seule voie exécutable sans action humaine** (docs/deploiement/machine-locale.md et plateformes.md). Seul GitHub est authentifié sur la machine (`koutakou`) ; toutes les plateformes à disque persistant exigent compte + CB en 2026 (tier gratuit Fly mort, Railway « post-paid », Render crons sans disque, Koyeb volumes « testing only », Clever FS incompatible better-sqlite3) ; le VPS OVH [adresse retirée] est injoignable (ping OK, port SSH configuré et ports 22/80/443 fermés) et koutakou.fr a expiré (AFNIC : NOT FOUND).
 - **Cohérence produit statique-quotidien** : les données ne changent qu'à l'ingestion — le HTML pré-rendu est le cache parfait, servi par le CDN Fastly de Pages (HTTPS, HSTS préchargé sur \*.github.io) ; les `force-dynamic` posés partout à l'origine étaient déjà un contresens relevé par l'audit (audit-app.md).
 - **Atomicité structurelle** : un déploiement Pages remplace tout le site d'un coup — pas de bascule de base à orchestrer, pas d'état intermédiaire possible.
 - Alternatives écartées sur preuve (plateformes.md) : Hetzner CX33 (8,49 € HT/mois, meilleur VPS mais compte + CB = humain requis — documenté comme montée en gamme), OVHcloud VPS-2 (commande panier manuelle), serverless (bundle Vercel 250 Mo vs base 447 Mo, crons ≤ 30 min vs ingestion 25-60 min).
@@ -176,7 +181,7 @@ Workflow `publication.yml` : cron **04:45 UTC** (~06h45 Paris, après le lot JO 
 
 *Toutes traitées ou devenues sans objet le 20/08/2026 : le domaine est enregistré, l'e-mail de contact est publié, la « montée en gamme » a eu lieu. Seule la vérification du VPS OVH reste ouverte. Consigné ici tel qu'écrit le 19/08.*
 
-Rien n'était bloqué sans elles : rachat d'un domaine (koutakou.fr expiré, redevenu libre ; DNS et procédure prêts), adresse e-mail de contact dédiée (les issues GitHub servent de canal RGPD en attendant), vérification au manager OVH du VPS 51.83.96.83 (peut-être facturé sans servir), montée en gamme VPS si la bande passante Pages (~100 Go/mois, souple) devenait limitante.
+Rien n'était bloqué sans elles : rachat d'un domaine (koutakou.fr expiré, redevenu libre ; DNS et procédure prêts), adresse e-mail de contact dédiée (les issues GitHub servent de canal RGPD en attendant), vérification au manager OVH du VPS [adresse retirée] (peut-être facturé sans servir), montée en gamme VPS si la bande passante Pages (~100 Go/mois, souple) devenait limitante.
 
 ### Vérifications externes du site public (faites le 19/08/2026, 22 h 00-22 h 35 Paris)
 
