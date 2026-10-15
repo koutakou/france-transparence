@@ -197,7 +197,15 @@ function decrireScrutin(id: string): Pick<Scrutin, "libelle" | "famille" | "anne
   const annee = Number(anneeBrute);
   const tour = Number((tourBrut ?? "").replace("t", ""));
   const famille = FAMILLES[codeFamille] ?? codeFamille ?? id;
-  const mentionTour = tour === 1 ? "1er tour" : Number.isFinite(tour) ? `${tour}e tour` : "";
+  // Les européennes n'ont qu'un tour : le nommer suggérerait un second.
+  const mentionTour =
+    codeFamille === "euro"
+      ? ""
+      : tour === 1
+        ? "1er tour"
+        : Number.isFinite(tour)
+          ? `${tour}e tour`
+          : "";
   return {
     famille,
     annee: Number.isFinite(annee) ? annee : 0,

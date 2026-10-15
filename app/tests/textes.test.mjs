@@ -22,3 +22,24 @@ test("fragment indisponible : « (filtrés) » n'est jamais dit d'une liste non 
   const s = aplati("components/client/FluxTextes.tsx");
   assert.doesNotMatch(s, /filtreActif \? " \(filtrés\)" : ""/);
 });
+
+test("/donnees : pas de somme des volumes (unités différentes d'une source à l'autre)", () => {
+  const s = aplati("app/donnees/page.tsx");
+  assert.doesNotMatch(s, /lignes ingérées/);
+});
+
+test("/donnees : les pipelines renvoient à PIPELINES, l'ADLC est créditée", () => {
+  const s = aplati("app/donnees/page.tsx");
+  assert.match(s, /PIPELINES/);
+  assert.match(s, /Autorité de la concurrence/);
+});
+
+test("/collectivites : le « Flop 10 » ne range pas un département sans valeur", () => {
+  const s = aplati("app/collectivites/page.tsx");
+  assert.doesNotMatch(s, /flop10Dep = departements/);
+});
+
+test("élections : pas de « 1er tour » pour les européennes (un seul tour)", () => {
+  const s = aplati("lib/queries/elections.ts");
+  assert.match(s, /codeFamille === "euro"/);
+});
