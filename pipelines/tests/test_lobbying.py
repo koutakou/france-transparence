@@ -23,6 +23,7 @@ from pipelines.ingest_lobbying import (
     assainir_lignes,
     PORTEFEUILLES_MINISTERIELS,
     TYPES_ALERTES,
+    _lignes_alertes,
     construire,
     ecrire_db,
     executer,
@@ -263,6 +264,31 @@ def test_alertes_defaut_declaration(base):
     assert "1 sans aucune publication" in agregat[0]["detail"]
     assert "1 avec communication partielle" in agregat[0]["detail"]
 
+
+
+def test_agregat_distingue_entites_et_exercices():
+    """Le texte agrégé compte les ENTITÉS et les EXERCICES chacun pour ce
+    qu'ils sont.
+
+    Cas CONSTRUIT (aucune ligne réelle n'a deux exercices flaggés au
+    15/10/2026 : 275 entités pour 275 exercices) : une entité, deux exercices
+    sans publication. L'ancien texte disait « 1 entités … : 2 sans aucune
+    publication », deux unités sous un même compte ; il tue ce mélange."""
+    ligne = ("R1", "ENTITÉ D'ESSAI", "000000000", "cat", "Paris")
+    donnees = {"alertes_defaut": [
+        ligne + ("2023-01-01", "2023-12-31", None, "0"),
+        ligne + ("2024-01-01", "2024-12-31", None, "0"),
+    ]}
+    agregat = [l for l in _lignes_alertes(donnees, "2026-10-15")
+               if l[1] == "lobbying_declaration_incomplete"]
+    assert len(agregat) == 1
+    _id, _type, _grav, titre, detail, regle, *_ = agregat[0]
+    assert titre.startswith("1 représentant d'intérêts en défaut")
+    assert detail.startswith("1 entité inscrite ")
+    assert "sur 2 exercices concernés : 2 sans aucune publication, " \
+        "0 avec communication partielle" in detail
+    assert "exercice 2023 : 1 ; exercice 2024 : 1" in detail
+    assert "un exercice flaggé = une entité comptée" not in regle
 
 def test_idempotence_et_table_alertes_partagee(base, tmp_path):
     conn, donnees = base
