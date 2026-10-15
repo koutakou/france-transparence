@@ -149,6 +149,38 @@ def test_activites_detail_24_mois(base):
     assert (act["periode_debut"], act["periode_fin"]) == ("2024-01-01", "2024-12-31")
 
 
+
+def test_colonnes_multivaluees_triees_et_rejouables():
+    """Les cinq colonnes multivaluées d'une activité (domaines, décisions,
+    institutions, ministères, actions) sont triées, donc identiques d'une
+    exécution à l'autre.
+
+    POURQUOI : `string_agg(DISTINCT …)` sans `ORDER BY` laisse DuckDB
+    concaténer dans l'ordre de ses fils d'exécution. Mesuré le 15/10/2026 sur
+    les vues réelles : 20 056 activités sur 41 815 changeaient d'ordre
+    d'`institutions`/`ministeres` entre trois exécutions, et sur cette
+    fixture, 1 à 3 des 3 activités à plusieurs institutions sortaient non
+    triées selon l'exécution. Trois constructions rendent l'échec de l'ancien
+    code quasi certain (il tue la mutation qui retire l'`ORDER BY` de la CTE
+    `insts`)."""
+    colonnes = {8: "domaines", 9: "decisions", 10: "institutions",
+                11: "ministeres", 12: "actions"}
+    # L'ordre des LIGNES n'est pas en cause (aucune lecture n'en dépend, la
+    # requête n'a pas d'ORDER BY) : on compare le contenu, trié par ligne.
+    executions = [sorted(construire(FIXTURE, AUJOURDHUI)["activites"])
+                  for _ in range(3)]
+    assert executions[0] == executions[1] == executions[2]
+    multivaluees = 0
+    for act in executions[0]:
+        for idx, nom in colonnes.items():
+            if act[idx] and " | " in act[idx]:
+                multivaluees += 1
+                valeurs = act[idx].split(" | ")
+                assert valeurs == sorted(valeurs), (act[0], nom, act[idx])
+    # Le test n'a de sens que si la fixture porte de vraies multivaluées
+    # (3 activités à plusieurs institutions au 19/08/2026).
+    assert multivaluees >= 3
+
 def test_agregats(base):
     conn, _ = base
     # séries trimestrielles : historique COMPLET (au-delà de la fenêtre détail)
