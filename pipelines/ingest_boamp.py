@@ -57,6 +57,7 @@ Exécution : python -m pipelines.ingest_boamp
 from __future__ import annotations
 
 import json
+import logging
 import sys
 from datetime import date, timedelta
 from urllib.parse import quote, urlencode
@@ -476,10 +477,26 @@ def _limite_plausible(parution: str, limite: str) -> bool:
     return an_limite - an_parution <= ECART_MAX_LIMITE_ANNEES
 
 
+#: Motifs de rejet d'un AO, comptés SÉPARÉMENT : un champ absent est un
+#: défaut de l'export, une date limite implausible une saisie de l'acheteur.
+#: Les confondre sous un seul libellé faisait dire au journal le contraire de
+#: ce qui s'était passé (17 rejets pour date le 15/10/2026, journalisés
+#: « champs indispensables absents »).
+MOTIF_CHAMPS = "champs"
+MOTIF_LIMITE = "limite"
+
+
 def parser_ao(rec: dict) -> dict | None:
     """Enregistrement export BOAMP (AO) → ligne ao_en_cours, ou None si
     les champs indispensables (idweb, dates) manquent, ou si la date limite
-    de réponse est manifestement fautive (cf. `_limite_plausible`).
+    de réponse est manifestement fautive (cf. `_limite_plausible`). Le motif
+    du rejet est rendu par `analyser_ao`."""
+    return analyser_ao(rec)[0]
+
+
+def analyser_ao(rec: dict) -> tuple[dict | None, str | None]:
+    """Comme `parser_ao`, mais rend aussi le motif du rejet :
+    (ligne, None), (None, MOTIF_CHAMPS) ou (None, MOTIF_LIMITE).
 
     L'hygiène est posée EN PREMIER, avant même le contrôle de plausibilité :
     `_limite_plausible` fait `int(parution[:4])`, qu'une espace de bord ferait
@@ -489,13 +506,13 @@ def parser_ao(rec: dict) -> dict | None:
     parution = rec.get("dateparution")
     limite = rec.get("datelimitereponse")
     if not idweb or not parution or not limite:
-        return None
+        return None, MOTIF_CHAMPS
     if not _limite_plausible(parution, limite):
         log.warning(
             "AO %s écarté : date limite %s incohérente avec la parution %s "
             "(> %d ans)", idweb, limite, parution, ECART_MAX_LIMITE_ANNEES,
         )
-        return None
+        return None, MOTIF_LIMITE
     montant, devise = extraire_montant(rec.get("donnees"))
     basse, haute = extraire_fourchette(rec.get("donnees"))
     if basse is not None and haute is not None and basse > haute:
@@ -506,7 +523,7 @@ def parser_ao(rec: dict) -> dict | None:
             idweb, basse, haute,
         )
         basse = haute = None
-    return {
+    return ({
         "idweb": idweb,
         "objet": rec.get("objet"),
         "acheteur": rec.get("nomacheteur"),
@@ -526,7 +543,25 @@ def parser_ao(rec: dict) -> dict | None:
         "date_parution": parution,
         "date_limite_reponse": limite,
         "url_avis": rec.get("url_avis"),
-    }
+    }, None)
+
+
+def parser_aos(brut: list[dict]) -> tuple[list[dict], dict[str, int]]:
+    """Export des AO → (lignes retenues, {motif: nombre de rejets}).
+
+    Le dictionnaire porte TOUS les motifs, zéro compris : un compteur qui
+    n'apparaîtrait qu'à partir de 1 serait indiscernable d'un compteur
+    débranché.
+    """
+    lignes: list[dict] = []
+    rejets = {MOTIF_CHAMPS: 0, MOTIF_LIMITE: 0}
+    for rec in brut:
+        ligne, motif = analyser_ao(rec)
+        if ligne is None:
+            rejets[motif] += 1
+        else:
+            lignes.append(ligne)
+    return lignes, rejets
 
 
 def parser_annonce(rec: dict) -> dict | None:
@@ -641,13 +676,7 @@ def _executer() -> None:
         for rec in (*brut_ao, *brut_annonces, *brut_liens)
     )
 
-    aos, ecartes_ao = [], 0
-    for rec in brut_ao:
-        ligne = parser_ao(rec)
-        if ligne is None:
-            ecartes_ao += 1
-        else:
-            aos.append(ligne)
+    aos, rejets_ao = parser_aos(brut_ao)
     annonces, ecartes_annonces = [], 0
     for rec in brut_annonces:
         ligne = parser_annonce(rec)
@@ -660,11 +689,15 @@ def _executer() -> None:
         raise RuntimeError("aucun appel d'offres en cours parsé : API changée ?")
     if not annonces:
         raise RuntimeError("aucune annonce récente parsée : API changée ?")
-    if ecartes_ao or ecartes_annonces:
-        log.warning(
-            "enregistrements écartés (champs indispensables absents) : %d AO, %d annonces",
-            ecartes_ao, ecartes_annonces,
-        )
+    # INCONDITIONNEL, zéro compris, un compteur par motif.
+    log.log(
+        logging.WARNING if (sum(rejets_ao.values()) or ecartes_annonces) else logging.INFO,
+        "enregistrements écartés : AO %d pour champs indispensables absents, "
+        "%d pour date limite implausible (> %d ans) ; annonces %d pour champs "
+        "indispensables absents",
+        rejets_ao[MOTIF_CHAMPS], rejets_ao[MOTIF_LIMITE], ECART_MAX_LIMITE_ANNEES,
+        ecartes_annonces,
+    )
 
     annules, rectifs = indexer_liens(brut_liens)
     for ligne in aos:

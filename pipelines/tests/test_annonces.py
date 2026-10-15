@@ -605,3 +605,47 @@ def test_le_filtre_amont_part_du_debut_de_fenetre(
     monkeypatch.setattr(ingest_boamp, "_exporter", exporter)
     assert ingest_boamp.main() == 0
     assert filtres["boamp_annonces_recentes.json"] == "dateparution>=date'2026-09-16'"
+
+
+# ---------------------------------------------------------------------------
+# BOAMP — motifs de rejet comptés séparément
+# ---------------------------------------------------------------------------
+
+AO_ECHEANCE_IMPOSSIBLE = {
+    # Avis réel (base de production du 20/08/2026, cf. ECART_MAX_LIMITE_ANNEES).
+    "idweb": "17-88555",
+    "dateparution": "2017-06-23",
+    "datelimitereponse": "7017-07-24",
+    "nomacheteur": "Mairie Saint-Cyprien",
+}
+
+
+def test_parser_aos_compte_les_rejets_par_motif(reels):
+    sans_limite = dict(reels["boamp_ao_joue"], datelimitereponse=None)
+    lignes, rejets = ingest_boamp.parser_aos(
+        [AO_ECHEANCE_IMPOSSIBLE, sans_limite, reels["boamp_ao_fns"]]
+    )
+    assert [l["idweb"] for l in lignes] == [reels["boamp_ao_fns"]["idweb"]]
+    assert rejets == {"champs": 1, "limite": 1}
+    # Zéro compris : les deux motifs sont toujours présents.
+    assert ingest_boamp.parser_aos([reels["boamp_ao_fns"]])[1] == {"champs": 0, "limite": 0}
+
+
+def test_le_journal_attribue_le_rejet_a_la_date_limite(
+    tmp_path, monkeypatch, caplog, reels
+):
+    monkeypatch.setenv("FT_DB_PATH", str(tmp_path / "rejets.db"))
+    bruts = {
+        "boamp_ao_en_cours.json": [AO_ECHEANCE_IMPOSSIBLE, reels["boamp_ao_fns"]],
+        "boamp_annonces_recentes.json": [reels["boamp_attribution"]],
+        "boamp_annonces_liees.json": [],
+    }
+    monkeypatch.setattr(ingest_boamp, "_exporter", lambda where, select, dest: bruts[dest])
+    with caplog.at_level("INFO", logger="ingest_boamp"):
+        assert ingest_boamp.main() == 0
+    messages = [r.getMessage() for r in caplog.records]
+    assert (
+        "enregistrements écartés : AO 0 pour champs indispensables absents, "
+        "1 pour date limite implausible (> 20 ans) ; annonces 0 pour champs "
+        "indispensables absents"
+    ) in messages
