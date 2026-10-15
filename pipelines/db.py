@@ -102,6 +102,41 @@ def init_db(conn: sqlite3.Connection | None = None,
     return conn
 
 
+def instructions_sql(script: str) -> list[str]:
+    """Découpe un script SQL en instructions, à passer UNE À UNE à
+    `conn.execute` dans une transaction ouverte.
+
+    POURQUOI pas `executescript` : il VALIDE implicitement la transaction en
+    cours avant de lancer son script, et exécute celui-ci hors transaction.
+    Un `DROP TABLE` qu'il porte part donc sur disque d'emblée, et aucun
+    `rollback()` ne le reprend. Passées une à une, les mêmes instructions
+    restent dans la transaction : SQLite fait du DDL transactionnel.
+
+    `sqlite3.complete_statement` (l'outil du shell `sqlite3`) plutôt qu'un
+    `split(";")` : il ignore les points-virgules des commentaires `--`.
+    Même découpage que `instructions_schema` de P7 et P15, qui gardent leur
+    copie documentée.
+
+    Lève `ValueError` sur un script qui se termine hors instruction : mieux
+    vaut un échec bruyant avant la première écriture qu'un schéma appliqué à
+    moitié.
+    """
+    instructions: list[str] = []
+    tampon = ""
+    for ligne in script.splitlines(keepends=True):
+        tampon += ligne
+        if sqlite3.complete_statement(tampon):
+            instructions.append(tampon.strip())
+            tampon = ""
+    reste = [l for l in tampon.splitlines()
+             if l.strip() and not l.strip().startswith("--")]
+    if reste:
+        raise ValueError(
+            "script SQL mal formé : la dernière instruction n'est pas terminée "
+            f"par « ; » — {reste[0].strip()[:60]!r}")
+    return instructions
+
+
 def upsert_meta(
     conn: sqlite3.Connection,
     source_id: str,
