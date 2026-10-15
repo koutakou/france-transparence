@@ -383,12 +383,27 @@ export type FamilleAO = {
   nb: number;
 };
 
+/** AO qui ne publient RIEN d'un montant : ni valeur, ni borne de fourchette.
+ *  Une fourchette publiée n'est pas un « non publié ». */
+const SQL_SANS_MONTANT = `COALESCE(SUM(montant_estime IS NULL
+    AND montant_fourchette_basse IS NULL AND montant_fourchette_haute IS NULL), 0)`;
+/** AO sans montant ponctuel mais avec au moins une borne de fourchette —
+ *  comptés à part, jamais avec les montants. */
+const SQL_FOURCHETTE_SEULE = `COALESCE(SUM(montant_estime IS NULL
+    AND (montant_fourchette_basse IS NOT NULL
+         OR montant_fourchette_haute IS NOT NULL)), 0)`;
+
 export type AoEnCours = {
   idweb: string;
   objet: string | null;
   acheteur: string | null;
   /** NULL = montant non publié dans l'annonce (~70 % des cas). */
   montant_estime: number | null;
+  /** Bornes d'une FOURCHETTE d'estimation (schéma FNS), chacune NULL si non
+   *  publiée. Ce n'est pas un montant : jamais affichée comme tel, jamais
+   *  additionnée ni triée avec `montant_estime`. */
+  montant_fourchette_basse: number | null;
+  montant_fourchette_haute: number | null;
   date_limite_reponse: string; // ISO datetime UTC
   url_avis: string | null;
 };
@@ -470,7 +485,8 @@ export type DonneesMarches = {
   familleActive: string | null; // famille demandée, validée contre la liste
   ao: AoEnCours[]; // 20 échéances les plus proches (filtre appliqué)
   aoTotalFiltre: number; // total d'AO en cours pour le filtre courant
-  aoSansMontantFiltre: number; // dont montant non publié
+  aoSansMontantFiltre: number; // dont ni montant ni fourchette publiés
+  aoFourchetteSeuleFiltre: number; // dont fourchette seule, sans montant
   annoncesParJour: AnnoncesJour[]; // 31 jours, ordre chronologique
   marchesAVenir: MarcheAVenir[]; // 20 publications prévues les plus proches
   alertes: AlerteMarches[]; // alertes du domaine (vide aujourd'hui)
@@ -1063,16 +1079,18 @@ export function chargerDonneesMarches(
       ? familleDemandee
       : null;
 
-  // Compteur du filtre courant + part sans montant publié.
+  // Compteur du filtre courant + parts sans montant publié (cf.
+  // SQL_SANS_MONTANT et SQL_FOURCHETTE_SEULE).
   // Vérifié : global 9 005 dont 69,8 % sans montant ; MAPA 536 dont 536.
   const compteFiltre = db
     .prepare(
-      `SELECT COUNT(*) AS nb, COALESCE(SUM(montant_estime IS NULL), 0) AS sans
+      `SELECT COUNT(*) AS nb, ${SQL_SANS_MONTANT} AS sans,
+              ${SQL_FOURCHETTE_SEULE} AS fourchette
        FROM ao_en_cours
        WHERE annulee = 0 AND datetime(date_limite_reponse) > datetime('now')
          AND (? IS NULL OR famille = ?)`,
     )
-    .get(familleActive, familleActive) as { nb: number; sans: number };
+    .get(familleActive, familleActive) as { nb: number; sans: number; fourchette: number };
 
   // AO_AFFICHEES échéances les plus proches pour le filtre courant, rendues
   // dans le HTML. Quand l'une d'elles expire à l'heure du visiteur, le
@@ -1080,8 +1098,8 @@ export function chargerDonneesMarches(
   // (RESERVE_HEURES, lib/echeances.ts) : elle ne pèse pas sur la page.
   const ao = db
     .prepare(
-      `SELECT idweb, objet, acheteur, montant_estime, date_limite_reponse,
-              url_avis
+      `SELECT idweb, objet, acheteur, montant_estime, montant_fourchette_basse,
+              montant_fourchette_haute, date_limite_reponse, url_avis
        FROM ao_en_cours
        WHERE annulee = 0 AND datetime(date_limite_reponse) > datetime('now')
          AND (? IS NULL OR famille = ?)
@@ -1147,6 +1165,7 @@ export function chargerDonneesMarches(
     ao,
     aoTotalFiltre: compteFiltre.nb,
     aoSansMontantFiltre: compteFiltre.sans,
+    aoFourchetteSeuleFiltre: compteFiltre.fourchette,
     annoncesParJour,
     marchesAVenir,
     alertes,
@@ -1160,8 +1179,10 @@ export function chargerDonneesMarches(
 export type VueAoFamille = {
   /** Total d'AO en cours pour ce filtre (au moment de la construction). */
   total: number;
-  /** Dont montant non publié dans l'annonce. */
+  /** Dont ni montant ni fourchette publiés dans l'annonce. */
   sansMontant: number;
+  /** Dont une fourchette d'estimation seule, sans montant ponctuel. */
+  fourchetteSeule: number;
   /** Réserve pour ce filtre : toutes les échéances des RESERVE_HEURES qui
    *  suivent la construction, puis RESERVE_AU_DELA de plus (le navigateur
    *  en affiche AO_AFFICHEES encore ouvertes, lib/echeances.ts). */
@@ -1199,16 +1220,17 @@ export function getAoParFamille(): AoParFamille | null {
   const vuePour = (famille: string | null): VueAoFamille => {
     const compte = db
       .prepare(
-        `SELECT COUNT(*) AS nb, COALESCE(SUM(montant_estime IS NULL), 0) AS sans
+        `SELECT COUNT(*) AS nb, ${SQL_SANS_MONTANT} AS sans,
+                ${SQL_FOURCHETTE_SEULE} AS fourchette
          FROM ao_en_cours
          WHERE annulee = 0 AND datetime(date_limite_reponse) > datetime('now')
            AND (? IS NULL OR famille = ?)`,
       )
-      .get(famille, famille) as { nb: number; sans: number };
+      .get(famille, famille) as { nb: number; sans: number; fourchette: number };
     const lignes = db
       .prepare(
-        `SELECT idweb, objet, acheteur, montant_estime, date_limite_reponse,
-                url_avis
+        `SELECT idweb, objet, acheteur, montant_estime, montant_fourchette_basse,
+                montant_fourchette_haute, date_limite_reponse, url_avis
          FROM ao_en_cours
          WHERE annulee = 0 AND datetime(date_limite_reponse) > datetime('now')
            AND (? IS NULL OR famille = ?)
@@ -1218,6 +1240,7 @@ export function getAoParFamille(): AoParFamille | null {
     return {
       total: compte.nb,
       sansMontant: compte.sans,
+      fourchetteSeule: compte.fourchette,
       lignes: reserveEcheances(lignes, (a) => a.date_limite_reponse, construitLe, RESERVE_HEURES),
     };
   };

@@ -47,6 +47,10 @@
 # pipelines P9/P6/P4 (avec IF NOT EXISTS : tables neuves, pas une
 # migration, pas un ALTER de votes_recents). Non servies. Copie avant
 # DELETE de fenêtre (100 scrutins, 30 JO, 30 j BOAMP).
+# et le 15/10/2026 : ao_en_cours gagne montant_fourchette_basse et
+# montant_fourchette_haute (fourchette d'estimation FNS, jamais un montant),
+# ajoutées EN FIN de table par ALTER sur les bases antérieures
+# (`migrer_ao_en_cours` du pipeline P4) — même ordre sur une base neuve.
 
 > **Extrait daté.** Ce document décrit **83 tables**, **6 vues** et **58 index**, et cette
 > couverture est sa propriété essentielle : une table de la base absente d'ici est un trou de
@@ -540,7 +544,9 @@ CREATE TABLE ao_en_cours (
     date_limite_reponse TEXT NOT NULL,     -- ISO datetime (UTC)
     url_avis            TEXT,
     annulee             INTEGER NOT NULL DEFAULT 0,
-    rectifiee_par       TEXT               -- idweb du dernier RECTIFICATIF lié
+    rectifiee_par       TEXT,              -- idweb du dernier RECTIFICATIF lié
+    montant_fourchette_basse REAL,         -- NULL = borne non publiée
+    montant_fourchette_haute REAL          -- NULL = borne non publiée
 );
 CREATE INDEX idx_ao_date_limite ON ao_en_cours(date_limite_reponse);
 CREATE INDEX idx_ao_famille     ON ao_en_cours(famille);

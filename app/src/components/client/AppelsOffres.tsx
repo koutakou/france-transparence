@@ -64,6 +64,33 @@ function formatDateHeureParis(iso: string): string {
   return `${date} ${heure.replace(":", "h")}`;
 }
 
+/**
+ * Fourchette d'estimation publiée à la place d'un montant (schéma FNS).
+ * Toujours étiquetée « fourchette publiée » et en texte atténué : ce n'est
+ * pas un montant, elle ne doit jamais se lire comme tel. Une borne absente
+ * n'est pas complétée (« jusqu'à » / « à partir de »).
+ */
+function Fourchette({ basse, haute }: { basse: number | null; haute: number | null }) {
+  return (
+    <span className="text-ink-muted">
+      fourchette publiée&nbsp;:{" "}
+      {basse !== null && haute !== null ? (
+        <>
+          <Money valeur={basse} /> – <Money valeur={haute} />
+        </>
+      ) : haute !== null ? (
+        <>
+          jusqu’à <Money valeur={haute} />
+        </>
+      ) : (
+        <>
+          à partir de <Money valeur={basse as number} />
+        </>
+      )}
+    </span>
+  );
+}
+
 const COLONNES_AO: Colonne<AoEnCours>[] = [
   {
     cle: "objet",
@@ -90,7 +117,11 @@ const COLONNES_AO: Colonne<AoEnCours>[] = [
     type: "montant",
     rendu: (a) =>
       a.montant_estime === null ? (
-        <span className="text-ink-muted">non publié</span>
+        a.montant_fourchette_basse !== null || a.montant_fourchette_haute !== null ? (
+          <Fourchette basse={a.montant_fourchette_basse} haute={a.montant_fourchette_haute} />
+        ) : (
+          <span className="text-ink-muted">non publié</span>
+        )
       ) : (
         <span className="inline-flex items-baseline gap-1.5">
           <Money valeur={a.montant_estime} />
@@ -177,6 +208,7 @@ export function AppelsOffres({ familles, vueToutes, aoEnCours, construitLe }: Ap
     maintenant,
     AO_AFFICHEES,
   );
+  const pctFourchette = vue.total > 0 ? (100 * vue.fourchetteSeule) / vue.total : null;
 
   return (
     <div>
@@ -236,8 +268,15 @@ export function AppelsOffres({ familles, vueToutes, aoEnCours, construitLe }: Ap
         {pctSansMontant !== null && (
           <>
             {" "}
-            — {formatPct(pctSansMontant)} d’entre eux ne publient pas de montant dans l’annonce
+            — {formatPct(pctSansMontant)} d’entre eux ne publient aucun montant dans l’annonce
             (« non publié »)
+          </>
+        )}
+        {pctFourchette !== null && vue.fourchetteSeule > 0 && (
+          <>
+            {" "}
+            et {formatPct(pctFourchette)} seulement une fourchette d’estimation (« fourchette
+            publiée » : bornes reprises telles quelles, jamais comptées comme un montant)
           </>
         )}
         . Les montants publiés sont repris tels quels, y compris les valeurs extrêmes réelles

@@ -14,7 +14,9 @@ Tables produites (réécriture complète à chaque run, en transaction) :
     famille_libelle, type_marche (JSON), type_procedure, procedure_libelle,
     descripteurs (JSON), departements (JSON), montant_estime (EUR, NULL si
     non publié), devise, date_parution, date_limite_reponse, url_avis,
-    annulee (0/1), rectifiee_par (idweb du dernier rectificatif lié).
+    annulee (0/1), rectifiee_par (idweb du dernier rectificatif lié),
+    montant_fourchette_basse, montant_fourchette_haute (bornes d'une
+    FOURCHETTE d'estimation, chacune NULL si non publiée).
 - annonces_recentes — flux des annonces parues sur FENETRE_JOURS jours,
   attributions incluses. Les lignes hors fenêtre sont copiées vers
   annonces_recentes_archive (table NOUVELLE, non servie) avant le
@@ -37,6 +39,13 @@ Notes de véracité (aucune donnée inventée) :
   `cbc:EstimatedOverallContractAmount`, `efbc:OverallMaximumFramework
   ContractsAmount`, FNS `valeurEstimee`), sinon NULL — le front l'affiche
   « non publié ». Montants d'accords-cadres = maximums, pas du dépensé.
+- montant_fourchette_basse / montant_fourchette_haute : le schéma FNS publie
+  parfois, au lieu d'une valeur, une fourchette `valeurEstimee.fourchette`
+  ({valeurBasse, valeurHaute}, l'une ou l'autre pouvant manquer). Une
+  fourchette n'est PAS un montant : ses bornes ne sont jamais recopiées dans
+  montant_estime (ce serait fabriquer une valeur ponctuelle que l'acheteur
+  n'a pas publiée), ni additionnées à quoi que ce soit. Le front les affiche
+  « fourchette publiée », à la place de « non publié ».
 - annulee / rectifiee_par : joints depuis les annonces ANNULATION et
   RECTIFICATIF via leur champ `annonce_lie` ; le front doit exclure
   (ou barrer) les AO annulee=1 et pointer le rectificatif s'il existe.
@@ -125,7 +134,9 @@ CREATE TABLE IF NOT EXISTS ao_en_cours (
     date_limite_reponse TEXT NOT NULL,     -- ISO datetime (UTC)
     url_avis            TEXT,
     annulee             INTEGER NOT NULL DEFAULT 0,
-    rectifiee_par       TEXT               -- idweb du dernier RECTIFICATIF lié
+    rectifiee_par       TEXT,              -- idweb du dernier RECTIFICATIF lié
+    montant_fourchette_basse REAL,         -- NULL = borne non publiée
+    montant_fourchette_haute REAL          -- NULL = borne non publiée
 );
 CREATE INDEX IF NOT EXISTS idx_ao_date_limite ON ao_en_cours(date_limite_reponse);
 CREATE INDEX IF NOT EXISTS idx_ao_famille     ON ao_en_cours(famille);
@@ -181,6 +192,35 @@ CREATE TABLE IF NOT EXISTS annonces_par_jour (
     nb_attributions  INTEGER NOT NULL
 );
 """
+
+# Colonnes ajoutées à `ao_en_cours` après sa création. `CREATE TABLE IF NOT
+# EXISTS` ne touche pas une table présente, et la base servie survit d'un
+# déploiement à l'autre : sans migration explicite, l'INSERT y échouerait
+# (« has no column named … ») alors que la CI, sur base neuve, resterait
+# verte. Ajoutées EN DERNIÈRE POSITION dans `SCHEMA` comme par l'ALTER, pour
+# qu'une base neuve et une base migrée aient le même ordre de colonnes.
+COLONNES_AJOUTEES_AO = (
+    ("montant_fourchette_basse", "REAL"),
+    ("montant_fourchette_haute", "REAL"),
+)
+
+
+def migrer_ao_en_cours(conn) -> list[str]:
+    """Ajoute à une `ao_en_cours` antérieure les colonnes qui lui manquent.
+
+    Idempotent ; rend la liste des colonnes ajoutées (vide au régime
+    nominal). Les colonnes ajoutées sont NULL partout : c'est vrai — rien
+    n'avait été lu — et la réécriture complète qui suit les remplit.
+    """
+    presentes = {r[1] for r in conn.execute("PRAGMA table_info(ao_en_cours)")}
+    ajoutees = []
+    for nom, type_sql in COLONNES_AJOUTEES_AO:
+        if nom not in presentes:
+            conn.execute(f"ALTER TABLE ao_en_cours ADD COLUMN {nom} {type_sql}")
+            ajoutees.append(nom)
+            log.info("migration : colonne ao_en_cours.%s ajoutée", nom)
+    return ajoutees
+
 
 COLONNES_ANNONCES_RECENTES = (
     "idweb", "objet", "acheteur", "nature", "nature_libelle",
@@ -258,25 +298,38 @@ def _liste_json(valeur: object) -> str | None:
     return json.dumps(valeur, ensure_ascii=False)
 
 
+def _nombre_positif(brut: object) -> float | None:
+    """Scalaire publié → nombre > 0, ou None (absent, illisible, nul).
+
+    0.00 = non renseigné dans les eForms constatés : jamais un montant.
+    """
+    if isinstance(brut, (dict, list)) or brut is None:
+        return None
+    try:
+        nettoye = str(brut).replace(" ", "").replace("\u00a0", "").replace("\u202f", "")
+        nombre = float(nettoye.replace(",", "."))
+    except ValueError:
+        return None
+    if nombre <= 0:
+        return None
+    return nombre
+
+
 def _vers_montant(valeur: object) -> tuple[float, str | None] | None:
     """Valeur brute d'une clé montant → (montant > 0, devise) ou None.
 
     Formes réelles rencontrées : {"@currencyID": "EUR", "#text": "168000.00"}
-    (eForms) et {"@devise": "EUR", "valeur": "220000"} (FNS).
+    (eForms) et {"@devise": "EUR", "valeur": "220000"} (FNS). La forme
+    {"@devise": "EUR", "fourchette": {…}} n'a NI `#text` NI `valeur` : elle
+    rend None ici, et c'est `extraire_fourchette` qui la lit.
     """
     devise: str | None = None
     brut = valeur
     if isinstance(valeur, dict):
         devise = valeur.get("@currencyID") or valeur.get("@devise")
         brut = valeur.get("#text") if "#text" in valeur else valeur.get("valeur")
-    if isinstance(brut, (dict, list)) or brut is None:
-        return None
-    try:
-        nettoye = str(brut).replace(" ", "").replace("\u00a0", "").replace("\u202f", "")
-        montant = float(nettoye.replace(",", "."))
-    except ValueError:
-        return None
-    if montant <= 0:  # 0.00 = non renseigné dans les eForms constatés
+    montant = _nombre_positif(brut)
+    if montant is None:
         return None
     return montant, devise
 
@@ -318,6 +371,56 @@ def extraire_montant(donnees_texte: str | None) -> tuple[float | None, str | Non
     candidats.sort(key=lambda c: (c[0], c[1]))
     _, _, montant, devise = candidats[0]
     return montant, devise or "EUR"
+
+
+def extraire_fourchette(
+    donnees_texte: str | None,
+) -> tuple[float | None, float | None]:
+    """Bornes de la fourchette d'estimation FNS → (basse, haute), chacune
+    None si elle n'est pas publiée.
+
+    Forme réelle : `valeurEstimee` = {"@devise": "EUR", "fourchette":
+    {"valeurBasse": "60000", "valeurHaute": "140000"}} (AO 26-99937). Mesuré
+    le 15/10/2026 sur l'export des AO en cours : 555 avis portent une clé
+    `fourchette`, tous sous `natureMarche.valeurEstimee`, aucun avec un
+    montant ponctuel par ailleurs. 163 publient les deux bornes, 258 la seule
+    borne HAUTE, et 134 une fourchette VIDE (`""`) — ceux-là ne publient
+    rien, et restent « non publié ».
+
+    Une seule fourchette est retenue, la moins profonde (même règle que
+    `extraire_montant` : le niveau avis avant le niveau lot). Rien n'est
+    complété : une borne absente reste None, jamais déduite de l'autre.
+    """
+    if not donnees_texte:
+        return None, None
+    try:
+        racine = json.loads(donnees_texte)
+    except (TypeError, ValueError):
+        return None, None
+
+    candidats: list[tuple[int, float | None, float | None]] = []
+
+    def marcher(noeud: object, profondeur: int) -> None:
+        if isinstance(noeud, dict):
+            for cle, val in noeud.items():
+                if cle == "valeurEstimee" and isinstance(val, dict):
+                    fourchette = val.get("fourchette")
+                    if isinstance(fourchette, dict):
+                        basse = _nombre_positif(fourchette.get("valeurBasse"))
+                        haute = _nombre_positif(fourchette.get("valeurHaute"))
+                        if basse is not None or haute is not None:
+                            candidats.append((profondeur, basse, haute))
+                marcher(val, profondeur + 1)
+        elif isinstance(noeud, list):
+            for val in noeud:
+                marcher(val, profondeur)
+
+    marcher(racine, 0)
+    if not candidats:
+        return None, None
+    candidats.sort(key=lambda c: c[0])
+    _, basse, haute = candidats[0]
+    return basse, haute
 
 
 # Écart maximal admis entre parution et date limite de réponse, en années.
@@ -381,6 +484,15 @@ def parser_ao(rec: dict) -> dict | None:
         )
         return None
     montant, devise = extraire_montant(rec.get("donnees"))
+    basse, haute = extraire_fourchette(rec.get("donnees"))
+    if basse is not None and haute is not None and basse > haute:
+        # Jamais constaté. Une fourchette inversée ne dit pas laquelle des
+        # deux bornes est fausse : on n'en publie aucune, et on le dit.
+        log.warning(
+            "AO %s : fourchette inversée (basse %s > haute %s), non reprise",
+            idweb, basse, haute,
+        )
+        basse = haute = None
     return {
         "idweb": idweb,
         "objet": rec.get("objet"),
@@ -396,6 +508,8 @@ def parser_ao(rec: dict) -> dict | None:
         "departements": _liste_json(rec.get("code_departement")),
         "montant_estime": montant,
         "devise": devise,
+        "montant_fourchette_basse": basse,
+        "montant_fourchette_haute": haute,
         "date_parution": parution,
         "date_limite_reponse": limite,
         "url_avis": rec.get("url_avis"),
@@ -545,10 +659,20 @@ def _executer() -> None:
         ligne["rectifiee_par"] = rectifs.get(ligne["idweb"])
     nb_annulees = sum(l["annulee"] for l in aos)
     nb_montants = sum(1 for l in aos if l["montant_estime"] is not None)
+    # Fourchettes comptées À PART des montants, et seulement là où aucun
+    # montant ponctuel n'est publié : c'est la population qui, sans elles,
+    # serait affichée « non publié ». Journalisé zéro compris.
+    nb_fourchettes = sum(
+        1 for l in aos
+        if l["montant_estime"] is None
+        and (l["montant_fourchette_basse"] is not None
+             or l["montant_fourchette_haute"] is not None)
+    )
 
     conn = db.init_db()
     try:
         conn.executescript(SCHEMA)
+        migrer_ao_en_cours(conn)
         # Réécriture idempotente en une transaction.
         n_arch = archiver_annonces_hors_fenetre(
             conn, debut_fenetre, aujourdhui.isoformat()
@@ -565,11 +689,13 @@ def _executer() -> None:
                 (idweb, objet, acheteur, nature, nature_libelle, famille,
                  famille_libelle, type_marche, type_procedure, procedure_libelle,
                  descripteurs, departements, montant_estime, devise,
-                 date_parution, date_limite_reponse, url_avis, annulee, rectifiee_par)
+                 date_parution, date_limite_reponse, url_avis, annulee, rectifiee_par,
+                 montant_fourchette_basse, montant_fourchette_haute)
             VALUES (:idweb, :objet, :acheteur, :nature, :nature_libelle, :famille,
                     :famille_libelle, :type_marche, :type_procedure, :procedure_libelle,
                     :descripteurs, :departements, :montant_estime, :devise,
-                    :date_parution, :date_limite_reponse, :url_avis, :annulee, :rectifiee_par)
+                    :date_parution, :date_limite_reponse, :url_avis, :annulee, :rectifiee_par,
+                    :montant_fourchette_basse, :montant_fourchette_haute)
             """,
             aos,
         )
@@ -629,7 +755,9 @@ def _executer() -> None:
             lignes=len(aos) + len(annonces),
             notes=(
                 f"{len(aos)} AO en cours (dont {nb_annulees} annulés, "
-                f"{nb_montants} avec montant publié dans l'annonce) ; "
+                f"{nb_montants} avec montant publié dans l'annonce, "
+                f"{nb_fourchettes} autres avec seulement une fourchette "
+                f"d'estimation, jamais comptée comme un montant) ; "
                 f"{len(annonces)} annonces sur {FENETRE_JOURS} j ; "
                 "via /exports/json (plafond /records 10 000)"
             ),
@@ -638,10 +766,12 @@ def _executer() -> None:
         conn.close()
 
     log.info(
-        "BOAMP ingéré : %d AO en cours (%d annulés, %d avec montant), "
+        "BOAMP ingéré : %d AO en cours (%d annulés, %d avec montant, "
+        "%d autres avec fourchette seule), "
         "%d annonces %d j, %d valeur(s) assainie(s) (mojibake, contrôles C1 "
         "cp1252, espaces), fraîcheur %s",
-        len(aos), nb_annulees, nb_montants, len(annonces), FENETRE_JOURS,
+        len(aos), nb_annulees, nb_montants, nb_fourchettes, len(annonces),
+        FENETRE_JOURS,
         valeurs_assainies, date_donnees,
     )
 
