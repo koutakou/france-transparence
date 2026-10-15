@@ -23,7 +23,12 @@ import { TooltipGraphique } from "./TooltipGraphique";
  */
 export interface BarListItem {
   libelle: string;
-  valeur: number;
+  /**
+   * `null` = valeur non disponible : AUCUNE barre (jamais une barre à 0, qui
+   * affirmerait un zéro), « non disponible » à la place de la valeur, comme
+   * le relevé de BarChart. Un vrai zéro publié reste un zéro.
+   */
+  valeur: number | null;
   /** Override ponctuel (dé-emphase « Autre ») — défaut `var(--viz-serie-1)`. */
   couleur?: string;
   /** Fiche officielle du producteur (SIREN → Sirene, etc.). Absent = pas de lien. */
@@ -43,6 +48,9 @@ export interface BarListProps {
   className?: string;
 }
 
+/** Texte d'une valeur absente — le même que le relevé de BarChart. */
+const NON_DISPONIBLE = "non disponible";
+
 export function BarList({
   items,
   formatValeur = (v) => formatNombre(v),
@@ -52,8 +60,10 @@ export function BarList({
 }: BarListProps) {
   if (items.length === 0) return null;
   const h = Math.min(Math.max(epaisseur, 6), 24);
-  const max = Math.max(...items.map((i) => Math.max(i.valeur, 0)), 0) || 1;
-  const valeurs = items.map((i) => formatValeur(i.valeur));
+  const max = Math.max(...items.map((i) => Math.max(i.valeur ?? 0, 0)), 0) || 1;
+  const valeurs = items.map((i) =>
+    i.valeur === null ? NON_DISPONIBLE : formatValeur(i.valeur),
+  );
   // Place réservée à la valeur : largeur de la plus longue valeur formatée
   // (+1ch de marge, « M€ » étant plus large que des chiffres tabulaires).
   // La barre ne dispose que du reste → jamais de valeur tronquée (§4 : une
@@ -64,7 +74,7 @@ export function BarList({
     <ul className={`ft-bl flex flex-col gap-2 ${className ?? ""}`}>
       <style>{`.ft-bl-row .ft-tip{opacity:0;visibility:hidden}.ft-bl-row:hover .ft-tip,.ft-bl-row:focus-within .ft-tip{opacity:1;visibility:visible}`}</style>
       {items.map((item, i) => {
-        const part = Math.max(item.valeur, 0) / max;
+        const part = item.valeur === null ? 0 : Math.max(item.valeur, 0) / max;
         return (
           <li
             key={`${item.libelle}-${i}`}
@@ -100,10 +110,14 @@ export function BarList({
                   background: item.couleur ?? "var(--viz-serie-1)",
                   // bout de donnée arrondi 4px, carré à la base (§4)
                   borderRadius: "0 4px 4px 0",
-                  minWidth: item.valeur > 0 ? 2 : 0,
+                  minWidth: item.valeur !== null && item.valeur > 0 ? 2 : 0,
                 }}
               />
-              <span className="shrink-0 whitespace-nowrap text-ink [font-variant-numeric:tabular-nums]">
+              <span
+                className={`shrink-0 whitespace-nowrap [font-variant-numeric:tabular-nums] ${
+                  item.valeur === null ? "text-ink-muted" : "text-ink"
+                }`}
+              >
                 {valeurs[i]}
               </span>
             </span>

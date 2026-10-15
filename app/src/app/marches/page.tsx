@@ -802,7 +802,7 @@ export default async function PageMarches() {
                   // Dé-emphase des cohortes provisoires : leur dénominateur
                   // est incomplet, elles ne se comparent pas aux autres.
                   couleur: a.cohorte_close === 1 ? undefined : "var(--viz-autre)",
-                  valeur: a.taux_dans_delai ?? 0,
+                  valeur: a.taux_dans_delai,
                 }))}
                 format={{ type: "pct", decimales: 0 }}
                 // Chaque abscisse est une ANNÉE : elle porte l'information et
@@ -846,7 +846,7 @@ export default async function PageMarches() {
               <BarListIle
                 items={acheteursChiffres.map((a) => ({
                   libelle: a.categorie,
-                  valeur: a.taux_dans_delai ?? 0,
+                  valeur: a.taux_dans_delai,
                 }))}
                 format={{ type: "pct" }}
                 largeurLibelle="45%"
@@ -978,7 +978,7 @@ export default async function PageMarches() {
                 const href = hrefAnnuaire(a) ?? undefined;
                 return {
                   libelle: a.nom ?? a.siren ?? "—",
-                  valeur: a.montant_hors_suspects ?? 0,
+                  valeur: a.montant_hors_suspects,
                   href,
                   hrefSource: href ? "Sirene" : undefined,
                 };
@@ -1027,7 +1027,7 @@ export default async function PageMarches() {
                 const href = hrefAnnuaire(t) ?? undefined;
                 return {
                   libelle: t.nom ?? t.siren ?? "—",
-                  valeur: t.montant_hors_suspects ?? 0,
+                  valeur: t.montant_hors_suspects,
                   href,
                   hrefSource: href ? "Sirene" : undefined,
                 };
