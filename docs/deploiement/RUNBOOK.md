@@ -9,8 +9,8 @@ Décision d'hébergement et alternatives : [DECISION.md](DECISION.md). Ce qui ex
 |---|---|---|
 | Où | Le **serveur dédié** (scripts `ft-*`, minuteries systemd) | **GitHub Actions** (`.github/workflows/publication.yml`) |
 | Quand | Tous les jours ~**05:17 Paris** | Cron **04:45 UTC**, plus chaque push et chaque proposition de fusion sur `main` |
-| Effet d'un échec | L'ancienne version reste servie, une alerte part | Une issue `publication-echec` s'ouvre ; **le site n'est pas concerné** |
-| Effet d'un succès | Le site public change | Rien n'est mis en ligne (seule la page de redirection part sur Pages, depuis `main`) |
+| Effet d'un échec | L'ancienne version reste servie, une alerte part | Une issue `publication-echec` s'ouvre (ou est commentée) ; **le site n'est pas concerné** |
+| Effet d'un succès | Le site public change | Rien n'est mis en ligne ; un cycle **planifié** vert ferme l'issue `publication-echec` ouverte. La page de redirection de l'ancienne adresse part par `pages-redirection.yml`, seulement quand elle change |
 
 Un run CI rouge n'est **jamais** une panne du site ; un site figé n'est **jamais** visible dans GitHub Actions. Ne cherchez pas la cause de l'un dans les journaux de l'autre.
 
@@ -48,6 +48,7 @@ Propriétés à connaître :
 | Dépôt (public) | https://github.com/koutakou/france-transparence |
 | Runs de validation CI | https://github.com/koutakou/france-transparence/actions/workflows/publication.yml |
 | Issues d'échec CI | https://github.com/koutakou/france-transparence/issues?q=label%3Apublication-echec |
+| Issues des 301 d'élus et de l'échéance du cron | https://github.com/koutakou/france-transparence/issues?q=label%3Aredirections-301%2Clabel%3Acron-echeance |
 
 Deux accès distincts, à ne pas confondre :
 
@@ -121,7 +122,7 @@ Quatre familles de panne :
    Conduite : lire les contrôles KO — chacun dit quoi faire. **La correction se fait en amont** (dépôt), ou par variables d'environnement de build (`NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_HEBERGEUR_*`). Le script ne corrige rien, et c'est voulu : ce qui est publié doit être ce qui est versionné.
 2. **Source amont cassée** (ingestion ou tests) — un producteur de données a changé une URL, un format, ou est indisponible.
    Conséquence : **aucune** — le site reste sur la veille, et la page [/donnees](https://francetransparence.fr/donnees/) continue d'afficher la vraie fraîcheur de chaque source.
-   Conduite : identifier le pipeline fautif ; reproduire avec `make ingest-<source>` ; si l'amont est juste indisponible, ne rien faire (le cycle réessaie demain) ; si le format a changé, corriger `pipelines/ingest_<source>.py` et ses tests, ouvrir une proposition de fusion (la CI la vérifiera), fusionner. La CI de 04:45 UTC voit souvent ces pannes **avant** le serveur : c'est tout son intérêt.
+   Conduite : identifier le pipeline fautif ; reproduire avec `make ingest-<source>` ; si l'amont est juste indisponible, ne rien faire (le cycle réessaie demain) ; si le format a changé, corriger `pipelines/ingest_<source>.py` et ses tests, ouvrir une proposition de fusion (la CI la vérifiera), fusionner. La CI quotidienne voit ces pannes **le jour même, après** le serveur (cron de 04:45 UTC, départs réels en fin de matinée) : son intérêt est de les signaler par une issue avant le cycle du lendemain, pas de les devancer.
 2 bis. **Perte de rattachement HATVP** (`pipelines/ingest_hatvp_declarations.py`) — l'ingestion s'arrête sur `perte de rattachement : N déclaration(s) toujours publiées par la HATVP ne sont plus rattachées`.
    Conséquence : **aucune** — rien n'a été écrit, le site reste sur la veille. Mais l'ingestion étant tout-ou-rien, **les pipelines en aval n'ont pas tourné** : le cycle entier est à relancer — en DEUX temps : d'abord P15 seul avec l'acquittement (ci-dessous), puis `ft-deploy` complet, qui rejoue les 31 pipelines.
    Ce que ça veut dire : une déclaration d'intérêts que la HATVP publie **toujours** a cessé d'être rattachée à un élu qui porte **encore** une fiche. Ce n'est ni un retrait amont ni une fin de mandat — ces deux cas-là passent sans bruit. C'est presque toujours l'état civil d'un élu qui a changé dans `elus` (P7/P9 réécrivent nom, prénom et date de naissance à chaque cycle), ou un homonyme de la même année qui vient d'y entrer et fait renoncer le repli d'orthographe.
@@ -139,7 +140,7 @@ Quatre familles de panne :
    Conduite : reproduire en local (`make build-static`), corriger, fusionner ; si le coupable est un commit récent, `ft-rollback` remet immédiatement le site d'avant pendant que la correction se prépare.
 4. **Problème machine ou réseau** (disque plein, inodes, nginx tombé, certificat) — `ft-sonde` le voit dans les 5 minutes et alerte ; `ft-etat` le résume.
 
-**Un échec de la CI GitHub Actions ne relève d'aucune de ces familles** : il ouvre ou commente une issue `publication-echec` et signale un problème de code ou de source amont à corriger avant que le serveur ne le rencontre. Le site en ligne, lui, n'en dépend pas.
+**Un échec de la CI GitHub Actions ne relève d'aucune de ces familles** : il ouvre ou commente une issue `publication-echec` et signale un problème de code ou de source amont — que le serveur a pu rencontrer le matin même (le vérifier avec `ft-etat`) et qu'il rencontrera au cycle suivant s'il n'est pas corrigé. Le site en ligne, lui, n'en dépend pas. L'issue se ferme d'elle-même au premier cycle planifié vert.
 
 ## 5. Rollback
 
@@ -179,7 +180,7 @@ Ce dépôt ne contient pas la configuration du serveur : elle vit sur la machine
 bash deploy/creer-repo-github.sh
 ```
 
-Idempotent (chaque étape teste avant d'agir) : génère la clé SSH `~/.ssh/id_ed25519_ft_deploy` si absente et l'enregistre sur le compte, crée le dépôt public si absent, pose le remote et pousse `main`, crée le label `publication-echec`, active GitHub Pages en mode « GitHub Actions ». **Ce script ne met plus le site en ligne** : ce que Pages reçoit désormais est la page de redirection de `pages-redirection/`.
+Idempotent (chaque étape teste avant d'agir) : génère la clé SSH `~/.ssh/id_ed25519_ft_deploy` si absente et l'enregistre sur le compte, crée le dépôt public si absent, pose le remote et pousse `main`, crée le label `publication-echec`, active GitHub Pages en mode « GitHub Actions ». **Ce script ne met pas le site en ligne** : ce que Pages reçoit est la page de redirection de `pages-redirection/`, publiée par `pages-redirection.yml`.
 
 ## 7. Surveillance
 
@@ -188,14 +189,14 @@ Idempotent (chaque étape teste avant d'agir) : génère la clé SSH `~/.ssh/id_
 - **Fraîcheur réelle des sources** : `ft-fraicheur` compare, pour chacune des 44 sources, la date de la donnée la plus récente en base (`meta_sources.date_donnees`) à un seuil calibré par source. C'est le complément indispensable de la sonde : le site peut être fraîchement régénéré chaque nuit alors qu'une source amont a cessé de publier depuis des semaines.
 - **Alertes** : `ft-alerte` est le point d'extension unique — il écrit **toujours** dans le journal systemd en priorité `err` (`journalctl -t ft-alerte -p err`), puis pousse vers un webhook si l'un est configuré. Un échec du webhook n'est jamais remonté à l'appelant : le journal reste le canal de dernier recours.
 - **Moniteur public de fraîcheur** : la page `/donnees` affiche la date réelle de chaque source — le healthcheck lisible par n'importe qui, sans accès au serveur.
-- **CI** : un run rouge sur `publication.yml` ouvre une issue `publication-echec`. Activer les notifications GitHub sur le dépôt (Watch → Custom → Issues) pour être prévenu.
+- **CI** : un run rouge sur `publication.yml` ouvre une issue `publication-echec`, qu'un cycle planifié vert referme. Les cycles planifiés tiennent aussi une issue `redirections-301` (une 301 d'élu mène à un 404 ou masque une fiche servie) et une issue `cron-echeance` (quinze jours avant que GitHub ne désactive le cron, faute de commit sur `main` depuis 60 jours). Activer les notifications GitHub sur le dépôt (Watch → Custom → Issues) pour être prévenu.
 - **Le trou de couverture, à connaître** : la sonde interroge le site **depuis la machine elle-même**. Une panne de DNS, de routage ou de datacenter la laisse parfaitement satisfaite. Seule une supervision externe comble ce trou.
 
 ## 8. Sécurité
 
 - **En-têtes HTTP servis par nginx** — c'est ce que l'hébergement précédent ne permettait pas : `Strict-Transport-Security`, `Content-Security-Policy` (en en-tête, donc `frame-ancestors` réellement appliqué), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`. Redirection 301 HTTP→HTTPS, certificat renouvelé automatiquement (certbot, hook passant par `ft-nginx-reload` — sinon un certificat renouvelé pourrait n'être jamais pris en compte).
 - **Aucun process applicatif exposé** : pas de Node en production, pas de base accessible depuis le réseau, pas de formulaire. La surface d'attaque du site se réduit à nginx servant des fichiers.
-- **Dépôt public sans secret** — la règle à maintenir : aucun token, aucune clé, aucun `.env` commité. Les secrets d'exploitation vivent sur le serveur en `0600` (`/etc/france-transparence/`) et n'ont pas à être recopiés dans un document, un journal ou un ticket. La CI, elle, fonctionne avec le `GITHUB_TOKEN` automatique, aux permissions minimales déclarées en tête de `publication.yml`.
+- **Dépôt public sans secret** — la règle à maintenir : aucun token, aucune clé, aucun `.env` commité. Les secrets d'exploitation vivent sur le serveur en `0600` (`/etc/france-transparence/`) et n'ont pas à être recopiés dans un document, un journal ou un ticket. La CI, elle, fonctionne avec le `GITHUB_TOKEN` automatique : lecture seule du dépôt pour le job qui exécute les pipelines et `npm ci`, `issues: write` pour les seuls jobs d'alerte, droits Pages pour le seul `pages-redirection.yml` — déclarés job par job.
 - **Clé SSH de déploiement** `~/.ssh/id_ed25519_ft_deploy` : dédiée, sans passphrase — si la machine de travail est perdue ou compromise, révoquer la clé sur https://github.com/settings/keys. Le site continue de se publier tout seul : le serveur tire le dépôt, il ne dépend pas de cette clé.
 - **Sauvegardes chiffrées hors-site** en clé publique `age` : la clé de déchiffrement ne vit jamais sur le serveur.
 - **Aucune donnée visiteur collectée** : site 100 % statique, zéro cookie, zéro traceur, aucun compte, aucun formulaire. Les journaux nginx contiennent des adresses IP — donnée personnelle — traitées et documentées comme telles dans les pages légales du site.

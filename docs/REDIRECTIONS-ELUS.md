@@ -61,8 +61,8 @@ Elle est fautive sur **deux** points, chacun mesuré :
    la régénération n'a aucun effet observable.
 
 `poser-301-d22.sh` lit `app`, écrit au bon chemin, refuse bruyamment si une
-cible n'est pas servie, recharge par `ft-nginx-reload` et contrôle les 17 paires
-en HTTP réel. Son régime se choisit par `FT_DEPOT` — voir « L'ordre des gestes ».
+cible n'est pas servie, recharge par `ft-nginx-reload` et contrôle chaque paire
+de la table en HTTP réel. Son régime se choisit par `FT_DEPOT` — voir « L'ordre des gestes ».
 
 Le vhost porte, une seule fois, un `include` **à joker** :
 
@@ -123,7 +123,13 @@ La chaîne met en jeu **trois** artefacts, pas deux :
 | ③ | le **snippet** `/etc/nginx/snippets/ft-redirections-elus-pages.conf` | hors dépôt, posé à la main |
 
 `R1a` et `R1c` — présents **deux fois**, dans `ft-deploy` et dans
-`.github/workflows/publication.yml` — rapprochent ① et ②. Personne ne
+`.github/workflows/publication.yml` — rapprochent ① et ②. Côté CI, depuis le
+15/10/2026, leur verdict ne reste plus un simple avertissement de run vert :
+chaque cycle planifié ouvre (ou commente) une issue `redirections-301` tant
+qu'une anomalie demeure, et la ferme au premier cycle propre. Il avait fallu
+dix jours pour qu'on lise celui du 05/10 (deux sénateurs cibles sortis au
+renouvellement du 27/09 : deux 301 vers un 404, lignes retirées de la table
+le 15/10). Personne ne
 rapprochait ① et ③ : une table modifiée et déployée sans rejouer
 `poser-301-d22.sh` laissait nginx servir l'ancien lot, et les deux contrôles
 disaient « OK ».

@@ -1,18 +1,24 @@
 # Intégration continue France Transparence — https://francetransparence.fr/
 #
-# CE WORKFLOW NE PUBLIE PLUS LE SITE. Le site est servi depuis son propre
-# domaine (francetransparence.fr, export statique derrière nginx). En publier
-# une copie intégrale sur GitHub Pages mettait DEUX sites identiques en ligne :
-# contenu dupliqué, et autorité de référencement partagée entre deux domaines
-# pour chacune des ~1 066 pages. GitHub Pages ne sachant pas émettre de 301,
-# l'ancienne adresse est remplacée par une page de redirection unique
-# (pages-redirection/) portant une <link rel="canonical"> vers le domaine.
+# CE WORKFLOW NE PUBLIE RIEN. Le site est servi depuis son propre domaine
+# (francetransparence.fr, export statique derrière nginx), construit et
+# basculé par `ft-deploy` sur le serveur. La page de redirection de l'ancienne
+# adresse GitHub Pages (pages-redirection/) part par son propre workflow,
+# pages-redirection.yml, et seulement quand elle change : ce workflow-ci n'a
+# donc besoin d'aucun droit Pages.
 #
 # Ce qui reste, et qui est précieux : la VALIDATION QUOTIDIENNE DU BUILD, dans
 # un environnement neuf et indépendant du serveur — ingestion complète de tous
 # les pipelines (la liste qui fait autorité est la variable PIPELINES du
-# Makefile), tests, build statique, contrôles de santé. Si une source amont
-# casse, on l'apprend ici avant que le serveur ne rebuilde.
+# Makefile), tests, lint, types, build statique, contrôles de santé.
+#
+# CE QU'ELLE N'EST PAS : une vigie qui passerait AVANT le serveur. Le cron de
+# 04:45 UTC tombe déjà après `ft-deploy` (05:17 Paris = 03:17 UTC l'été,
+# 04:17 l'hiver), et GitHub retarde les déclenchements planifiés sans borne :
+# sur les 30 derniers runs planifiés au 15/10/2026, départs réels entre 09:25
+# et 12:26 UTC. Une panne amont est donc vue ici LE JOUR MÊME, APRÈS le
+# passage du serveur, et AVANT son cycle du lendemain — c'est là que le
+# correctif doit tomber.
 #
 # Trois déclencheurs :
 #   - cron quotidien 04:45 UTC (06:45 Paris l'été, 05:45 l'hiver) — après le lot
@@ -23,9 +29,9 @@
 #     base réellement utilisée — honnête par construction.
 #   - déclenchement manuel (workflow_dispatch), ingestion forçable.
 #
-# Toute étape en échec ouvre (ou commente) une issue « publication-echec ».
-# Le site en ligne, lui, ne dépend plus de ce workflow : il est publié par
-# `ft-deploy` sur le serveur, selon le même principe du tout-ou-rien.
+# Toute étape en échec hors proposition de fusion ouvre (ou commente) une
+# issue « publication-echec » ; le premier cycle planifié vert suivant la ferme
+# (job `suivre`). Le site en ligne, lui, ne dépend pas de ce workflow.
 
 name: publication
 
@@ -41,16 +47,16 @@ on:
   push:
     branches: [main]
   # Une proposition de fusion doit être vérifiée AVANT d'atteindre main, pas
-  # après : c'est main qui alimente le serveur de production. Le job de
-  # publication Pages, lui, reste réservé aux pushes sur main (voir plus bas).
+  # après : c'est main qui alimente le serveur de production.
   pull_request:
     branches: [main]
 
+# Droits minimaux, job par job. `construire` exécute du code tiers (scripts
+# d'installation npm, téléchargements des pipelines) : il ne reçoit que la
+# lecture du dépôt. Seuls `alerter` et `suivre`, qui n'exécutent que `gh`,
+# écrivent des issues.
 permissions:
   contents: read
-  pages: write
-  id-token: write
-  issues: write
 
 concurrency:
   # Par référence : une vérification de proposition de fusion ne doit ni
@@ -60,10 +66,27 @@ concurrency:
 
 jobs:
   construire:
-    runs-on: ubuntu-latest
-    timeout-minutes: 150
+    # Image ÉPINGLÉE : `ubuntu-latest` bascule vers Ubuntu 26 à partir du
+    # 19/10/2026 (annonce de GitHub sur les runs d'octobre). La chaîne
+    # (CPython 3.14 de setup-python, better-sqlite3, build Next) est prouvée
+    # sur 24.04 ; le passage à 26.04 se fera par une proposition de fusion
+    # dont la CI fera la preuve, pas par un changement d'image subi.
+    runs-on: ubuntu-24.04
+    # Trois fois le plus long run observé (10 à 14 min, ingestion comprise, sur
+    # les 30 derniers au 15/10/2026) : un amont qui pend ne bloque plus le
+    # runner deux heures et demie.
+    timeout-minutes: 45
+    # Ce que `suivre` lit pour tenir l'issue des 301 d'élus (voir l'étape
+    # « Cohérence des redirections 301 »).
+    outputs:
+      r301_anomalies: ${{ steps.r301.outputs.anomalies }}
+      r301_detail: ${{ steps.r301.outputs.detail }}
     steps:
-      - uses: actions/checkout@v4
+      # Actions épinglées par SHA complet de commit (une étiquette se déplace,
+      # un SHA non), version en commentaire ; dependabot (.github/dependabot.yml)
+      # les tient à jour. Toutes ciblent Node 24 (Node 20 est déprécié sur les
+      # runners).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Mode d'exécution
         id: mode
@@ -91,7 +114,7 @@ jobs:
       - name: Restaurer la dernière base en cache
         if: steps.mode.outputs.ingestion != 'oui'
         id: cache-db
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: data/france.db
           # clé volontairement introuvable : on veut le restore-keys → la base
@@ -106,7 +129,7 @@ jobs:
       # (3.12 sur ubuntu-24.04) et les tests d'une proposition de fusion ne
       # tourneraient pas sur le même interpréteur que ceux du cycle quotidien.
       # Le coût est nul : l'étape est mesurée à 0 s quand la version est déjà en cache.
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.14"
 
@@ -127,20 +150,22 @@ jobs:
       # (39 sur 56), donc le trou était AVANT la fusion autant qu'après.
       #
       # Le lien n'avait aucune raison technique : aucun test n'a besoin de la base
-      # servie. Les 33 fichiers de `pipelines/tests` construisent chacun leur base
-      # dans `tmp_path`, et `pipelines/db.py` lit `FT_DB_PATH`, détourné par les
-      # tests qui font tourner un pipeline entier. Vérifié sur un arbre SANS
-      # `data/france.db` : 600 passed, 1 skipped, 20 deselected en 9 s, et la suite
-      # ne crée aucune base. Seul saut : un test de lobbying qui veut un CSV brut.
+      # servie. Chaque fichier de `pipelines/tests` construit sa base dans
+      # `tmp_path`, et `pipelines/db.py` lit `FT_DB_PATH`, détourné par les tests
+      # qui font tourner un pipeline entier. Mesuré le 25/08/2026 sur un arbre SANS
+      # `data/france.db` (33 fichiers de tests à cette date) : 600 passed,
+      # 1 skipped, 20 deselected en 9 s, et la suite ne crée aucune base. Seul
+      # saut : un test de lobbying qui veut un CSV brut. Ces comptes datent : le
+      # journal de chaque run donne ceux du jour.
       #
-      # `-m 'not reseau'` écarte les 20 tests qui appellent les sources amont. Ils
+      # `-m 'not reseau'` écarte les tests qui appellent les sources amont. Ils
       # sont joués juste en dessous, mais seulement quand l'ingestion a tourné : les
       # faire jouer à chaque proposition de fusion rendrait la fusion tributaire de
       # la disponibilité d'API tierces. `ft-deploy` applique déjà la même règle.
       - name: Tests pipelines (pytest)
         run: make test PYTHON=python3 PYTEST_ARGS="-m 'not reseau'"
 
-      # Les 20 tests marqués `reseau` interrogent réellement l'amont. Ils gardent
+      # Les tests marqués `reseau` interrogent réellement l'amont. Ils gardent
       # l'ancienne condition : quand l'ingestion vient de tourner, le réseau a déjà
       # été sollicité et une panne amont est justement ce qu'on veut apprendre ici.
       - name: Tests réseau (sources amont)
@@ -161,14 +186,14 @@ jobs:
 
       - name: Mettre la base en cache
         if: steps.ingestion.outcome == 'success'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: data/france.db
           # Même empreinte que le restore-keys ci-dessus : une base n'est
           # réutilisable que par un code qui produit le même schéma.
           key: france-db-${{ hashFiles('pipelines/*.py') }}-${{ github.run_id }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
@@ -176,6 +201,22 @@ jobs:
 
       - name: Dépendances app
         run: npm ci
+        working-directory: app
+
+      # Depuis Next 16, `next build` ne lance plus ESLint : sans cette étape, le
+      # lint n'était joué par rien ni personne avant la fusion.
+      - name: Lint app (ESLint)
+        run: npm run lint
+        working-directory: app
+
+      # `tsc` seul échoue sur un arbre neuf : les types globaux de route
+      # (`LayoutProps`, `PageProps`) n'existent qu'après `next typegen`. Le build
+      # vérifie aussi les types, mais cette étape les vérifie SANS base et
+      # avant lui, et nomme l'erreur au lieu de la noyer dans le journal du build.
+      - name: Types app (next typegen + tsc)
+        run: |
+          npx next typegen
+          npx tsc --noEmit
         working-directory: app
 
       # Sans NEXT_PUBLIC_BASE_PATH : on valide la configuration RÉELLEMENT
@@ -283,10 +324,20 @@ jobs:
       # `ft-deploy`, lui-même NON VERSIONNÉ : toute garde se pose deux fois, à
       # la main, et une réinstallation efface celle du serveur.
       #
-      # 🛑 CES CONTRÔLES AVERTISSENT, ILS NE BLOQUENT PAS, et c'est délibéré.
+      # 🛑 CES CONTRÔLES NE FONT PAS ÉCHOUER LE JOB, et c'est délibéré.
       # Une cible qui perd sa page est un événement NORMAL : le jour où un
       # député cible perd son mandat, sa fiche sort du site. Un `exit 1` ici
-      # gèlerait la publication entière sur un événement garanti à échéance.
+      # rendrait rouge toute proposition de fusion, quel que soit son sujet,
+      # sur un événement garanti à échéance et qui se règle dans la table.
+      #
+      # MAIS UN AVERTISSEMENT SEUL NE SUFFISAIT PAS. Du 05/10 au 15/10/2026,
+      # chacun des dix runs verts a porté « R1a — … SEN-21634U SEN-20130U » :
+      # deux 301 menaient à un 404 en production (renouvellement sénatorial du
+      # 27/09), et personne ne l'a lu — un `::warning::` n'apparaît que dans le
+      # résumé d'un run vert. L'étape publie donc son verdict en sortie, et le
+      # job `suivre` en tient une issue `redirections-301` sur les cycles
+      # planifiés : ouverte (ou commentée) tant qu'une anomalie demeure, fermée
+      # au premier cycle propre.
       #
       # Ce que chacun attrape :
       #   R1a — une CIBLE de la table n'est plus SERVIE : le 301 pointe
@@ -304,11 +355,19 @@ jobs:
       # Et ni l'un ni l'autre ne rapproche la table du SNIPPET nginx installé :
       # c'est le chantier P-SNIPPET-DERIVE, ouvert, non qualifié.
       - name: Cohérence des redirections 301 d'élus (avertit, ne bloque pas)
+        id: r301
         run: |
           set -u
+          # Verdict publié pour le job `suivre`, posé AVANT toute sortie
+          # anticipée : une table illisible est une anomalie, pas un silence.
+          verdict() {
+            echo "anomalies=$1" >> "$GITHUB_OUTPUT"
+            echo "detail=$2" >> "$GITHUB_OUTPUT"
+          }
           table=deploy/redirections-elus.tsv
           if [ ! -r "$table" ]; then
             echo "::warning::$table illisible : le contrôle des 301 n'a pas été joué"
+            verdict oui "Table $table illisible : le contrôle des 301 n'a pas été joué."
             exit 0
           fi
           n=0; nc=0; absentes=; ressuscitees=; malformees=
@@ -349,47 +408,146 @@ jobs:
           if [ -n "$malformees" ]; then
             echo "::warning::Table des 301 — ligne(s) sans deuxième colonne, jamais vérifiées :$malformees"
           fi
-
-      # Le site construit ci-dessus n'est PAS déployé : il n'a servi qu'à
-      # prouver que la chaîne complète tient. Seule la page de redirection
-      # part sur GitHub Pages.
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: pages-redirection
-
-  deployer:
-    needs: construire
-    # Une proposition de fusion vérifie, elle ne publie pas : rien ne part sur
-    # GitHub Pages tant que le code n'est pas sur main. Et la condition porte
-    # sur la RÉFÉRENCE, pas seulement sur l'événement : un `workflow_dispatch`
-    # lancé à la main sur une branche de chantier — c'est la façon normale de
-    # jouer la chaîne complète, ingestion comprise, avant de fusionner — ne
-    # doit rien publier non plus.
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          detail=
+          [ "$n" -gt 0 ] || detail="$detail Table lue mais VIDE (0 ligne utile)."
+          [ -z "$absentes" ] || detail="$detail R1a, cible(s) non servie(s), le 301 mène à un 404 :$absentes."
+          [ -z "$ressuscitees" ] || detail="$detail R1c, source(s) de nouveau engendrée(s), masquée(s) par le 301 :$ressuscitees."
+          [ -z "$malformees" ] || detail="$detail Ligne(s) sans deuxième colonne :$malformees."
+          if [ -n "$detail" ]; then verdict oui "${detail# }"; else verdict non "$n ligne(s), aucune anomalie"; fi
 
   alerter:
-    needs: [construire, deployer]
+    needs: construire
     # Un échec sur une proposition de fusion est déjà visible sur la
     # proposition elle-même : ouvrir une issue n'ajouterait que du bruit.
     if: failure() && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      issues: write
     steps:
+      # Le texte disait jusqu'au 15/10/2026 « Le site en ligne reste celui du
+      # dernier déploiement réussi » : vrai au temps de GitHub Pages, faux
+      # depuis le 20/08 — ce run ne déploie rien, et son échec ne dit RIEN de
+      # l'état du site. La tentative figure dans le corps : un run relancé
+      # commentait deux fois sous le même identifiant (run 37196390136, 04/10).
       - name: Ouvrir ou commenter l'issue d'échec
         env:
           GH_TOKEN: ${{ github.token }}
+          DEPOT: ${{ github.repository }}
+          EVENEMENT: ${{ github.event_name }}
+          REFERENCE: ${{ github.ref_name }}
         run: |
-          corps="Le run [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) du $(date -u +%F) a échoué (événement : ${{ github.event_name }}). Le site en ligne reste celui du dernier déploiement réussi — la fraîcheur affichée sur /donnees reste exacte d'elle-même."
-          existante=$(gh issue list --repo "${{ github.repository }}" --label publication-echec --state open --json number --jq '.[0].number // empty')
+          set -eu
+          lien="${{ github.server_url }}/$DEPOT/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
+          corps="Le run [${{ github.run_id }}, tentative ${{ github.run_attempt }}]($lien) du $(date -u +%F) a échoué (événement : $EVENEMENT, référence : $REFERENCE).
+
+          Ce workflow VALIDE le code et les sources amont ; il ne publie pas le site. francetransparence.fr est construit et basculé par ft-deploy sur le serveur, indépendamment : ce run rouge ne dit rien de l'état du site en ligne. Une panne amont vue ici a pu aussi arrêter le cycle du serveur (le vérifier avec ft-etat) ; un défaut de code est à corriger avant le cycle suivant. Voir docs/deploiement/RUNBOOK.md.
+
+          Cette issue se ferme d'elle-même au premier cycle planifié vert."
+          titre="Échec de la validation CI — le site en ligne n'est pas concerné"
+          existante=$(gh issue list --repo "$DEPOT" --label publication-echec --state open --json number --jq '.[0].number // empty')
           if [ -n "$existante" ]; then
-            gh issue comment "$existante" --repo "${{ github.repository }}" --body "$corps"
+            gh issue comment "$existante" --repo "$DEPOT" --body "$corps"
           else
-            gh issue create --repo "${{ github.repository }}" --title "Échec de la publication quotidienne" --label publication-echec --body "$corps" \
-              || gh issue create --repo "${{ github.repository }}" --title "Échec de la publication quotidienne" --body "$corps"
+            gh label create publication-echec --repo "$DEPOT" --color D93F0B \
+              --description "La validation CI a échoué — le site en ligne n'est pas concerné" 2>/dev/null || true
+            gh issue create --repo "$DEPOT" --title "$titre" --label publication-echec --body "$corps" \
+              || gh issue create --repo "$DEPOT" --title "$titre" --body "$corps"
+          fi
+
+  # Le pendant de `alerter`, qui manquait : rien ne fermait jamais l'issue
+  # d'échec. #105, ouverte le 12/09/2026 sur un run depuis relancé et conclu
+  # vert, l'était encore le 15/10, après neuf cycles planifiés verts d'affilée
+  # — une alerte qui ne s'éteint pas cesse d'être lue.
+  #
+  # Seuls les cycles PLANIFIÉS font foi : ingestion complète dans une base
+  # neuve, c'est la preuve la plus forte que la chaîne tient. Un push vert sur
+  # base en cache ne prouve pas qu'une panne amont est passée.
+  suivre:
+    needs: construire
+    if: github.event_name == 'schedule' && needs.construire.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DEPOT: ${{ github.repository }}
+      LIEN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Fermer l'issue d'échec de validation (cycle planifié vert)
+        run: |
+          set -eu
+          ouvertes=$(gh issue list --repo "$DEPOT" --label publication-echec --state open --json number --jq '.[].number')
+          if [ -z "$ouvertes" ]; then
+            echo "Aucune issue publication-echec ouverte."
+          fi
+          for n in $ouvertes; do
+            gh issue close "$n" --repo "$DEPOT" --reason completed \
+              --comment "Rétabli : le cycle planifié [${{ github.run_id }}]($LIEN) du $(date -u +%F) est vert (ingestion complète, tests, build, contrôles de santé)."
+            echo "Issue #$n fermée."
+          done
+
+      # Tenue de l'issue des 301 d'élus à partir du verdict de `construire`.
+      # Toujours une ligne au journal, anomalie ou non : un contrôle muet au
+      # vert est indiscernable d'un contrôle débranché.
+      - name: Tenir l'issue des redirections 301 d'élus
+        env:
+          ANOMALIES: ${{ needs.construire.outputs.r301_anomalies }}
+          DETAIL: ${{ needs.construire.outputs.r301_detail }}
+        run: |
+          set -eu
+          echo "Verdict 301 : anomalies=${ANOMALIES:-absent} — ${DETAIL:-aucun détail}"
+          existante=$(gh issue list --repo "$DEPOT" --label redirections-301 --state open --json number --jq '.[0].number // empty')
+          if [ "${ANOMALIES:-}" = "oui" ]; then
+            corps="Cycle planifié [${{ github.run_id }}]($LIEN) du $(date -u +%F) : $DETAIL
+
+          La table deploy/redirections-elus.tsv est la source de vérité du snippet nginx des 301 d'élus. Procédure : docs/REDIRECTIONS-ELUS.md (corriger la table par une proposition de fusion, puis, après le déploiement, rejouer /root/poser-301-d22.sh sur le serveur). Cette issue se ferme d'elle-même au premier cycle planifié sans anomalie."
+            if [ -n "$existante" ]; then
+              gh issue comment "$existante" --repo "$DEPOT" --body "$corps"
+            else
+              gh label create redirections-301 --repo "$DEPOT" --color FBCA04 \
+                --description "Une redirection 301 d'élu mène à un 404 ou masque une fiche servie" 2>/dev/null || true
+              gh issue create --repo "$DEPOT" --title "Redirections 301 d'élus : la table ne correspond plus aux fiches servies" \
+                --label redirections-301 --body "$corps"
+            fi
+          elif [ "${ANOMALIES:-}" = "non" ] && [ -n "$existante" ]; then
+            gh issue close "$existante" --repo "$DEPOT" --reason completed \
+              --comment "Rétabli : le cycle planifié [${{ github.run_id }}]($LIEN) du $(date -u +%F) ne relève plus d'anomalie ($DETAIL). Le snippet nginx du serveur, hors dépôt, se vérifie par ft-controle-301."
+          elif [ -z "${ANOMALIES:-}" ]; then
+            echo "::warning::Le contrôle des 301 n'a publié aucun verdict : l'issue redirections-301 n'est pas tenue ce jour."
+          fi
+
+      # GitHub DÉSACTIVE les workflows planifiés d'un dépôt public après 60 jours
+      # sans activité, sans qu'aucune issue ne s'ouvre : un run qui n'a pas lieu
+      # n'échoue pas. Cette CI étant la seule sentinelle indépendante du
+      # serveur, son extinction serait silencieuse. Mesure retenue, la plus
+      # simple et sans activité factice (aucun commit automatique) : prévenir
+      # quinze jours avant, par une issue, à partir de la date du dernier commit
+      # de main — la référence la plus prudente de ce qui compte comme activité.
+      - name: Échéance d'extinction du cron (60 jours sans activité)
+        env:
+          BRANCHE: ${{ github.event.repository.default_branch }}
+        run: |
+          set -eu
+          dernier=$(gh api "repos/$DEPOT/commits/$BRANCHE" --jq .commit.committer.date)
+          age=$(( ( $(date -u +%s) - $(date -u -d "$dernier" +%s) ) / 86400 ))
+          echeance=$(date -u -d "$dernier + 60 days" +%F)
+          echo "Dernier commit sur $BRANCHE : $dernier, il y a $age jour(s) ; extinction du cron vers le $echeance sans nouvelle activité."
+          existante=$(gh issue list --repo "$DEPOT" --label cron-echeance --state open --json number --jq '.[0].number // empty')
+          if [ "$age" -ge 45 ]; then
+            corps="Le dernier commit sur $BRANCHE date du $dernier ($age jours). GitHub désactive les workflows planifiés d'un dépôt public après 60 jours sans activité : la validation quotidienne s'éteindra vers le $echeance, en silence.
+
+          Toute fusion sur $BRANCHE repousse l'échéance. Si GitHub l'a déjà désactivée : gh workflow enable publication.yml --repo $DEPOT. Cette issue se ferme d'elle-même quand l'échéance s'éloigne."
+            if [ -n "$existante" ]; then
+              gh issue comment "$existante" --repo "$DEPOT" --body "$corps"
+            else
+              gh label create cron-echeance --repo "$DEPOT" --color C5DEF5 \
+                --description "Le cron de validation CI approche de son extinction automatique" 2>/dev/null || true
+              gh issue create --repo "$DEPOT" --title "La validation CI quotidienne s'éteindra vers le $echeance faute d'activité" \
+                --label cron-echeance --body "$corps"
+            fi
+          elif [ -n "$existante" ]; then
+            gh issue close "$existante" --repo "$DEPOT" --reason completed \
+              --comment "Échéance repoussée : dernier commit sur $BRANCHE il y a $age jour(s), extinction vers le $echeance."
           fi

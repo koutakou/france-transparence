@@ -1,0 +1,66 @@
+# Page de redirection de l'ancienne adresse GitHub Pages du projet vers
+# https://francetransparence.fr/ (l'adresse elle-même ne figure que dans
+# pages-redirection/, seul endroit du dépôt où elle a sa place).
+#
+# Le site n'est plus publié sur GitHub Pages depuis le 20/08/2026 : une copie
+# intégrale aurait mis deux sites identiques en ligne et partagé l'autorité de
+# référencement entre deux domaines. GitHub Pages ne sachant pas émettre de
+# 301, pages-redirection/ porte une page unique à canonique et rafraîchissement
+# méta, et une 404 qui réécrit le chemin vers le domaine.
+#
+# POURQUOI UN WORKFLOW À PART. Cette page était republiée par publication.yml
+# à CHAQUE run sur main, alors que ses deux fichiers n'avaient pas changé
+# depuis le 20/08 ; et elle imposait les droits `pages: write` et
+# `id-token: write` à un workflow de validation qui exécute du code tiers
+# (pipelines, scripts d'installation npm). Elle ne part plus que lorsqu'elle
+# change, ou à la main ; publication.yml ne garde que la lecture du dépôt.
+
+name: pages-redirection
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "pages-redirection/**"
+      - ".github/workflows/pages-redirection.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-redirection
+  cancel-in-progress: false
+
+jobs:
+  publier:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      # Actions épinglées par SHA complet de commit, version en commentaire ;
+      # dependabot (.github/dependabot.yml) les tient à jour.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Garde : la page ne doit renvoyer QUE vers le domaine. Une redirection
+      # vers une autre adresse, ou une page vide, partirait sinon telle quelle.
+      - name: Contrôler la page de redirection
+        run: |
+          set -eu
+          test -s pages-redirection/index.html
+          test -s pages-redirection/404.html
+          grep -q '<link rel="canonical" href="https://francetransparence.fr/"' pages-redirection/index.html
+          grep -q 'https://francetransparence.fr' pages-redirection/404.html
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: pages-redirection
+
+      - id: deploiement
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
