@@ -25,6 +25,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { FeatureCollection, Geometry } from "geojson";
 import { getDb, type MetaSource } from "@/lib/db";
+import { AO_ACCUEIL_LIVREES } from "@/lib/echeances";
 import { getIdsFichesStatiques } from "@/lib/queries/elus";
 
 /* ------------------------------------------------------------------ */
@@ -410,7 +411,9 @@ export function getDonneesAccueil(): DonneesAccueil | null {
     )
     .all() as TexteJo[];
 
-  /* --- Flux : AO proches de la clôture (non annulés, limite future) --- */
+  /* --- Flux : AO proches de la clôture (non annulés, limite future).
+         AO_ACCUEIL_LIVREES lignes : la page n'en affiche que
+         AO_ACCUEIL_AFFICHEES, re-filtrées à l'heure du visiteur. --- */
   const aoCloture = db
     .prepare(
       `SELECT idweb AS id,
@@ -422,7 +425,7 @@ export function getDonneesAccueil(): DonneesAccueil | null {
          FROM ao_en_cours
         WHERE annulee = 0 AND datetime(date_limite_reponse) > datetime('now')
         ORDER BY datetime(date_limite_reponse)
-        LIMIT 4`,
+        LIMIT ${AO_ACCUEIL_LIVREES}`,
     )
     .all() as AoProcheCloture[];
 

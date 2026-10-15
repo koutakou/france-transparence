@@ -57,6 +57,7 @@
  * réelle en lecture seule (21/08/2026).
  */
 import { getDb, type MetaSource } from "@/lib/db";
+import { AO_AFFICHEES, AO_LIVREES } from "@/lib/echeances";
 
 /* ------------------------------------------------------------------ */
 /* Types de lignes                                                     */
@@ -1073,7 +1074,10 @@ export function chargerDonneesMarches(
     )
     .get(familleActive, familleActive) as { nb: number; sans: number };
 
-  // 20 échéances les plus proches pour le filtre courant.
+  // AO_AFFICHEES échéances les plus proches pour le filtre courant, rendues
+  // dans le HTML. Quand l'une d'elles expire à l'heure du visiteur, le
+  // navigateur complète depuis le fragment ao.json, qui en livre AO_LIVREES :
+  // la réserve ne pèse pas sur la page.
   const ao = db
     .prepare(
       `SELECT idweb, objet, acheteur, montant_estime, date_limite_reponse,
@@ -1081,7 +1085,7 @@ export function chargerDonneesMarches(
        FROM ao_en_cours
        WHERE annulee = 0 AND datetime(date_limite_reponse) > datetime('now')
          AND (? IS NULL OR famille = ?)
-       ORDER BY date_limite_reponse ASC LIMIT 20`,
+       ORDER BY date_limite_reponse ASC LIMIT ${AO_AFFICHEES}`,
     )
     .all(familleActive, familleActive) as AoEnCours[];
 
@@ -1158,7 +1162,8 @@ export type VueAoFamille = {
   total: number;
   /** Dont montant non publié dans l'annonce. */
   sansMontant: number;
-  /** Les 20 échéances les plus proches pour ce filtre. */
+  /** Les AO_LIVREES échéances les plus proches pour ce filtre (le
+   *  navigateur en affiche AO_AFFICHEES encore ouvertes, lib/echeances.ts). */
   lignes: AoEnCours[];
 };
 
@@ -1170,9 +1175,10 @@ export type AoParFamille = {
 
 /**
  * Pré-calcule, pour CHAQUE famille BOAMP (et « toutes »), la vue servie par
- * le filtre client de /marches : total, part sans montant, 20 échéances les
- * plus proches. Instantané re-filtré (annulations, échéances passées) à la
- * construction du site — même SQL que `chargerDonneesMarches`.
+ * le filtre client de /marches : total, part sans montant, AO_LIVREES
+ * échéances les plus proches. Instantané re-filtré (annulations, échéances
+ * passées) à la construction du site — même SQL que `chargerDonneesMarches` ;
+ * le navigateur re-filtre ensuite les échéances à son heure.
  */
 export function getAoParFamille(): AoParFamille | null {
   const db = getDb();
@@ -1202,7 +1208,7 @@ export function getAoParFamille(): AoParFamille | null {
          FROM ao_en_cours
          WHERE annulee = 0 AND datetime(date_limite_reponse) > datetime('now')
            AND (? IS NULL OR famille = ?)
-         ORDER BY date_limite_reponse ASC LIMIT 20`,
+         ORDER BY date_limite_reponse ASC LIMIT ${AO_LIVREES}`,
       )
       .all(famille, famille) as AoEnCours[];
     return { total: compte.nb, sansMontant: compte.sans, lignes };
