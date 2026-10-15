@@ -27,11 +27,28 @@ export const dynamic = "force-static";
 /** Tout id hors de cette liste est un 404 franc, jamais un rendu à la volée. */
 export const dynamicParams = false;
 
+/**
+ * Fichier SENTINELLE, émis seulement quand aucun élu n'est apparié (base
+ * absente, ou pipeline P15 jamais passé). En export (`output: "export"`),
+ * Next REFUSE une route dynamique dont `generateStaticParams` rend un tableau
+ * vide : « at least one route must be generated » fait échouer le build
+ * entier. Le commentaire promettait « aucun fragment, pas de crash » ; c'était
+ * vrai en `next build` simple, faux pour l'export servi (constaté le
+ * 15/10/2026 : build mort sur une base sans `hatvp_decl_interets`).
+ *
+ * Le soulignement initial ne peut pas être un identifiant de fiche (`PA…`,
+ * `SEN-…`, `rne-…`) : aucune fiche ne le demande, et il ne contient que
+ * `null` — la même réponse que `getInteretsElu` sans tables P15.
+ */
+const SENTINELLE_AUCUN_APPARIE = "_aucun-elu-apparie.json";
+
 export function generateStaticParams(): { fichier: string }[] {
-  // Base absente ou pipeline P15 jamais passé : aucun fragment, pas de crash
-  // — exactement comme la fiche, qui n'affiche alors aucun bouton de
-  // chargement.
-  return getIdsElusApparies().map((id) => ({ fichier: `${id}.json` }));
+  // Base absente ou pipeline P15 jamais passé : aucun fragment réel, pas de
+  // crash — exactement comme la fiche, qui n'affiche alors aucun bouton de
+  // chargement. Seule la sentinelle ci-dessus est écrite.
+  const ids = getIdsElusApparies();
+  if (ids.length === 0) return [{ fichier: SENTINELLE_AUCUN_APPARIE }];
+  return ids.map((id) => ({ fichier: `${id}.json` }));
 }
 
 export async function GET(
@@ -39,6 +56,7 @@ export async function GET(
   { params }: { params: Promise<{ fichier: string }> },
 ) {
   const { fichier } = await params;
+  if (fichier === SENTINELLE_AUCUN_APPARIE) return Response.json(null);
   const id = fichier.replace(/\.json$/, "");
   return Response.json(getInteretsElu(id));
 }
