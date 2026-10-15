@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BarList } from "@/components/ui/BarList";
+import { BarListIle, LineChartIle } from "@/components/client/Graphiques";
+import { formatMd } from "@/lib/formatValeur";
 import { Card } from "@/components/ui/Card";
+import { TableCompacte } from "@/components/ui/TableCompacte";
 import { JsonLd } from "@/components/JsonLd";
 import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { DeltaPct } from "@/components/ui/DeltaPct";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { KpiTile } from "@/components/ui/KpiTile";
-import { LineChart } from "@/components/ui/LineChart";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { VueTableau } from "@/components/ui/VueTableau";
 import { ESPACE_FINE, formatDateFr, formatNombre } from "@/lib/format";
@@ -265,19 +266,19 @@ export default async function PageRecettes() {
               sousTitre="Budget général, nettes des remboursements et dégrèvements — cumul depuis le 1er janvier, en Md€"
               droite={badge}
             >
-              <LineChart
+              <LineChartIle
                 labels={MOIS_COURTS}
                 series={seriesCumul}
-                formatValeur={(v) => `${formatNombre(v, 1)}${ESPACE_FINE}Md€`}
+                format={formatMd(1)}
                 ariaLabel={`Recettes nettes cumulées du budget général par mois, ${(serie ?? [])
                   .map((s) => s.annee)
                   .join(" contre ")}`}
               />
               <VueTableau>
-                <DataTable
+                <TableCompacte
                   colonnes={colonnesMois}
                   lignes={lignesMois}
-                  cleLigne={(l) => String(l.mois)}
+                  cleChamp="mois"
                 />
               </VueTableau>
             </Card>
@@ -297,12 +298,12 @@ export default async function PageRecettes() {
                   .
                 </p>
               )}
-              <BarList
+              <BarListIle
                 items={detail.impots.map((i) => ({
                   libelle: i.ligneId === LIGNE_ID_TVA ? `${i.ligne} (part État)` : i.ligne,
                   valeur: i.montantCumul,
                 }))}
-                formatValeur={(v) => enMd(v)}
+                format={formatMd(2, 1e9)}
               />
               <VueTableau>
                 <DataTable
@@ -387,16 +388,16 @@ export default async function PageRecettes() {
                 perimetre={perimetreParticipations(nonFiscalesPlf.annee)}
               />
             </div>
-            <BarList
+            <BarListIle
               className="mt-4"
               items={nonFiscalesPlf.lignes.slice(0, 8).map((l) => ({
                 libelle: l.libelle,
                 valeur: l.montantEuros / 1e9,
               }))}
-              formatValeur={(v) => `${formatNombre(v, 2)}${ESPACE_FINE}Md€`}
+              format={formatMd(2)}
             />
             <VueTableau>
-              <DataTable
+              <TableCompacte
                 colonnes={[
                   { cle: "code", entete: "Ligne" },
                   { cle: "libelle", entete: "Libellé" },
@@ -412,7 +413,7 @@ export default async function PageRecettes() {
                   libelle: l.libelle,
                   md: l.montantEuros / 1e9,
                 }))}
-                cleLigne={(l) => l.code}
+                cleChamp="code"
               />
             </VueTableau>
             <p className="mt-3 text-xs text-ink-muted">
@@ -469,16 +470,16 @@ export default async function PageRecettes() {
                 perimetre="secret statistique DESF · hors de la somme d'impôt net"
               />
             </div>
-            <BarList
+            <BarListIle
               className="mt-4"
               items={ircom.departements.slice(0, 8).map((d) => ({
                 libelle: d.nom,
                 valeur: d.impotEuros / 1e9,
               }))}
-              formatValeur={(v) => `${formatNombre(v, 2)}${ESPACE_FINE}Md€`}
+              format={formatMd(2)}
             />
             <VueTableau>
-              <DataTable
+              <TableCompacte
                 colonnes={[
                   { cle: "dep", entete: "Dép." },
                   { cle: "nom", entete: "Département" },
@@ -508,7 +509,7 @@ export default async function PageRecettes() {
                   foyers: d.nFoyers,
                   nc: d.nCommunesNc,
                 }))}
-                cleLigne={(l) => l.dep}
+                cleChamp="dep"
               />
             </VueTableau>
             <p className="mt-3 text-xs text-ink-muted">
@@ -567,7 +568,7 @@ export default async function PageRecettes() {
           sousTitre="Cumul au 31 décembre de chaque année complète, en Md€ — recettes nettes des remboursements et dégrèvements"
           droite={badge}
         >
-          <LineChart
+          <LineChartIle
             labels={labelsAnnees}
             series={[
               {
@@ -584,11 +585,11 @@ export default async function PageRecettes() {
                 couleur: "var(--viz-autre)",
               },
             ]}
-            formatValeur={(v) => `${formatNombre(v, 0)}${ESPACE_FINE}Md€`}
+            format={formatMd(0)}
             ariaLabel={`Recettes nettes annuelles du budget général, ${labelsAnnees[0]}–${labelsAnnees[labelsAnnees.length - 1]}`}
           />
           <VueTableau>
-            <DataTable
+            <TableCompacte
               colonnes={[
                 { cle: "annee", entete: "Année" },
                 { cle: "total", entete: "Recettes nettes (Md€)", type: "montant", decimales: 2 },
@@ -604,7 +605,7 @@ export default async function PageRecettes() {
                 total: a.totalNettes === null ? null : a.totalNettes / 1e9,
                 fiscales: a.fiscalesNettes === null ? null : a.fiscalesNettes / 1e9,
               }))}
-              cleLigne={(l) => l.annee}
+              cleChamp="annee"
             />
           </VueTableau>
           {longues.enCours && longues.enCours.totalNettes !== null && (
@@ -658,7 +659,7 @@ export default async function PageRecettes() {
               }
             />
             <VueTableau>
-              <DataTable
+              <TableCompacte
                 colonnes={[
                   { cle: "annee", entete: "Année" },
                   {
@@ -679,7 +680,7 @@ export default async function PageRecettes() {
                   trmd: o.valeur_mio_eur / 1000,
                   pc: o.valeur_pc_gdp,
                 }))}
-                cleLigne={(l) => String(l.annee)}
+                cleChamp="annee"
               />
             </VueTableau>
             <p className="mt-3 text-xs text-ink-muted">
@@ -743,13 +744,13 @@ export default async function PageRecettes() {
               de caisse du budget général. S1314 n&apos;est pas «&nbsp;la
               Sécu&nbsp;».
             </p>
-            <BarList
+            <BarListIle
               className="mt-4"
               items={prelevements.sousSecteurs.map((d) => ({
                 libelle: d.libelle,
                 valeur: d.valeurMd,
               }))}
-              formatValeur={(v) => `${formatNombre(v, 1)}${ESPACE_FINE}Md€`}
+              format={formatMd(1)}
             />
             <p className="mt-2 text-xs text-ink-muted">
               Ordre S1311, S1313, S1314, S212, année {prelevements.annee}.
