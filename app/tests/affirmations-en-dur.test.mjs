@@ -57,6 +57,11 @@ const INTERDITS = [
     /aucun compte de campagne n’est publié à ce jour/,
     "pas d'affirmation d'inexistence sur l'amont",
   ],
+  [
+    "app/donnees/page.tsx",
+    /n’a été publiée|première\s+ingestion qui la trouve/,
+    "« en attente » dit ce qui a été ingéré, pas ce que l'amont a publié",
+  ],
 ];
 
 for (const [fichier, motif, pourquoi] of INTERDITS) {

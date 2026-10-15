@@ -19,11 +19,12 @@ import { getDb, type MetaSource } from "@/lib/db";
 /**
  * État de fraîcheur d'une source, par gravité croissante.
  *
- * `attente_edition` ne décrit PAS un défaut du site : il dit qu'à la date
- * du build, aucune édition plus récente n'avait été publiée en amont. C'est
- * un fait daté et vérifiable — jamais une affirmation sur l'intention de
- * l'éditeur ni sur l'avenir : l'édition suivante peut paraître demain, et
- * la première ingestion qui la trouve la publiera.
+ * `attente_edition` ne dépend que de l'ÂGE de la donnée : il dit qu'à la
+ * date du build, aucune édition plus récente n'avait été INGÉRÉE. Il ne dit
+ * rien de l'amont — le site ne vérifie pas qu'aucune édition n'y a paru —,
+ * ni de l'intention de l'éditeur, ni de l'avenir. Pour une source dont le
+ * pipeline vise un millésime FIGÉ (`editionFigee`), une édition plus récente
+ * ne serait de toute façon pas vue sans modifier le pipeline : la page le dit.
  */
 export type NiveauFraicheur =
   | "a_jour"
@@ -43,9 +44,16 @@ export type Fraicheur = {
   /** Seuils appliqués, `null` si la source n'est pas calibrée. */
   seuilRetardJours: number | null;
   seuilAlerteJours: number | null;
+  /** Millésime fixé par le pipeline : une édition suivante n'y entrerait pas seule. */
+  editionFigee: boolean;
 };
 
-type SeuilSource = { unite: UniteAge; retard: number; alerte: number };
+/**
+ * `editionFigee` : le pipeline vise un millésime écrit en dur (URL,
+ * identifiant de publication) et ne peut pas voir le suivant. Propre au
+ * site — ce n'est pas un seuil, `fraicheur.conf` ne le porte pas.
+ */
+type SeuilSource = { unite: UniteAge; retard: number; alerte: number; editionFigee?: true };
 
 /**
  * Seuils de fraîcheur, UN JEU PAR SOURCE.
@@ -123,8 +131,12 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // 260 j ≈ Q+1 en retard d'~6 sem. (S17 110/150 sonnerait dès la parution).
   S41: { unite: "jc", retard: 220, alerte: 260 },
   // Annuelles « simples »
-  S20: { unite: "jc", retard: 400, alerte: 440 },
-  S37: { unite: "jc", retard: 400, alerte: 440 },
+  // Millésime figé : ingest_budget_structure.py lit « plf-2026-budget-vert »,
+  // écrit en dur.
+  S20: { unite: "jc", retard: 400, alerte: 440, editionFigee: true },
+  // Millésime figé : DECRETS_AIDE_PUBLIQUE (ingest_financement.py) est une
+  // liste de décrets consultés, tenue à la main.
+  S37: { unite: "jc", retard: 400, alerte: 440, editionFigee: true },
   S31: { unite: "jc", retard: 450, alerte: 550 },
   // Annuelle EDP (notification avril N+1). date_donnees = 31/12 du TIME
   // max, jamais `updated`. 400/440 sonnerait dès février, avant la
@@ -146,11 +158,15 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // modified Melodi (2026-06-08) ni la date de parution (29/05/2026).
   // 520/600 comme S44 : millésime 2025 déjà là ; 400/440 sonnerait
   // dès février, avant la parution de mai.
-  S50: { unite: "jc", retard: 520, alerte: 600 },
+  // Millésime figé : ingest_comptes_apu_insee.py lit la publication Insee
+  // Résultats 8988845, écrite en dur.
+  S50: { unite: "jc", retard: 520, alerte: 600, editionFigee: true },
   // Même publication Insee Résultats 8988845 que S50 (tableau 3.204,
   // S13112) : millésime = 31/12 de l'année max, jamais modified Melodi.
   // 520/600 comme S50/S44.
-  S51: { unite: "jc", retard: 520, alerte: 600 },
+  // Millésime figé : même publication 8988845, écrite en dur
+  // (ingest_odac_insee.py).
+  S51: { unite: "jc", retard: 520, alerte: 600, editionFigee: true },
   // Annuelle CGE : millésime = 31/12 de la pièce de synthèse (xlsx),
   // jamais modified du catalogue. Les balances ligne à ligne peuvent
   // porter N+1 avant que la pièce ne l'ajoute ; 650/750 = 21,5/25 mois
@@ -173,16 +189,22 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // 650/750 comme S22/S45/S47 : 400/440 sonnerait dès l'été.
   S48: { unite: "jc", retard: 650, alerte: 750 },
   // Annuelles à décalage structurel documenté
-  S21: { unite: "jc", retard: 400, alerte: 440 },
+  // Millésime figé : « plf25-depenses-2025-selon-destination », écrit en dur
+  // (ingest_budget_structure.py).
+  S21: { unite: "jc", retard: 400, alerte: 440, editionFigee: true },
   // Publication open data du PLF 2025 = 11/10/2024 (pas le dépôt AN
   // du 10/10). Aucun équivalent PLF 2026 en données : le seuil annuel
-  // simple rend le silence visible, comme S21.
-  S46: { unite: "jc", retard: 400, alerte: 440 },
-  S23: { unite: "jc", retard: 760, alerte: 850 },
-  S25: { unite: "jc", retard: 850, alerte: 950 },
+  // simple rend le silence visible, comme S21. Millésime figé :
+  // ingest_recettes_plf.py lit le jeu « plf25-… », écrit en dur.
+  S46: { unite: "jc", retard: 400, alerte: 440, editionFigee: true },
+  // Millésimes figés : jaune « plf25-… » (ingest_budget_structure.py) ;
+  // EXERCICES = 2021 → 2024 (ingest_financement.py).
+  S23: { unite: "jc", retard: 760, alerte: 850, editionFigee: true },
+  S25: { unite: "jc", retard: 850, alerte: 950, editionFigee: true },
   S38: { unite: "jc", retard: 730, alerte: 820 },
   "S27-geo-api": { unite: "jc", retard: 400, alerte: 430 },
-  S29: { unite: "jc", retard: 1500, alerte: 1800 },
+  // Millésime figé : SLUG_LEG2024, les législatives de 2024 seules.
+  S29: { unite: "jc", retard: 1500, alerte: 1800, editionFigee: true },
   // « Par scrutin » comme S29 : l'âge reste élevé entre deux scrutins par
   // construction, l'alerting est donc quasi désactivé (~36/43 mois).
   S26: { unite: "jc", retard: 1100, alerte: 1300 },
@@ -190,7 +212,8 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // Quasi statiques : l'âge n'est plus un signal, seul le volume l'est
   "S27-france-geojson": { unite: "jc", retard: 3650, alerte: 5475 },
   // Cadence composite (comptes locaux + dotations)
-  S16: { unite: "jc", retard: 650, alerte: 750 },
+  // Millésime figé : EXERCICE_COMPTES (ingest_collectivites.py).
+  S16: { unite: "jc", retard: 650, alerte: 750, editionFigee: true },
   // Quotidienne, mais calendrier EUROPÉEN : l'export du registre de
   // transparence de l'Union est régénéré chaque soir par le secrétariat
   // commun Parlement européen / Commission, que le calendrier ouvré français
@@ -317,6 +340,7 @@ export function evalueFraicheur(
       unite: "jc",
       seuilRetardJours: null,
       seuilAlerteJours: null,
+      editionFigee: false,
     };
   }
   const ageJours = seuil.unite === "jo" ? ageJoursOuvres(debut, fin) : ageCalendaire;
@@ -335,7 +359,20 @@ export function evalueFraicheur(
     unite: seuil.unite,
     seuilRetardJours: seuil.retard,
     seuilAlerteJours: seuil.alerte,
+    editionFigee: seuil.editionFigee === true,
   };
+}
+
+/**
+ * Le constat affiché pour une source en attente, sans majuscule ni point.
+ * Il dit ce que le site sait — l'édition qu'il a INGÉRÉE —, jamais ce que
+ * l'amont a publié ou non ; et, pour un millésime figé, que l'ingestion ne
+ * la verrait pas seule.
+ */
+export function constatAttente(f: Pick<Fraicheur, "editionFigee">): string {
+  return f.editionFigee
+    ? "aucune édition plus récente n’a été ingérée à ce jour — millésime fixé par le pipeline : une édition plus récente n’y entrerait pas sans le modifier"
+    : "aucune édition plus récente n’a été ingérée à ce jour";
 }
 
 export type SourceCataloguee = MetaSource & { fraicheur: Fraicheur };
