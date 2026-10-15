@@ -67,6 +67,16 @@ const INTERDITS = [
     /\d+,\d+\s*%\s+de la présidente/,
     "le taux de la présidence se recalcule chaque jour : pas de valeur en dur",
   ],
+  [
+    "app/collectivites/page.tsx",
+    /jusqu&apos;en décembre 20\d\d/,
+    "l'année de fin du provisoire se déduit de l'exercice",
+  ],
+  [
+    "app/collectivites/page.tsx",
+    /environ \d+ communes manquent/,
+    "le nombre de communes se lit en base",
+  ],
 ];
 
 for (const [fichier, motif, pourquoi] of INTERDITS) {

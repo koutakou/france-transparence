@@ -321,7 +321,8 @@ export default async function PageCollectivites() {
           </h1>
           <p className="mt-2 text-sm text-ink-secondary">
             Comptes {exerciceComptes} des collectivités (OFGL / DGFiP), budgets
-            principaux, montants provisoires jusqu&apos;en décembre 2026. DGF
+            principaux, montants provisoires jusqu&apos;en décembre{" "}
+            {exerciceComptes + 1} (calendrier de l&apos;OFGL). DGF
             jusqu&apos;à l&apos;exercice {exerciceDgf ?? "—"}.
           </p>
         </div>
@@ -471,8 +472,10 @@ export default async function PageCollectivites() {
             <p>
               Budget principal seul (les budgets annexes et les dépenses portées par
               l&apos;intercommunalité n&apos;y figurent pas). Exercice {exerciceComptes}{" "}
-              provisoire : environ 97 communes manquent encore à la source — une commune
-              absente s&apos;affiche « donnée non disponible », jamais 0. La comparaison
+              provisoire
+              {kpis ? ` : ${formatNombre(kpis.nb_communes)} communes y figurent` : ""} ;
+              celles dont les comptes manquent encore à la source s&apos;affichent
+              « donnée non disponible », jamais 0. La comparaison
               proposée est la médiane des communes de la même strate démographique
               (calculée par l&apos;API OFGL sur l&apos;ensemble des communes de France) :
               un écart à la médiane de strate n&apos;est ni une faute ni un mérite —
