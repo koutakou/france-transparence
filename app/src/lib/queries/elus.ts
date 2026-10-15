@@ -492,8 +492,12 @@ export type DeclarationHatvp = {
  * Nombre de scrutins affichés sur une fiche député — plafond d'allègement
  * des fiches statiques (l'export génère ~1 000 fiches ; chaque ligne pèse
  * ~1,8 Ko, HTML + payload RSC). 30 tient la pire fiche (11 déclarations
- * HATVP) sous 150 Ko brut. Le total présent en base est retourné à côté
- * (`nb_scrutins_base`) pour une mention honnête « N derniers sur X ».
+ * HATVP) sous 150 Ko brut. Deux totaux sont retournés à côté pour une
+ * mention honnête : les scrutins dont le détail nominal est conservé
+ * (`nb_scrutins_base`, fenêtre des ~100 derniers — c'est parmi eux que les N
+ * affichés sont pris) et TOUS les scrutins publics en base
+ * (`nb_scrutins_total`). Les confondre faisait dire « 30 sur 100 présents
+ * en base » quand la base en compte plus de 8 000.
  */
 export const VOTES_FICHE_MAX = 30;
 
@@ -505,12 +509,16 @@ export type FicheElu = {
   senateur: SenateurDetail | null;
   /** Positions du député sur les VOTES_FICHE_MAX derniers scrutins présents (null hors député). */
   votes: VoteLigne[] | null;
-  /** Total de scrutins présents en base (null hors député). */
+  /** Scrutins AN dont le détail nominal est conservé (null hors député). */
   nb_scrutins_base: number | null;
+  /** Tous les scrutins publics AN en base (null hors député). */
+  nb_scrutins_total: number | null;
   /** Positions du sénateur sur les VOTES_FICHE_MAX derniers scrutins Sénat. */
   votes_senat: VoteLigne[] | null;
-  /** Total de scrutins Sénat présents en détail (null hors sénateur). */
+  /** Scrutins Sénat dont le détail nominal est conservé (null hors sénateur). */
   nb_scrutins_senat_base: number | null;
+  /** Tous les scrutins publics du Sénat en base (null hors sénateur). */
+  nb_scrutins_senat_total: number | null;
   /** Déclarations HATVP appariées par fiche nominative (URL exacte). */
   declarations: DeclarationHatvp[];
 };
@@ -544,6 +552,7 @@ export function getFicheElu(id: string): FicheElu | null {
   let depute: DeputeDetail | null = null;
   let votes: VoteLigne[] | null = null;
   let nbScrutinsBase: number | null = null;
+  let nbScrutinsTotal: number | null = null;
   if (elu.uid_an) {
     depute =
       (db
@@ -567,6 +576,9 @@ export function getFicheElu(id: string): FicheElu | null {
           .prepare("SELECT COUNT(DISTINCT scrutin_uid) AS nb FROM votes_recents")
           .get() as { nb: number }
       ).nb;
+      nbScrutinsTotal = (
+        db.prepare("SELECT COUNT(*) AS nb FROM scrutins").get() as { nb: number }
+      ).nb;
       votes = db
         .prepare(
           `SELECT s.uid AS scrutin_uid, s.numero, s.date_scrutin, s.titre, s.sort,
@@ -584,6 +596,7 @@ export function getFicheElu(id: string): FicheElu | null {
   let senateur: SenateurDetail | null = null;
   let votesSenat: VoteLigne[] | null = null;
   let nbScrutinsSenatBase: number | null = null;
+  let nbScrutinsSenatTotal: number | null = null;
   if (elu.matricule_senat) {
     senateur =
       (db
@@ -603,6 +616,9 @@ export function getFicheElu(id: string): FicheElu | null {
         db
           .prepare("SELECT COUNT(*) AS nb FROM (SELECT DISTINCT sesann, numero FROM votes_senat)")
           .get() as { nb: number }
+      ).nb;
+      nbScrutinsSenatTotal = (
+        db.prepare("SELECT COUNT(*) AS nb FROM scrutins_senat").get() as { nb: number }
       ).nb;
       votesSenat = db
         .prepare(
@@ -644,8 +660,10 @@ export function getFicheElu(id: string): FicheElu | null {
     senateur,
     votes,
     nb_scrutins_base: nbScrutinsBase,
+    nb_scrutins_total: nbScrutinsTotal,
     votes_senat: votesSenat,
     nb_scrutins_senat_base: nbScrutinsSenatBase,
+    nb_scrutins_senat_total: nbScrutinsSenatTotal,
     declarations,
   };
 }
