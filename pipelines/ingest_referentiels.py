@@ -643,6 +643,35 @@ def extraire_institutions(services: list[dict]) -> list[dict]:
     return institutions
 
 
+# Libellés publics du motif de secours (note meta S35, publiée
+# dans /api/meta.json, le catalogue que /donnees met à disposition) :
+# un vocabulaire fermé, jamais le texte d'une exception.
+MOTIF_SERVEUR_INJOIGNABLE = "serveur injoignable"
+MOTIF_ARCHIVE_ILLISIBLE = "archive illisible"
+MOTIF_CONTENU_ILLISIBLE = "contenu illisible"
+MOTIF_HORS_PLAGE = "nombre de ministères hors de la plage plausible"
+
+
+def motif_secours(exc: BaseException) -> str:
+    """Libellé stable du motif de secours, publié dans la note meta S35.
+
+    POURQUOI : la note publiait le texte brut de l'exception tronqué à 200
+    caractères (« flux inexploitable (KeyError : 'service') ») : un message
+    technique, instable d'une version de bibliothèque à l'autre, n'a rien à
+    faire dans /api/meta.json. Le détail reste au journal du cycle (log.warning)."""
+    if isinstance(exc, requests.RequestException):
+        return MOTIF_SERVEUR_INJOIGNABLE
+    if isinstance(exc, zipfile.BadZipFile):
+        return MOTIF_ARCHIVE_ILLISIBLE
+    if isinstance(exc, ErreurPlageMinisteres):
+        return MOTIF_HORS_PLAGE
+    return MOTIF_CONTENU_ILLISIBLE
+
+
+class ErreurPlageMinisteres(ValueError):
+    """Nombre de ministères extraits hors de la plage plausible."""
+
+
 def charger_entites_etat(
     session: requests.Session,
 ) -> tuple[list[dict], list[dict], str, str, str | None]:
@@ -665,15 +694,17 @@ def charger_entites_etat(
         ministeres = extraire_ministeres(services)
         institutions = extraire_institutions(services)
         if not 12 <= len(ministeres) <= 30:
-            raise ValueError(
+            raise ErreurPlageMinisteres(
                 f"{len(ministeres)} ministères extraits : hors plage"
                 " plausible [12, 30]"
             )
     except (requests.RequestException, ValueError, KeyError,
             json.JSONDecodeError, zipfile.BadZipFile) as exc:
+        # Le détail technique (type et message) reste au journal du cycle ;
+        # la note meta S35, publiée dans /api/meta.json, ne porte qu'un libellé stable.
         log.warning(
-            "RefOrgaAdminEtat inexploitable (%s) → liste vérifiée du"
-            " rapport 03 (décret du 26/02/2026)", exc,
+            "RefOrgaAdminEtat inexploitable (%s : %s) → liste vérifiée du"
+            " rapport 03 (décret du 26/02/2026)", type(exc).__name__, exc,
         )
         ministeres = [
             {"nom": nom,
@@ -687,10 +718,7 @@ def charger_entites_etat(
             "liste vérifiée docs/recherche/03-parlement.md"
             " (décret du 26/02/2026, Légifrance JORFTEXT000053586369)",
             "2026-02-26",
-            # Motif court et lisible : il est publié dans la note meta S35.
-            f"serveur injoignable ({type(exc).__name__})"
-            if isinstance(exc, requests.RequestException)
-            else f"flux inexploitable ({type(exc).__name__} : {exc})"[:200],
+            motif_secours(exc),
         )
     return ministeres, institutions, "RefOrgaAdminEtat (DILA)", date_reforga, None
 

@@ -5,6 +5,7 @@ jamais de schéma inventé. Un seul test touche le réseau, marqué `reseau`.
 """
 
 import json
+import zipfile
 
 import pytest
 import requests
@@ -281,7 +282,36 @@ def test_dila_injoignable_bascule_sur_la_liste_verifiee(monkeypatch):
     assert len(institutions) == 7
     assert source.startswith("liste vérifiée docs/recherche/03-parlement.md")
     assert date_donnees == "2026-02-26"   # la liste, pas le jour du cycle
-    assert motif == "serveur injoignable (ConnectionError)"
+    assert motif == "serveur injoignable"
+
+
+@pytest.mark.parametrize("exc, motif", [
+    (KeyError("service"), "contenu illisible"),
+    (json.JSONDecodeError("Expecting value", "<html>", 0), "contenu illisible"),
+    (zipfile.BadZipFile("File is not a zip file"), "archive illisible"),
+])
+def test_secours_publie_un_libelle_stable_pas_le_texte_de_l_exception(
+        monkeypatch, caplog, exc, motif):
+    """La note meta S35 publiait `{type} : {message}`[:200] (« flux
+    inexploitable (KeyError : 'service') ») : un message technique dans
+    /api/meta.json. Le libellé est désormais fermé ; le détail reste au journal."""
+    def _leve(*a, **k):
+        raise exc
+    monkeypatch.setattr(ingest_referentiels, "telecharger", _leve)
+    with caplog.at_level("WARNING"):
+        *_, motif_obtenu = charger_entites_etat(requests.Session())
+    assert motif_obtenu == motif
+    notes = meta_entites_etat("liste vérifiée", motif_obtenu, "2026-10-15")["notes"]
+    assert type(exc).__name__ not in notes and str(exc) not in notes
+    assert type(exc).__name__ in caplog.text   # le détail est au journal
+
+
+def test_secours_hors_plage_a_son_libelle(monkeypatch):
+    monkeypatch.setattr(ingest_referentiels, "telecharger", lambda *a, **k: "x.zip")
+    monkeypatch.setattr(ingest_referentiels, "charger_reforga",
+                        lambda chemin: ([], "2026-10-15"))
+    *_, motif = charger_entites_etat(requests.Session())
+    assert motif == "nombre de ministères hors de la plage plausible"
 
 
 def _ids_et_siren(conn):
@@ -353,12 +383,12 @@ def test_meta_s35_nomme_la_source_reellement_utilisee():
 
     secours = meta_entites_etat(
         "liste vérifiée docs/recherche/03-parlement.md",
-        "serveur injoignable (ConnectionError)", "2026-10-04")
+        "serveur injoignable", "2026-10-04")
     assert "(DILA)" not in secours["nom"] and "secours" in secours["nom"]
     assert secours["url"] != URL_REFORGA_LATEST
     assert secours["url"].endswith("JORFTEXT000053586369")
-    assert ("inexploitable le 2026-10-04 : serveur injoignable"
-            " (ConnectionError)") in secours["notes"]
+    assert ("inexploitable le 2026-10-04 : serveur injoignable →"
+            in secours["notes"])
     assert "SIREN Présidence : RefOrgaAdminEtat" not in secours["notes"]
 
 
