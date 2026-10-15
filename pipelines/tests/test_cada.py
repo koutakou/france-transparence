@@ -473,3 +473,14 @@ def test_un_nouveau_lot_n_est_pas_masque_par_le_cache(tmp_path, monkeypatch):
     assert cache.read_bytes() == FIXTURE.read_bytes()
     assert stats["decisions"] == DECISIONS
     assert stats["date_donnees"] == DERNIERE_SEANCE
+
+
+def test_un_sens_inconnu_apres_une_virgule_fait_echouer_au_lieu_d_etre_recolle():
+    """Audit du 15/10/2026 : « Annulé/Nouveau sens » était recollé en silence
+    à la motivation précédente, alors que l'en-tête promet l'échec."""
+    with pytest.raises(ValueError, match="Annulé/Nouveau sens"):
+        decouper_motivations("Favorable/Secret, Annulé/Nouveau sens")
+    # La suite légitime d'une motivation, elle, reste recollée.
+    assert decouper_motivations(
+        "Irrecevable/Documentation, établissement de document"
+    ) == ["Irrecevable/Documentation, établissement de document"]
