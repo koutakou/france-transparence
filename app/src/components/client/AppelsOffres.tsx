@@ -8,6 +8,7 @@ import { formatNombre, formatPct } from "@/lib/format";
 import { urlSite } from "@/lib/basePath";
 import { AO_AFFICHEES, echeancesOuvertes } from "@/lib/echeances";
 import { useHorloge } from "@/lib/useHorloge";
+import { useTrancheEcheances } from "@/lib/useTrancheEcheances";
 import { majParamsUrl } from "@/lib/urlEtat";
 import { useUrlInitiale } from "@/lib/useUrlInitiale";
 import type { AoEnCours, AoParFamille, FamilleAO, VueAoFamille } from "@/lib/queries/marches";
@@ -24,10 +25,13 @@ import type { AoEnCours, AoParFamille, FamilleAO, VueAoFamille } from "@/lib/que
  * Les échéances sont re-filtrées À L'HEURE DU VISITEUR (`useHorloge`) : le
  * navigateur retire celles dont la date limite est passée et en affiche
  * AO_AFFICHEES. Le HTML n'en porte que AO_AFFICHEES (poids de la page) ; dès
- * que l'une est passée, la réserve du fragment est chargée pour compléter :
- * par famille, « Toutes » comprise, toutes les clôtures des RESERVE_HEURES
- * qui suivent la construction, puis quelques-unes au-delà (lib/echeances.ts). Les totaux, eux, ne se
- * recalculent pas sans toutes les lignes : ils sont datés de la construction.
+ * que l'une est passée, la vue « Toutes » se complète depuis la TRANCHE
+ * HORAIRE de l'heure du visiteur (/data/marches/ao-toutes/<heure>.json : les
+ * seules lignes affichables pendant cette heure, lib/echeances.ts), chargée
+ * sans geste parce qu'elle est petite. Une famille, elle, se lit dans
+ * ao.json, chargé au clic : sa réserve couvre les RESERVE_HEURES qui suivent
+ * la construction, puis quelques-unes au-delà. Les totaux ne se recalculent
+ * pas sans toutes les lignes : ils sont datés de la construction.
  */
 
 export interface AppelsOffresProps {
@@ -174,14 +178,21 @@ export function AppelsOffres({ familles, vueToutes, aoEnCours, construitLe }: Ap
   const famille =
     surcharge ?? (familles.some((f) => f.famille === fUrl) ? fUrl : "");
   const chargement = famille !== "" && fragment === null && !indisponible;
+  // Le HTML porte moins de lignes que d'AO ouverts, et l'une est passée.
   const toutesACompleter =
     famille === "" &&
     vueToutes.lignes.length < vueToutes.total &&
     echeancesOuvertes(vueToutes.lignes, (a) => a.date_limite_reponse, maintenant, AO_AFFICHEES)
       .length < AO_AFFICHEES;
+  const tranche = useTrancheEcheances<AoEnCours>(
+    "/data/marches/ao-toutes",
+    construitLe,
+    maintenant,
+    toutesACompleter,
+  );
 
   useEffect(() => {
-    if ((famille === "" && !toutesACompleter) || fragment !== null) return;
+    if (famille === "" || fragment !== null) return;
     let monte = true;
     chargerAo().then((ao) => {
       if (!monte) return;
@@ -191,15 +202,19 @@ export function AppelsOffres({ familles, vueToutes, aoEnCours, construitLe }: Ap
     return () => {
       monte = false;
     };
-  }, [famille, fragment, toutesACompleter]);
+  }, [famille, fragment]);
 
   const choisir = (code: string) => {
     setSurcharge(code);
     majParamsUrl({ famille: code || null });
   };
 
-  const vue: VueAoFamille = fragment?.vues[famille] ?? vueToutes;
-  const familleAffichee = famille !== "" && fragment?.vues[famille] ? famille : "";
+  const vueFamille = famille !== "" ? fragment?.vues[famille] : undefined;
+  const familleAffichee = vueFamille ? famille : "";
+  const vue: VueAoFamille = vueFamille ?? {
+    ...vueToutes,
+    lignes: tranche.lignes ?? vueToutes.lignes,
+  };
   const libelleFamille = familles.find((f) => f.famille === familleAffichee)?.famille_libelle;
   const pctSansMontant = vue.total > 0 ? (100 * vue.sansMontant) / vue.total : null;
   const lignes = echeancesOuvertes(

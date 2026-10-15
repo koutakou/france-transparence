@@ -1502,7 +1502,7 @@ export default async function PageMarches() {
             />
           </VueTableau>
 
-          {/* filtre par famille — côté client, fragments /data/marches/ao.json */}
+          {/* filtre par famille — côté client : familles dans /data/marches/ao.json (au clic), échéances « Toutes » dans /data/marches/ao-toutes/<heure>.json */}
           <AppelsOffres
             familles={familles}
             vueToutes={{
