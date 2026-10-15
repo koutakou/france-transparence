@@ -6,6 +6,14 @@ verse leurs mandats sur celle-ci (fonction `_rattraper`, garde-fous dans sa
 docstring). Le site cesse alors de publier `/elus/<id-retiré>/`. Ce document dit
 comment cette URL continue de mener quelque part.
 
+Depuis le 15/10/2026, la table a une seconde origine. Les fiches de députés
+sont énumérées par la table `deputes` (AMO10 du jour), comme celles des
+sénateurs par `senateurs` : l'ancienne fiche `PA*` d'un député devenu
+sénateur cesse d'être engendrée. Elle redirige vers la fiche `SEN-*` de la même
+personne. L'identité est vérifiée par nom, prénom et date de naissance, jamais
+par le seul nom. Une fiche qui disparaît sans fiche pour la même personne n'a
+pas de ligne : elle rend un 404 franc (voir l'en-tête de la table).
+
 ## La règle n'est pas dans le dépôt, et c'est assumé
 
 La redirection est servie par nginx, depuis
