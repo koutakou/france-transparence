@@ -1334,7 +1334,15 @@ def dossier_corrobore_fiche(dossier: dict, mandats: list[dict],
     Solidaires »…). Le rapprochement par nom ferait perdre de vrais liens :
     il n'est pas appliqué. Le quinzième (rne-21dc0877411d1a6f : RNE
     « Cc De L'Ouest Guyanais », HATVP « Territoire de la Côte Ouest », à La
-    Réunion) est douteux et reste à relire.
+    Réunion) a été relu le 15/10/2026 : ce n'est pas un homonyme. Le RNE ne
+    connaît qu'un Jonathan ABIENSO (maire de Maripasoula, 1er vice-président
+    de la CC de l'Ouest Guyanais), et la CA du TCO y compte quinze
+    vice-présidents, exactement les quinze que la page HATVP liste à côté de
+    lui : aucun siège du TCO ne lui revient. C'est l'organe que la HATVP
+    écrit qui paraît erroné (à signaler au producteur), pas la personne ; le
+    lien est conservé. Une vérification du département de l'EPCI ne
+    l'aurait pas tranché : la HATVP n'en publie pas pour ce dossier, et le
+    déduire du nom de l'organe est le rapprochement par nom écarté ci-dessus.
 
     Le département d'un mandat AN-P9 ou SENAT-P9 est un NOM (« Rhône ») :
     c'est son `code_departement`, écrit par P9 depuis la source officielle de
