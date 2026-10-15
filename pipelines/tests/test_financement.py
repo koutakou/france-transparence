@@ -681,12 +681,14 @@ def test_ingestion_reelle_complete(tmp_path, monkeypatch):
 
 
 def test_code_departement_ramene_au_cog():
-    """Les trois familles d'écart constatées, et rien d'autre."""
+    """Les deux familles d'écart constatées, ZX non traduit, et rien d'autre."""
     assert fin.normaliser_code_departement("1") == "01"     # zéro initial perdu
     assert fin.normaliser_code_departement("9") == "09"
     assert fin.normaliser_code_departement("20A") == "2A"   # Corse-du-Sud
     assert fin.normaliser_code_departement("20B") == "2B"   # Haute-Corse
-    assert fin.normaliser_code_departement("ZX") == "977"   # Saint-Barthélemy
+    # ZX = « Saint-Barthélémy et Saint-Martin – Circonscription unique » :
+    # DEUX collectivités (977 et 978), aucun code COG unique ne la désigne.
+    assert fin.normaliser_code_departement("ZX") is None
     # Codes déjà conformes : rendus tels quels.
     for code in ("01", "54", "2A", "971", "976", "988"):
         assert fin.normaliser_code_departement(code) == code
