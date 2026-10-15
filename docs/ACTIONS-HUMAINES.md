@@ -1,6 +1,6 @@
 # ACTIONS HUMAINES — ce qui exige physiquement Mickael
 
-État au 20/08/2026. Les deux actions les plus attendues (domaine, e-mail de contact) sont **faites** : le site vit sur https://francetransparence.fr, servi par nginx depuis un serveur dédié, et les pages légales portent une adresse de contact dédiée. Ce fichier ne garde que ce qui reste ouvert.
+État au 20/08/2026, relu le 15/10/2026 (sections 1 et 2 mises à jour ce jour). Les deux actions les plus attendues (domaine, e-mail de contact) sont **faites** : le site vit sur https://francetransparence.fr, servi par nginx depuis un serveur dédié, et les pages légales portent une adresse de contact dédiée. Ce fichier ne garde que ce qui reste ouvert.
 
 ## Ce qui n'est plus à faire
 
@@ -21,9 +21,9 @@ Le site n'est plus sur GitHub Pages : la question de la bande passante Pages (~1
 
 ## Ce qui reste ouvert
 
-### 1. VPS OVH `51.83.96.83` : à vérifier au manager (peut-être de l'argent dépensé pour rien)
+### 1. VPS OVH de l'ancien `koutakou.fr` : à vérifier au manager (peut-être de l'argent dépensé pour rien)
 
-`~/.ssh/config` de la machine de travail référence un VPS OVH `51.83.96.83:24533` (ancien `koutakou.fr`, reverse `ns3147856.ip-51-83-96.eu`). Au **19/08/2026** : ping OK, mais tous ports fermés (24533, 22, 80, 443) — serveur pare-feuté, réinstallé ou réattribué. **Non re-vérifié depuis.** À vérifier sur https://www.ovh.com/manager/ : s'il est encore facturé sans servir, le résilier. Il n'a plus de rôle à jouer dans l'architecture : le site a son serveur.
+`~/.ssh/config` de la machine de travail référence un VPS OVH (hôte `koutakou.fr` ; adresse et port y figurent, ils ne sont pas recopiés dans ce dépôt public). Au **19/08/2026** : ping OK, mais tous ports fermés — serveur pare-feuté, réinstallé ou réattribué. **Toujours non vérifié au 15/10/2026**, près de deux mois plus tard. À vérifier sur https://www.ovh.com/manager/ : s'il est encore facturé sans servir, le résilier. Il n'a plus de rôle à jouer dans l'architecture : le site a son serveur.
 
 ### 2. Renouvellements à surveiller
 
@@ -33,3 +33,5 @@ Deux échéances peuvent éteindre le site sans prévenir, et aucune ne se règl
 - l'**abonnement au serveur dédié** (facturation Scaleway).
 
 Le certificat TLS, lui, se renouvelle automatiquement. Poser un rappel calendaire sur ces deux échéances coûte cinq minutes et évite la panne la plus bête possible.
+
+Une troisième échéance n'éteint pas le site mais sa seule sentinelle indépendante : **GitHub désactive les workflows planifiés d'un dépôt public après 60 jours sans activité**. Faute de commit sur `main`, la validation CI quotidienne (`publication.yml`) cesserait de tourner, sans qu'aucune issue ne s'ouvre — un run qui n'a pas lieu n'échoue pas. Toute fusion sur `main` repousse l'échéance. Si GitHub l'a déjà désactivée : `gh workflow enable publication.yml --repo koutakou/france-transparence`, ou le bouton « Enable workflow » de l'onglet Actions.
