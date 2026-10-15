@@ -207,7 +207,7 @@ function SectionCroisement({
   const sansSiren = couverture.entites - couverture.entitesSiren;
   const partMontant = part(ag.montantHorsAc, ensemble.montantHorsAc);
   const partMarches = part(ag.marchesHorsAc, ensemble.marchesHorsAc);
-  const partTitulaires = part(ag.sirensHorsAc, ensemble.sirensTitulaires);
+  const partTitulaires = part(ag.sirensHorsAc, ensemble.sirensTitulairesHorsAc);
   const partEcretee = part(ag.montantEcretesHorsAc, ag.montantHorsAc);
   const partSuspecte = part(ag.montantSuspectsHorsAc, ag.montantHorsAc);
 
@@ -328,8 +328,9 @@ function SectionCroisement({
             Lecture : {formatNombre(ag.sirensHorsAc)} SIREN inscrits au
             répertoire — soit{" "}
             {partTitulaires !== null ? formatPct(partTitulaires, 2) : "—"} des{" "}
-            {formatNombre(ensemble.sirensTitulaires)} SIREN titulaires
-            d&apos;au moins un marché dans les DECP — sont titulaires de{" "}
+            {formatNombre(ensemble.sirensTitulairesHorsAc)} SIREN titulaires
+            d&apos;au moins un marché hors accords-cadres dans les DECP — sont
+            titulaires de{" "}
             {partMarches !== null ? formatPct(partMarches) : "—"} des marchés
             notifiés hors accords-cadres, pour{" "}
             {partMontant !== null ? formatPct(partMontant) : "—"} du montant

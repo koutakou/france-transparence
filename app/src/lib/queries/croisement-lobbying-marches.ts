@@ -136,8 +136,14 @@ export type EnsembleDecp = {
   marchesHorsAc: number;
   /** Montant écrêté correspondant (même convention de ventilation). */
   montantHorsAc: number | null;
-  /** SIREN distincts titulaires d'au moins un marché, toutes techniques. */
-  sirensTitulaires: number;
+  /**
+   * SIREN distincts titulaires d'au moins un marché HORS accords-cadres —
+   * même périmètre et même clé que le numérateur `sirensHorsAc` : les 9
+   * premiers caractères du SIRET de chaque titulaire, quand ce sont 9
+   * chiffres (un préfixe qui n'en est pas ne peut égaler aucun SIREN du
+   * répertoire, il n'a rien à faire au dénominateur).
+   */
+  sirensTitulairesHorsAc: number;
 };
 
 /** Un représentant d'intérêts titulaire, avec ses deux facettes. */
@@ -266,13 +272,18 @@ export function getCroisementLobbyingMarches(): CroisementLobbyingMarches | null
     )
     .get() as { marchesHorsAc: number; montantHorsAc: number | null };
 
+  // Le numérateur (`sirensHorsAc`) ne compte que des marchés hors
+  // accords-cadres : le dénominateur ne peut pas en compter d'autres. Il
+  // portait sur toutes les techniques et tout préfixe d'identifiant, et
+  // rapportait 435 SIREN à un ensemble plus large que le leur.
   const ensembleSirens = db
     .prepare(
-      `SELECT COUNT(DISTINCT substr(json_extract(v.value,'$.siret'), 1, 9)) AS sirensTitulaires
-       FROM decp_marches m
-       CROSS JOIN json_each(m.titulaires_json) v`,
+      `SELECT COUNT(DISTINCT siren9) AS sirensTitulairesHorsAc
+       FROM (${SQL_LIGNES_TITULAIRES})
+       WHERE ac = 0
+         AND siren9 GLOB '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'`,
     )
-    .get() as { sirensTitulaires: number };
+    .get() as { sirensTitulairesHorsAc: number };
 
   // 3. Agrégats du croisement, une seule passe. COUNT(DISTINCT uid) et non
   //    COUNT(*) : un marché dont DEUX co-titulaires sont au répertoire
@@ -364,7 +375,7 @@ export function getCroisementLobbyingMarches(): CroisementLobbyingMarches | null
     ensemble: {
       marchesHorsAc: ensembleMarches.marchesHorsAc,
       montantHorsAc: ensembleMarches.montantHorsAc,
-      sirensTitulaires: ensembleSirens.sirensTitulaires,
+      sirensTitulairesHorsAc: ensembleSirens.sirensTitulairesHorsAc,
     },
     titulaires,
   };
