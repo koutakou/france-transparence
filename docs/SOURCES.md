@@ -140,7 +140,10 @@
 > en porte 348. Le taux de participation Sénat ne dépend d'aucune date : son
 > dénominateur est la liste `votsen` de chaque scrutin (une ligne par
 > sénateur en exercice). Pas de nouvelle ligne `meta_sources` : même
-> producteur, même module, mêmes tables.
+> producteur, même module, mêmes tables. Le même jour, les mandats des
+> parlementaires sortis cessent d'être servis « en cours » : P9 les date de
+> la fin publiée par la chambre (`elusen` pour le Sénat, **AMO20** pour
+> l'AN), sans jamais inventer de date ni retirer d'entrée.
 >
 > **Document daté.** Les fraîcheurs et volumétries amont relevées ici l'ont été par appels réels le
 > 19/08/2026 (et le 20/08 pour S38 et S40, le 22/08 soir ~22:30 CEST pour S43, le 23/08 pour S44, S22 et S45) : elles décrivent ces jours-là et **ont dérivé depuis**.
@@ -207,6 +210,7 @@ Contexte 2026 à garder en tête : LFI 2026 promulguée tardivement le 19/02/202
   - **Questions** écrites (45,8 Mo) / au gouvernement (5,4 Mo) : `…/repository/17/questions/…` (ministère interrogé + réponse → délais par ministère).
   - Amendements (`…/loi/amendements_div_legis/Amendements.json.zip`, **296,7 Mo**) et Agenda/réunions (7,8 Mo) : quotidiens mais **avec effort** (volumétrie ; reconstruction de la présence en commission).
 - **Licence** : Licence Ouverte. **Pièges** : champs objet→liste selon cardinalité ; jointures par `acteurRef`/`organeRef` ; paramètre `legislature=17` jamais en dur (03).
+- **Lu aussi, depuis le 15/10/2026** : **AMO20** (`…/repository/17/amo/deputes_senateurs_ministres_legislature/AMO20_dep_sen_min_tous_mandats_et_organes.json.zip`, 2,6 Mo, quotidien), pour la seule date de fin (`dateFin`) des mandats de député sortis d'AMO10 ; rien d'autre n'en est écrit en base.
 - **Modules** : Élus & Institutions (fiches, votes, cumuls, déports), Alertes (lien HATVP).
 
 #### S6. Open data Sénat (data.senat.fr) — CSV quotidiens + dumps PostgreSQL

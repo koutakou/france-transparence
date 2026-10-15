@@ -750,10 +750,11 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
                   {m.legislature !== undefined && (
                     <span className="text-xs text-ink-muted">{m.legislature}ᵉ législature</span>
                   )}
-                  {debut && (
+                  {(debut || m.date_fin) && (
                     <span className="text-xs text-ink-muted">
-                      depuis le {formatDateFr(debut)}
-                      {m.date_fin ? ` — fin le ${formatDateFr(m.date_fin)}` : ""}
+                      {debut ? `depuis le ${formatDateFr(debut)}` : ""}
+                      {debut && m.date_fin ? " — " : ""}
+                      {m.date_fin ? `fin le ${formatDateFr(m.date_fin)}` : ""}
                     </span>
                   )}
                   <span className="ml-auto rounded-full border border-card-border px-1.5 py-0.5 text-[10px] uppercase tracking-[0.08em] text-ink-muted">

@@ -9,7 +9,9 @@ Fixtures 100 % réelles (extraites des dumps du 19/08/2026, < 50 Ko chacune) :
 - dosleg_extrait.sql : COPY PostgreSQL `scr` + `votsen` au gabarit du dump
   Dosleg du 25/08/2026 (UTF-8, pas ISO-8859-1).
 - export_sens_elusen_extrait.sql : lignes réelles de la table `elusen` du
-  dump export_sens du 15/10/2026 (mandats sénatoriaux, UTF-8).
+  dump export_sens du 15/10/2026 (mandats sénatoriaux, UTF-8) ;
+- amo20_extrait.json : trois acteurs réels d'AMO20 du 15/10/2026, réduits à
+  leur uid et à leurs mandats ASSEMBLEE (champs copiés tels quels).
 
 Le calcul du taux de participation est éprouvé sur un cas construit (c'est un
 test de logique, pas une donnée affichée).
@@ -674,20 +676,23 @@ def _zip_export_sens(tmp_path, sql: bytes | None = None) -> Path:
     return chemin
 
 
-def test_lire_debuts_mandat_senat_extrait_reel():
+def test_lire_mandats_senat_extrait_reel():
     """Lignes réelles du dump du 15/10/2026 : ODSEN_ELUSEN ne publiait aucune
     de ces dates de mandat en cours ; `elusen` les porte toutes."""
     with open(FIXTURES / "export_sens_elusen_extrait.sql", "rb") as fp:
-        debuts, lues, ambigus = p9.lire_debuts_mandat_senat(fp)
+        debuts, fins, lues, ambigus = p9.lire_mandats_senat(fp)
     assert debuts == {
         "21071F": "2023-10-02",
         "20032T": "2026-10-01",   # réélu : le mandat clos le 30/09 est ignoré
         "21686H": "2026-10-01",   # entrant du renouvellement
     }                             # 14133K (sortant), 83008P (ancien) : rien
+    # Fin du mandat le plus récent, pour les seuls matricules sans mandat en
+    # cours (20032T, réélu, n'y est pas).
+    assert fins == {"14133K": "2026-09-30", "83008P": "2001-03-02"}
     assert (lues, ambigus) == (8, 0)
 
 
-def test_lire_debuts_mandat_senat_ne_tranche_pas_deux_mandats_en_cours():
+def test_lire_mandats_senat_ne_tranche_pas_deux_mandats_en_cours():
     """Contre-épreuve construite : la ligne réelle de 21686H dupliquée avec
     une autre date. Deux mandats en cours pour un matricule = rien de deviné."""
     sql = (FIXTURES / "export_sens_elusen_extrait.sql").read_bytes()
@@ -695,14 +700,14 @@ def test_lire_debuts_mandat_senat_ne_tranche_pas_deux_mandats_en_cours():
     double = ligne.replace(b"55064\t", b"99999\t").replace(
         b"2026-10-01 00:00:00", b"2026-10-02 00:00:00", 1)
     sql = sql.replace(ligne, ligne + b"\n" + double)
-    debuts, _lues, ambigus = p9.lire_debuts_mandat_senat(io.BytesIO(sql))
+    debuts, _fins, _lues, ambigus = p9.lire_mandats_senat(io.BytesIO(sql))
     assert "21686H" not in debuts and ambigus == 1
     assert debuts["21071F"] == "2023-10-02"
 
 
-def test_lire_debuts_mandat_senat_leve_sans_table_elusen():
+def test_lire_mandats_senat_leve_sans_table_elusen():
     with pytest.raises(RuntimeError, match="elusen absente"):
-        p9.lire_debuts_mandat_senat(io.BytesIO(b"COPY sen (senmat) FROM stdin;\n\\.\n"))
+        p9.lire_mandats_senat(io.BytesIO(b"COPY sen (senmat) FROM stdin;\n\\.\n"))
 
 
 def test_ingerer_senat_ecrit_la_date_de_debut_du_mandat_en_cours(tmp_path,
@@ -1236,4 +1241,124 @@ def test_ingerer_dosleg_ne_laisse_aucun_controle_reparable_en_base(tmp_path,
         if attribues & set(t)
     ]
     assert restants == []
+    conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Mandats des sortants : datés de la fin publiée par la chambre, jamais
+# laissés « en cours » (constat d'audit du 15/10/2026), jamais inventés.
+# ---------------------------------------------------------------------------
+
+
+def _odsen_allizard_ancien() -> bytes:
+    """ODSEN_GENERAL de la fixture, 14133K passé ANCIEN — son état réel au
+    15/10/2026 (non réélu le 27/09, mandat clos le 30/09 selon `elusen`)."""
+    octets = (FIXTURES / "odsen_extrait.csv").read_bytes()
+    avant = b"14133K,M.,Allizard,Pascal,ACTIF,"
+    assert avant in octets, "prémisse : ligne 14133K absente de la fixture"
+    return octets.replace(avant, b"14133K,M.,Allizard,Pascal,ANCIEN,")
+
+
+def _mandats_senat(conn, matricule):
+    brut = conn.execute("SELECT mandats FROM elus WHERE matricule_senat = ?",
+                        (matricule,)).fetchone()[0]
+    return [m for m in json.loads(brut) if m.get("source") == "SENAT-P9"]
+
+
+def test_ingerer_senat_clot_le_mandat_d_un_sortant(tmp_path, monkeypatch):
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    _senat_jetable(tmp_path, monkeypatch)            # 19/08 : 14133K ACTIF
+    p9.ingerer_senat(conn, session=None)
+    assert [m["date_fin"] for m in _mandats_senat(conn, "14133K")] == [None]
+
+    (tmp_path / "ODSEN_GENERAL.csv").write_bytes(_odsen_allizard_ancien())
+    p9.ingerer_senat(conn, session=None)             # 15/10 : ANCIEN
+    assert [m["date_fin"] for m in _mandats_senat(conn, "14133K")] == [
+        "2026-09-30"]                                # l'ancien code : [None]
+    assert conn.execute("SELECT count(*) FROM senateurs"
+                        " WHERE matricule = '14133K'").fetchone()[0] == 0
+    # Le sénateur toujours en exercice n'est pas touché.
+    assert [m["date_fin"] for m in _mandats_senat(conn, "21071F")] == [None]
+    # Rejouable : un troisième passage ne change rien.
+    p9.ingerer_senat(conn, session=None)
+    assert [m["date_fin"] for m in _mandats_senat(conn, "14133K")] == [
+        "2026-09-30"]
+    conn.close()
+
+
+def test_ingerer_senat_n_invente_pas_de_date_de_fin(tmp_path, monkeypatch,
+                                                    caplog):
+    """Contre-épreuve : `elusen` sans les lignes de 14133K. Le mandat reste
+    sans date de fin — ni la date du jour, ni rien d'autre —, et la fiche
+    est NOMMÉE au journal."""
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    _senat_jetable(tmp_path, monkeypatch)
+    p9.ingerer_senat(conn, session=None)
+    sql = (FIXTURES / "export_sens_elusen_extrait.sql").read_bytes()
+    sql = b"\n".join(l for l in sql.split(b"\n") if b"\t14133K\t" not in l)
+    _zip_export_sens(tmp_path, sql)
+    (tmp_path / "ODSEN_GENERAL.csv").write_bytes(_odsen_allizard_ancien())
+    caplog.clear()
+    with caplog.at_level("INFO"):
+        p9.ingerer_senat(conn, session=None)
+    assert [m["date_fin"] for m in _mandats_senat(conn, "14133K")] == [None]
+    bilan = [m for m in caplog.messages if "SENAT-P9 de sortants" in m]
+    assert bilan and "0 mandat(s)" in bilan[-1] and "SEN-14133K" in bilan[-1]
+    conn.close()
+
+
+def _zip_amo20(tmp_path) -> Path:
+    donnees = json.loads((FIXTURES / "amo20_extrait.json").read_text("utf-8"))
+    chemin = tmp_path / "amo20.zip"
+    with zipfile.ZipFile(chemin, "w") as z:
+        for a in donnees["acteurs"]:
+            uid = a["acteur"]["uid"]["#text"]
+            z.writestr(f"json/acteur/{uid}.json", json.dumps(a))
+    return chemin
+
+
+def test_lire_fins_mandat_an_extrait_reel(tmp_path):
+    fins = p9.lire_fins_mandat_an(_zip_amo20(tmp_path), legislature=17)
+    # PA841605 en exercice, PA718674 revenu (mandat ouvert) : absents.
+    assert fins == {"PA841539": "2026-04-19"}
+
+
+def test_clore_mandats_an_date_le_sortant_et_laisse_les_autres(tmp_path,
+                                                             monkeypatch):
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    mandat = {"type": "depute", "legislature": 17, "date_debut": "2024-07-07",
+              "date_fin": None, "source": "AN-P9"}
+    rne = {"type": "depute", "source": "RNE", "departement": "75"}
+    for uid in ("PA841539", "PA841605", "PA999999"):
+        conn.execute("INSERT INTO elus (id, nom, uid_an, mandats)"
+                     " VALUES (?, 'X', ?, ?)",
+                     (uid, uid, json.dumps([mandat, rne])))
+    conn.commit()
+    zip_path = _zip_amo20(tmp_path)
+    monkeypatch.setattr(p9, "telecharger", lambda *a, **k: zip_path)
+    # PA841605 dans AMO10 du jour ; PA841539 et PA999999 sortis, seul le
+    # premier a une date de fin publiée.
+    p9.clore_mandats_an(conn, None, {"PA841605"})
+    def fins(uid):
+        brut = conn.execute("SELECT mandats FROM elus WHERE id = ?",
+                            (uid,)).fetchone()[0]
+        return [(m["source"], m.get("date_fin")) for m in json.loads(brut)]
+    assert fins("PA841539") == [("AN-P9", "2026-04-19"), ("RNE", None)]
+    assert fins("PA841605") == [("AN-P9", None), ("RNE", None)]
+    assert fins("PA999999") == [("AN-P9", None), ("RNE", None)]
+    conn.close()
+
+
+def test_clore_mandats_an_ne_leve_pas_si_amo20_est_illisible(tmp_path,
+                                                            monkeypatch,
+                                                            caplog):
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    faux = tmp_path / "amo20.zip"
+    faux.write_bytes(b"pas un zip")
+    monkeypatch.setattr(p9, "telecharger", lambda *a, **k: faux)
+    with caplog.at_level("ERROR"):
+        p9.clore_mandats_an(conn, None, set())       # ne lève pas
+    assert any("AMO20 illisible" in m for m in caplog.messages)
     conn.close()
