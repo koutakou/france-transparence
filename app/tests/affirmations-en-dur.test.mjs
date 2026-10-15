@@ -37,6 +37,26 @@ const INTERDITS = [
     /des activités rattachées à un destinataire/,
     "le dénominateur additionne des mentions de destinataire, pas des activités",
   ],
+  [
+    "app/financement/page.tsx",
+    /formatNombre\(kpi\.depots2024\)\} partis ont\s+déclaré avoir perçu/,
+    "les partis qui déclarent une aide sont nb_partis_aides, pas tous les dépôts",
+  ],
+  [
+    "app/financement/page.tsx",
+    /ordre de grandeur des enveloppes|aucune hausse de l&apos;enveloppe/,
+    "aucune comparaison à une enveloppe absente de la base",
+  ],
+  [
+    "app/financement/page.tsx",
+    /les déclarations dépassent l&apos;enveloppe/,
+    "le verbe suit le signe de l'écart calculé",
+  ],
+  [
+    "app/financement/page.tsx",
+    /aucun compte de campagne n’est publié à ce jour/,
+    "pas d'affirmation d'inexistence sur l'amont",
+  ],
 ];
 
 for (const [fichier, motif, pourquoi] of INTERDITS) {
