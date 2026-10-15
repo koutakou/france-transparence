@@ -11,6 +11,15 @@ Code : `app/src/lib/queries/croisement-lobbying-marches.ts`. Affichage : `/lobby
 > les pièges de plan de requête — est l'objet réel de ce document. Les valeurs du jour sont celles
 > qu'affiche `/lobbying` et qu'exporte `/api/lobbying-marches.json`.
 
+> **Rectification du 15/10/2026 (§ 5, « Mise en perspective »).** Le dénominateur « SIREN
+> titulaires d'au moins un marché » comptait les marchés de TOUTES techniques, accords-cadres
+> compris, et tout préfixe de 9 caractères, chiffres ou non, alors que le numérateur (435 SIREN)
+> ne porte que sur les marchés hors accords-cadres. La part « 0,46 % des titulaires » rapportait
+> donc un sous-ensemble à un ensemble plus large que le sien. Le dénominateur est désormais
+> `ensemble_decp.sirensTitulairesHorsAc` : SIREN distincts titulaires d'au moins un marché hors
+> accords-cadres, préfixe de 9 chiffres. La valeur du 20/08/2026 n'est pas recalculée ici (la base
+> de ce jour n'est plus disponible) ; le texte du § 5 est laissé tel qu'il a été écrit.
+
 ## 1. Ce que le croisement dit — et ne dit pas
 
 Être inscrit au répertoire des représentants d'intérêts **et** être titulaire d'un marché public sont deux situations **légales, distinctes et courantes**. L'inscription au répertoire est une obligation de transparence (loi « Sapin II ») ; l'attribution d'un marché résulte d'une procédure d'achat encadrée. Le cumul n'est ni interdit, ni irrégulier, ni suspect en soi, et une entreprise, une association ou une chambre consulaire peut avoir des raisons parfaitement légitimes de figurer au répertoire.
