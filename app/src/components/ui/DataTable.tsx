@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ZoneDefilante } from "@/components/client/ZoneDefilante";
 import { formatDateFr, formatEuros, formatNombre, formatPct } from "@/lib/format";
 
 /**
@@ -56,6 +57,11 @@ export interface DataTableProps<T extends object> {
   vide?: string;
   /** Si donné : conteneur scrollable (`max-height`) + en-tête sticky. */
   hauteurMax?: string;
+  /**
+   * Nom de la zone quand le tableau déborde et devient défilable au clavier
+   * (défaut : « Tableau : » + les trois premiers en-têtes).
+   */
+  libelle?: string;
   className?: string;
 }
 
@@ -88,6 +94,7 @@ export function DataTable<T extends object>({
   cleLigne,
   vide = "Aucune donnée",
   hauteurMax,
+  libelle,
   className,
 }: DataTableProps<T>) {
   // Filet horizontal 1px `--viz-grid` (jamais de filets verticaux, §7) et
@@ -97,8 +104,16 @@ export function DataTable<T extends object>({
   // Pas de sticky first-child : sur /marches et /lobbying la 1re colonne
   // est le rang (3,5 rem), pas le nom — coller le rang au scroll cacherait
   // l'identité. Un sticky se pose sur la colonne d'identité, pas sur l'index.
+  const nomZone =
+    libelle ??
+    `Tableau : ${colonnes
+      .slice(0, 3)
+      .map((c) => c.entete)
+      .filter(Boolean)
+      .join(", ")}${colonnes.length > 3 ? "…" : ""}`;
   return (
-    <div
+    <ZoneDefilante
+      libelle={nomZone}
       // `relative` : le scroller devient containing block des descendants en
       // position absolue (ex. <span class="sr-only">) — sinon leur position
       // statique dans une table large s'ancre sur le document et crée un
@@ -153,6 +168,6 @@ export function DataTable<T extends object>({
           )}
         </tbody>
       </table>
-    </div>
+    </ZoneDefilante>
   );
 }

@@ -375,7 +375,12 @@ export default async function PageElus() {
         sousTitre="Les 10 derniers scrutins publics présents en base — résultat officiel pour/contre."
         droite={<Badge source={sources["S5-SCRUTINS"]} />}
       >
-        <DataTable colonnes={colonnesScrutins} lignes={scrutins} cleLigne={(l) => l.uid} />
+        <DataTable
+          colonnes={colonnesScrutins}
+          lignes={scrutins}
+          cleLigne={(l) => l.uid}
+          libelle="Scrutins récents à l’Assemblée nationale"
+        />
       </Card>
 
       <Card
@@ -391,6 +396,7 @@ export default async function PageElus() {
           colonnes={colonnesScrutins}
           lignes={scrutinsSenat}
           cleLigne={(l) => l.uid}
+          libelle="Scrutins récents au Sénat"
         />
       </Card>
 

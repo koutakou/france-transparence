@@ -1,3 +1,4 @@
+import { ZoneDefilante } from "@/components/client/ZoneDefilante";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
@@ -728,12 +729,17 @@ export default async function PageDonnees() {
             (SQLite) — l’application ne fait aucun appel externe au runtime,
             elle ne lit que cette base.
           </p>
-          <pre className="overflow-x-auto rounded-lg bg-raised p-3 text-xs leading-relaxed text-ink">
+          <ZoneDefilante
+            libelle="Commandes pour reconstruire le site"
+            className="overflow-x-auto rounded-lg bg-raised p-3"
+          >
+          <pre className="text-xs leading-relaxed text-ink">
             {`make ingest          # ingère tous les pipelines → data/france.db
 make ingest-jorf     # ré-ingère une seule source (ex. Journal officiel)
 make test            # tests des pipelines
 make dev             # lance l'application (port 3620)`}
           </pre>
+          </ZoneDefilante>
           <p className="text-xs text-ink-muted">
             Mode d’emploi et catalogue complets dans le dépôt&nbsp;:{" "}
             <code className="rounded bg-raised px-1 py-0.5 text-[11px]">Makefile</code>{" "}

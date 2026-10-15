@@ -1,3 +1,4 @@
+import { ZoneDefilante } from "@/components/client/ZoneDefilante";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BarList } from "@/components/ui/BarList";
@@ -291,7 +292,7 @@ export default async function DocumentsPage() {
           titre="Parutions par jour"
           sousTitre="Textes par JO paru — le JO ne paraît pas tous les jours : les jours sans parution comptent 0"
         >
-          <div className="overflow-x-auto">
+          <ZoneDefilante libelle="Graphique : parutions par jour" className="overflow-x-auto">
             <Sparkline
               valeurs={serie.map((s) => s.nb)}
               largeur={520}
@@ -300,7 +301,7 @@ export default async function DocumentsPage() {
                 kpis.premierJo,
               )} au ${formatDateFr(kpis.dernierJo)}`}
             />
-          </div>
+          </ZoneDefilante>
           <p className="mt-2 text-[11px] leading-relaxed text-ink-muted">
             Du {formatDateFr(kpis.premierJo)} au {formatDateFr(kpis.dernierJo)} · pic&nbsp;:{" "}
             {formatNombre(pic.nb)} textes le {formatDateFr(pic.date_publi)} ·{" "}
