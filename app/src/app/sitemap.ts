@@ -38,6 +38,7 @@ const PAGES_DONNEES = [
   "recettes",
   "marches",
   "elus",
+  "elus/annuaire",
   "collectivites",
   "lobbying",
   "financement",
