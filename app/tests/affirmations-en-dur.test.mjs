@@ -62,6 +62,11 @@ const INTERDITS = [
     /n’a été publiée|première\s+ingestion qui la trouve/,
     "« en attente » dit ce qui a été ingéré, pas ce que l'amont a publié",
   ],
+  [
+    "app/elus/page.tsx",
+    /\d+,\d+\s*%\s+de la présidente/,
+    "le taux de la présidence se recalcule chaque jour : pas de valeur en dur",
+  ],
 ];
 
 for (const [fichier, motif, pourquoi] of INTERDITS) {
