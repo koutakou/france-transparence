@@ -221,9 +221,9 @@ export default async function PageElus() {
           <div className="mt-3 flex flex-col gap-1 text-[11px] leading-relaxed text-ink-muted">
             <p>
               ¹ Calcul France Transparence : votes exprimés / scrutins publics de l’AN des 365
-              derniers jours depuis l’entrée en mandat (source AN, scrutins nominaux). Le 0,63 %
-              de la présidente de l’Assemblée est normal : elle préside et ne prend pas part aux
-              votes.
+              derniers jours depuis l’entrée en mandat (source AN, scrutins nominaux). Un taux
+              proche de 0 % à la présidence de l’Assemblée est normal : qui préside ne prend pas
+              part aux votes.
             </p>
             <p>
               ² Score de participation publié par{" "}
