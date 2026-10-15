@@ -119,6 +119,59 @@ def test_controler_ampleur_refuse_fixture_hors_bornes(brutes, assemble):
         controler_ampleur(brutes, decisions, lignes)
 
 
+
+def _copie_avec(tmp_path: Path, source: Path, ligne: str) -> Path:
+    """Copie d'un CSV de fixture, une ligne ajoutée en fin."""
+    copie = tmp_path / source.name
+    copie.write_text(source.read_text(encoding="utf-8") + ligne + "\n",
+                     encoding="utf-8")
+    return copie
+
+
+def test_doublon_divergent_sur_un_id_sanctionne_echoue(tmp_path, brutes):
+    """Un id SANCTIONNÉ présent deux fois dans les métadonnées avec une autre
+    date (ou un autre titre, une autre URL) échoue : garder la première
+    occurrence publierait l'une des deux fiches au hasard de l'ordre du dump.
+    L'ancienne docstring promettait cet échec « plus bas » ; aucun code ne le
+    faisait (l'id gardait sa première fiche en silence)."""
+    meta = extraire_meta(_copie_avec(
+        tmp_path, FIXTURES / "metadata.csv",
+        "99-D-01,relative à autre chose,2021,2021-01-15,['Industrie'],"
+        "\"['Alpha SA']\",https://www.autoritedelaconcurrence.fr/fr/decision/"
+        "99-d-01-bis,150"))
+    with pytest.raises(ValueError, match="99-D-01 : métadonnées en double"):
+        assembler(brutes, meta)
+
+
+def test_doublon_hors_sanctions_et_doublon_identique_tolere(tmp_path, brutes):
+    """Les 5 id dupliqués du dump du 25/08 sont des DCC/A hors sanctions :
+    un doublon divergent hors sanctions ne bloque rien, et un doublon
+    strictement identique d'un id sanctionné non plus."""
+    meta_csv = FIXTURES / "metadata.csv"
+    lignes = meta_csv.read_text(encoding="utf-8").splitlines()
+    identique = next(l for l in lignes if l.startswith("99-D-01,"))
+    dcc_divergente = (
+        "26-DCC-147,relative à une autre concentration,2026,2026-07-14,"
+        "['Services'],\"['Wojo']\",https://www.autoritedelaconcurrence.fr/fr/"
+        "decision/26-dcc-147,")
+    copie = tmp_path / "metadata.csv"
+    copie.write_text("\n".join(lignes + [identique, dcc_divergente]) + "\n",
+                     encoding="utf-8")
+    decisions, _ = assembler(brutes, extraire_meta(copie))
+    par_id = {d["id_decision"]: d for d in decisions}
+    assert par_id["99-D-01"]["date_decision"] == "2020-06-01"
+
+
+def test_annee_instable_sur_une_decision_echoue(tmp_path, meta):
+    """Comme le Montant total, l'`Annee` d'une décision est répétée sur
+    chacune de ses lignes : une valeur qui varie d'une ligne à l'autre
+    échoue au lieu de garder la dernière en silence."""
+    brutes = extraire_sanctions(_copie_avec(
+        tmp_path, FIXTURES / "sanctions.csv",
+        "99-D-01,Delta SA,0.0,150,2019"))
+    with pytest.raises(ValueError, match="99-D-01 : Annee instable"):
+        assembler(brutes, meta)
+
 def test_ecrire_db_meta_s52_date_derniere_decision(conn):
     n = conn.execute("SELECT count(*) AS n FROM adlc_decisions").fetchone()["n"]
     assert n == 6

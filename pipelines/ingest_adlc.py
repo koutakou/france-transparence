@@ -247,7 +247,9 @@ def extraire_meta(chemin: Path) -> dict[str, dict]:
     """Métadonnées indexées par id_decision (première occurrence).
 
     Les 5 id dupliqués du dump 25/08 sont des DCC/A, hors sanctions.
-    Un conflit de date/titre/URL sur un id sanctionné échoue plus bas.
+    Un doublon dont la fiche diffère de la première occurrence est marqué
+    `doublon_divergent` : `assembler` échoue s'il s'agit d'un id
+    sanctionné, et l'ignore sinon (cet index ne sert qu'aux sanctions).
     """
     index: dict[str, dict] = {}
     for row in _lire_csv(chemin, COLONNES_META):
@@ -264,7 +266,11 @@ def extraire_meta(chemin: Path) -> dict[str, dict]:
         if iid in index:
             # Cinq id dupliqués dans le dump du 25/08 (DCC/A, hors
             # sanctions). Les 189 id du CSV euros n'ont aucun doublon.
-            # On conserve la première occurrence.
+            # On conserve la première occurrence ; une divergence est
+            # notée pour qu'`assembler` la refuse sur un id sanctionné.
+            premiere = index[iid]
+            if any(premiere[k] != v for k, v in fiche.items()):
+                premiere["doublon_divergent"] = True
             continue
         index[iid] = fiche
     if not index:
@@ -295,6 +301,10 @@ def assembler(
                 f"({totaux[iid]} vs {tot})"
             )
         totaux[iid] = tot
+        if iid in annees and annees[iid] != ligne["annee"]:
+            raise ValueError(
+                f"{iid} : Annee instable ({annees[iid]} vs {ligne['annee']})"
+            )
         annees[iid] = ligne["annee"]
         par_decision[iid].append(ligne)
 
@@ -311,6 +321,11 @@ def assembler(
         fiche = meta.get(iid)
         if fiche is None:
             raise ValueError(f"{iid} : absent des métadonnées")
+        if fiche.get("doublon_divergent"):
+            raise ValueError(
+                f"{iid} : métadonnées en double et divergentes "
+                f"(date, titre, secteurs ou URL)"
+            )
         date = fiche["date_decision"]
         if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date or ""):
             raise ValueError(f"{iid} : date_decision {date!r}")
