@@ -1,0 +1,45 @@
+# Mises à jour de dépendances proposées par Dependabot.
+#
+# Rythme MENSUEL et propositions GROUPÉES par écosystème : un mainteneur seul
+# doit pouvoir tout relire, et chaque proposition passe par la même porte que
+# les autres (check `construire` : tests, lint, types, build, contrôles de
+# santé). Rien ne fusionne seul.
+#
+# Les alertes et correctifs de SÉCURITÉ de Dependabot ne dépendent pas de ce
+# fichier : ils s'activent dans les réglages du dépôt (Settings → Code security).
+
+version: 2
+updates:
+  # Actions des workflows, épinglées par SHA complet : sans ce suivi, un SHA
+  # figé ne reçoit plus aucun correctif.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "Dépendances CI"
+
+  # Application Next (fichier de verrouillage app/package-lock.json).
+  - package-ecosystem: npm
+    directory: /app
+    schedule:
+      interval: monthly
+    groups:
+      app:
+        patterns: ["*"]
+    commit-message:
+      prefix: "Dépendances app"
+
+  # Pipelines Python (requirements.txt, bornes basses `>=`).
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      pipelines:
+        patterns: ["*"]
+    commit-message:
+      prefix: "Dépendances pipelines"
