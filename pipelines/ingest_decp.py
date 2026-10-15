@@ -195,7 +195,9 @@ dépensé (mention UI) ; latence légale de publication jusqu'à 2 mois
 (fenêtres récentes structurellement incomplètes).
 
 Échec (téléchargement, parquet invalide, build cassé) → exit ≠ 0, la base
-n'est pas modifiée (transaction unique DELETE/INSERT + rollback).
+n'est pas modifiée : une transaction unique (`BEGIN IMMEDIATE` dans
+`charger`) porte la migration de schéma (DROP/CREATE), les DELETE/INSERT et
+la ligne meta, validée par `upsert_meta` seulement ; sinon rollback.
 """
 
 from __future__ import annotations
@@ -1412,6 +1414,15 @@ def _reconcilier_schema(conn: sqlite3.Connection) -> list[str]:
     rejeu de `_SCHEMA` par l'appelant doit suivre CET appel, car le DROP
     emporte aussi les index de la table, et c'est `_SCHEMA` qui les repose.
 
+    Le DROP ne valide RIEN : appelé par `charger`, il tourne dans la
+    transaction que celle-ci ouvre, et un échec plus loin (DuckDB, INSERT)
+    rend au `rollback()` l'ancienne table, colonnes ET lignes. Avant le
+    15/10/2026, `charger` n'ouvrait aucune transaction avant le DROP (une
+    instruction DDL n'en ouvre pas implicitement) puis rejouait `_SCHEMA` par
+    `executescript`, qui valide : une panne pendant le transfert laissait la
+    table recréée au nouveau schéma et VIDE, alors que le module promettait
+    une base non modifiée.
+
     LIMITE assumée : la comparaison porte sur les NOMS de colonnes, seuls à
     pouvoir faire échouer l'INSERT. Un changement de type ou de contrainte à
     jeu de colonnes constant passerait à travers — il n'empêche pas
@@ -1433,9 +1444,10 @@ def _reconcilier_schema(conn: sqlite3.Connection) -> list[str]:
 def charger(conn: sqlite3.Connection, duck: duckdb.DuckDBPyConnection) -> dict[str, int]:
     """Réécrit les 13 tables decp_* depuis les tables temp DuckDB.
 
-    Contrôle de schéma, CREATE TABLE IF NOT EXISTS, puis DELETE/INSERT dans la
-    transaction en cours (aucun commit ici — l'appelant commet, cf. main, ou
-    annule). Les colonnes texte sont assainies au passage (cf.
+    Ouvre la transaction (`BEGIN IMMEDIATE`, sauf si l'appelant en tient
+    déjà une), puis contrôle de schéma, CREATE TABLE IF NOT EXISTS et
+    DELETE/INSERT DANS cette transaction — DDL compris (aucun commit ici —
+    l'appelant commet, cf. main, ou annule). Les colonnes texte sont assainies au passage (cf.
     `_assainir_lot`) et le bilan de cette hygiène est journalisé
     INCONDITIONNELLEMENT, zéro compris, ventilé par table et par colonne.
     Retourne {table: lignes insérées}.
@@ -1444,8 +1456,16 @@ def charger(conn: sqlite3.Connection, duck: duckdb.DuckDBPyConnection) -> dict[s
     # les recrée AVEC leurs index) → DELETE/INSERT. Cf. `_reconcilier_schema`
     # pour le pourquoi : la base servie est persistante et migrée, celle de
     # l'intégration continue est neuve, et seul le premier cas casse.
+    # `IMMEDIATE` : le verrou d'écriture est pris d'emblée, avant le premier
+    # DDL (même choix que P7, mesuré là-bas). Un `BEGIN` nu sur une
+    # transaction déjà ouverte lèverait : on s'y greffe alors.
+    if not conn.in_transaction:
+        conn.execute("BEGIN IMMEDIATE")
     _reconcilier_schema(conn)
-    conn.executescript(_SCHEMA)  # idempotent, ne détruit rien
+    # Instruction par instruction, JAMAIS `executescript` : il validerait la
+    # transaction, DROP de `_reconcilier_schema` compris.
+    for instruction in db.instructions_sql(_SCHEMA):  # idempotent
+        conn.execute(instruction)
     # Bilan d'hygiène AMORCÉ À ZÉRO, et ventilé par TABLE.COLONNE. Trois
     # raisons, toutes mesurées le 30/08/2026 : (1) un total global masquerait
     # qu'une SEULE colonne est tombée à zéro — c'est ainsi que le défaut

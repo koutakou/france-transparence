@@ -2273,6 +2273,58 @@ def test_charger_migre_une_base_portant_lancien_schema(tmp_path, resultat):
         conn.close()
 
 
+class _DuckEnPanne:
+    """DuckDB qui casse au premier transfert, APRÈS la migration de schéma."""
+
+    def execute(self, sql):
+        raise RuntimeError("panne simulée pendant le transfert")
+
+
+def test_une_panne_apres_la_migration_rend_l_ancienne_table_au_rollback(tmp_path):
+    """La migration (DROP + CREATE) est DANS la transaction de `charger`.
+
+    Avant le 15/10/2026, le DROP partait en autocommit et `_SCHEMA` passait
+    par `executescript`, qui valide : après une panne DuckDB et le
+    `rollback()` de `main`, la table ressortait au NOUVEAU schéma et VIDE.
+    """
+    chemin = tmp_path / "decp_panne.db"
+    conn = _base_au_schema_ancien(chemin)
+    try:
+        with pytest.raises(RuntimeError, match="panne simulée"):
+            ingest_decp.charger(conn, _DuckEnPanne())
+        conn.rollback()
+    finally:
+        conn.close()
+
+    relue = db.connexion(chemin)  # connexion NEUVE : ce qui est sur disque
+    try:
+        colonnes = {r[1] for r in relue.execute("PRAGMA table_info(decp_top_titulaires)")}
+        assert "siret" in colonnes and "siren" not in colonnes
+        assert [tuple(r) for r in relue.execute(
+            "SELECT nom, nb_marches FROM decp_top_titulaires"
+        )] == [("ANCIENNE LIGNE", 43)]
+        assert relue.execute(
+            "SELECT nb_marches FROM decp_acheteurs_qualite"
+        ).fetchone()[0] == 999_999
+        # Les tables que `_SCHEMA` aurait créées n'existent pas non plus.
+        assert relue.execute(
+            "SELECT count(*) FROM sqlite_master WHERE name = 'decp_marches'"
+        ).fetchone()[0] == 0
+    finally:
+        relue.close()
+
+
+def test_instructions_sql_couvre_tout_le_schema_decp():
+    instructions = db.instructions_sql(ingest_decp._SCHEMA)
+    assert all(i.endswith(";") for i in instructions)
+    assert sum(i.startswith("CREATE TABLE") for i in instructions) == len(ingest_decp._TABLES)
+
+
+def test_instructions_sql_refuse_un_script_inacheve():
+    with pytest.raises(ValueError, match="mal formé"):
+        db.instructions_sql("CREATE TABLE t (a);\nCREATE TABLE u (b)")
+
+
 def test_le_drop_de_migration_repose_les_index_de_la_table(tmp_path, resultat):
     """Le DROP emporte les index ; c'est `_SCHEMA`, rejoué après, qui les repose.
 
