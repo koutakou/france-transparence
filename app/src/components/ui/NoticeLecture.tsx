@@ -12,14 +12,20 @@ import Link from "next/link";
  *
  * `ancre` sert deux fois : `id` de la notice (lien interne) et fragment
  * de `/comprendre/#…` (développement sur la page de méthode).
+ *
+ * `sujet` complète le nom du repère (« Comment lire ces données : … ») :
+ * obligatoire dès que la page porte deux notices, deux repères de même
+ * nom étant indiscernables (axe `landmark-unique`).
  */
 export function NoticeLecture({
   ancre,
   commentLire,
   provenance,
   limites,
+  sujet,
 }: {
   ancre: string;
+  sujet?: string;
   commentLire: ReactNode;
   provenance: ReactNode;
   limites: ReactNode;
@@ -28,7 +34,7 @@ export function NoticeLecture({
     <aside
       id={ancre}
       className="max-w-3xl scroll-mt-32 rounded-xl border border-card-border bg-raised p-4 sm:p-5"
-      aria-label="Comment lire ces données"
+      aria-label={sujet ? `Comment lire ces données : ${sujet}` : "Comment lire ces données"}
     >
       <div className="flex flex-col gap-4 text-[13px] leading-relaxed text-ink-secondary">
         <section>

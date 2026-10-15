@@ -474,6 +474,17 @@ export default async function Accueil() {
             />
           </div>
           <p className="mt-2 text-[11px] leading-relaxed text-ink-muted">
+            Les valeurs de la carte, département par département, se lisent
+            dans le{" "}
+            <Link
+              href="/marches/#montants-par-departement"
+              className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
+            >
+              tableau des montants par département
+            </Link>
+            .
+          </p>
+          <p className="mt-2 text-[11px] leading-relaxed text-ink-muted">
             Consolidation DECP&nbsp;: decp-processing (C.&nbsp;Maudry) —
             latence légale de publication ≤&nbsp;2&nbsp;mois. Marchés datés
             de leur notification initiale, un avenant ne les redate pas.

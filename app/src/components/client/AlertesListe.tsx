@@ -282,8 +282,10 @@ export function AlertesListe({ types, parGravite, total, initiales }: AlertesLis
         </div>
       </div>
 
-      {/* Liste paginée */}
+      {/* Liste paginée — le h2 (masqué) place les h3 des alertes sous un
+          niveau de titre continu après le h1 de la page. */}
       <div className="flex flex-col gap-1.5">
+        <h2 className="sr-only">Liste des alertes</h2>
         <p className="text-xs text-ink-muted" aria-live="polite">
           {totalFiltre === 0
             ? "Aucune alerte ne correspond à ces filtres."

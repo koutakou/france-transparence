@@ -426,6 +426,7 @@ export default async function DocumentsPage() {
             </div>
             <NoticeLecture
               ancre="dossiers-legislatifs"
+              sujet="dossiers législatifs"
               commentLire={
                 <p>
                   Chaque dossier est un texte de l’article 39 de la Constitution
