@@ -808,6 +808,11 @@ def construire(dossier_csv: Path, aujourdhui: date) -> dict:
 # ---------------------------------------------------------------------------
 
 
+def _accord(n: int, singulier: str, pluriel: str) -> str:
+    """Singulier pour 0 et 1, pluriel au-delà (usage français)."""
+    return singulier if n <= 1 else pluriel
+
+
 def _lignes_alertes(donnees: dict, date_calcul: str) -> list[tuple]:
     """Lignes de la table partagée `alertes` (types lobbying uniquement)."""
     lignes = []
@@ -852,23 +857,30 @@ def _lignes_alertes(donnees: dict, date_calcul: str) -> list[tuple]:
             date_calcul,
         ))
 
+    # Deux unités, comptées chacune pour ce qu'elle est : une ENTITÉ figure
+    # une fois, quel que soit le nombre de ses exercices flaggés ; la
+    # ventilation « sans publication / partielle » et la répartition par
+    # année comptent des EXERCICES.
     n = len(par_entite)
     if n:
+        n_ex = nb_rien + nb_partiel
         repartition = " ; ".join(
             f"exercice {a} : {c}" for a, c in sorted(par_annee.items()))
         lignes.append((
             "lobbying_declaration_incomplete:agregat",
             "lobbying_declaration_incomplete",
             "moyenne",
-            f"{n} représentants d'intérêts en défaut de déclaration "
-            f"(liste officielle HATVP)",
-            (f"{n} entités inscrites sur la liste officielle des représentants "
-             f"d'intérêts n'ayant pas communiqué tout ou partie des informations "
-             f"exigibles : {nb_rien} sans aucune publication pour l'exercice "
-             f"concerné, {nb_partiel} avec communication partielle. "
-             f"Répartition : {repartition}."),
-            "Agrégat des flags natifs AGORA declaration_incomplete=True "
-            "(un exercice flaggé = une entité comptée).",
+            f"{n} {_accord(n, 'représentant', 'représentants')} d'intérêts "
+            f"en défaut de déclaration (liste officielle HATVP)",
+            (f"{n} {_accord(n, 'entité inscrite', 'entités inscrites')} sur la "
+             f"liste officielle des représentants d'intérêts n'ayant pas "
+             f"communiqué tout ou partie des informations exigibles, sur "
+             f"{n_ex} {_accord(n_ex, 'exercice concerné', 'exercices concernés')} : "
+             f"{nb_rien} sans aucune publication, {nb_partiel} avec "
+             f"communication partielle. Répartition : {repartition}."),
+            "Agrégat des flags natifs AGORA declaration_incomplete=True : une "
+            "entité est comptée une fois, chacun de ses exercices flaggés "
+            "l'est dans la ventilation.",
             BASE_LEGALE,
             URL_ZIP,
             date_calcul,
