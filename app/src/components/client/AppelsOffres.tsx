@@ -6,6 +6,8 @@ import { LienOfficiel } from "@/components/ui/LienOfficiel";
 import { Money } from "@/components/ui/Money";
 import { formatNombre, formatPct } from "@/lib/format";
 import { urlSite } from "@/lib/basePath";
+import { AO_AFFICHEES, echeancesOuvertes } from "@/lib/echeances";
+import { useHorloge } from "@/lib/useHorloge";
 import { majParamsUrl } from "@/lib/urlEtat";
 import { useUrlInitiale } from "@/lib/useUrlInitiale";
 import type { AoEnCours, AoParFamille, FamilleAO, VueAoFamille } from "@/lib/queries/marches";
@@ -18,6 +20,13 @@ import type { AoEnCours, AoParFamille, FamilleAO, VueAoFamille } from "@/lib/que
  * pré-agrégées à la construction du site) est chargé une fois, puis le
  * filtre est instantané. Les URL historiques `?famille=…` sont restaurées
  * au montage et réécrites à chaque sélection.
+ *
+ * Les échéances sont re-filtrées À L'HEURE DU VISITEUR (`useHorloge`) : le
+ * navigateur retire celles dont la date limite est passée et en affiche
+ * AO_AFFICHEES. Le HTML n'en porte que AO_AFFICHEES (poids de la page) ; dès
+ * que l'une est passée, la réserve du fragment (AO_LIVREES par famille,
+ * « Toutes » comprise) est chargée pour compléter. Les totaux, eux, ne se
+ * recalculent pas sans toutes les lignes : ils sont datés de la construction.
  */
 
 export interface AppelsOffresProps {
@@ -26,6 +35,8 @@ export interface AppelsOffresProps {
   vueToutes: VueAoFamille;
   /** Total d'AO en cours (pilule « Toutes »). */
   aoEnCours: number;
+  /** Instant de la construction du site (ms), auquel les totaux sont arrêtés. */
+  construitLe: number;
 }
 
 /** Tronque proprement un libellé long (le `title` porte le texte complet). */
@@ -118,7 +129,8 @@ function stylePilule(actif: boolean): string {
   }`;
 }
 
-export function AppelsOffres({ familles, vueToutes, aoEnCours }: AppelsOffresProps) {
+export function AppelsOffres({ familles, vueToutes, aoEnCours, construitLe }: AppelsOffresProps) {
+  const maintenant = useHorloge(construitLe);
   // Filtre : état initial restauré d'une URL partagée `?famille=…`
   // (validée contre la liste réelle), surchargé par tout clic.
   const urlInitiale = new URLSearchParams(useUrlInitiale());
@@ -130,9 +142,14 @@ export function AppelsOffres({ familles, vueToutes, aoEnCours }: AppelsOffresPro
   const famille =
     surcharge ?? (familles.some((f) => f.famille === fUrl) ? fUrl : "");
   const chargement = famille !== "" && fragment === null && !indisponible;
+  const toutesACompleter =
+    famille === "" &&
+    vueToutes.lignes.length < vueToutes.total &&
+    echeancesOuvertes(vueToutes.lignes, (a) => a.date_limite_reponse, maintenant, AO_AFFICHEES)
+      .length < AO_AFFICHEES;
 
   useEffect(() => {
-    if (famille === "" || fragment !== null) return;
+    if ((famille === "" && !toutesACompleter) || fragment !== null) return;
     let monte = true;
     chargerAo().then((ao) => {
       if (!monte) return;
@@ -142,18 +159,23 @@ export function AppelsOffres({ familles, vueToutes, aoEnCours }: AppelsOffresPro
     return () => {
       monte = false;
     };
-  }, [famille, fragment]);
+  }, [famille, fragment, toutesACompleter]);
 
   const choisir = (code: string) => {
     setSurcharge(code);
     majParamsUrl({ famille: code || null });
   };
 
-  const vue: VueAoFamille =
-    famille === "" ? vueToutes : (fragment?.vues[famille] ?? vueToutes);
+  const vue: VueAoFamille = fragment?.vues[famille] ?? vueToutes;
   const familleAffichee = famille !== "" && fragment?.vues[famille] ? famille : "";
   const libelleFamille = familles.find((f) => f.famille === familleAffichee)?.famille_libelle;
   const pctSansMontant = vue.total > 0 ? (100 * vue.sansMontant) / vue.total : null;
+  const lignes = echeancesOuvertes(
+    vue.lignes,
+    (a) => a.date_limite_reponse,
+    maintenant,
+    AO_AFFICHEES,
+  );
 
   return (
     <div>
@@ -196,14 +218,19 @@ export function AppelsOffres({ familles, vueToutes, aoEnCours }: AppelsOffresPro
       <div className={chargement ? "opacity-50 transition-opacity" : "transition-opacity"}>
         <DataTable
           colonnes={COLONNES_AO}
-          lignes={vue.lignes}
+          lignes={lignes}
           cleLigne={(a) => a.idweb}
-          vide="Aucun appel d’offres en cours pour ce filtre"
+          vide={
+            vue.lignes.length > 0
+              ? "Les échéances livrées à la construction du site sont toutes passées à cette heure"
+              : "Aucun appel d’offres en cours pour ce filtre"
+          }
         />
       </div>
       <p className="mt-3 text-xs leading-relaxed text-ink-muted" aria-live="polite">
-        {formatNombre(vue.lignes.length)} échéances les plus proches affichées sur{" "}
-        {formatNombre(vue.total)} appels d’offres en cours pour{" "}
+        {formatNombre(lignes.length)} échéances encore ouvertes, les plus proches, affichées
+        sur {formatNombre(vue.total)} appels d’offres en cours à la construction du site (
+        {formatDateHeureParis(new Date(construitLe).toISOString())}) pour{" "}
         {familleAffichee === "" ? "toutes les familles" : `la famille ${libelleFamille ?? familleAffichee}`}
         {pctSansMontant !== null && (
           <>

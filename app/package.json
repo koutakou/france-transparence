@@ -6,7 +6,8 @@
     "dev": "next dev -p 3620",
     "build": "next build",
     "start": "next start -p 3620",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"tests/*.test.mjs\""
   },
   "dependencies": {
     "@types/d3-geo": "^3.1.1",

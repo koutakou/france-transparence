@@ -299,6 +299,14 @@ function EtiquetteSuspect() {
   );
 }
 
+/**
+ * Instant de la construction (ms) : l'export statique rend la page une seule
+ * fois, au moment où les requêtes évaluent `datetime('now')`.
+ */
+function instantDeConstruction(): number {
+  return Date.now();
+}
+
 /** Fiche d'une consultation PLACE, pas le portail générique. */
 function hrefConsultation(url: string | null): string | null {
   if (!url || !url.includes("/consultation/")) return null;
@@ -310,6 +318,9 @@ function hrefConsultation(url: string | null): string | null {
 /* ------------------------------------------------------------------ */
 
 export default async function PageMarches() {
+  // Instant où les requêtes évaluent `datetime('now')` : les totaux d'appels
+  // d'offres en cours y sont arrêtés, le navigateur re-filtre les échéances.
+  const construitLe = instantDeConstruction();
   const donnees = chargerDonneesMarches(null);
   const adlc = getSanctionsAdlc();
 
@@ -1434,6 +1445,7 @@ export default async function PageMarches() {
               lignes: donnees.ao,
             }}
             aoEnCours={kpis.aoEnCours}
+            construitLe={construitLe}
           />
         </Card>
       </div>

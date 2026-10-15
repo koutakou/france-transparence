@@ -10,11 +10,13 @@ import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { KpiTile } from "@/components/ui/KpiTile";
 import type { PointCarte } from "@/components/ui/MapFrance";
 import { CarteDepartements } from "@/components/client/CarteDepartements";
+import { EcheancesOuvertes } from "@/components/client/EcheancesOuvertes";
 import { JsonLd } from "@/components/JsonLd";
 import { Money } from "@/components/ui/Money";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { VueTableau } from "@/components/ui/VueTableau";
 import type { MetaSource } from "@/lib/db";
+import { AO_ACCUEIL_AFFICHEES } from "@/lib/echeances";
 import { ESPACE_FINE, formatDateFr, formatNombre } from "@/lib/format";
 import {
   getDonneesAccueil,
@@ -139,6 +141,14 @@ function sourceAlerte(a: AlerteAccueil): { libelle: string; url?: string } {
 /* ------------------------------------------------------------------ */
 
 /**
+ * Instant de la construction (ms) : l'export statique rend la page une seule
+ * fois, au moment où les requêtes évaluent `datetime('now')`.
+ */
+function instantDeConstruction(): number {
+  return Date.now();
+}
+
+/**
  * Accueil — entrée citoyenne. Un chiffre héros (exécution S13 YTD),
  * trois tuiles d'activité bornées, puis le reste du tableau de bord.
  * Même ordre de scan au bureau (max-w-7xl) et au téléphone : le DOM
@@ -147,6 +157,9 @@ function sourceAlerte(a: AlerteAccueil): { libelle: string; url?: string } {
  * les fréquences affichées sont celles des sources.
  */
 export default async function Accueil() {
+  // Instant où les requêtes évaluent `datetime('now')` ; le navigateur
+  // re-filtre ensuite les échéances d'appels d'offres à son heure.
+  const construitLe = instantDeConstruction();
   const donnees = getDonneesAccueil();
 
   if (donnees === null) {
@@ -573,53 +586,66 @@ export default async function Accueil() {
         <div className="min-w-0">
           <Card
             titre="Appels d'offres proches de la clôture"
-            sousTitre="Date limite de réponse (heure de Paris) — annonces BOAMP non annulées"
+            sousTitre="Date limite de réponse (heure de Paris) — annonces BOAMP non annulées, échéances passées retirées à l’heure de lecture"
             droite={<BadgeSource source={sources.S2} />}
           >
             <ul className="flex flex-col">
-              {aoCloture.map((ao) => (
-                <li
-                  key={ao.id}
-                  className="py-2"
-                  style={{ borderBottom: "1px solid var(--viz-grid)" }}
-                >
-                  <div className="flex items-baseline justify-between gap-3 text-[11px]">
-                    <span className="shrink-0 font-medium text-ink-secondary [font-variant-numeric:tabular-nums]">
-                      Clôture le {formatDateHeureFr(ao.dateLimite)}
-                    </span>
-                    <span className="min-w-0 break-words text-right text-ink-muted">
-                      {ao.acheteur?.trim() ? ao.acheteur : "acheteur non renseigné"}
-                    </span>
-                  </div>
-                  <p
-                    className="line-clamp-2 break-words text-[13px] text-ink"
-                    title={ao.objet ?? undefined}
-                  >
-                    {ao.url ? (
-                      <a
-                        href={ao.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline-offset-2 hover:underline"
+              <EcheancesOuvertes
+                maxi={AO_ACCUEIL_AFFICHEES}
+                construitLe={construitLe}
+                vide={
+                  <li className="py-2 text-[13px] text-ink-muted">
+                    Aucune des échéances connues à la construction du site n’est encore
+                    ouverte.
+                  </li>
+                }
+                elements={aoCloture.map((ao) => ({
+                  dateLimite: ao.dateLimite,
+                  noeud: (
+                    <li
+                      key={ao.id}
+                      className="py-2"
+                      style={{ borderBottom: "1px solid var(--viz-grid)" }}
+                    >
+                      <div className="flex items-baseline justify-between gap-3 text-[11px]">
+                        <span className="shrink-0 font-medium text-ink-secondary [font-variant-numeric:tabular-nums]">
+                          Clôture le {formatDateHeureFr(ao.dateLimite)}
+                        </span>
+                        <span className="min-w-0 break-words text-right text-ink-muted">
+                          {ao.acheteur?.trim() ? ao.acheteur : "acheteur non renseigné"}
+                        </span>
+                      </div>
+                      <p
+                        className="line-clamp-2 break-words text-[13px] text-ink"
+                        title={ao.objet ?? undefined}
                       >
-                        {ao.objet?.trim() ? ao.objet : "objet non publié"}
-                      </a>
-                    ) : ao.objet?.trim() ? (
-                      ao.objet
-                    ) : (
-                      "objet non publié"
-                    )}
-                  </p>
-                  <p className="text-[11px] text-ink-muted">
-                    Montant estimé&nbsp;:{" "}
-                    {ao.montantEstime !== null ? (
-                      <Money valeur={ao.montantEstime} className="text-ink-secondary" />
-                    ) : (
-                      "non publié"
-                    )}
-                  </p>
-                </li>
-              ))}
+                        {ao.url ? (
+                          <a
+                            href={ao.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline-offset-2 hover:underline"
+                          >
+                            {ao.objet?.trim() ? ao.objet : "objet non publié"}
+                          </a>
+                        ) : ao.objet?.trim() ? (
+                          ao.objet
+                        ) : (
+                          "objet non publié"
+                        )}
+                      </p>
+                      <p className="text-[11px] text-ink-muted">
+                        Montant estimé&nbsp;:{" "}
+                        {ao.montantEstime !== null ? (
+                          <Money valeur={ao.montantEstime} className="text-ink-secondary" />
+                        ) : (
+                          "non publié"
+                        )}
+                      </p>
+                    </li>
+                  ),
+                }))}
+              />
             </ul>
             <LienModule href="/marches" libelle="Voir les marchés publics" />
           </Card>
