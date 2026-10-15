@@ -24,8 +24,9 @@ import type { AoEnCours, AoParFamille, FamilleAO, VueAoFamille } from "@/lib/que
  * Les échéances sont re-filtrées À L'HEURE DU VISITEUR (`useHorloge`) : le
  * navigateur retire celles dont la date limite est passée et en affiche
  * AO_AFFICHEES. Le HTML n'en porte que AO_AFFICHEES (poids de la page) ; dès
- * que l'une est passée, la réserve du fragment (AO_LIVREES par famille,
- * « Toutes » comprise) est chargée pour compléter. Les totaux, eux, ne se
+ * que l'une est passée, la réserve du fragment est chargée pour compléter :
+ * par famille, « Toutes » comprise, toutes les clôtures des RESERVE_HEURES
+ * qui suivent la construction, puis quelques-unes au-delà (lib/echeances.ts). Les totaux, eux, ne se
  * recalculent pas sans toutes les lignes : ils sont datés de la construction.
  */
 
@@ -222,7 +223,7 @@ export function AppelsOffres({ familles, vueToutes, aoEnCours, construitLe }: Ap
           cleLigne={(a) => a.idweb}
           vide={
             vue.lignes.length > 0
-              ? "Les échéances livrées à la construction du site sont toutes passées à cette heure"
+              ? `Les échéances de la liste arrêtée à la construction du site (${formatDateHeureParis(new Date(construitLe).toISOString())}) sont toutes passées à cette heure ; la liste est reconstruite à chaque publication du site`
               : "Aucun appel d’offres en cours pour ce filtre"
           }
         />

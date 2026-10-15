@@ -25,7 +25,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { FeatureCollection, Geometry } from "geojson";
 import { getDb, type MetaSource } from "@/lib/db";
-import { AO_ACCUEIL_LIVREES } from "@/lib/echeances";
+import { AO_ACCUEIL_AFFICHEES, RESERVE_HEURES, reserveEcheances } from "@/lib/echeances";
 import { getIdsFichesStatiques } from "@/lib/queries/elus";
 
 /* ------------------------------------------------------------------ */
@@ -141,6 +141,40 @@ export type AoProcheCloture = {
   montantEstime: number | null; // NULL = non publié (≈ 70 % des cas)
   url: string | null;
 };
+
+/** AO ouverts, non annulés, par date limite croissante (accueil). */
+const SQL_AO_CLOTURE = `SELECT idweb AS id,
+              objet,
+              acheteur,
+              date_limite_reponse AS dateLimite,
+              montant_estime AS montantEstime,
+              url_avis AS url
+         FROM ao_en_cours
+        WHERE annulee = 0 AND datetime(date_limite_reponse) > datetime('now')
+        ORDER BY datetime(date_limite_reponse), idweb`;
+
+/**
+ * Réserve d'échéances de l'accueil (fragment /data/accueil/ao-cloture.json) :
+ * toutes les clôtures des RESERVE_HEURES qui suivent la construction, puis
+ * AO_ACCUEIL_AFFICHEES de plus. Le navigateur y prend les premières encore
+ * ouvertes à son heure. `null` si la base est absente.
+ */
+export function getReserveAoAccueil(): { construitLe: number; lignes: AoProcheCloture[] } | null {
+  const db = getDb();
+  if (!db) return null;
+  const construitLe = Date.now();
+  const toutes = db.prepare(SQL_AO_CLOTURE).all() as AoProcheCloture[];
+  return {
+    construitLe,
+    lignes: reserveEcheances(
+      toutes,
+      (a) => a.dateLimite,
+      construitLe,
+      RESERVE_HEURES,
+      AO_ACCUEIL_AFFICHEES,
+    ),
+  };
+}
 
 export type AlerteAccueil = {
   id: string;
@@ -412,20 +446,13 @@ export function getDonneesAccueil(): DonneesAccueil | null {
     .all() as TexteJo[];
 
   /* --- Flux : AO proches de la clôture (non annulés, limite future).
-         AO_ACCUEIL_LIVREES lignes : la page n'en affiche que
-         AO_ACCUEIL_AFFICHEES, re-filtrées à l'heure du visiteur. --- */
+         AO_ACCUEIL_AFFICHEES lignes dans le HTML ; la réserve que le
+         navigateur re-filtre à son heure est le fragment
+         /data/accueil/ao-cloture.json (getReserveAoAccueil). --- */
   const aoCloture = db
     .prepare(
-      `SELECT idweb AS id,
-              objet,
-              acheteur,
-              date_limite_reponse AS dateLimite,
-              montant_estime AS montantEstime,
-              url_avis AS url
-         FROM ao_en_cours
-        WHERE annulee = 0 AND datetime(date_limite_reponse) > datetime('now')
-        ORDER BY datetime(date_limite_reponse)
-        LIMIT ${AO_ACCUEIL_LIVREES}`,
+      `${SQL_AO_CLOTURE}
+        LIMIT ${AO_ACCUEIL_AFFICHEES}`,
     )
     .all() as AoProcheCloture[];
 

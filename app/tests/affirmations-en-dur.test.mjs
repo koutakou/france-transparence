@@ -18,6 +18,11 @@ const INTERDITS = [
     "« J-1 » ne vaut que si les DECP sont datées de la veille (estVeille)",
   ],
   [
+    "app/page.tsx",
+    /échéances passées retirées/,
+    "sans JavaScript rien n'est retiré : le sous-titre date la liste, il ne promet pas le re-filtre",
+  ],
+  [
     "app/marches/page.tsx",
     /les 2 derniers mois sont incomplets/,
     "les mois incomplets se déduisent du 9e décile du délai de publication",
