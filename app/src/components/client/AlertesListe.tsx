@@ -328,7 +328,10 @@ export function AlertesListe({ types, parGravite, total, initiales }: AlertesLis
               ‹ Page précédente
             </button>
           ) : (
-            <span className="rounded-lg border border-card-border px-3 py-1.5 text-ink-muted opacity-50">
+            <span
+              aria-disabled="true"
+              className="rounded-lg border border-dashed border-card-border px-3 py-1.5 text-ink-muted"
+            >
               ‹ Page précédente
             </span>
           )}
@@ -344,7 +347,10 @@ export function AlertesListe({ types, parGravite, total, initiales }: AlertesLis
               Page suivante ›
             </button>
           ) : (
-            <span className="rounded-lg border border-card-border px-3 py-1.5 text-ink-muted opacity-50">
+            <span
+              aria-disabled="true"
+              className="rounded-lg border border-dashed border-card-border px-3 py-1.5 text-ink-muted"
+            >
               Page suivante ›
             </span>
           )}

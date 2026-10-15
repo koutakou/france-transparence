@@ -37,3 +37,21 @@ test("aucun aria-label sur une balise générique sans role", () => {
   }
   assert.deepEqual(fautes, []);
 });
+
+// --ink-muted est le MINIMUM pour du texte (4,83:1 sur --surface-hover) :
+// l'atténuer par une opacité le fait passer sous 4,5:1 (« ‹ Page
+// précédente » inactive de /alertes : 2,47:1). Un état inactif se dit par
+// aria-disabled et une forme (bordure tiretée), pas par l'opacité.
+test("aucun texte --ink-muted atténué par une opacité", () => {
+  const fautes = [];
+  for (const f of fichiers) {
+    const s = readFileSync(f, "utf8");
+    for (const m of s.matchAll(/className="([^"]*)"/g)) {
+      if (/\btext-ink-muted\b/.test(m[1]) && /\bopacity-\d+\b/.test(m[1])) {
+        const ligne = s.slice(0, m.index).split("\n").length;
+        fautes.push(`${f.slice(racine.length + 1)}:${ligne}`);
+      }
+    }
+  }
+  assert.deepEqual(fautes, []);
+});
