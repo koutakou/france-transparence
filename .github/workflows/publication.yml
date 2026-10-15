@@ -525,9 +525,16 @@ jobs:
       # simple et sans activité factice (aucun commit automatique) : prévenir
       # quinze jours avant, par une issue, à partir de la date du dernier commit
       # de main — la référence la plus prudente de ce qui compte comme activité.
+      #
+      # La branche vient de `github.ref_name`, pas de
+      # `github.event.repository.default_branch` : un événement `schedule` n'a
+      # pas de charge utile de webhook (« Not applicable » dans la
+      # documentation de GitHub), l'expression y serait vide et l'appel
+      # `repos/…/commits/` rendrait une LISTE — l'étape échouerait chaque nuit.
+      # Sur `schedule`, GITHUB_REF est documenté comme la branche par défaut.
       - name: Échéance d'extinction du cron (60 jours sans activité)
         env:
-          BRANCHE: ${{ github.event.repository.default_branch }}
+          BRANCHE: ${{ github.ref_name }}
         run: |
           set -eu
           dernier=$(gh api "repos/$DEPOT/commits/$BRANCHE" --jq .commit.committer.date)
