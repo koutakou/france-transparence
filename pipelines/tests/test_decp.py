@@ -579,7 +579,7 @@ def test_les_marches_sans_ligne_modification_zero_sont_dates(resultat):
 
 
 # ---------------------------------------------------------------------------
-# Hygiène des chaînes au chargement (§ M8 de doc/QUALITE-DONNEES.md)
+# Hygiène des chaînes au chargement (docs/SCHEMA-DB.md, § « Conventions de valeurs »)
 #
 # Mesure qui motive ces tests, sur la base SERVIE `app/data/france.db`
 # (30/08/2026) : `decp_marches` = 496 861 lignes, `objet` non NULL sur les

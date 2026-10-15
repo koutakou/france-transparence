@@ -162,7 +162,8 @@ URL_API_DATASET_DATAN = ("https://www.data.gouv.fr/api/1/datasets/"
                          "deputes-actifs-de-lassemblee-nationale-"
                          "informations-et-statistiques/")
 
-# Détail nominal conservé pour les N derniers scrutins (task/SOURCES.md).
+# Détail nominal conservé pour les N derniers scrutins (fenêtre glissante :
+# docs/SCHEMA-DB.md, tables votes_recents et votes_recents_archive).
 NB_SCRUTINS_DETAIL = 100
 COLONNES_VOTES_RECENTS = (
     "scrutin_uid", "scrutin_numero", "uid_an",

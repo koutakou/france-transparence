@@ -64,7 +64,7 @@ def test_parser_campagnes_valeurs_reelles():
     assert breton["nom"] == "M. BRETON Xavier"
     assert breton["circonscription"] == "Ain - 1re circonscription"
     # Le CSV publie « 1 » ; le pipeline rend le code COG « 01 », seul
-    # joignable à ref_departements (§ M5 de doc/QUALITE-DONNEES.md).
+    # joignable à ref_departements (docs/SCHEMA-DB.md, § « Conventions de valeurs »).
     assert breton["code_departement"] == "01"
     assert breton["nuance"] == "Les Républicains"
     assert breton["depenses_declarees"] == 21571.0
@@ -682,7 +682,7 @@ def test_ingestion_reelle_complete(tmp_path, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# Rattachement géographique des comptes de campagne (§ M5 QUALITE-DONNEES.md)
+# Rattachement géographique des comptes de campagne (docs/SCHEMA-DB.md)
 # ---------------------------------------------------------------------------
 
 
@@ -733,7 +733,7 @@ def test_geographie_campagne_laisse_intact_un_departement_normal():
 
 
 # ---------------------------------------------------------------------------
-# Contrôles comptables des comptes de partis (§ M7 QUALITE-DONNEES.md)
+# Contrôles comptables des comptes de partis (docs/SCHEMA-DB.md)
 # ---------------------------------------------------------------------------
 
 
