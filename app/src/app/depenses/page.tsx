@@ -11,7 +11,7 @@ import { KpiTile } from "@/components/ui/KpiTile";
 import { LineChart } from "@/components/ui/LineChart";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { VueTableau } from "@/components/ui/VueTableau";
-import { ESPACE_FINE, formatDateFr, formatEuros, formatNombre } from "@/lib/format";
+import { ESPACE_FINE, formatDateFr, formatNombre } from "@/lib/format";
 import {
   getAgregatApu,
   perimetreAgregat,
@@ -323,7 +323,7 @@ export default async function PageDepenses() {
         >
           <BarList
             items={parTitre.titres.map((t) => ({ libelle: t.ligne, valeur: t.montantCumul }))}
-            formatValeur={(v) => formatEuros(v, "Md")}
+            formatValeur={(v) => enMd(v, 1)}
           />
           <VueTableau>
             <DataTable
@@ -425,7 +425,7 @@ export default async function PageDepenses() {
             items={missions.missions.flatMap((m) =>
               m.plf2026Cp === null ? [] : [{ libelle: m.mission, valeur: m.plf2026Cp }],
             )}
-            formatValeur={(v) => formatEuros(v, "Md")}
+            formatValeur={(v) => enMd(v, 1)}
           />
           <h3 className="mb-2 mt-5 text-xs font-medium uppercase tracking-[0.08em] text-ink-muted">
             Exécution 2024 · LFI 2025 · PLF 2026 (top 10)
