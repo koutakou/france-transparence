@@ -92,8 +92,9 @@ Précisions utiles à un contributeur :
   Une modification de l'app doit au minimum passer `make build`.
 
 La CI (`.github/workflows/publication.yml`) rejoue la chaîne — ingestion
-(complète, ou depuis la base en cache si son schéma correspond), tests, build
-statique, contrôles de santé — sur chaque proposition de fusion, **avant**
+(complète, ou depuis la base en cache si son schéma correspond), tests, lint
+et types de l'app, build statique, contrôles de santé — sur chaque
+proposition de fusion, **avant**
 `main` : c'est `main` qui alimente le serveur de production, rien
 d'expérimental ne doit l'atteindre.
 

@@ -25,9 +25,9 @@
 
 **Elle ne publie plus le site**, et ce n'est pas une perte. Ce qui reste vaut son poids :
 
-- **Validation quotidienne de la chaîne complète** (cron 04:45 UTC) dans un runner éphémère : ingestion de tous les pipelines dans une base **neuve**, tests, build statique, contrôles de santé. C'est un environnement **indépendant du serveur** : si une source amont casse, on l'apprend là avant que `ft-deploy` ne rebuilde à 05:17.
+- **Validation quotidienne de la chaîne complète** (cron 04:45 UTC) dans un runner éphémère : ingestion de tous les pipelines dans une base **neuve**, tests, build statique, contrôles de santé. C'est un environnement **indépendant du serveur**. Ce n'est pas une vigie qui passerait avant lui : le cron de 04:45 UTC tombe déjà après `ft-deploy` (05:17 Paris), et GitHub retarde les déclenchements planifiés de plusieurs heures (départs réels entre 09:25 et 12:26 UTC sur les 30 derniers runs au 15/10/2026). Une panne amont y est vue **le jour même, après** le passage du serveur, et **avant** son cycle du lendemain.
 - **Vérification de chaque proposition de fusion avant qu'elle n'atteigne `main`** — c'est `main` que le serveur tire chaque matin : une régression fusionnée est une régression en production le lendemain.
-- Le job `deployer` est conditionné à `github.ref == 'refs/heads/main'` (et hors `pull_request`) : un `workflow_dispatch` lancé sur une branche de chantier joue toute la chaîne sans rien publier.
+- `publication.yml` ne publie rien et ne détient que la lecture du dépôt (plus `issues: write` pour les seuls jobs d'alerte). La page de redirection part par son propre workflow, `pages-redirection.yml`, seulement quand elle change : un `workflow_dispatch` lancé sur une branche de chantier joue toute la chaîne sans rien publier.
 - Un contrôle de santé **échoue si l'export généré contient encore `koutakou.github.io`** : une canonique, un lien de sitemap ou une carte de partage restée sur l'ancienne adresse renverrait les moteurs vers un site qui n'existe plus.
 
 ## GitHub Pages : rétrogradé en page de redirection
