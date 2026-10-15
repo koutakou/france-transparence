@@ -148,12 +148,17 @@ def upsert_meta(
     lignes: int,
     notes: str | None = None,
     date_ingestion: str | None = None,
+    commit: bool = True,
 ) -> None:
     """Insère ou met à jour la ligne de fraîcheur d'une source.
 
     `date_donnees` : date ISO de la donnée la plus récente réellement ingérée
     (jamais la date de modification du dataset — cf. SOURCES.md §0.2).
     `date_ingestion` : par défaut, maintenant (UTC, ISO, à la seconde).
+    `commit` : vrai par défaut (comportement historique des 31 pipelines).
+    `commit=False` laisse la ligne dans la transaction de l'appelant, qui la
+    valide avec ses tables ou l'annule avec elles — un pipeline qui écrit
+    plusieurs lignes meta ne peut pas, sinon, être atomique.
     """
     if date_ingestion is None:
         date_ingestion = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -176,7 +181,8 @@ def upsert_meta(
         (source_id, nom, url, licence, frequence,
          date_donnees, date_ingestion, lignes, notes),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
 def publication_precedente(

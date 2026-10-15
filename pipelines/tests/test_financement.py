@@ -844,3 +844,114 @@ def test_parser_partis_journalise_son_compte_meme_a_zero(caplog):
         fin.parser_partis(_fixture_corrompue(), 2024)
     corrompu = [m for m in caplog.messages if "réparé(s)" in m]
     assert len(corrompu) == 1 and "1 nom(s) réparé(s)" in corrompu[0]
+
+
+# ---------------------------------------------------------------------------
+# Atomicité de `main` : un échec ne laisse jamais une base à moitié écrite
+# ---------------------------------------------------------------------------
+
+
+def _brancher_hors_ligne(monkeypatch, tmp_path, exercices=(2023, 2024)):
+    """`main` sur les fixtures réelles, sans réseau, dans une base jetable."""
+    fichiers = {"p2023": FIX_PARTIS_2023, "p2024": FIX_PARTIS_2024, "c": FIX_CAMPAGNES}
+    monkeypatch.setenv("FT_DB_PATH", str(tmp_path / "financement.db"))
+    monkeypatch.setattr(fin, "EXERCICES", tuple(exercices))
+    monkeypatch.setattr(fin, "session_http", lambda: None)
+    monkeypatch.setattr(fin, "resoudre_ressources", lambda session: {
+        "partis": {ex: f"p{ex}" for ex in exercices},
+        "avis_2024": None,
+        "campagnes": "c",
+    })
+    monkeypatch.setattr(fin, "telecharger", lambda url, dest, **kw: fichiers[url])
+    return tmp_path / "financement.db"
+
+
+def _vidage(chemin) -> list[str]:
+    c = db.connexion(chemin)  # connexion NEUVE : ce qui est réellement sur disque
+    try:
+        return sorted(c.iterdump())
+    finally:
+        c.close()
+
+
+def _panne(*args, **kwargs):
+    raise ValueError("panne simulée")
+
+
+def test_un_echec_de_parsing_n_ecrit_rien_sur_une_base_neuve(monkeypatch, tmp_path):
+    """Le cas exact de l'audit du 15/10/2026 : `parser_campagnes` lève. Avant
+    correctif, `main` rendait 1 en laissant `partis_comptes` rempli,
+    `campagnes_2024` vide et aucune ligne meta."""
+    chemin = _brancher_hors_ligne(monkeypatch, tmp_path)
+    monkeypatch.setattr(fin, "parser_campagnes", _panne)
+    assert fin.main() == 1
+    c = db.connexion(chemin)
+    try:
+        tables = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        # Rien n'est même créé : la base n'est ouverte qu'après le parsing.
+        for table in ("partis_comptes", "partis", "meta_sources"):
+            if table in tables:
+                assert c.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0, table
+    finally:
+        c.close()
+
+
+def test_un_echec_en_cours_d_ecriture_rend_la_base_d_avant(monkeypatch, tmp_path):
+    """Un premier cycle réussi, puis un second qui casse APRÈS `charger_partis`
+    et `charger_campagnes` (aux alertes) avec une publication différente :
+    la base relue est identique, octet pour octet, à celle du premier cycle."""
+    chemin = _brancher_hors_ligne(monkeypatch, tmp_path)
+    assert fin.main() == 0
+    avant = _vidage(chemin)
+    assert any("partis_comptes" in l and "INSERT" in l for l in avant)
+
+    _brancher_hors_ligne(monkeypatch, tmp_path, exercices=(2024,))
+    monkeypatch.setattr(fin, "calculer_alertes", _panne)
+    assert fin.main() == 1
+    assert _vidage(chemin) == avant
+
+
+def test_un_cycle_reussi_ecrit_les_trois_lignes_meta(monkeypatch, tmp_path):
+    chemin = _brancher_hors_ligne(monkeypatch, tmp_path)
+    assert fin.main() == 0
+    c = db.connexion(chemin)
+    try:
+        assert {r[0] for r in c.execute("SELECT source_id FROM meta_sources")} == {
+            "S25", "S29", "S37",
+        }
+        assert c.execute("SELECT count(*) FROM campagnes_2024").fetchone()[0] > 0
+    finally:
+        c.close()
+
+
+def test_upsert_meta_sans_commit_suit_la_transaction(tmp_path):
+    c = db.init_db(chemin=tmp_path / "meta.db")
+    try:
+        c.execute("BEGIN")
+        db.upsert_meta(c, "SX", "n", "u", "l", "f", "2026-01-01", 1, commit=False)
+        assert c.in_transaction
+        c.rollback()
+        assert c.execute("SELECT count(*) FROM meta_sources").fetchone()[0] == 0
+    finally:
+        c.close()
+
+
+def test_un_echec_entre_deux_lignes_meta_rend_la_base_d_avant(monkeypatch, tmp_path):
+    """La panne frappe la TROISIÈME ligne meta : les deux premières, et les
+    tables, ne doivent pas avoir été validées entre-temps. Tue la mutation
+    qui rend son `commit` à `upsert_meta` dans ce pipeline."""
+    chemin = _brancher_hors_ligne(monkeypatch, tmp_path)
+    assert fin.main() == 0
+    avant = _vidage(chemin)
+
+    _brancher_hors_ligne(monkeypatch, tmp_path, exercices=(2024,))
+    vrai_upsert = db.upsert_meta
+
+    def upsert_qui_casse_sur_s37(conn, source_id, *args, **kwargs):
+        if source_id == "S37":
+            raise ValueError("panne simulée sur la ligne meta S37")
+        return vrai_upsert(conn, source_id, *args, **kwargs)
+
+    monkeypatch.setattr(fin.db, "upsert_meta", upsert_qui_casse_sur_s37)
+    assert fin.main() == 1
+    assert _vidage(chemin) == avant
