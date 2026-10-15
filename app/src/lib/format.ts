@@ -16,12 +16,28 @@ function normaliseEspaces(s: string): string {
   return s.replace(/[\u0020\u00A0]/g, ESPACE_FINE);
 }
 
+/**
+ * Le signe se décide sur la valeur ARRONDIE : `-0,04` à une décimale
+ * s'écrit « 0 », jamais « -0 » ni « +0 » (un zéro n'a pas de sens).
+ * `exceptZero` (signe forcé) et `negative` (signe des seuls négatifs)
+ * appliquent cette règle d'eux-mêmes.
+ */
 function nf(decimalesMax: number, decimalesMin = 0, signe = false): Intl.NumberFormat {
   return new Intl.NumberFormat("fr-FR", {
     maximumFractionDigits: decimalesMax,
     minimumFractionDigits: decimalesMin,
-    signDisplay: signe ? "always" : "auto",
+    signDisplay: signe ? "exceptZero" : "negative",
   });
+}
+
+/** Valeur telle qu'elle s'affichera à `decimales` décimales. */
+function arrondi(v: number, decimales: number): number {
+  return Number(v.toFixed(decimales));
+}
+
+/** Vrai si `v` s'écrit « 0 » à `decimales` décimales (delta nul affiché). */
+export function estNulAffiche(v: number, decimales: number): boolean {
+  return !Number.isFinite(v) || arrondi(v, decimales) === 0;
 }
 
 /** `1284` → `1 284` (espace fine insécable, virgule décimale). */
@@ -40,29 +56,30 @@ export type CompactionEuros = "auto" | "aucune" | "k" | "M" | "Md";
  */
 export function formatEuros(v: number, compaction: CompactionEuros = "auto"): string {
   if (!Number.isFinite(v)) return "—";
-  const abs = Math.abs(v);
-  let unite = "€";
-  let u = v;
-  const cible =
-    compaction === "auto"
-      ? abs >= 1e9
-        ? "Md"
-        : abs >= 1e6
-          ? "M"
-          : "aucune"
-      : compaction;
-  if (cible === "Md") {
-    u = v / 1e9;
-    unite = "Md€";
-  } else if (cible === "M") {
-    u = v / 1e6;
-    unite = "M€";
-  } else if (cible === "k") {
-    u = v / 1e3;
-    unite = "k€";
+  const ECHELLES = [
+    { cible: "aucune", diviseur: 1, unite: "€" },
+    { cible: "k", diviseur: 1e3, unite: "k€" },
+    { cible: "M", diviseur: 1e6, unite: "M€" },
+    { cible: "Md", diviseur: 1e9, unite: "Md€" },
+  ] as const;
+  const decimalesDe = (unite: string, u: number) =>
+    unite === "€" ? 0 : Math.abs(u) >= 100 ? 0 : 1;
+  let echelle = ECHELLES.find((e) => e.cible === compaction) ?? ECHELLES[0];
+  if (compaction === "auto") {
+    const abs = Math.abs(v);
+    echelle = abs >= 1e9 ? ECHELLES[3] : abs >= 1e6 ? ECHELLES[2] : ECHELLES[0];
+    // L'unité se choisit sur la valeur ARRONDIE : 999 950 000 s'écrit
+    // « 1 Md€ », pas « 1 000 M€ » ; 999 999,6 s'écrit « 1 M€ ».
+    const plafond = echelle.cible === "aucune" ? 1e6 : 1e3;
+    const u = v / echelle.diviseur;
+    if (echelle.cible !== "Md" && Math.abs(arrondi(u, decimalesDe(echelle.unite, u))) >= plafond) {
+      echelle = echelle.cible === "aucune" ? ECHELLES[2] : ECHELLES[3];
+    }
   }
-  const decimales = unite === "€" ? 0 : Math.abs(u) >= 100 ? 0 : 1;
-  return normaliseEspaces(nf(decimales).format(u)) + ESPACE_FINE + unite;
+  const u = v / echelle.diviseur;
+  return (
+    normaliseEspaces(nf(decimalesDe(echelle.unite, u)).format(u)) + ESPACE_FINE + echelle.unite
+  );
 }
 
 /**
