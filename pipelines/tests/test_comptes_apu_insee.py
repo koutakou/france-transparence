@@ -19,6 +19,7 @@ from pipelines.ingest_comptes_apu_insee import (
     TABLEAU_PO,
     TABLEAUX_DEP_REC,
     URL_PAGE,
+    cle_libelle,
     controler_ampleur,
     date_fin_annee,
     ecrire_db,
@@ -421,3 +422,13 @@ def test_aucune_colonne_population_ni_b9(conn):
     assert "B9NF" not in postes
     assert "DEP_TOTAL" in postes
     assert "PO" in postes
+
+
+def test_cle_libelle_ramene_les_apostrophes_typographiques_a_l_ascii():
+    """Les trois `.replace` d'origine remplaçaient l'apostrophe ASCII par
+    elle-même (vérifié octet par octet) : un libellé INSEE écrit avec « ’ »
+    n'aurait apparié aucun libellé attendu écrit avec « ' ». Sans effet au
+    15/10/2026 (le 3.216 réel est en ASCII), d'où un défaut latent."""
+    attendu = "en milliards d'euros"
+    for apostrophe in ("\u2019", "\u2018", "\u02bc", "'"):
+        assert cle_libelle(f"En milliards d{apostrophe}euros") == attendu
