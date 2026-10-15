@@ -1,3 +1,4 @@
+import { SQL_SECTIONS_ANNUAIRE } from "@/lib/annuaire";
 import { getDb } from "@/lib/db";
 import { getIdsFichesStatiques } from "@/lib/queries/elus";
 import { comparerNomPrenom } from "@/lib/tri";
@@ -29,15 +30,7 @@ export function getAnnuaireFiches(): SectionAnnuaire[] | null {
   if (!db) return null;
   const ids = new Set(getIdsFichesStatiques());
   const lignes = db
-    .prepare(
-      `SELECT e.id, e.nom, e.prenom, json_extract(je.value, '$.type') AS type
-         FROM elus e, json_each(e.mandats) je
-        WHERE json_extract(je.value, '$.type') IN
-              ('depute', 'president_conseil_departemental', 'president_conseil_regional')
-       UNION
-       SELECT e.id, e.nom, e.prenom, 'senateur' AS type
-         FROM senateurs s JOIN elus e ON e.matricule_senat = s.matricule`,
-    )
+    .prepare(SQL_SECTIONS_ANNUAIRE)
     .all() as (FicheAnnuaire & { type: string })[];
 
   const parType = new Map<string, Map<string, FicheAnnuaire>>();

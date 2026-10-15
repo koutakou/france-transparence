@@ -47,7 +47,8 @@ export default function PageAnnuaireElus() {
         <h1 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">{TITRE}</h1>
         <p className="max-w-3xl text-sm text-ink-secondary">
           Un lien vers chaque fiche individuelle du site, par type de mandat et en ordre
-          alphabétique. Un élu qui cumule deux de ces mandats figure dans les deux listes.
+          alphabétique. Une fiche que les données rattachent à deux de ces mandats figure
+          dans les deux listes.
           Groupes, départements et taux de participation se lisent sur la page{" "}
           <Link
             href="/elus/"
