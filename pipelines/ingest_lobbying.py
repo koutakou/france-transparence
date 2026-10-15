@@ -595,9 +595,11 @@ def construire(dossier_csv: Path, aujourdhui: date) -> dict:
         insts AS (
             SELECT l.activite_id,
                    string_agg(DISTINCT trim(replace(m.responsable_public, chr(8217), '''')),
-                              ' | ') AS i,
+                              ' | ' ORDER BY trim(replace(m.responsable_public,
+                                                          chr(8217), ''''))) AS i,
                    string_agg(DISTINCT nullif(trim(m.departement_ministeriel), ''),
-                              ' | ') AS mn
+                              ' | ' ORDER BY nullif(trim(m.departement_ministeriel), ''))
+                       AS mn
             FROM {mia} m JOIN t_lien l USING (action_representation_interet_id)
             WHERE coalesce(m.responsable_public,'') <> ''
                OR coalesce(m.departement_ministeriel,'') <> ''
