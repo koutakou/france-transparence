@@ -54,6 +54,8 @@ export async function GET() {
         notes: m.notes,
       })),
       licence_agregats: "Licence Ouverte 2.0 (agrégats France Transparence)",
+      ensemble_decp:
+        "sirensTitulaires = préfixes de 9 caractères distincts des identifiants de titulaires, sur tous les marchés, accords-cadres et identifiants non conformes compris (sens inchangé). sirensTitulairesHorsAc (ajouté le 15/10/2026) = SIREN distincts titulaires d'au moins un marché HORS accords-cadres, préfixe de 9 chiffres : c'est le seul dénominateur de même périmètre que agregats.sirensHorsAc ; /lobbying rapporte l'un à l'autre. Rapporter sirensHorsAc à sirensTitulaires mêle deux périmètres.",
     },
     couverture,
     agregats,

@@ -16,8 +16,9 @@ Code : `app/src/lib/queries/croisement-lobbying-marches.ts`. Affichage : `/lobby
 > compris, et tout préfixe de 9 caractères, chiffres ou non, alors que le numérateur (435 SIREN)
 > ne porte que sur les marchés hors accords-cadres. La part « 0,46 % des titulaires » rapportait
 > donc un sous-ensemble à un ensemble plus large que le sien. Le dénominateur est désormais
-> `ensemble_decp.sirensTitulairesHorsAc` : SIREN distincts titulaires d'au moins un marché hors
-> accords-cadres, préfixe de 9 chiffres. La valeur du 20/08/2026 n'est pas recalculée ici (la base
+> `ensemble_decp.sirensTitulairesHorsAc`, ajouté à l'export : SIREN distincts titulaires d'au moins
+> un marché hors accords-cadres, préfixe de 9 chiffres. `ensemble_decp.sirensTitulaires` reste
+> publié avec son sens d'origine, pour ne pas changer en silence ce que lisent les réutilisateurs. La valeur du 20/08/2026 n'est pas recalculée ici (la base
 > de ce jour n'est plus disponible) ; le texte du § 5 est laissé tel qu'il a été écrit.
 
 ## 1. Ce que le croisement dit — et ne dit pas

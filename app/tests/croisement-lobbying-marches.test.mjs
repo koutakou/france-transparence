@@ -26,7 +26,11 @@ test("le dénominateur a le périmètre du numérateur : hors AC, préfixe de 9 
   // « 00001 », ni « 391 902 0… » (préfixes qui ne sont pas des SIREN).
   // L'ancienne requête comptait les cinq.
   assert.equal(croisement.ensemble.sirensTitulairesHorsAc, 2);
-  assert.equal("sirensTitulaires" in croisement.ensemble, false);
+});
+
+test("l'export garde sirensTitulaires avec son sens d'origine", () => {
+  // Toutes techniques, tout préfixe : les cinq titulaires de la fixture.
+  assert.equal(croisement.ensemble.sirensTitulaires, 5);
 });
 
 test("le numérateur est inclus dans le dénominateur", () => {
