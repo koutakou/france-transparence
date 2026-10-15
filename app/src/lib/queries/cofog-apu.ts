@@ -19,7 +19,7 @@
  * classement par montant. Unité native MIO_EUR ; Md€ = MIO_EUR ÷ 1000
  * à la lecture — jamais ÷ 1e9. PC_GDP est le % du PIB, lu à part, non
  * additif. Pas de groupes GF0101…, pas de par habitant, pas de
- * sous-secteur S.1311.
+ * sous-secteur (ni S1311, administration centrale, ni S13111, l'État).
  *
  * Convention « base absente » : `null` tant que la table n'est pas ingérée.
  */
