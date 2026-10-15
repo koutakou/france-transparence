@@ -375,7 +375,7 @@ export default async function Accueil() {
           <KpiTile
             label="Appels d'offres en cours (BOAMP)"
             valeur={formatNombre(kpis.aoEnCours)}
-            perimetre="annonces BOAMP non annulées, date limite encore ouverte — stock du jour, pas un flux 30 j"
+            perimetre={`annonces BOAMP non annulées, date limite encore ouverte le ${libelleConstruction} (construction du site) — un stock à cet instant, pas un flux 30 j`}
           />
           <KpiTile
             label="Textes au JO (30 j)"
