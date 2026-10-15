@@ -67,7 +67,8 @@ export function SerieMensuelleMarches({ serie }: { serie: MoisAgg[] }) {
           <BarChart
             items={serie.map((m) => ({
               libelle: moisCourt(m.mois),
-              valeur: m.montant_total ?? 0,
+              // Un mois sans montant connu n'a pas de colonne : NULL ≠ 0.
+              valeur: m.montant_total,
             }))}
             formatValeur={formatMd}
             ariaLabel="Montant notifié par mois sur 36 mois, en milliards d’euros écrêtés"

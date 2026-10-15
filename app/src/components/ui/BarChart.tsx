@@ -25,7 +25,11 @@ import { cssSurvolColonnes, TooltipGraphique } from "./TooltipGraphique";
  */
 export interface BarChartItem {
   libelle: string;
-  valeur: number;
+  /**
+   * `null` = valeur non disponible : AUCUNE colonne (jamais une colonne à 0,
+   * qui affirmerait un zéro), relevé « non disponible ».
+   */
+  valeur: number | null;
   /** Dé-emphase ponctuelle uniquement (« Autre » → `var(--viz-autre)`). */
   couleur?: string;
 }
@@ -66,7 +70,9 @@ export function BarChart({
 }: BarChartProps) {
   if (items.length === 0) return null;
 
-  const valeurs = items.map((i) => i.valeur).filter((v) => Number.isFinite(v));
+  const valeurs = items
+    .map((i) => i.valeur)
+    .filter((v): v is number => v !== null && Number.isFinite(v));
   const ticks = ticksRonds(Math.min(...valeurs, 0), Math.max(...valeurs, 0), depuisZero);
   const yMin = ticks[0];
   const yMax = ticks[ticks.length - 1];
@@ -102,7 +108,8 @@ export function BarChart({
   const posTip = (i: number) => {
     const cx = margeGauche + i * bande + bande / 2;
     const pct = (cx / largeur) * 100;
-    const yV = y(items[i].valeur);
+    const v = items[i].valeur;
+    const yV = v === null ? yBase : y(v);
     const haut = Math.min(yV, yBase);
     return {
       left: `${pct}%`,
@@ -156,7 +163,8 @@ export function BarChart({
       {/* colonnes — cible de survol = la bande entière (≥ 24px, §5) */}
       {items.map((item, i) => {
         const x0 = margeGauche + i * bande + (bande - epaisseur) / 2;
-        const yV = y(item.valeur);
+        const valeur = item.valeur;
+        const yV = valeur === null ? yBase : y(valeur);
         const haut = Math.min(yV, yBase);
         const bas = Math.max(yV, yBase);
         return (
@@ -168,21 +176,23 @@ export function BarChart({
               height={traceH}
               fill="transparent"
             />
-            <path
-              d={
-                item.valeur >= 0
-                  ? cheminColonne(x0, haut, bas, epaisseur)
-                  : // valeur négative : bout arrondi vers le bas
-                    cheminColonne(x0, haut, bas, epaisseur)
-              }
-              transform={
-                item.valeur < 0
-                  ? `rotate(180 ${(x0 + epaisseur / 2).toFixed(2)} ${((haut + bas) / 2).toFixed(2)})`
-                  : undefined
-              }
-              fill={item.couleur ?? "var(--viz-serie-1)"}
-            />
-            {etiquettesSommet && item.valeur >= 0 && (
+            {valeur !== null && (
+              <path
+                d={
+                  valeur >= 0
+                    ? cheminColonne(x0, haut, bas, epaisseur)
+                    : // valeur négative : bout arrondi vers le bas
+                      cheminColonne(x0, haut, bas, epaisseur)
+                }
+                transform={
+                  valeur < 0
+                    ? `rotate(180 ${(x0 + epaisseur / 2).toFixed(2)} ${((haut + bas) / 2).toFixed(2)})`
+                    : undefined
+                }
+                fill={item.couleur ?? "var(--viz-serie-1)"}
+              />
+            )}
+            {etiquettesSommet && valeur !== null && valeur >= 0 && (
               <text
                 x={x0 + epaisseur / 2}
                 y={haut - 5}
@@ -190,7 +200,7 @@ export function BarChart({
                 fontSize={11}
                 fill="var(--ink-secondary)"
               >
-                {formatValeur(item.valeur)}
+                {formatValeur(valeur)}
               </text>
             )}
             {visiblesX.has(i) && (
@@ -226,7 +236,7 @@ export function BarChart({
           lignes={[
             {
               nom: item.libelle,
-              valeur: formatValeur(item.valeur),
+              valeur: item.valeur === null ? "non disponible" : formatValeur(item.valeur),
               couleur: item.couleur ?? "var(--viz-serie-1)",
             },
           ]}

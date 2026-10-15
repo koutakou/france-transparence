@@ -30,6 +30,7 @@ import {
   type SanctionsAdlc,
 } from "@/lib/queries/adlc";
 import { chargerDonneesMarches, type AlerteMarches } from "@/lib/queries/marches";
+import { moisClos, premierMoisIncomplet } from "@/lib/periodes";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 import { urlAnnuaireEntreprise } from "@/lib/urlOfficielle";
 
@@ -118,6 +119,16 @@ function CelluleSiren({ siren, dans_sirene }: { siren: string | null; dans_siren
 function formatJours(v: number | null): string {
   if (v === null) return "—";
   return `${formatNombre(v)}${ESPACE_FINE}${Math.abs(v) < 2 ? "jour" : "jours"}`;
+}
+
+/** `2025-04` → « avril 2025 ». */
+function moisEnClair(mois: string): string {
+  const [annee, mm] = mois.split("-").map(Number);
+  return new Intl.DateTimeFormat("fr-FR", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(annee, mm - 1, 1)));
 }
 
 /** La date de donnée est-elle celle du jour de construction du site ? */
@@ -435,13 +446,29 @@ export default async function PageMarches() {
      compteurs affichés sont lus en base. */
   const qa = qualiteAcheteurs;
 
-  /* ---- KPI : tendances 12 derniers mois de la série mensuelle ---- */
-  const douzeDerniers = serieMensuelle.slice(-12);
+  /* ---- KPI : tendances 12 derniers mois de la série mensuelle.
+     Mois civils CLOS seulement : le mois de la date de donnée n'a pas fini
+     d'exister, et la sparkline met son dernier point en relief — un mois
+     de quinze jours y dessinait un effondrement qui n'existe pas. ---- */
+  const douzeDerniers = moisClos(serieMensuelle, meta.s1?.date_donnees ?? "").slice(-12);
   const tendanceNb = douzeDerniers.map((m) => m.nb_marches);
   const montantsDouze = douzeDerniers.map((m) => m.montant_total);
   const tendanceMontant = montantsDouze.every((v): v is number => v !== null)
     ? montantsDouze
     : undefined;
+
+  /* ---- Série mensuelle : quels mois sont incomplets. Dérivé du délai de
+     publication MESURÉ plus bas (9e décile), pas de la seule latence légale
+     de 2 mois : un marché sur dix est publié bien au-delà. Le 9e décile est
+     lui-même une borne basse (un marché jamais publié n'a pas de délai),
+     d'où « au moins ». ---- */
+  const d9 = qp?.synthese.delai_d9 ?? null;
+  const premierIncomplet =
+    d9 !== null && meta.s1 ? premierMoisIncomplet(meta.s1.date_donnees, d9) : null;
+  const incompletude =
+    premierIncomplet !== null && d9 !== null
+      ? `au moins les mois depuis ${moisEnClair(premierIncomplet)} sont incomplets : un marché publié sur dix l’est plus de ${formatJours(d9)} après sa notification (9e décile, section « Qualité de publication »)`
+      : "les derniers mois sont incomplets (publication légale jusqu’à 2 mois après la notification, délai réel non mesuré ici)";
 
   /* ---- Carte : montants par département (NULL écarté, jamais 0).
      Codes à 2 caractères = métropole + Corse, le périmètre réellement
@@ -521,7 +548,7 @@ export default async function PageMarches() {
             valeur: formatNombre(kpis.nbMarches12m),
             tendance: tendanceNb,
             perimetre:
-              "notification initiale, 12 derniers mois — ce n’est pas le stock total",
+              "notification initiale, 12 derniers mois — ce n’est pas le stock total ; courbe : mois civils clos",
           },
           {
             label: "Montant notifié (12 mois, écrêté)",
@@ -529,7 +556,7 @@ export default async function PageMarches() {
             montantVedette: true,
             tendance: tendanceMontant,
             perimetre:
-              "notification initiale, 12 derniers mois, plafond 100 M€ par marché",
+              "notification initiale, 12 derniers mois, plafond 100 M€ par marché ; courbe : mois civils clos",
           },
           {
             label: "Marchés notifiés (30 derniers jours)",
@@ -791,7 +818,7 @@ export default async function PageMarches() {
       {/* ---------------------------------------------------------- */}
       <Card
         titre="Série mensuelle"
-        sousTitre="36 derniers mois civils, chaque marché rangé au mois de sa notification initiale (un avenant ne le redate pas) — les 2 derniers mois sont incomplets (latence légale de publication ≤ 2 mois)"
+        sousTitre={`36 derniers mois civils, chaque marché rangé au mois de sa notification initiale (un avenant ne le redate pas) — ${incompletude}`}
         droite={badgeS1}
       >
         <SerieMensuelleMarches serie={serieMensuelle} />
