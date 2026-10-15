@@ -122,7 +122,11 @@ export type DernierMarche = {
   date: string;
   acheteur: string | null;
   objet: string | null;
-  montant: number | null; // montant_rationalise — NULL = non publié
+  /** `montant_retenu`, la MÊME colonne que le flux de /marches — NULL =
+   *  non publié. */
+  montant: number | null;
+  /** `montant_suspect` (0/1) : étiqueté à l'écran comme sur /marches. */
+  suspect: number;
 };
 
 export type TexteJo = {
@@ -424,7 +428,8 @@ export function getDonneesAccueil(): DonneesAccueil | null {
               date_notification AS date,
               acheteur_nom AS acheteur,
               objet,
-              montant_rationalise AS montant
+              montant_retenu AS montant,
+              montant_suspect AS suspect
          FROM decp_derniers_marches
         ORDER BY rang
         LIMIT 7`,
