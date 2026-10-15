@@ -247,7 +247,12 @@ export function getDeputes(filtres: FiltresListe = {}): DeputeLigne[] | null {
       `SELECT d.uid_an, e.id AS elu_id, d.nom, d.prenom, d.groupe_sigle,
               d.groupe_nom, d.departement,
               d.taux_participation_12m, d.datan_score_participation,
-              d.url_fiche_an, COALESCE(NULLIF(TRIM(d.url_hatvp), ''), e.hatvp_url) AS hatvp_url
+              d.url_fiche_an,
+              -- uri_hatvp de l'AN peut être un chemin RELATIF de son propre
+              -- site (« /tribun/resources/html/… », relevé le 15/10/2026) :
+              -- seul un lien absolu vers hatvp.fr est publié.
+              CASE WHEN d.url_hatvp LIKE 'https://www.hatvp.fr/%' THEN d.url_hatvp
+                   ELSE e.hatvp_url END AS hatvp_url
        FROM deputes d JOIN elus e ON e.uid_an = d.uid_an
        ${where}
        ORDER BY d.nom, d.prenom`,
