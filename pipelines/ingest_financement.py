@@ -548,6 +548,13 @@ def formater_euros(valeur: float | None, decimales: int = 2) -> str:
     return corps + ESPACE_FINE + "€"
 
 
+def formater_pourcent(part: float, decimales: int = 1) -> str:
+    """Part (0,927) → « 92,7 % » : virgule décimale, espace fine insécable
+    avant « % » (même convention que formatPct côté front)."""
+    corps = f"{part * 100:.{decimales}f}".replace(".", ",")
+    return corps + ESPACE_FINE + "%"
+
+
 _SIGLE_RE = re.compile(r"\(([^()]{2,12})\)\s*$")
 
 
@@ -1307,18 +1314,17 @@ def calculer_alertes(conn, url_avis_2024: str | None) -> int:
             (
                 f"FIN-PARTI-DEP-{p['exercice']}-{p['id']}",
                 "financement_parti_dependance_aide", "info",
-                f"Parti financé à {ratio:.0%} par l'aide publique — {p['nom']}",
-                # ATTENTION — le motif « (ratio X.X%) » est une CLÉ DE TRI :
+                f"Parti financé à {formater_pourcent(ratio, 0)} par l'aide publique — {p['nom']}",
+                # ATTENTION — le motif « (ratio X,X %) » est une CLÉ DE TRI :
                 # app/src/lib/queries/financement.ts classe ces alertes par
-                # CAST(substr(detail, instr(detail,'(ratio ') + 7) AS REAL).
-                # Le point décimal doit rester un POINT : SQLite lit
-                # CAST('92,7%' AS REAL) = 92.0 et perdrait la décimale. Ce
-                # fragment est donc laissé tel quel, seuls les montants en
-                # euros passent par le formateur français.
+                # CAST(replace(substr(detail, instr(detail,'(ratio ') + 7),
+                # ',', '.') AS REAL). Le texte est en français (virgule,
+                # espace fine avant « % ») ; c'est la requête qui remet le
+                # point avant le CAST (SQLite lit '92,7' comme 92.0).
                 f"Exercice {p['exercice']} : aide publique "
                 f"{formater_euros(p['aide'])} pour "
                 f"{formater_euros(p['produits_total'])} de produits totaux "
-                f"(ratio {ratio:.1%}).",
+                f"(ratio {formater_pourcent(ratio)}).",
                 regle_dep, base_a4, URL_DATASET_PARTIS, quand,
             )
         )
