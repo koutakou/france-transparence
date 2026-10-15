@@ -210,7 +210,7 @@ Côté app : pages de module dans `app/src/app/<module>/page.tsx` (routes de nav
 - **Socle** (`test_socle.py`, en place) : `init_db` sur base temporaire (`tmp_path`), idempotence, contraintes CHECK (`entites.type`, `elus.mandats` JSON), upsert/écrasement de `upsert_meta`.
 - **Par pipeline** (`pipelines/tests/test_<source>.py`) : tester la **transformation** sur un petit extrait réel du fichier source figé dans `pipelines/tests/fixtures/` (quelques lignes du vrai CSV/JSON, pièges inclus : cp1252 + skiprows=6 pour CNCCFP, `%` du Sénat, `"CDL"` = null, U+00A0 dans les montants). Le téléchargement n'est pas testé unitairement, il est éprouvé par l'exécution réelle.
 - **Fumée d'intégration** (optionnelle, marquée `@pytest.mark.reseau`, exclue par défaut) : HEAD sur les URLs vivantes — c'est le rôle du moniteur A11 en production, pas de la CI.
-- **App** : `npm run build` (types + lint Next) fait office de porte ; les pages doivent builder avec ET sans `data/france.db` présent (la garde `getDb() → null` est un cas de test permanent).
+- **App** : la porte est `npm run lint` (ESLint, que `next build` ne lance plus depuis Next 16), `npx next typegen && npx tsc --noEmit` (types) et `npm run build` (qui vérifie aussi les types), trois étapes distinctes de la CI ; les pages doivent builder avec ET sans `data/france.db` présent (la garde `getDb() → null` est un cas de test permanent).
 - **App, fonctions pures** : `cd app && npm test` joue `app/tests/*.test.mjs` avec le lanceur intégré de Node (`node --test`, types TypeScript retirés à la volée : aucune dépendance ajoutée). Une règle d'affichage qui se décide sans base ni navigateur (format, recherche, navigation, dates) vit dans un module pur de `src/lib/`, sans import `@/`, pour y être testée.
 
 ---
