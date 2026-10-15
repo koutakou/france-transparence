@@ -60,7 +60,11 @@ URL_INDEX = "https://echanges.dila.gouv.fr/OPENDATA/DOLE/"
 URL_CATALOGUE = "https://www.data.gouv.fr/datasets/dole-les-dossiers-legislatifs"
 LICENCE = "Licence Ouverte 2.0"
 FREQUENCE = "quotidienne"
-LIEN_LEGIFRANCE = "https://www.legifrance.gouv.fr/dossierlegislatif/{id}"
+# Page du dossier sur vie-publique.fr (DILA). L'adresse Légifrance
+# « /dossierlegislatif/<id> » y redirige (302, constaté le 15/10/2026) : on
+# lie la destination, pas la redirection. La colonne garde son nom
+# historique `lien_legifrance` (pas de migration de schéma pour un libellé).
+LIEN_DOSSIER = "https://www.vie-publique.fr/dossierlegislatif/{id}"
 
 # Freemium annuel (~19 Mo) : 30 j, ET entrée cache-long.conf (sinon la
 # purge 23 h de ft-deploy annule ce TTL). Incréments immuables.
@@ -215,7 +219,7 @@ def parse_dossier(xml_bytes: bytes) -> Dossier | None:
         legislature_libelle=_texte(leg, "LIBELLE"),
         derniere_etape=last_lib,
         derniere_etape_url=last_url,
-        lien_legifrance=LIEN_LEGIFRANCE.format(id=dossier_id),
+        lien_legifrance=LIEN_DOSSIER.format(id=dossier_id),
     )
 
 

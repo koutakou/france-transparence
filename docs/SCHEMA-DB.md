@@ -1131,7 +1131,7 @@ CREATE TABLE dole_dossiers (
     legislature_libelle  TEXT NOT NULL DEFAULT '',
     derniere_etape       TEXT NOT NULL DEFAULT '',
     derniere_etape_url   TEXT NOT NULL DEFAULT '',
-    lien_legifrance      TEXT NOT NULL
+    lien_legifrance      TEXT NOT NULL  -- nom historique : page vie-publique.fr du dossier
 );
 CREATE INDEX idx_dole_dossiers_type  ON dole_dossiers(type);
 CREATE INDEX idx_dole_dossiers_leg   ON dole_dossiers(legislature_num);

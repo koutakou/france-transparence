@@ -167,7 +167,7 @@ export default async function DocumentsPage() {
       entete: "Titre",
       rendu: (l) => (
         <span title={l.titre} className="block max-w-[48ch] truncate">
-          <LienOfficiel href={l.lien_legifrance} source="Légifrance">
+          <LienOfficiel href={l.lien_legifrance} source="vie-publique.fr">
             {l.titre}
           </LienOfficiel>
         </span>
@@ -441,8 +441,9 @@ export default async function DocumentsPage() {
                   Dumps XML DILA du fonds DOLE (Freemium puis incréments,
                   last-write-wins), Licence Ouverte 2.0. Producteur&nbsp;: DILA
                   ; catalogue data.gouv «&nbsp;dole-les-dossiers-legislatifs&nbsp;»,
-                  organisation Premier ministre. Chaque dossier renvoie vers
-                  Légifrance (lien sortant, le texte n’est pas recopié ici).
+                  organisation Premier ministre. Chaque dossier renvoie vers sa
+                  page sur vie-publique.fr, site de la DILA (lien sortant, le
+                  texte n’est pas recopié ici).
                 </p>
               }
               limites={
