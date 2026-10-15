@@ -1,16 +1,24 @@
 import type { Metadata } from "next";
 import { AlertItem, type Gravite } from "@/components/ui/AlertItem";
 import { AppelsOffres } from "@/components/client/AppelsOffres";
-import { BarChart } from "@/components/ui/BarChart";
-import { BarList } from "@/components/ui/BarList";
+import { BarChartIle, BarListIle, DonutIle } from "@/components/client/Graphiques";
+import {
+  TableAchatsAnnonces,
+  TableAnneesPublication,
+  TableDecisionsAdlc,
+  TableDerniersMarches,
+  TableProcedures,
+  TableTopAcheteurs,
+  TableTopTitulaires,
+} from "@/components/client/TablesMarches";
+import { hrefAnnuaire } from "@/components/ui/CellulesMarches";
 import { Card } from "@/components/ui/Card";
+import { TableCompacte } from "@/components/ui/TableCompacte";
 import { JsonLd } from "@/components/JsonLd";
 import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { CarteDepartements } from "@/components/client/CarteDepartements";
-import { DataTable, type Colonne } from "@/components/ui/DataTable";
-import { Donut, type DonutPart } from "@/components/ui/Donut";
+import type { DonutPart } from "@/components/ui/Donut";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
-import { LienOfficiel } from "@/components/ui/LienOfficiel";
 import { Money } from "@/components/ui/Money";
 import { SerieMensuelleMarches } from "@/components/client/SerieMensuelleMarches";
 import { Sparkline } from "@/components/ui/Sparkline";
@@ -32,12 +40,11 @@ import {
 import {
   chargerDonneesMarches,
   type AlerteMarches,
-  type TopAcheteur,
 } from "@/lib/queries/marches";
 import { moisClos, premierMoisIncomplet } from "@/lib/periodes";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
-import { urlAnnuaireEntreprise } from "@/lib/urlOfficielle";
 import { phraseMarchesSansMontant } from "@/lib/phrases";
+import { sansChamp } from "@/lib/champs";
 
 /**
  * Page STATIQUE (site pré-rendu quotidiennement) : tout est calculé au
@@ -71,51 +78,6 @@ const BALISAGE = jsonLdPage({
 /* ------------------------------------------------------------------ */
 /* Helpers d'affichage (purs, locaux à la page)                        */
 /* ------------------------------------------------------------------ */
-
-/** Tronque proprement un libellé long (le `title` porte le texte complet). */
-function tronque(s: string | null, max: number): string {
-  if (!s || s.trim() === "") return "—";
-  return s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s;
-}
-
-/** Annuaire Sirene seulement si le SIREN est dans S18 (9 chiffres, LEFT JOIN). */
-function hrefAnnuaire(a: { siren: string | null; dans_sirene: number }): string | null {
-  return a.dans_sirene === 1 ? urlAnnuaireEntreprise(a.siren) : null;
-}
-
-function NomEntreprise({
-  nom,
-  siren,
-  dans_sirene,
-  max,
-}: {
-  nom: string | null;
-  siren: string | null;
-  dans_sirene: number;
-  max: number;
-}) {
-  const href = hrefAnnuaire({ siren, dans_sirene });
-  const texte = <span title={nom ?? undefined}>{tronque(nom, max)}</span>;
-  return href ? (
-    <LienOfficiel href={href} source="Sirene">
-      {texte}
-    </LienOfficiel>
-  ) : (
-    texte
-  );
-}
-
-function CelluleSiren({ siren, dans_sirene }: { siren: string | null; dans_sirene: number }) {
-  if (!siren) return "—";
-  const href = hrefAnnuaire({ siren, dans_sirene });
-  return href ? (
-    <LienOfficiel href={href} source="Sirene">
-      {siren}
-    </LienOfficiel>
-  ) : (
-    siren
-  );
-}
 
 /**
  * Durée en jours, unité collée par une espace fine insécable (DATAVIZ §4).
@@ -221,43 +183,7 @@ function SectionAdlc({ donnees }: { donnees: SanctionsAdlc }) {
 
             {decisionsAnnee.length > 0 && (
               <VueTableau>
-                <DataTable
-                  colonnes={[
-                    {
-                      cle: "date_decision",
-                      entete: "Décision",
-                      type: "date",
-                    },
-                    {
-                      cle: "id_decision",
-                      entete: "Référence",
-                      rendu: (d: (typeof decisionsAnnee)[number]) =>
-                        d.url_site ? (
-                          <LienOfficiel href={d.url_site} source="ADLC">
-                            {d.id_decision}
-                          </LienOfficiel>
-                        ) : (
-                          d.id_decision
-                        ),
-                    },
-                    {
-                      cle: "montant_total",
-                      entete: "Montant",
-                      type: "euros",
-                    },
-                    {
-                      cle: "sous_titre",
-                      entete: "Objet",
-                      rendu: (d: (typeof decisionsAnnee)[number]) => (
-                        <span title={d.sous_titre ?? undefined}>
-                          {tronque(d.sous_titre, 72)}
-                        </span>
-                      ),
-                    },
-                  ]}
-                  lignes={decisionsAnnee}
-                  cleLigne={(d) => d.id_decision}
-                />
+                <TableDecisionsAdlc lignes={decisionsAnnee} />
               </VueTableau>
             )}
             {decisionsAnnee.length > 0 && (
@@ -299,69 +225,11 @@ function Quantile({ libelle, valeur }: { libelle: string; valeur: number | null 
 }
 
 /**
- * Colonnes de montant des deux classements. Le rang se fixe sur la part
- * HORS SUSPECTS ; la part que le drapeau « montant suspect » recouvre est
- * montrée dans sa propre colonne (montant, puis nombre de marchés entre
- * parenthèses) — jamais retirée, jamais additionnée à la première à
- * l'écran. Pas d'étiquette par cellule : l'en-tête la porte, et 20 cellules
- * ×2 (HTML + charge RSC) pesaient ~40 Ko sur une page déjà au-delà du
- * budget de 500 Ko.
- */
-const COLONNES_MONTANT_TOP: Colonne<TopAcheteur>[] = [
-  {
-    cle: "montant_hors_suspects",
-    entete: "Montant hors suspects",
-    type: "montant",
-    rendu: (a) =>
-      a.montant_hors_suspects === null ? "—" : <Money valeur={a.montant_hors_suspects} />,
-  },
-  {
-    cle: "montant_suspects",
-    entete: "Montants suspects",
-    type: "montant",
-    rendu: (a) =>
-      a.nb_marches_suspects === 0 ? (
-        "—"
-      ) : (
-        <>
-          {a.montant_suspects === null ? "—" : <Money valeur={a.montant_suspects} />}{" "}
-          <span className="text-[11px] text-ink-muted">
-            ({formatNombre(a.nb_marches_suspects)})
-          </span>
-        </>
-      ),
-  },
-];
-
-/** Étiquette « suspect » : icône statut + libellé (jamais la couleur seule). */
-function EtiquetteSuspect() {
-  return (
-    <span
-      className="inline-flex items-center gap-1 text-[11px] text-ink-muted"
-      title="Montant classé suspect : anomalie signalée à la source, ou montant supérieur à 100 M€ (écrêté dans les agrégats)."
-    >
-      <svg width="10" height="10" viewBox="0 0 14 14" aria-hidden="true" style={{ color: "var(--status-warning)" }}>
-        <path d="M7 1.5L13 12H1z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-        <path d="M7 5.4v3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-        <circle cx="7" cy="10.2" r="0.9" fill="currentColor" />
-      </svg>
-      suspect
-    </span>
-  );
-}
-
-/**
  * Instant de la construction (ms) : l'export statique rend la page une seule
  * fois, au moment où les requêtes évaluent `datetime('now')`.
  */
 function instantDeConstruction(): number {
   return Date.now();
-}
-
-/** Fiche d'une consultation PLACE, pas le portail générique. */
-function hrefConsultation(url: string | null): string | null {
-  if (!url || !url.includes("/consultation/")) return null;
-  return url;
 }
 
 /* ------------------------------------------------------------------ */
@@ -925,7 +793,7 @@ export default async function PageMarches() {
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-ink-secondary">
                 Publication dans le délai légal, par année de notification
               </h3>
-              <BarChart
+              <BarChartIle
                 items={anneesChiffrees.map((a) => ({
                   libelle:
                     a.cohorte_close === 1
@@ -936,7 +804,7 @@ export default async function PageMarches() {
                   couleur: a.cohorte_close === 1 ? undefined : "var(--viz-autre)",
                   valeur: a.taux_dans_delai ?? 0,
                 }))}
-                formatValeur={(v) => formatPct(v, 0)}
+                format={{ type: "pct", decimales: 0 }}
                 // Chaque abscisse est une ANNÉE : elle porte l'information et
                 // ne se devine pas d'après ses voisines. On étiquette donc
                 // toutes les colonnes plutôt que d'en laisser éclaircir une
@@ -962,34 +830,7 @@ export default async function PageMarches() {
                 )}
               </p>
               <VueTableau resume="Vue tableau — par année de notification">
-                <DataTable
-                  colonnes={[
-                    {
-                      cle: "annee",
-                      entete: "Année",
-                      largeur: "4.5rem",
-                      rendu: (a) => String(a.annee),
-                    },
-                    { cle: "nb_marches", entete: "Marchés", type: "nombre" },
-                    { cle: "nb_dans_delai", entete: "Dans le délai", type: "nombre" },
-                    { cle: "taux_dans_delai", entete: "Part", type: "pourcent" },
-                    {
-                      cle: "delai_median",
-                      entete: "Délai médian (j)",
-                      type: "nombre",
-                    },
-                    { cle: "nb_plus_un_an", entete: "Plus d’un an", type: "nombre" },
-                    {
-                      cle: "cohorte_close",
-                      entete: "Cohorte",
-                      rendu: (a) =>
-                        a.cohorte_close === 1 ? "Close" : "Provisoire",
-                    },
-                  ]}
-                  lignes={qp.annees}
-                  cleLigne={(a) => String(a.annee)}
-                  vide="Aucune année mesurée"
-                />
+                <TableAnneesPublication lignes={qp.annees} />
               </VueTableau>
             </div>
 
@@ -1002,12 +843,12 @@ export default async function PageMarches() {
                 Marchés notifiés de {qp.synthese.cohorte_min} à{" "}
                 {qp.synthese.cohorte_max} — cohortes closes seules.
               </p>
-              <BarList
+              <BarListIle
                 items={acheteursChiffres.map((a) => ({
                   libelle: a.categorie,
                   valeur: a.taux_dans_delai ?? 0,
                 }))}
-                formatValeur={(v) => formatPct(v)}
+                format={{ type: "pct" }}
                 largeurLibelle="45%"
               />
               <p className="mt-2 text-xs leading-relaxed text-ink-muted">
@@ -1018,7 +859,7 @@ export default async function PageMarches() {
                 donnée seule ne qualifie aucun manquement.
               </p>
               <VueTableau resume="Vue tableau — par catégorie d’acheteur">
-                <DataTable
+                <TableCompacte
                   colonnes={[
                     { cle: "categorie", entete: "Catégorie d’acheteur" },
                     { cle: "nb_marches", entete: "Marchés", type: "nombre" },
@@ -1037,7 +878,7 @@ export default async function PageMarches() {
                     },
                   ]}
                   lignes={qp.acheteurs}
-                  cleLigne={(a) => a.categorie}
+                  cleChamp="categorie"
                   vide="Aucune catégorie d’acheteur renseignée"
                 />
               </VueTableau>
@@ -1132,7 +973,7 @@ export default async function PageMarches() {
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-ink-secondary">
               Top acheteurs
             </h3>
-            <BarList
+            <BarListIle
               items={donnees.topAcheteurs.map((a) => {
                 const href = hrefAnnuaire(a) ?? undefined;
                 return {
@@ -1142,7 +983,7 @@ export default async function PageMarches() {
                   hrefSource: href ? "Sirene" : undefined,
                 };
               })}
-              formatValeur={(v) => formatEuros(v)}
+              format={{ type: "euros" }}
               largeurLibelle="45%"
             />
             {qa && (
@@ -1173,39 +1014,15 @@ export default async function PageMarches() {
               </p>
             )}
             <VueTableau resume="Vue tableau — top acheteurs">
-              <DataTable
-                colonnes={[
-                  { cle: "rang", entete: "Rang", type: "nombre", largeur: "3.5rem" },
-                  {
-                    cle: "nom",
-                    entete: "Acheteur",
-                    rendu: (a) => (
-                      <NomEntreprise nom={a.nom} siren={a.siren} dans_sirene={a.dans_sirene} max={60} />
-                    ),
-                  },
-                  {
-                    cle: "siren",
-                    entete: "SIREN",
-                    rendu: (a) => <CelluleSiren siren={a.siren} dans_sirene={a.dans_sirene} />,
-                  },
-                  {
-                    cle: "nb_etablissements",
-                    entete: "Établissements",
-                    type: "nombre",
-                  },
-                  { cle: "nb_marches", entete: "Marchés", type: "nombre" },
-                  ...COLONNES_MONTANT_TOP,
-                ]}
-                lignes={donnees.topAcheteurs}
-                cleLigne={(a) => String(a.rang)}
-              />
+              {/* montant_total (suspects compris) n'est pas affiché : il ne voyage pas. */}
+              <TableTopAcheteurs lignes={sansChamp(donnees.topAcheteurs, "montant_total")} />
             </VueTableau>
           </div>
           <div>
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-ink-secondary">
               Top titulaires
             </h3>
-            <BarList
+            <BarListIle
               items={donnees.topTitulaires.map((t) => {
                 const href = hrefAnnuaire(t) ?? undefined;
                 return {
@@ -1215,7 +1032,7 @@ export default async function PageMarches() {
                   hrefSource: href ? "Sirene" : undefined,
                 };
               })}
-              formatValeur={(v) => formatEuros(v)}
+              format={{ type: "euros" }}
               largeurLibelle="45%"
             />
             <p className="mt-2 text-xs leading-relaxed text-ink-muted">
@@ -1223,33 +1040,7 @@ export default async function PageMarches() {
               entre co-titulaires.
             </p>
             <VueTableau resume="Vue tableau — top titulaires">
-              <DataTable
-                colonnes={[
-                  { cle: "rang", entete: "Rang", type: "nombre", largeur: "3.5rem" },
-                  {
-                    cle: "nom",
-                    entete: "Titulaire",
-                    rendu: (t) => (
-                      <NomEntreprise nom={t.nom} siren={t.siren} dans_sirene={t.dans_sirene} max={60} />
-                    ),
-                  },
-                  {
-                    cle: "siren",
-                    entete: "SIREN",
-                    rendu: (t) => <CelluleSiren siren={t.siren} dans_sirene={t.dans_sirene} />,
-                  },
-                  { cle: "categorie", entete: "Catégorie", rendu: (t) => t.categorie ?? "—" },
-                  {
-                    cle: "nb_etablissements",
-                    entete: "Établissements",
-                    type: "nombre",
-                  },
-                  { cle: "nb_marches", entete: "Marchés", type: "nombre" },
-                  ...COLONNES_MONTANT_TOP,
-                ]}
-                lignes={donnees.topTitulaires}
-                cleLigne={(t) => String(t.rang)}
-              />
+              <TableTopTitulaires lignes={sansChamp(donnees.topTitulaires, "montant_total")} />
             </VueTableau>
           </div>
         </div>
@@ -1335,9 +1126,9 @@ export default async function PageMarches() {
         sousTitre="Marchés notifiés sur 12 mois (notification initiale), par procédure de passation"
         droite={badgeS1}
       >
-        <Donut
+        <DonutIle
           parts={partsDonut}
-          formatValeur={(v) => formatNombre(v)}
+          format={{ type: "nombre" }}
           libelleTotal="marchés · 12 mois"
           ariaLabel="Répartition des marchés notifiés sur 12 mois par procédure de passation"
         />
@@ -1348,34 +1139,7 @@ export default async function PageMarches() {
           fréquentes — détail complet dans la vue tableau.
         </p>
         <VueTableau resume="Vue tableau — toutes les procédures">
-          <DataTable
-            colonnes={[
-              {
-                cle: "valeur",
-                entete: "Procédure",
-                rendu: (r) => r.valeur ?? "Non renseigné",
-              },
-              { cle: "nb_marches", entete: "Marchés", type: "nombre" },
-              {
-                cle: "part",
-                entete: "Part",
-                type: "pourcent",
-                rendu: (r) =>
-                  totalProcedures > 0
-                    ? formatPct((100 * r.nb_marches) / totalProcedures)
-                    : "—",
-              },
-              {
-                cle: "montant_total",
-                entete: "Montant (écrêté)",
-                type: "montant",
-                rendu: (r) =>
-                  r.montant_total === null ? "—" : <Money valeur={r.montant_total} />,
-              },
-            ]}
-            lignes={procedures}
-            cleLigne={(r) => r.valeur ?? "(non renseigné)"}
-          />
+          <TableProcedures lignes={procedures} total={totalProcedures} />
         </VueTableau>
       </Card>
 
@@ -1387,60 +1151,7 @@ export default async function PageMarches() {
         sousTitre="Les 20 notifications les plus récentes du flux consolidé (J-1)"
         droite={badgeS1}
       >
-        <DataTable
-          colonnes={[
-            { cle: "date_notification", entete: "Notifié le", type: "date", largeur: "6.5rem" },
-            {
-              cle: "acheteur_nom",
-              entete: "Acheteur",
-              rendu: (m) => (
-                <span title={m.acheteur_nom ?? undefined}>{tronque(m.acheteur_nom, 48)}</span>
-              ),
-            },
-            {
-              cle: "objet",
-              entete: "Objet",
-              rendu: (m) => <span title={m.objet ?? undefined}>{tronque(m.objet, 80)}</span>,
-            },
-            {
-              cle: "titulaire_nom",
-              entete: "Titulaire",
-              rendu: (m) => (
-                <span title={m.titulaire_nom ?? undefined}>
-                  {tronque(m.titulaire_nom, 36)}
-                  {m.nb_titulaires > 1 && (
-                    <span className="text-ink-muted"> +{m.nb_titulaires - 1} co-tit.</span>
-                  )}
-                </span>
-              ),
-            },
-            {
-              cle: "montant_retenu",
-              entete: "Montant",
-              type: "montant",
-              rendu: (m) =>
-                m.montant_retenu === null ? (
-                  <span title="Montant non renseigné à la source">—</span>
-                ) : (
-                  <span className="inline-flex items-baseline gap-1.5">
-                    <Money valeur={m.montant_retenu} />
-                    {(m.techniques ?? "").includes("Accord-cadre") && (
-                      <span
-                        className="text-[11px] text-ink-muted"
-                        title="Accord-cadre : le montant notifié est un maximum, pas du dépensé."
-                      >
-                        max
-                      </span>
-                    )}
-                    {m.montant_suspect === 1 && <EtiquetteSuspect />}
-                  </span>
-                ),
-            },
-          ]}
-          lignes={donnees.derniersMarches}
-          cleLigne={(m) => m.uid}
-          vide="Aucun marché dans le flux"
-        />
+        <TableDerniersMarches lignes={sansChamp(donnees.derniersMarches, "rang")} />
         <p className="mt-3 text-xs leading-relaxed text-ink-muted">
           Montants retenus tels que déclarés (non écrêtés dans ce détail) ;
           « max » signale un accord-cadre (montant = maximum) ; « suspect » =
@@ -1489,7 +1200,7 @@ export default async function PageMarches() {
             </p>
           </div>
           <VueTableau resume="Vue tableau — annonces par jour (30 j)">
-            <DataTable
+            <TableCompacte
               hauteurMax="280px"
               colonnes={[
                 { cle: "jour", entete: "Jour", type: "date" },
@@ -1498,7 +1209,7 @@ export default async function PageMarches() {
                 { cle: "nb_attributions", entete: "Attributions", type: "nombre" },
               ]}
               lignes={donnees.annoncesParJour}
-              cleLigne={(j) => j.jour}
+              cleChamp="jour"
             />
           </VueTableau>
 
@@ -1534,64 +1245,7 @@ export default async function PageMarches() {
           )
         }
       >
-        <DataTable
-          colonnes={[
-            {
-              cle: "date_prev_publication",
-              entete: "Publication prévue",
-              type: "date",
-              largeur: "8rem",
-            },
-            {
-              cle: "intitule",
-              entete: "Intitulé",
-              rendu: (m) => {
-                const texte = (
-                  <span title={m.intitule ?? undefined}>{tronque(m.intitule, 70)}</span>
-                );
-                const href = hrefConsultation(m.lien_consultation);
-                return href ? (
-                  <LienOfficiel href={href} source="PLACE">
-                    {texte}
-                  </LienOfficiel>
-                ) : (
-                  texte
-                );
-              },
-            },
-            {
-              cle: "acheteur_nom",
-              entete: "Acheteur",
-              rendu: (m) =>
-                m.acheteur_nom || m.acheteur_siren ? (
-                  <NomEntreprise
-                    nom={m.acheteur_nom ?? `SIREN ${m.acheteur_siren}`}
-                    siren={m.acheteur_siren}
-                    dans_sirene={m.dans_sirene}
-                    max={48}
-                  />
-                ) : (
-                  "—"
-                ),
-            },
-            {
-              cle: "categorie_achat",
-              entete: "Catégorie",
-              rendu: (m) => m.categorie_achat ?? "—",
-            },
-            {
-              cle: "montant_estime_tranche",
-              entete: "Tranche de montant",
-              rendu: (m) =>
-                m.montant_estime_tranche ?? (
-                  <span className="text-ink-muted">non publié</span>
-                ),
-            },
-          ]}
-          lignes={donnees.marchesAVenir}
-          cleLigne={(m) => m.code}
-          vide="Aucun achat annoncé"
-        />
+        <TableAchatsAnnonces lignes={donnees.marchesAVenir} />
         <p className="mt-3 text-xs leading-relaxed text-ink-muted">
           {formatNombre(donnees.marchesAVenir.length)} publications prévues
           les plus proches affichées sur{" "}
