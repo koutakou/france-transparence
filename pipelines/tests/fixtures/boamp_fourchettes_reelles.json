@@ -1,0 +1,76 @@
+{
+ "_note": "Enregistrements REELS de l'export BOAMP des AO en cours (/exports/json, champs CHAMPS_AO de ingest_boamp), captés le 2026-10-15. Aucune valeur modifiée. Trois formes réelles de valeurEstimee.fourchette : deux bornes (26-99937), borne haute seule (26-100064), fourchette vide (26-100118).",
+ "fourchette_deux_bornes": {
+  "idweb": "26-99937",
+  "objet": "Marché de location de casiers connectés avec services de conciergerie associés au bénéfice des personnels de l'EPSM Georges DAUMEZON",
+  "nomacheteur": "45 CHR",
+  "nature": "APPEL_OFFRE",
+  "nature_libelle": "Avis de marché",
+  "famille": "FNS",
+  "famille_libelle": "Marchés entre 90 k€ et seuils européens",
+  "type_marche": [
+   "SERVICES"
+  ],
+  "type_procedure": "OUVERT",
+  "procedure_libelle": "Procédure Ouverte",
+  "descripteur_libelle": [
+   "Prestations de services"
+  ],
+  "code_departement": [
+   "45"
+  ],
+  "dateparution": "2026-10-15",
+  "datelimitereponse": "2026-11-16T12:00:00+00:00",
+  "url_avis": "https://www.boamp.fr/pages/avis/?q=idweb:26-99937",
+  "donnees": "{\"FNSimple\": {\"organisme\": {\"nomOfficiel\": \"45 CHR\", \"typeIdentificationNational\": {\"siret\": \"\"}, \"codeIdentificationNational\": \"26450009100014\", \"ville\": \"ORLEANS cedex 1\", \"cp\": \"45000\", \"grpCommandes\": {\"non\": \"\"}}, \"initial\": {\"communication\": {\"urlDocConsul\": \"https://www.marches-publics.gouv.fr/entreprise/consultation/3086934?orgAcronyme=x7c\", \"identifiantInterne\": \"2026-49\", \"docSecurite\": {\"oui\": \"\"}, \"urlSecurite\": {\"non\": \"\"}, \"nomContact\": \"MESSANT\", \"adresseMailContact\": \"Alexandra.MESSANT@epsm-loiret.fr\", \"telContact\": \"+33 238605713\"}, \"procedure\": {\"procedureAdapteeO\": \"\", \"capaciteExercice\": \"Modalités précisées dans le règlement de consultation\", \"capaciteEcoFin\": \"Modalités précisées dans le règlement de consultation\", \"capaciteTech\": \"Modalités précisées dans le règlement de consultation\", \"techAchat\": {\"accordCadre\": \"\"}, \"dateReceptionOffres\": \"2026-11-16T12:00:00\", \"presOffres\": {\"interdite\": \"\"}, \"nbCandidatReduit\": {\"non\": \"\"}, \"attributionSansNegociation\": {\"oui\": {\"@ns2:type\": \"ns4:boolean\", \"#text\": \"true\"}}, \"variantes\": {\"non\": {\"@ns2:type\": \"ns4:boolean\", \"#text\": \"true\"}}, \"categorieAcheteur\": \"Non applicable – accord-cadre exécuté par un acheteur unique\"}, \"natureMarche\": {\"intitule\": \"Marché de location de casiers connectés avec services de conciergerie associés au bénéfice des personnels de l'EPSM Georges DAUMEZON\", \"codeCPV\": {\"objetPrincipal\": {\"classPrincipale\": \"98341130\"}}, \"natureMarche\": {\"services\": \"\"}, \"description\": \"Marché de location de casiers connectés avec services de conciergerie associés au bénéfice des personnels de l'EPSM Georges DAUMEZON\", \"lieuExecution\": \"Loiret\", \"dureeMois\": \"48\", \"valeurEstimee\": {\"@devise\": \"EUR\", \"fourchette\": {\"valeurBasse\": \"60000\", \"valeurHaute\": \"140000\"}}, \"tranches\": {\"non\": {\"@ns2:type\": \"ns4:boolean\", \"#text\": \"true\"}}, \"reservationMarche\": {\"non\": \"\"}, \"lotsMarche\": {\"non\": {\"@ns2:type\": \"ns4:boolean\", \"#text\": \"true\"}}}, \"informComplementaire\": {\"non\": \"\", \"autresInformComplementaire\": \"Visite facultative sur demande \"}}}}"
+ },
+ "fourchette_haute_seule": {
+  "idweb": "26-100064",
+  "objet": "Entretien Du Patrimoine Arboré De La Commune De Caissargues",
+  "nomacheteur": "Mairie De Caissargues",
+  "nature": "APPEL_OFFRE",
+  "nature_libelle": "Avis de marché",
+  "famille": "FNS",
+  "famille_libelle": "Marchés entre 90 k€ et seuils européens",
+  "type_marche": [
+   "SERVICES"
+  ],
+  "type_procedure": "OUVERT",
+  "procedure_libelle": "Procédure Ouverte",
+  "descripteur_libelle": [
+   "Végétaux"
+  ],
+  "code_departement": [
+   "30"
+  ],
+  "dateparution": "2026-10-15",
+  "datelimitereponse": "2026-11-09T12:00:00+00:00",
+  "url_avis": "https://www.boamp.fr/pages/avis/?q=idweb:26-100064",
+  "donnees": "{\"FNSimple\": {\"organisme\": {\"nomOfficiel\": \"Mairie De Caissargues\", \"typeIdentificationNational\": {\"siret\": \"\"}, \"codeIdentificationNational\": \"21300060700019\", \"ville\": \"CAISSARGUES\", \"cp\": \"30132\", \"grpCommandes\": {\"non\": \"\"}}, \"initial\": {\"communication\": {\"urlDocConsul\": \"https://www.marches-publics.info/mpiaws/index.cfm?fuseaction=dematent.login&type=Dce&Idm=1889748\", \"identifiantInterne\": \"2026.CAIS.06\", \"docSecurite\": {\"oui\": \"\"}, \"urlSecurite\": {\"non\": \"\"}, \"nomContact\": \"Mairie De Caissargues\", \"telContact\": \"+33 434395050\"}, \"procedure\": {\"procedureAdapteeO\": \"\", \"capaciteExercice\": \"Renvoi au règlement de la consultation\", \"capaciteEcoFin\": \"Renvoi au règlement de la consultation\", \"capaciteTech\": \"Renvoi au règlement de la consultation\", \"techAchat\": {\"accordCadre\": \"\"}, \"dateReceptionOffres\": \"2026-11-09T12:00:00\", \"presOffres\": {\"interdite\": \"\"}, \"nbCandidatReduit\": {\"non\": \"\"}, \"attributionSansNegociation\": {\"oui\": \"\"}, \"variantes\": {\"non\": \"\"}, \"categorieAcheteur\": \"Toute personne désignée à cet effet par l'acheteur\", \"criteresAttrib\": \"énoncé dans le Rc\"}, \"natureMarche\": {\"intitule\": \"ENTRETIEN DU PATRIMOINE ARBORÉ DE LA COMMUNE DE CAISSARGUES\", \"codeCPV\": {\"objetPrincipal\": {\"classPrincipale\": \"77340000\"}}, \"natureMarche\": {\"services\": \"\"}, \"description\": \"L'accord-cadre sera exécuté par l'émission de bons de commande.\\nLe contrat  est susceptible d'être reconduit dans les conditions du cahier des charges.\\nLes prestations sont réglées par des prix unitaires.\\nLes montants estimatifs sont indicatifs et comprennent la totalité des périodes de reconduction.\\nla Présente consultation concerne l'entretien du patrimoine arboré sur le domaine public et privé de la commune de Caissargues\", \"lieuExecution\": \"FRJ12 - Gard, Voirie, parcs et espaces verts municipaux, groupes scolaires.\\n30132\\nCAISSARGUES\", \"dureeMois\": \"12\", \"valeurEstimee\": {\"@devise\": \"EUR\", \"fourchette\": {\"valeurHaute\": \"200000\"}}, \"tranches\": {\"non\": \"\"}, \"reservationMarche\": {\"non\": \"\"}, \"lotsMarche\": {\"non\": \"\"}}, \"informComplementaire\": {\"non\": \"\", \"autresInformComplementaire\": \"Le titulaire ne pourra pas sous-traiter plus de 30 % des travaux et devra obligatoirement faire figurer ses sous-traitants dans l'acte d'engagement\"}}}}"
+ },
+ "fourchette_vide": {
+  "idweb": "26-100118",
+  "objet": "Marché pour la prestation de médecine du travail et de suivi psychologique des salariés",
+  "nomacheteur": "Régie Parcs d'Azur (06)",
+  "nature": "APPEL_OFFRE",
+  "nature_libelle": "Avis de marché",
+  "famille": "FNS",
+  "famille_libelle": "Marchés entre 90 k€ et seuils européens",
+  "type_marche": [
+   "SERVICES"
+  ],
+  "type_procedure": "OUVERT",
+  "procedure_libelle": "Procédure Ouverte",
+  "descripteur_libelle": [
+   "Sanitaire",
+   "Prestations de services"
+  ],
+  "code_departement": [
+   "6"
+  ],
+  "dateparution": "2026-10-15",
+  "datelimitereponse": "2026-11-02T12:00:00+00:00",
+  "url_avis": "https://www.boamp.fr/pages/avis/?q=idweb:26-100118",
+  "donnees": "{\"FNSimple\": {\"organisme\": {\"nomOfficiel\": \"Régie Parcs d'Azur (06)\", \"typeIdentificationNational\": {\"siret\": \"\"}, \"codeIdentificationNational\": \"83187208000013\", \"ville\": \"Nice Cedex 1\", \"cp\": \"06000\", \"grpCommandes\": {\"non\": \"\"}}, \"initial\": {\"communication\": {\"urlProfilAch\": \"https://marches-securises.fr\", \"identifiantInterne\": \"RPA260048-RPA260049\", \"docSecurite\": {\"oui\": \"\"}, \"urlSecurite\": {\"non\": \"\"}, \"nomContact\": \"MICHAUD\", \"adresseMailContact\": \"nicolas.michaud@parkingsdazur.fr\", \"telContact\": \"+33 0489982644\"}, \"procedure\": {\"procedureAdapteeO\": \"\", \"capaciteTech\": \"Le titulaire devra disposer de professionnels qualifiés et habilités à réaliser les prestations prévues au présent au cahier des charges.Dans son offre, le candidat précisera :\\n•\\tLes qualifications et compétences des intervenants ;\\n•\\tL’expérience des professionnels dans l’accompagnement des salariés d’entreprises ou d’établissements publics ;\\n•\\tLes moyens humains mobilisés ;\\n•\\tLes modalités de remplacement des intervenants en cas d’absence\\n\", \"techAchat\": {\"autres\": \"\"}, \"dateReceptionOffres\": \"2026-11-02T12:00:00\", \"presOffres\": {\"exigee\": \"\"}, \"nbCandidatReduit\": {\"non\": \"\"}, \"attributionSansNegociation\": {\"oui\": \"\"}, \"variantes\": {\"non\": \"\"}, \"criteresAttrib\": \"Le Prix  sur 70 points, Présentation du candidat sur 5 points, Modalités techniques sur 15 points, Prestations annexes sur 10 points.Total sur 100 points.\\n\"}, \"natureMarche\": {\"intitule\": \"Marché pour la prestation de médecine du travail et de suivi psychologique des salariés\", \"codeCPV\": {\"objetPrincipal\": {\"classPrincipale\": \"85147000\"}}, \"natureMarche\": {\"services\": \"\"}, \"description\": \"Marché pour la prestation de médecine du travail et de suivi psychologique des salariés.Le marché comprend deux volets distincts : Lot 1 : Prestations de médecine du travail et de prévention des risques professionnels ; Lot 2 : Prestations de suivi et d'accompagnement psychologique des salariés.Le marché est conclu pour une période initiale de 1 an à compter de la date de notification. Le marché pourra faire l'objet de 3 reconductions sans que sa durée totale ne puisse excéder 4 ans. La reconduction est expresse.\\n\", \"lieuExecution\": \"NICE FRANCE\", \"dureeMois\": \"12\", \"valeurEstimee\": {\"@devise\": \"EUR\", \"fourchette\": \"\"}, \"tranches\": {\"non\": \"\"}, \"reservationMarche\": {\"non\": \"\"}, \"lotsMarche\": {\"oui\": \"\"}}, \"lots\": {\"lot\": [{\"description\": \"Lot 1 : Prestations de médecine du travail et de prévention des risques professionnels.\", \"codeCPV\": {\"objetPrincipal\": {\"classPrincipale\": \"85147000\"}}, \"lieuExecutionLivraison\": \"NICE FRANCE\"}, {\"description\": \"Lot 2 : Services prestés par les psychiatres ou les psychologues.\", \"codeCPV\": {\"objetPrincipal\": {\"classPrincipale\": \"85121270\"}}, \"lieuExecutionLivraison\": \"NICE FRANCE\"}]}, \"informComplementaire\": {\"non\": \"\", \"autresInformComplementaire\": \"Lot 1 : Montant annuel minimum : 6 000,00 € HT / Montant annuel maximum : 20 000,00 € HT.\\nLot 2 : Montant annuel minimum : Sans / Montant annuel maximum : 1 000,00 € HT.\\n\"}}}}"
+ }
+}

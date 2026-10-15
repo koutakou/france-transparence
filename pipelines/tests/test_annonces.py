@@ -392,3 +392,178 @@ def test_indexer_liens_apparie_apres_hygiene_DES_DEUX_COTES():
     assert ao["idweb"] in annules
     # … et l'instrument n'est pas muet : la clé brute, elle, n'apparie pas.
     assert idweb_sale != ao["idweb"]
+
+
+# ---------------------------------------------------------------------------
+# BOAMP — fourchette d'estimation FNS (`valeurEstimee.fourchette`)
+#
+# Mesuré le 15/10/2026 sur l'export des AO en cours : 555 avis portaient une
+# clé `fourchette` et étaient TOUS servis « non publié ». 134 d'entre eux
+# publient une fourchette vide — pour ceux-là, « non publié » est vrai ; les
+# 421 autres publient une ou deux bornes. Trois formes réelles figées dans
+# fixtures/boamp_fourchettes_reelles.json.
+# ---------------------------------------------------------------------------
+
+FIXTURE_FOURCHETTES = Path(__file__).parent / "fixtures" / "boamp_fourchettes_reelles.json"
+
+
+@pytest.fixture(scope="module")
+def fourchettes() -> dict:
+    return json.loads(FIXTURE_FOURCHETTES.read_text(encoding="utf-8"))
+
+
+def test_fourchette_a_deux_bornes_lue_sans_devenir_un_montant(fourchettes):
+    rec = fourchettes["fourchette_deux_bornes"]
+    assert rec["idweb"] == "26-99937"
+    ligne = ingest_boamp.parser_ao(rec)
+    assert ligne["montant_fourchette_basse"] == pytest.approx(60000.0)
+    assert ligne["montant_fourchette_haute"] == pytest.approx(140000.0)
+    # Une fourchette n'est pas un montant : aucune valeur ponctuelle fabriquée.
+    assert ligne["montant_estime"] is None
+    assert ligne["devise"] is None
+
+
+def test_fourchette_a_borne_haute_seule_ne_complete_pas_la_basse(fourchettes):
+    rec = fourchettes["fourchette_haute_seule"]
+    assert rec["idweb"] == "26-100064"
+    ligne = ingest_boamp.parser_ao(rec)
+    assert ligne["montant_fourchette_basse"] is None
+    assert ligne["montant_fourchette_haute"] == pytest.approx(200000.0)
+    assert ligne["montant_estime"] is None
+
+
+def test_fourchette_vide_reste_non_publiee(fourchettes):
+    rec = fourchettes["fourchette_vide"]
+    assert rec["idweb"] == "26-100118"
+    assert '"fourchette": ""' in rec["donnees"]
+    ligne = ingest_boamp.parser_ao(rec)
+    assert ligne["montant_fourchette_basse"] is None
+    assert ligne["montant_fourchette_haute"] is None
+    assert ligne["montant_estime"] is None
+
+
+def test_aucune_borne_publiee_n_est_perdue(fourchettes, reels):
+    """Invariant, sur toutes les formes réelles disponibles : un AO qui publie
+    une borne numérique dans une fourchette ne ressort jamais avec montant,
+    basse et haute tous NULL."""
+    recs = [v for k, v in fourchettes.items() if not k.startswith("_")]
+    recs += [reels["boamp_ao_joue"], reels["boamp_ao_fns"]]
+    for rec in recs:
+        donnees = json.loads(rec["donnees"])
+        publiee = []
+
+        def chercher(noeud):
+            if isinstance(noeud, dict):
+                f = noeud.get("fourchette")
+                if isinstance(f, dict) and any(
+                    str(f.get(k) or "").strip() for k in ("valeurBasse", "valeurHaute")
+                ):
+                    publiee.append(f)
+                for v in noeud.values():
+                    chercher(v)
+            elif isinstance(noeud, list):
+                for v in noeud:
+                    chercher(v)
+
+        chercher(donnees)
+        ligne = ingest_boamp.parser_ao(rec)
+        if publiee:
+            assert (ligne["montant_estime"], ligne["montant_fourchette_basse"],
+                    ligne["montant_fourchette_haute"]) != (None, None, None), rec["idweb"]
+
+
+def test_les_formes_a_montant_ponctuel_n_ont_pas_de_fourchette(reels):
+    for cle in ("boamp_ao_joue", "boamp_ao_fns"):
+        assert ingest_boamp.extraire_fourchette(reels[cle]["donnees"]) == (None, None)
+
+
+def test_fourchette_inversee_n_est_pas_reprise(fourchettes):
+    """Jamais constatée : documente le refus. Bornes échangées sur l'AO réel."""
+    rec = dict(fourchettes["fourchette_deux_bornes"])
+    rec["donnees"] = rec["donnees"].replace(
+        '"valeurBasse": "60000", "valeurHaute": "140000"',
+        '"valeurBasse": "140000", "valeurHaute": "60000"',
+    )
+    assert '"valeurBasse": "140000"' in rec["donnees"]
+    ligne = ingest_boamp.parser_ao(rec)
+    assert ligne["montant_fourchette_basse"] is None
+    assert ligne["montant_fourchette_haute"] is None
+
+
+def _base_ao_ancien_schema(chemin):
+    """`ao_en_cours` telle que la base servie la porte avant les fourchettes."""
+    from pipelines import db
+    conn = db.init_db(chemin=chemin)
+    conn.executescript(
+        """
+        CREATE TABLE ao_en_cours (
+            idweb TEXT PRIMARY KEY, objet TEXT, acheteur TEXT,
+            nature TEXT NOT NULL, nature_libelle TEXT, famille TEXT,
+            famille_libelle TEXT, type_marche TEXT, type_procedure TEXT,
+            procedure_libelle TEXT, descripteurs TEXT, departements TEXT,
+            montant_estime REAL, devise TEXT, date_parution TEXT NOT NULL,
+            date_limite_reponse TEXT NOT NULL, url_avis TEXT,
+            annulee INTEGER NOT NULL DEFAULT 0, rectifiee_par TEXT
+        );
+        INSERT INTO ao_en_cours (idweb, nature, date_parution, date_limite_reponse)
+        VALUES ('26-1', 'APPEL_OFFRE', '2026-08-01', '2026-09-01');
+        """
+    )
+    conn.commit()
+    return conn
+
+
+def test_migrer_ao_en_cours_ajoute_les_colonnes_en_fin_et_est_idempotente(tmp_path):
+    conn = _base_ao_ancien_schema(tmp_path / "ancien.db")
+    try:
+        assert ingest_boamp.migrer_ao_en_cours(conn) == [
+            "montant_fourchette_basse", "montant_fourchette_haute",
+        ]
+        colonnes = [r[1] for r in conn.execute("PRAGMA table_info(ao_en_cours)")]
+        assert colonnes[-2:] == ["montant_fourchette_basse", "montant_fourchette_haute"]
+        # Une base neuve a le même ordre de colonnes qu'une base migrée.
+        neuve = ingest_boamp.db.connexion(tmp_path / "neuve.db")
+        neuve.executescript(ingest_boamp.SCHEMA)
+        assert [r[1] for r in neuve.execute("PRAGMA table_info(ao_en_cours)")] == colonnes
+        neuve.close()
+        assert ingest_boamp.migrer_ao_en_cours(conn) == []
+    finally:
+        conn.close()
+
+
+def test_pipeline_ecrit_les_bornes_sur_une_base_servie_anterieure(
+    tmp_path, monkeypatch, fourchettes, reels
+):
+    """Bout en bout, sur une base au schéma d'avant : sans migration, l'INSERT
+    échouerait sur la base servie alors que la CI, base neuve, resterait verte."""
+    chemin = tmp_path / "servie.db"
+    _base_ao_ancien_schema(chemin).close()
+    monkeypatch.setenv("FT_DB_PATH", str(chemin))
+    aos = [v for k, v in fourchettes.items() if not k.startswith("_")]
+    bruts = {
+        "boamp_ao_en_cours.json": aos,
+        "boamp_annonces_recentes.json": [reels["boamp_attribution"]],
+        "boamp_annonces_liees.json": [],
+    }
+    monkeypatch.setattr(ingest_boamp, "_exporter", lambda where, select, dest: bruts[dest])
+    assert ingest_boamp.main() == 0
+
+    import sqlite3
+    conn = sqlite3.connect(chemin)
+    try:
+        lignes = dict(
+            (r[0], r[1:]) for r in conn.execute(
+                "SELECT idweb, montant_estime, montant_fourchette_basse, "
+                "montant_fourchette_haute FROM ao_en_cours"
+            )
+        )
+        notes = conn.execute(
+            "SELECT notes FROM meta_sources WHERE source_id = 'S2'"
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    assert lignes["26-99937"] == (None, 60000.0, 140000.0)
+    assert lignes["26-100064"] == (None, None, 200000.0)
+    assert lignes["26-100118"] == (None, None, None)
+    # Le compte des fourchettes est publié À PART de celui des montants.
+    assert "0 avec montant publié dans l'annonce, 2 autres avec seulement une fourchette" in notes

@@ -1469,6 +1469,7 @@ export default async function PageMarches() {
             vueToutes={{
               total: donnees.aoTotalFiltre,
               sansMontant: donnees.aoSansMontantFiltre,
+              fourchetteSeule: donnees.aoFourchetteSeuleFiltre,
               lignes: donnees.ao,
             }}
             aoEnCours={kpis.aoEnCours}
