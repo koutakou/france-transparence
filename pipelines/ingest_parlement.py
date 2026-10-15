@@ -60,9 +60,11 @@ Tables écrites (CREATE TABLE IF NOT EXISTS, run idempotent) :
   (senmatdel renseigné). ~100 derniers scrutins seulement. Les votes
   qui sortent de ces 100 sont copiés vers votes_senat_archive (table
   NOUVELLE, non servie) avant le DELETE ALL.
-- participation_senat : matricule PK, taux 12 mois (même formule que
-  l'AN : exprimés pour+contre+abstention / scrutins depuis l'entrée en
-  mandat). Table dédiée : ODSEN fait INSERT OR REPLACE sur senateurs.
+- participation_senat : matricule PK, taux 12 mois (votes exprimés
+  pour+contre+abstention / scrutins de la fenêtre où `votsen` liste le
+  sénateur — voir calculer_participation_senat ; pas de borne par la date
+  d'entrée en mandat, contrairement à l'AN). Table dédiée : ODSEN fait
+  INSERT OR REPLACE sur senateurs.
 - elus (table noyau, cf. db.py) : UPSERT par uid_an (députés, id = uid_an)
   et par matricule_senat (sénateurs, id = 'SEN-<matricule>') SANS toucher
   aux colonnes des autres pipelines (hatvp_flag notamment) ; la colonne
@@ -155,6 +157,11 @@ COLONNES_VOTES_SENAT = (
 )
 # Fenêtre des agrégats de participation.
 FENETRE_JOURS = 365
+# Part minimale des sénateurs en exercice que `votsen` doit lister, en
+# médiane, par scrutin : prémisse du dénominateur Sénat (voir
+# calculer_participation_senat). Mesuré le 15/10/2026 : 347 à 348 lignes par
+# scrutin pour 348 sièges ; 0,9 laisse la place aux sièges vacants.
+PART_MIN_LISTE_VOTSEN = 0.9
 
 # Cache local : re-téléchargement au plus toutes les 6 h (sources quotidiennes).
 MAX_AGE_H = 6.0
@@ -575,6 +582,77 @@ def calculer_participation(
         taux = round(100.0 * votes / eligibles, 2) if eligibles else None
         resultat[uid] = (votes, eligibles, taux)
     return resultat
+
+
+def calculer_participation_senat(
+    fenetre: list[tuple[set[str], set[str]]],
+    matricules: list[str],
+) -> dict[str, tuple[int, int, float | None]]:
+    """Taux de participation par sénateur, sans date d'entrée en mandat.
+
+    - fenetre : une paire par scrutin de la fenêtre — (matricules dont le
+      Sénat publie une position, quelle qu'elle soit, « non-votant »
+      compris ; matricules ayant EXPRIMÉ un vote : pour/contre/abstention) ;
+    - matricules : sénateurs en exercice.
+
+    Le dénominateur d'un sénateur = scrutins de la fenêtre où `votsen` le
+    liste. C'est le Sénat lui-même qui dit qui siégeait : Dosleg publie une
+    ligne par sénateur en exercice et par scrutin (mesuré le 15/10/2026 sur
+    les 337 scrutins de la fenêtre dotés d'un détail nominal : 347 à 348
+    lignes chacun, autant que de sièges pourvus). Un sénateur entré après le
+    dernier scrutin n'y figure nulle part : 0 scrutin, taux None (« — »),
+    jamais « 0 / N ». Un réélu garde les scrutins de son mandat précédent,
+    pendant lequel il siégeait. Un scrutin dont le détail nominal n'est pas
+    encore publié n'entre dans le dénominateur de personne.
+
+    Pourquoi pas la date de début de mandat, comme à l'AN : l'AN ne liste que
+    les votants, il faut donc borner par l'entrée en mandat ; ici la liste
+    complète existe, et elle ne dépend d'aucune date qu'une source pourrait
+    ne pas publier (ODSEN_ELUSEN n'en publiait aucune pour les mandats
+    ouverts le 01/10/2026, et 68 entrants s'affichaient à « 0 / 338 »).
+    """
+    resultat: dict[str, tuple[int, int, float | None]] = {}
+    for matricule in matricules:
+        eligibles = 0
+        votes = 0
+        for presents, exprimes in fenetre:
+            if matricule not in presents:
+                continue
+            eligibles += 1
+            if matricule in exprimes:
+                votes += 1
+        taux = round(100.0 * votes / eligibles, 2) if eligibles else None
+        resultat[matricule] = (votes, eligibles, taux)
+    return resultat
+
+
+def controler_listes_votsen(
+    tailles: list[int], nb_en_exercice: int
+) -> int:
+    """Vérifie la prémisse de `calculer_participation_senat`, sinon lève.
+
+    `tailles` = nombre de matricules listés par `votsen` pour chaque scrutin
+    de la fenêtre doté d'un détail nominal. Si le Sénat se mettait à ne
+    publier que les votants (comme l'AN), chaque dénominateur deviendrait
+    égal au numérateur et tous les taux passeraient à 100 % EN SILENCE. La
+    médiane des listes doit donc couvrir au moins PART_MIN_LISTE_VOTSEN des
+    sénateurs en exercice. Levée AVANT toute écriture : la base garde les
+    tables de la veille et S6-DOSLEG sa date, la panne se voit.
+
+    Retourne la médiane (journalisée par l'appelant à chaque cycle).
+    """
+    if not tailles or not nb_en_exercice:
+        return 0
+    ordonnees = sorted(tailles)
+    mediane = ordonnees[len(ordonnees) // 2]
+    if mediane < PART_MIN_LISTE_VOTSEN * nb_en_exercice:
+        raise RuntimeError(
+            f"Dosleg votsen : médiane de {mediane} sénateur(s) listé(s) par "
+            f"scrutin pour {nb_en_exercice} en exercice — la liste ne couvre "
+            "plus tous les sièges, le dénominateur de participation serait "
+            "faux ; base NON modifiée pour le Sénat"
+        )
+    return mediane
 
 
 # ---------------------------------------------------------------------------
@@ -1314,7 +1392,8 @@ def ingerer_senat(conn, session: requests.Session) -> None:
 
 def ingerer_dosleg(conn, session: requests.Session) -> None:
     """Dosleg `scr` + `votsen` → scrutins_senat + votes_senat (~100
-    derniers) + participation_senat (365 jours, même formule que l'AN).
+    derniers) + participation_senat (365 jours ; dénominateur = scrutins où
+    le Sénat liste le sénateur, voir calculer_participation_senat).
 
     Pas Ameli, pas questions, pas TAP export_sens, pas de score de
     loyauté. Tables nouvelles — on ne touche pas à scrutins/votes_recents.
@@ -1333,12 +1412,14 @@ def ingerer_dosleg(conn, session: requests.Session) -> None:
     titres_repares = 0
     cles_detail: set[tuple[int, int]] = set()
     fenetre_exprimes: dict[tuple[int, int], set[str]] = {}
+    fenetre_presents: dict[tuple[int, int], set[str]] = {}
     dates_par_cle: dict[tuple[int, int], str] = {}
     lignes_votes: list[tuple] = []
     votes_prets = False
 
     def _cloturer_scr() -> None:
         nonlocal votes_prets, cles_detail, fenetre_exprimes, dates_par_cle
+        nonlocal fenetre_presents
         if votes_prets:
             return
         if not scrutins:
@@ -1356,6 +1437,7 @@ def ingerer_dosleg(conn, session: requests.Session) -> None:
             for cle, d in dates_par_cle.items()
             if d >= date_min_fenetre
         }
+        fenetre_presents = {cle: set() for cle in fenetre_exprimes}
         votes_prets = True
 
     # Un seul passage : COPY scr précède COPY votsen dans le dump.
@@ -1402,6 +1484,8 @@ def ingerer_dosleg(conn, session: requests.Session) -> None:
                 position = POSVOT_SENAT.get((row.get("posvotcod") or "").strip())
                 if position is None:
                     continue
+                if cle in fenetre_presents:
+                    fenetre_presents[cle].add(matricule)
                 if cle in fenetre_exprimes and position in (
                     "pour", "contre", "abstention"
                 ):
@@ -1415,6 +1499,13 @@ def ingerer_dosleg(conn, session: requests.Session) -> None:
     _cloturer_scr()
     dernier = scrutins[-1]
     n_detail = min(NB_SCRUTINS_DETAIL, len(scrutins))
+
+    # Prémisse du dénominateur vérifiée AVANT toute écriture (voir
+    # controler_listes_votsen) : une levée ici laisse les tables de la veille.
+    senateurs = conn.execute("SELECT matricule FROM senateurs").fetchall()
+    tailles = [len(p) for p in fenetre_presents.values() if p]
+    sans_detail = sum(1 for p in fenetre_presents.values() if not p)
+    mediane = controler_listes_votsen(tailles, len(senateurs))
 
     with conn:
         n_arch = archiver_votes_senat_hors_cles(
@@ -1443,22 +1534,19 @@ def ingerer_dosleg(conn, session: requests.Session) -> None:
             lignes_votes,
         )
 
-    senateurs = conn.execute(
-        "SELECT matricule, date_debut_mandat FROM senateurs"
-    ).fetchall()
     if senateurs:
-        debuts = {s["matricule"]: s["date_debut_mandat"] for s in senateurs}
         fenetre = [
-            (dates_par_cle[cle], participants)
-            for cle, participants in fenetre_exprimes.items()
+            (fenetre_presents[cle], fenetre_exprimes[cle])
+            for cle in fenetre_exprimes
         ]
-        taux = calculer_participation(fenetre, debuts)
+        taux = calculer_participation_senat(
+            fenetre, [s["matricule"] for s in senateurs])
         maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
         source = (
             "calcul France Transparence — scrutins publics du Sénat des "
-            f"{FENETRE_JOURS} derniers jours (votes exprimés / scrutins "
-            "depuis l'entrée en mandat ; une délégation n'est pas une "
-            "présence physique)"
+            f"{FENETRE_JOURS} derniers jours (votes exprimés / scrutins où "
+            "le Sénat publie la position du sénateur, « non-votant » "
+            "compris ; une délégation n'est pas une présence physique)"
         )
         with conn:
             conn.executemany(
@@ -1469,8 +1557,14 @@ def ingerer_dosleg(conn, session: requests.Session) -> None:
                 [(uid, t, v, e, source, maintenant)
                  for uid, (v, e, t) in taux.items()],
             )
-        log.info("participation Sénat 12 mois : %d sénateurs, %d scrutins en fenêtre",
-                 len(taux), len(fenetre_exprimes))
+        # Journalisé À CHAQUE CYCLE, zéros compris : sans dénominateur, un
+        # sénateur n'a pas de taux, et ce compte est la seule trace du nombre.
+        log.info("participation Sénat 12 mois : %d sénateurs, %d scrutins en"
+                 " fenêtre dont %d sans détail nominal publié (hors de tout"
+                 " dénominateur) ; médiane %d sénateurs listés par scrutin ;"
+                 " %d sénateur(s) sans aucun scrutin (taux non publié)",
+                 len(taux), len(fenetre_exprimes), sans_detail, mediane,
+                 sum(1 for v, e, t in taux.values() if t is None))
     else:
         log.warning("senateurs vide : agrégats de participation Sénat non calculés")
 
@@ -1484,9 +1578,10 @@ def ingerer_dosleg(conn, session: requests.Session) -> None:
             f"dernier scrutin session {dernier['sesann']} n° {dernier['numero']} "
             f"du {dernier['date_scrutin']} ; {len(lignes_votes)} votes nominaux "
             f"conservés pour les {n_detail} derniers scrutins ; agrégats de "
-            f"participation sur {len(fenetre_exprimes)} scrutins depuis le "
-            f"{date_min_fenetre} ; COPY sans PostgreSQL ; pas Ameli, pas "
-            "questions, pas TAP export_sens"
+            f"participation sur {len(fenetre_exprimes) - sans_detail} "
+            f"scrutins dotés d'un détail nominal depuis le {date_min_fenetre} "
+            f"({sans_detail} sans détail publié) ; COPY sans PostgreSQL ; pas "
+            "Ameli, pas questions, pas TAP export_sens"
         ),
     )
     # Compteur INCONDITIONNEL, zéro compris : un compteur muet au vert est

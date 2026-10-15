@@ -174,6 +174,90 @@ def test_calcul_participation_cas_construit():
     assert r["PA4"] == (0, 4, 0.0)
 
 
+def test_participation_senat_denominateur_sur_la_liste_du_senat():
+    """Constat d'audit du 15/10/2026 : 68 sénateurs entrés le 01/10/2026
+    affichés « 0 / 338 ». Le dénominateur est la liste `votsen`, pas une date
+    d'entrée en mandat qu'aucune source ne publiait."""
+    fenetre = [
+        ({"A"}, {"A"}),            # 1er scrutin : seul A siégeait
+        ({"A", "X"}, {"X"}),       # 2e : X entre et vote pour, A non-votant
+    ]
+    r = p9.calculer_participation_senat(fenetre, ["A", "X", "N"])
+    assert r["X"] == (1, 1, 100.0)
+    assert r["A"] == (1, 2, 50.0)
+    assert r["N"] == (0, 0, None)   # entrant sans scrutin : pas de taux
+
+
+def test_controle_votsen_leve_si_la_liste_ne_couvre_plus_les_sieges():
+    """Si `votsen` ne listait plus que les votants, tous les taux passeraient
+    à 100 % sans bruit : la prémisse est vérifiée, et sa rupture lève."""
+    assert p9.controler_listes_votsen([348, 347, 348], 348) == 348
+    assert p9.controler_listes_votsen([], 348) == 0
+    with pytest.raises(RuntimeError, match="médiane de 290"):
+        p9.controler_listes_votsen([290, 280, 300], 348)
+
+
+def test_ingerer_dosleg_ne_compte_pas_un_scrutin_sans_detail(tmp_path,
+                                                          monkeypatch):
+    """Ligne `scr` réelle du dump du 15/10/2026 (session 2026, n° 1, du
+    13/10/2026) : le scrutin est publié, son détail `votsen` pas encore. Il
+    n'entre dans le dénominateur de personne — l'ancien calcul le comptait à
+    TOUS les sénateurs (338 scrutins en fenêtre, dont lui)."""
+    ligne_2026 = (
+        b"2026\t1\tsur l\xc2\x92amendement n\xc2\xb0 5, pr\xc3\xa9sent\xc3\xa9 par M."
+        b" Bernard Jomier et plusieurs de ses coll\xc3\xa8gues, \xc3\xa0 l'article"
+        b" 1er de la proposition de loi r\xc3\xa9visant le dispositif des stocks"
+        b" de s\xc3\xa9curit\xc3\xa9 des m\xc3\xa9dicaments\t2026-10-13 00:00:00"
+        b"\t111\t198\t342\t309\t0\t\\N\tO\n"
+    )
+    derniere_scr = b"\t214\t111\t345\t325\t0\t\\N\tN\n"
+    zip_path = _zip_dosleg_modifie(tmp_path, derniere_scr,
+                                   derniere_scr + ligne_2026)
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    conn.executemany(
+        "INSERT INTO senateurs (matricule, nom, date_debut_mandat) VALUES (?, ?, ?)",
+        [("21071F", "Aeschlimann", "2023-10-02"),
+         ("19489J", "Kerrouche", "2023-10-02"),
+         ("01008M", "Del", "2023-10-02"),
+         ("98046X", "Nonvotant", "2023-10-02")])
+    conn.commit()
+    monkeypatch.setattr(p9, "telecharger", lambda *a, **k: zip_path)
+    p9.ingerer_dosleg(conn, session=None)
+    assert conn.execute(
+        "SELECT count(*) FROM scrutins_senat WHERE sesann = 2026"
+    ).fetchone()[0] == 1
+    part = {r["matricule"]: (r["nb_votes_12m"], r["nb_scrutins_12m"])
+            for r in conn.execute("SELECT * FROM participation_senat")}
+    assert part["21071F"] == (3, 3)      # et non (3, 4)
+    assert part["01008M"] == (2, 3)
+    notes = conn.execute("SELECT notes FROM meta_sources"
+                         " WHERE source_id = 'S6-DOSLEG'").fetchone()[0]
+    assert "(1 sans détail publié)" in notes
+    conn.close()
+
+
+def test_ingerer_dosleg_refuse_d_ecrire_si_votsen_ne_liste_que_les_votants(
+        tmp_path, monkeypatch):
+    """Contre-épreuve d'intégration : 10 sénateurs en exercice, 3 à 4 listés
+    par scrutin. Le cycle lève avant d'écrire : tables de la veille gardées."""
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    conn.executemany("INSERT INTO senateurs (matricule, nom) VALUES (?, ?)",
+                     [(f"9000{i}X", "S") for i in range(10)])
+    conn.execute("INSERT INTO participation_senat (matricule, nb_votes_12m)"
+                 " VALUES ('VEILLE', 1)")
+    conn.commit()
+    zip_path = _zip_dosleg(tmp_path)
+    monkeypatch.setattr(p9, "telecharger", lambda *a, **k: zip_path)
+    with pytest.raises(RuntimeError, match="base NON modifiée"):
+        p9.ingerer_dosleg(conn, session=None)
+    assert conn.execute("SELECT count(*) FROM scrutins_senat").fetchone()[0] == 0
+    assert conn.execute(
+        "SELECT matricule FROM participation_senat").fetchall()[0][0] == "VEILLE"
+    conn.close()
+
+
 def test_calcul_participation_sans_scrutin_eligible():
     r = p9.calculer_participation([("2026-01-10", {"PA1"})],
                                   {"PA9": "2026-06-01"})
@@ -244,6 +328,11 @@ def test_ingerer_dosleg_extrait(tmp_path, monkeypatch):
     conn.commit()
     zip_path = _zip_dosleg(tmp_path)
     monkeypatch.setattr(p9, "telecharger", lambda *a, **k: zip_path)
+    # La fixture est un EXTRAIT : `votsen` y liste 3 à 4 matricules par
+    # scrutin pour 6 sénateurs semés, là où le dump réel en liste 347 à 348
+    # pour 348 sièges. La prémisse vérifiée par controler_listes_votsen est
+    # éprouvée par ses propres tests ; on l'abaisse ici, et ici seulement.
+    monkeypatch.setattr(p9, "PART_MIN_LISTE_VOTSEN", 0.5)
     p9.ingerer_dosleg(conn, session=None)
 
     n_scr = conn.execute("SELECT count(*) FROM scrutins_senat").fetchone()[0]
@@ -287,13 +376,16 @@ def test_ingerer_dosleg_extrait(tmp_path, monkeypatch):
                          r["taux_participation_12m"])
         for r in conn.execute("SELECT * FROM participation_senat")
     }
-    # 3 scrutins dans la fenêtre (2026-07-21) ; 2024-01-10 hors 365 j
+    # 3 scrutins dans la fenêtre (2026-07-21) ; 2024-01-10 hors 365 j.
+    # Dénominateur = scrutins où `votsen` liste le matricule.
     assert part["21071F"] == (3, 3, 100.0)
     assert part["19489J"] == (3, 3, 100.0)          # délégation = exprimé
     assert part["01008M"] == (2, 3, 66.67)          # abstention compte, non-votant non
-    assert part["98046X"] == (0, 3, 0.0)
-    assert part["99999Z"] == (0, 3, 0.0)
-    assert part["88888Y"] == (0, 0, None)           # entré après les scrutins
+    assert part["98046X"] == (0, 2, 0.0)            # listé non-votant à 338 et 340
+    # Listé à aucun scrutin : pas de taux, jamais « 0 / 3 », quelle que soit
+    # sa date de début de mandat (semée ou non).
+    assert part["99999Z"] == (0, 0, None)
+    assert part["88888Y"] == (0, 0, None)
 
     meta = conn.execute(
         "SELECT source_id, date_donnees, lignes FROM meta_sources WHERE source_id = 'S6-DOSLEG'"

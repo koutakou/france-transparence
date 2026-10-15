@@ -363,9 +363,9 @@ export default async function PageElus() {
           />
           <p className="mt-3 text-[11px] leading-relaxed text-ink-muted">
             ¹ Calcul France Transparence : votes exprimés (pour, contre, abstention) / scrutins
-            publics du Sénat des 365 derniers jours depuis l’entrée en mandat. Une délégation de
-            vote n’est pas une présence physique. Pas un score Datan (Datan ne publie pas le
-            Sénat).
+            publics du Sénat des 365 derniers jours où le Sénat liste le sénateur (« non-votant »
+            compris) ; « — » : aucun scrutin de ce type depuis son entrée. Une délégation de vote
+            n’est pas une présence physique. Pas un score Datan (Datan ne publie pas le Sénat).
           </p>
         </Card>
       </div>
