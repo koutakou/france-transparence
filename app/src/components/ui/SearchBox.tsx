@@ -5,6 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { urlSite } from "@/lib/basePath";
 import type { IndexRecherche } from "@/lib/recherche-index";
+import {
+  MIN_CARACTERES,
+  preparerIndex,
+  rechercher,
+  type IndexPret,
+  type ResultatRecherche,
+} from "@/lib/recherche";
 
 /**
  * Recherche globale (header) — 100 % client, sur index statique.
@@ -12,9 +19,9 @@ import type { IndexRecherche } from "@/lib/recherche-index";
  * Le site est statique : l'ancienne route de recherche paramétrique n'existe
  * plus. Au premier focus (ou à la première frappe), la SearchBox charge UNE FOIS
  * l'index pré-généré `/data/recherche-index.json` (élus + entités,
- * reconstruit chaque jour avec le site), puis interroge en local :
- * insensible aux accents et à la casse, parlementaires d'abord, 8 élus +
- * 4 entités maximum (mêmes plafonds que l'ancienne API).
+ * reconstruit chaque jour avec le site), puis interroge en local
+ * (règles de correspondance : `lib/recherche.ts`), 8 élus + 4 entités
+ * maximum.
  *
  * CONTRAT FICHES : seuls les élus à mandat depute / senateur / président
  * de conseil départemental ou régional ont une fiche /elus/<id> — les
@@ -24,19 +31,16 @@ import type { IndexRecherche } from "@/lib/recherche-index";
  * - dropdown navigable au clavier (↑ ↓ Entrée Échap) et à la souris ;
  * - index indisponible / erreur réseau → silence, panneau fermé (comme avant :
  *   ne pas afficher « erreur » ni « index absent » — fuite d’implémentation) ;
- * - index prêt + 0 hit → status non sélectionnable (périmètre réel de l’index :
+ * - index prêt + 0 hit → panneau non sélectionnable (périmètre réel de l’index :
  *   élus / institutions, jamais un « aucun résultat » nu) ;
+ * - une zone `role="status"` TOUJOURS montée (seul son texte change) annonce
+ *   le chargement, le nombre de résultats ou leur absence : une zone montée
+ *   en même temps que son texte n'est pas annoncée de façon fiable ;
  * - raccourci « / » hors champs éditables ; hint visuel bureau seulement ;
  * - libellés injectés en texte (React), jamais en HTML (DATAVIZ §5 :
  *   noms = données non fiables).
  */
-export interface ResultatRecherche {
-  /** « Élu·e », « Ministère »… (affiché en préfixe discret). */
-  type: string;
-  libelle: string;
-  sous_libelle?: string;
-  href: string;
-}
+export type { ResultatRecherche } from "@/lib/recherche";
 
 export interface SearchBoxProps {
   placeholder?: string;
@@ -44,9 +48,6 @@ export interface SearchBoxProps {
 }
 
 const DEBOUNCE_MS = 150;
-const MIN_CARACTERES = 2;
-const MAX_ELUS = 8;
-const MAX_ENTITES = 4;
 
 /** Cycle de vie de l’index — distinct de « 0 hit » (qui n’existe qu’en `pret`). */
 type EtatIndex = "absent" | "chargement" | "pret" | "indisponible";
@@ -62,95 +63,14 @@ function estChampEditable(cible: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 }
 
-/** Minuscules sans diacritiques (recherche insensible accents/casse). */
-function plie(s: string): string {
-  return s
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
-
-/** Index enrichi de ses clés de recherche pré-pliées (calculées une fois). */
-type IndexPret = {
-  brut: IndexRecherche;
-  elusCles: { nom: string; prenom: string; complet: string }[];
-  entitesCles: { nom: string; sigle: string }[];
-};
-
 let indexPromesse: Promise<IndexPret | null> | null = null;
 
 function chargerIndex(): Promise<IndexPret | null> {
   indexPromesse ??= fetch(urlSite("/data/recherche-index.json"))
     .then((rep) => (rep.ok ? (rep.json() as Promise<IndexRecherche | null>) : null))
-    .then((brut) => {
-      if (!brut) return null;
-      return {
-        brut,
-        elusCles: brut.elus.map((e) => {
-          const nom = plie(e[0]);
-          const prenom = plie(e[1]);
-          return { nom, prenom, complet: prenom ? `${prenom} ${nom}` : nom };
-        }),
-        entitesCles: brut.entites.map((e) => ({ nom: plie(e[0]), sigle: plie(e[1]) })),
-      };
-    })
+    .then((brut) => (brut ? preparerIndex(brut) : null))
     .catch(() => null);
   return indexPromesse;
-}
-
-/** Recherche locale — mêmes plafonds et priorités que l'ancienne API. */
-function rechercher(index: IndexPret, brutQ: string): ResultatRecherche[] {
-  const q = plie(brutQ.trim());
-  if (q.length < MIN_CARACTERES) return [];
-  const { brut, elusCles, entitesCles } = index;
-
-  // Élus : nom, prénom ou « prénom nom » ; parlementaires puis préfixe de
-  // nom puis ordre alphabétique (l'index est déjà trié alphabétiquement).
-  type Candidat = { i: number; rang: number };
-  const candidats: Candidat[] = [];
-  for (let i = 0; i < brut.elus.length; i++) {
-    const cles = elusCles[i];
-    if (!cles.nom.includes(q) && !cles.prenom.includes(q) && !cles.complet.includes(q)) continue;
-    const typeIdx = brut.elus[i][2];
-    // 0/1 = député/sénateur en exercice, 7/8 = parlementaire du seul RNE.
-    const parlementaire = typeIdx === 0 || typeIdx === 1 || typeIdx === 7 || typeIdx === 8;
-    const rang = (parlementaire ? 0 : 2) + (cles.nom.startsWith(q) ? 0 : 1);
-    candidats.push({ i, rang });
-  }
-  candidats.sort((a, b) => a.rang - b.rang || a.i - b.i);
-
-  const resultats: ResultatRecherche[] = candidats.slice(0, MAX_ELUS).map(({ i }) => {
-    const [nom, prenom, typeIdx, depIdx, id] = brut.elus[i];
-    const mandat = brut.typesMandat[typeIdx] ?? "Élu·e";
-    const dep = depIdx >= 0 ? brut.departements[depIdx] : undefined;
-    const morceaux = [mandat];
-    if (dep) morceaux.push(dep);
-    if (!id) morceaux.push("dans les listes /elus");
-    return {
-      type: "Élu·e",
-      libelle: `${prenom} ${nom}`.trim(),
-      sous_libelle: morceaux.join(" · "),
-      href: id ? `/elus/${encodeURIComponent(id)}` : "/elus",
-    };
-  });
-
-  // Entités (ministères, institutions, collectivités, partis) — l'index
-  // est déjà dans l'ordre de priorité de l'ancienne API.
-  let nbEntites = 0;
-  for (let i = 0; i < brut.entites.length && nbEntites < MAX_ENTITES; i++) {
-    const cles = entitesCles[i];
-    if (!cles.nom.includes(q) && !cles.sigle.includes(q)) continue;
-    const [nom, sigle, typeIdx, hrefIdx] = brut.entites[i];
-    resultats.push({
-      type: brut.typesEntite[typeIdx] ?? "Institution",
-      libelle: nom,
-      sous_libelle: sigle || undefined,
-      href: brut.hrefs[hrefIdx] ?? "/elus",
-    });
-    nbEntites++;
-  }
-
-  return resultats;
 }
 
 export function SearchBox({
@@ -167,7 +87,6 @@ export function SearchBox({
   const [termeRecherche, setTermeRecherche] = useState("");
   const [aLeFocus, setALeFocus] = useState(false);
   const listeId = useId();
-  const statusId = useId();
   const inputId = useId();
   const router = useRouter();
   const racine = useRef<HTMLDivElement>(null);
@@ -302,6 +221,15 @@ export function SearchBox({
     resultats.length === 0 &&
     termeRecherche === terme;
   const panneauOuvert = afficherListe || afficherChargement || afficherVide;
+  const messageVide = `Aucun élu ni institution trouvé pour « ${terme} » dans l’index de recherche.`;
+  // Texte de la zone d'annonce, toujours montée : seul ce texte change.
+  const annonce = afficherListe
+    ? `${resultats.length} résultat${resultats.length > 1 ? "s" : ""} pour « ${termeRecherche} ».`
+    : afficherChargement
+      ? "Chargement de l’index…"
+      : afficherVide
+        ? messageVide
+        : "";
 
   return (
     <div
@@ -328,9 +256,7 @@ export function SearchBox({
         aria-haspopup={afficherListe ? "listbox" : undefined}
         aria-keyshortcuts="/"
         aria-expanded={panneauOuvert}
-        aria-controls={
-          afficherListe ? listeId : afficherChargement || afficherVide ? statusId : undefined
-        }
+        aria-controls={afficherListe ? listeId : undefined}
         aria-activedescendant={actif >= 0 ? `${listeId}-${actif}` : undefined}
         aria-label="Recherche globale"
         autoComplete="off"
@@ -414,16 +340,16 @@ export function SearchBox({
       )}
       {(afficherChargement || afficherVide) && (
         <div
-          id={statusId}
-          role="status"
+          aria-hidden="true"
           className="absolute left-0 right-0 top-full z-50 mt-1 rounded-lg border border-raised-border bg-raised px-3 py-2.5 text-[13px] text-ink-secondary shadow-[0_8px_24px_rgba(0,0,0,0.45)]"
           onMouseDown={(e) => e.preventDefault()}
         >
-          {afficherChargement
-            ? "Chargement de l’index…"
-            : `Aucun élu ni institution pour « ${terme} ».`}
+          {afficherChargement ? "Chargement de l’index…" : messageVide}
         </div>
       )}
+      <div role="status" className="sr-only">
+        {annonce}
+      </div>
     </div>
   );
 }
