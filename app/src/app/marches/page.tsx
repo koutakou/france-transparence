@@ -32,6 +32,7 @@ import {
 import { chargerDonneesMarches, type AlerteMarches } from "@/lib/queries/marches";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 import { urlAnnuaireEntreprise } from "@/lib/urlOfficielle";
+import { phraseMarchesSansMontant } from "@/lib/phrases";
 
 /**
  * Page STATIQUE (site pré-rendu quotidiennement) : tout est calculé au
@@ -767,9 +768,7 @@ export default async function PageMarches() {
                 ce que le plafond sert précisément à ne pas afficher.
               </li>
               <li>
-                {formatNombre(qm.nb_sans_montant)} marchés sont notifiés sans
-                montant renseigné : comptés dans le nombre de marchés, exclus
-                de toutes les sommes.
+                {phraseMarchesSansMontant(qm.nb_sans_montant, formatNombre(qm.nb_sans_montant))}
               </li>
             </ul>
           </div>

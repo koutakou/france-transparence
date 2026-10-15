@@ -550,14 +550,16 @@ def test_regle_de_dependance_en_format_francais(conn):
 def test_motif_ratio_conserve_mot_pour_mot_et_reste_triable(conn):
     """PIÈGE : `(ratio ` est une clé de tri SQL côté front — à ne pas casser.
 
-    app/src/lib/queries/financement.ts ordonne les alertes de dépendance par
-    CAST(substr(detail, instr(detail,'(ratio ') + 7) AS REAL) : le séparateur
-    décimal doit rester un POINT (SQLite lit '92,7' comme 92.0).
+    Le texte affiché est en français (« (ratio 92,7 %) », virgule et espace
+    fine insécable), et app/src/lib/queries/financement.ts ordonne par
+    CAST(replace(substr(detail, instr(detail,'(ratio ') + 7), ',', '.') AS
+    REAL) : la décimale survit au tri (sans le replace, SQLite lirait 92.0).
     """
     _charger_corpus_alertes(conn)
     lignes = conn.execute(
-        """SELECT detail,
-                  CAST(substr(detail, instr(detail, '(ratio ') + 7) AS REAL) AS cle
+        """SELECT detail, titre,
+                  CAST(replace(substr(detail, instr(detail, '(ratio ') + 7), ',', '.')
+                       AS REAL) AS cle
            FROM alertes
            WHERE type = 'financement_parti_dependance_aide'
            ORDER BY cle DESC, id"""
@@ -565,8 +567,12 @@ def test_motif_ratio_conserve_mot_pour_mot_et_reste_triable(conn):
     assert lignes
     for l in lignes:
         assert "(ratio " in l["detail"]
-        assert re.search(r"\(ratio \d+\.\d%\)\.", l["detail"]), l["detail"]
+        assert re.search(r"\(ratio \d+,\d\u202f%\)\.", l["detail"]), l["detail"]
+        assert re.search(r"financé à \d+\u202f% par", l["titre"]), l["titre"]
         assert l["cle"] > 0  # la clé de tri est bien numérique, pas 0
+        # La clé de tri lit la décimale affichée, pas sa partie entière.
+        affiche = re.search(r"\(ratio (\d+,\d)", l["detail"]).group(1)
+        assert l["cle"] == float(affiche.replace(",", "."))
     assert [l["cle"] for l in lignes] == sorted(
         (l["cle"] for l in lignes), reverse=True
     )

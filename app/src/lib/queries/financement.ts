@@ -326,7 +326,9 @@ export function getDonneesFinancement(): DonneesFinancement | null {
       `SELECT id, type, gravite, titre, detail, regle, base_legale, source_url, date_calcul
        FROM alertes
        WHERE type = 'financement_parti_dependance_aide'
-       ORDER BY CAST(substr(detail, instr(detail, '(ratio ') + 7) AS REAL) DESC, id`,
+       -- « (ratio 92,7 %) » : la virgule redevient un point avant le CAST
+       -- (SQLite lit '92,7' comme 92.0). Lit aussi l'ancien « 92.7% ».
+       ORDER BY CAST(replace(substr(detail, instr(detail, '(ratio ') + 7), ',', '.') AS REAL) DESC, id`,
     )
     .all() as AlerteLigne[];
 

@@ -41,6 +41,7 @@ import {
   type CoutUe,
   type DonneesRegistreUe,
 } from "@/lib/queries/registre-ue";
+import { phraseMarchesSansMontant } from "@/lib/phrases";
 
 // Rendu statique : la donnée ne change qu'à l'ingestion, le site est
 // reconstruit après chaque ingestion (docs/deploiement/DECISION.md).
@@ -404,9 +405,10 @@ function SectionCroisement({
                 — ce que le plafond sert précisément à ne pas afficher.
               </li>
               <li>
-                {formatNombre(ag.sansMontantHorsAc)} marchés sont notifiés sans
-                montant renseigné : comptés dans le nombre de marchés, exclus de
-                toutes les sommes.
+                {phraseMarchesSansMontant(
+                  ag.sansMontantHorsAc,
+                  formatNombre(ag.sansMontantHorsAc),
+                )}
               </li>
             </ul>
           </div>
