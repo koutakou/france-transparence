@@ -634,6 +634,24 @@ OPACITES: list[dict] = [
          source_url=URL_CCOMPTES_ELYSEE_2024_PAGE, date="2026-08-19"),
 ]
 
+# Date de CONSULTATION du corpus. Les pages sans date propre (Sénat, DGCL,
+# Cour des comptes) sont datées du jour où le chiffre y a été lu, et le fait le
+# dit (« Page consultée le 19/08/2026 », « constat au 19/08/2026 »). Ce n'est
+# pas la date d'un document : elle n'entre pas dans `date_donnees`.
+DATE_CONSULTATION = "2026-08-19"
+
+
+def date_document_la_plus_recente() -> str:
+    """Date (AAAA-MM-JJ) du document source le plus récent du corpus : max
+    des dates des faits et des opacités, dates de consultation exclues."""
+    dates = [f["date_source"] for f in FAITS] + [o["date"] for o in OPACITES]
+    plus_recente = max(d for d in dates if d != DATE_CONSULTATION)
+    if len(plus_recente) != 10:
+        raise ValueError(
+            f"date de document la plus récente imprécise : {plus_recente!r}")
+    return plus_recente
+
+
 # Faits du rapport 05 écartés faute d'URL officielle vivante portant le chiffre
 # (règle : jamais de chiffre sans source vérifiable) — gardés ici pour mémoire :
 # - AFM député 5 950 €/mois (2024-2025) et IRFM 5 372,80 € net/mois (2017) :
@@ -748,9 +766,10 @@ def ingester(conn: sqlite3.Connection | None = None) -> tuple[int, int]:
             url=URL_CCOMPTES_ELYSEE_2024_PAGE,
             licence="Publications officielles (hors open data)",
             frequence="à parution (annuelle)",
-            # Document source le plus récent : rapport du déontologue de l'AN
-            # publié le 13/05/2026 (exercice 2024).
-            date_donnees="2026-05-13",
+            # Document source le plus récent du corpus, calculé (cf.
+            # `date_document_la_plus_recente`) : une constante écrite en dur
+            # annonçait le 13/05/2026 alors qu'une opacité date du 11/06/2026.
+            date_donnees=date_document_la_plus_recente(),
             lignes=len(FAITS) + len(OPACITES),
             notes=f"{len(FAITS)} faits sourcés + {len(OPACITES)} opacités documentées "
                   "(05-frais-indemnites.md, URLs re-vérifiées le 19/08/2026 ; "
