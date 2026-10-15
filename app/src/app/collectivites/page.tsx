@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BarList } from "@/components/ui/BarList";
+import { BarListIle, LineChartIle } from "@/components/client/Graphiques";
+import { formatMd } from "@/lib/formatValeur";
 import { Card } from "@/components/ui/Card";
+import { TableCompacte } from "@/components/ui/TableCompacte";
 import { CarteDepartements } from "@/components/client/CarteDepartements";
-import { DataTable } from "@/components/ui/DataTable";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { KpiTile, type KpiTileProps } from "@/components/ui/KpiTile";
-import { LineChart } from "@/components/ui/LineChart";
 import { Money } from "@/components/ui/Money";
 import { ParticipationElectorale } from "@/components/client/ParticipationElectorale";
 import { SeriesCollectivites } from "@/components/client/SeriesCollectivites";
@@ -376,16 +376,16 @@ export default async function PageCollectivites() {
                 perimetre="secret statistique DESF · hors de la somme TFPB"
               />
             </div>
-            <BarList
+            <BarListIle
               className="mt-4"
               items={rei.taxes.map((t) => ({
                 libelle: t.libelle,
                 valeur: t.euros / 1e9,
               }))}
-              formatValeur={(v) => `${formatNombre(v, 2)}${ESPACE_FINE}Md€`}
+              format={formatMd(2)}
             />
             <VueTableau>
-              <DataTable
+              <TableCompacte
                 colonnes={[
                   { cle: "dep", entete: "Dép." },
                   { cle: "nom", entete: "Département" },
@@ -408,7 +408,7 @@ export default async function PageCollectivites() {
                   md: d.tfpb / 1e9,
                   nc: d.nTfpbNc,
                 }))}
-                cleLigne={(l) => l.dep}
+                cleChamp="dep"
               />
             </VueTableau>
             <p className="mt-3 text-xs text-ink-muted">
@@ -495,18 +495,18 @@ export default async function PageCollectivites() {
         <div className="flex flex-col gap-5 sm:flex-row sm:gap-8">
           <div className="min-w-0 flex-1">
             <SousTitreBloc>Top 10 — les plus dépensiers par habitant</SousTitreBloc>
-            <DataTable
+            <TableCompacte
               colonnes={colonnesTopFlopDep}
               lignes={top10Dep}
-              cleLigne={(l) => l.code}
+              cleChamp="code"
             />
           </div>
           <div className="min-w-0 flex-1">
             <SousTitreBloc>Flop 10 — les plus faibles par habitant</SousTitreBloc>
-            <DataTable
+            <TableCompacte
               colonnes={colonnesTopFlopDep}
               lignes={flop10Dep}
-              cleLigne={(l) => l.code}
+              cleChamp="code"
             />
           </div>
         </div>
@@ -632,21 +632,21 @@ export default async function PageCollectivites() {
         >
           {dgfNationale.length > 0 ? (
             <>
-              <LineChart
+              <LineChartIle
                 labels={dgfNationale.map((d) => String(d.exercice))}
                 series={[{ nom: "DGF nationale", valeurs: dgfNationale.map((d) => d.montant) }]}
-                formatValeur={(v) => formatEuros(v)}
+                format={{ type: "euros" }}
                 hauteur={220}
                 ariaLabel="Évolution de la DGF nationale par exercice"
               />
               <VueTableau resume="Vue tableau">
-                <DataTable
+                <TableCompacte
                   colonnes={[
                     { cle: "exercice", entete: "Exercice" },
                     { cle: "montant_mdeur", entete: "DGF (Md€)", type: "montant", decimales: 2 },
                   ]}
                   lignes={lignesDgfNationale}
-                  cleLigne={(l) => l.exercice}
+                  cleChamp="exercice"
                 />
               </VueTableau>
             </>
@@ -671,18 +671,18 @@ export default async function PageCollectivites() {
               <div className="flex flex-col gap-5">
                 <div>
                   <SousTitreBloc>Top 10 — DGF/hab les plus élevées</SousTitreBloc>
-                  <DataTable
+                  <TableCompacte
                     colonnes={colonnesDgfCommunes}
                     lignes={lignesDgfCommunes(dgfTopFlop.top)}
-                    cleLigne={(l) => l.code}
+                    cleChamp="code"
                   />
                 </div>
                 <div>
                   <SousTitreBloc>Flop 10 — DGF/hab les plus faibles</SousTitreBloc>
-                  <DataTable
+                  <TableCompacte
                     colonnes={colonnesDgfCommunes}
                     lignes={lignesDgfCommunes(dgfTopFlop.flop)}
-                    cleLigne={(l) => l.code}
+                    cleChamp="code"
                   />
                   <p className="mt-2 text-xs text-ink-secondary">
                     Une DGF à 0&nbsp;€ est une donnée réelle : la dotation de ces communes est
