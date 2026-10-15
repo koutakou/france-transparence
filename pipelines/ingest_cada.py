@@ -104,7 +104,12 @@ from pathlib import Path
 import requests
 
 from pipelines import db
-from pipelines.common import RAW_DIR, obtenir_logger, session_http, telecharger
+from pipelines.common import (
+    RAW_DIR,
+    obtenir_logger,
+    session_http,
+    telecharger_ressource,
+)
 
 log = obtenir_logger("ingest_cada")
 
@@ -321,7 +326,10 @@ def resoudre_ressource(session: requests.Session | None = None,
                        timeout: int = 60) -> dict[str, str]:
     """Interroge l'API data.gouv.fr et retourne la ressource consolidée.
 
-    Retourne `{"url", "titre", "derniere_modification", "octets"}`.
+    Retourne `{"url", "titre", "derniere_modification", "modifiee_le",
+    "octets"}` : `derniere_modification` est la DATE (notes publiées),
+    `modifiee_le` l'horodatage complet, qui invalide le cache local — un lot
+    versé le jour même d'un téléchargement doit être vu.
     Lève RuntimeError si la ressource a disparu du dataset : mieux vaut un
     échec franc qu'un repli silencieux sur un lot mensuel partiel.
     """
@@ -336,6 +344,7 @@ def resoudre_ressource(session: requests.Session | None = None,
                 "url": ressource["url"],
                 "titre": titre,
                 "derniere_modification": (ressource.get("last_modified") or "")[:10],
+                "modifiee_le": ressource.get("last_modified") or "",
                 "octets": str(ressource.get("filesize") or ""),
             }
     titres = [r.get("title") for r in dataset.get("resources", [])]
@@ -671,8 +680,13 @@ def executer(chemin_db=None, max_age_heures: float | None = CACHE_HEURES,
         ressource = resoudre_ressource()
         log.info("ressource « %s » (%s o, modifiée le %s)", ressource["titre"],
                  ressource["octets"] or "?", ressource["derniere_modification"] or "?")
-        chemin_csv = telecharger(ressource["url"], FICHIER_CACHE,
-                                 max_age_heures=max_age_heures)
+        # Nom de cache FIXE (copié par archive_amont.py), invalidé dès que
+        # la ressource est plus récente que la copie : sans cela, l'ancien
+        # lot était agrégé sous la date de versement du nouveau, et le
+        # « retard de versement » publié était faux.
+        chemin_csv = telecharger_ressource(ressource["url"], FICHIER_CACHE,
+                                           ressource.get("modifiee_le"),
+                                           max_age_heures=max_age_heures)
     else:
         ressource = {"url": str(chemin_csv), "titre": "extrait local",
                      "derniere_modification": "", "octets": ""}

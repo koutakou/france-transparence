@@ -485,3 +485,46 @@ def test_xlsx_communes_dans_zip_refuse_lambiguite(tmp_path, xlsx):
     annee, lignes, _n = extraire(out)
     assert annee == 2024
     assert len(lignes) == 8
+
+
+def test_un_nouveau_millesime_n_est_pas_masque_par_le_cache(tmp_path, monkeypatch):
+    """Même défaut que REI (audit du 15/10/2026), sans échec : l'année est
+    relue dans le fichier, mais le millésime précédent restait publié
+    jusqu'à 7 jours après la parution du suivant."""
+    import os
+    import sqlite3
+    import time
+    from datetime import datetime, timezone
+
+    import pipelines.common as common
+    import pipelines.ingest_ircom as ircom
+    from pipelines.tests.session_factice import SessionFactice
+
+    monkeypatch.setattr(common, "RAW_DIR", tmp_path / "raw")
+    cache = tmp_path / "raw" / ircom.FICHIER_ZIP
+    cache.parent.mkdir(parents=True)
+    cache.write_bytes(b"zip du millesime precedent")
+    il_y_a_une_heure = time.time() - 3600
+    os.utime(cache, (il_y_a_une_heure, il_y_a_une_heure))
+
+    url = "https://exemple.invalid/ircom-2026-revenus-2025.zip"
+    session = SessionFactice({
+        ircom.URL_API_DATASET: {"resources": [{
+            "title": "Impôt sur les revenus de 2025 déclarés en 2026 (IRCOM 2026)",
+            "format": "zip", "url": url,
+            "last_modified": datetime.now(timezone.utc).isoformat(),
+        }]},
+        url: b"zip du nouveau millesime",
+    })
+    monkeypatch.setattr(ircom, "session_http", lambda: session)
+    vus = []
+    monkeypatch.setattr(ircom, "xlsx_communes_dans_zip",
+                        lambda z, dest: vus.append(z.read_bytes()) or dest)
+    monkeypatch.setattr(ircom, "extraire", lambda x: (2025, [], 0))
+    monkeypatch.setattr(ircom, "controler_ampleur", lambda *a: None)
+    monkeypatch.setattr(ircom, "ecrire_db", lambda *a: "2025-12-31")
+    monkeypatch.setattr(ircom.db, "init_db", lambda: sqlite3.connect(":memory:"))
+
+    assert ircom.main() == 0
+    assert url in session.appels
+    assert vus == [b"zip du nouveau millesime"]

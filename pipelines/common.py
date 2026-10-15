@@ -3,6 +3,8 @@
 Fournit :
 - une session HTTP avec User-Agent projet et retries (3 tentatives, backoff) ;
 - `telecharger()` : téléchargement atomique avec cache dans data/raw/ ;
+- `telecharger_ressource()` : idem, mais le cache tombe dès que la ressource
+  amont a été modifiée après la copie locale ;
 - des helpers de log horodatés ;
 - `reparer_mojibake` / `normaliser_espaces` / `assainir_texte` : hygiène des
   chaînes, partagée parce que le MÊME défaut (UTF-8 relu en cp1252) touche
@@ -18,6 +20,7 @@ import logging
 import re
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
@@ -123,6 +126,75 @@ def telecharger(
         tmp.unlink(missing_ok=True)
     log.info("écrit: %s (%.1f Mo)", dest, octets / 1_048_576)
     return dest
+
+
+
+def _instant_utc(texte: str | None) -> datetime | None:
+    """Horodatage ISO 8601 (data.gouv : « 2026-05-26T13:15:39.405000+00:00 »)
+    → datetime aware UTC, ou None si absent ou illisible. Sans fuseau, UTC."""
+    if not texte:
+        return None
+    try:
+        instant = datetime.fromisoformat(texte.strip())
+    except ValueError:
+        return None
+    if instant.tzinfo is None:
+        instant = instant.replace(tzinfo=timezone.utc)
+    return instant.astimezone(timezone.utc)
+
+
+def telecharger_ressource(
+    url: str,
+    dest: str | Path,
+    modifiee_le: str | None,
+    max_age_heures: float,
+    session: requests.Session | None = None,
+    timeout: int = 300,
+) -> Path:
+    """`telecharger` avec un cache qui ne survit pas à une nouvelle version.
+
+    POURQUOI. Un cache à NOM FIXE (`rei/rei_courant.zip`, `cada/cada-
+    consolide.csv`…) ne sait pas que la ressource amont a changé : pendant
+    `max_age_heures`, il resservait l'ancien fichier sous l'URL et la date du
+    nouveau. Mesuré par l'audit du 15/10/2026 : REI échouait (« année CSV
+    2025 ≠ année zip 2026 ») jusqu'à 7 jours à chaque millésime, bloquant
+    toute la publication ; CADA publiait un « retard de versement » calculé
+    sur l'ancien lot ; IRCOM retardait le nouveau millésime en silence.
+
+    RÈGLE. Le cache n'est servi que si la copie locale est POSTÉRIEURE à la
+    dernière modification que l'API annonce pour la ressource (`modifiee_le`,
+    le `last_modified` data.gouv). Une ressource modifiée après la copie
+    — nouveau lot, nouveau millésime, fichier corrigé — est re-téléchargée,
+    quel que soit l'âge du cache. Une date absente ou illisible ne prouve
+    pas que le cache est à jour : re-téléchargement aussi.
+
+    POURQUOI garder le nom fixe plutôt que d'en dériver un de l'URL : il est
+    référencé hors du code — `archive_amont.py` copie `cada/cada-consolide.csv`,
+    et `/etc/france-transparence/cache-long.conf` (serveur, hors dépôt)
+    exempte des chemins de la purge 23 h. Un nom par version les aurait
+    rendus caducs en silence.
+    """
+    chemin = Path(dest)
+    if not chemin.is_absolute():
+        chemin = RAW_DIR / chemin
+    if chemin.exists():
+        modif = _instant_utc(modifiee_le)
+        copie = datetime.fromtimestamp(chemin.stat().st_mtime, timezone.utc)
+        if modif is None:
+            log.info(
+                "cache ignoré : %s — date de modification amont inconnue (%r)",
+                chemin.name, modifiee_le,
+            )
+            max_age_heures = None
+        elif modif > copie:
+            log.info(
+                "cache périmé : %s — ressource modifiée le %s, copie locale du %s",
+                chemin.name, modif.isoformat(timespec="seconds"),
+                copie.isoformat(timespec="seconds"),
+            )
+            max_age_heures = None
+    return telecharger(url, dest, max_age_heures=max_age_heures,
+                       session=session, timeout=timeout)
 
 
 # ---------------------------------------------------------------------------
