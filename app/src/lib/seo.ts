@@ -554,7 +554,31 @@ export type RoleElu = {
   organisation: string;
   /** Début de mandat (ISO), si la source le publie. */
   debut?: string | null;
+  /**
+   * Fin de mandat : une date ISO = mandat terminé à cette date (publiée par
+   * la chambre) ; `null` = une source dit le mandat en cours ; `undefined` =
+   * aucune source ne dit rien de la fin (le RNE ne publie pas de date de fin).
+   * Seule une date devient `endDate` : rien n'est inventé.
+   */
+  fin?: string | null;
 };
+
+/**
+ * Fusionne ce que deux descriptions du MÊME mandat (AN/Sénat et RNE)
+ * disent de sa fin. Une source qui le dit en cours (`null`) l'emporte : la
+ * chambre ne publie `date_fin: null` que pour un mandat ouvert, et une date
+ * de fin d'un autre exemplaire ne vaut pas clôture. Deux dates : la plus
+ * récente. Aucune information : `undefined`.
+ */
+export function fusionnerFinMandat(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): string | null | undefined {
+  if (a === null || b === null) return null;
+  if (a === undefined) return b;
+  if (b === undefined) return a;
+  return a > b ? a : b;
+}
 
 export type DescriptionPersonne = {
   chemin: string;
@@ -565,7 +589,7 @@ export type DescriptionPersonne = {
   naissance?: string | null;
   /** Intitulé principal (`jobTitle`), ex. « Députée ». */
   fonction?: string | null;
-  /** Mandats en cours, tels que listés sur la fiche. */
+  /** Mandats tels que listés sur la fiche, terminés compris (avec leur fin). */
   roles: RoleElu[];
   /** Groupe politique / rattachement, tel qu'affiché. */
   groupes: string[];
@@ -618,6 +642,7 @@ export function jsonLdFicheElu(p: DescriptionPersonne): NoeudJsonLd {
         "@type": "OrganizationRole",
         roleName: r.roleName,
         startDate: r.debut ?? undefined,
+        endDate: typeof r.fin === "string" ? r.fin : undefined,
         memberOf: { "@type": "Organization", name: r.organisation },
       })),
       affiliation: p.groupes.map((g) => ({ "@type": "Organization", name: g })),

@@ -29,6 +29,7 @@ import {
 } from "@/lib/queries/declarations";
 import type { MetaSource } from "@/lib/db";
 import {
+  fusionnerFinMandat,
   jsonLdFicheElu,
   metadonneesFicheProfil,
   metadonneesPage,
@@ -436,13 +437,16 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
     // début faisant foi.
     const cle = `${roleName}|${organisation}`;
     const debut = m.date_debut ?? m.date_debut_mandat ?? m.date_debut_fonction ?? null;
+    // `date_fin` absent (RNE) ≠ `date_fin: null` (chambre : en cours).
+    const fin = "date_fin" in m ? (m.date_fin ?? null) : undefined;
     if (vus.has(cle)) {
       const existant = roles.find((r) => `${r.roleName}|${r.organisation}` === cle);
       if (existant && debut && (!existant.debut || debut < existant.debut)) existant.debut = debut;
+      if (existant) existant.fin = fusionnerFinMandat(existant.fin, fin);
       continue;
     }
     vus.add(cle);
-    roles.push({ roleName, organisation, debut });
+    roles.push({ roleName, organisation, debut, fin });
   }
   if (roles.length === 0 && depute) {
     roles.push({
@@ -468,7 +472,8 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
       ? titreMandatBalisage("depute", elu.sexe)
       : senateur
         ? titreMandatBalisage("senateur", elu.sexe)
-        : (roles[0]?.roleName ?? null),
+        : // Un mandat terminé ne donne pas l'intitulé actuel de la personne.
+          (roles.find((r) => typeof r.fin !== "string")?.roleName ?? null),
     roles,
     groupes: [depute?.groupe_nom, senateur?.groupe].filter(
       (g): g is string => typeof g === "string" && g.length > 0,
