@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { finDeMoisAnneePrecedente } from "@/lib/dates";
 import { AlertItem, type Gravite } from "@/components/ui/AlertItem";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
@@ -250,9 +251,7 @@ export default async function Accueil() {
   /* --- Compteur : delta neutre (une dépense qui monte n'est pas « mauvaise ») --- */
   const anneeExecution = execution ? Number(execution.dateFinMois.slice(0, 4)) : null;
   const dateN1 =
-    execution && anneeExecution
-      ? `${anneeExecution - 1}${execution.dateFinMois.slice(4)}`
-      : null;
+    execution && anneeExecution ? finDeMoisAnneePrecedente(execution.dateFinMois) : null;
 
   // Même raison : ces deux valeurs partent dans le payload RSC et sont
   // affichées à 2 et 1 décimale (colonnes ci-dessous). On les arrondit à
