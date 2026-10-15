@@ -59,3 +59,9 @@ test("Licence Ouverte : aucun lien vers l'adresse etalab.gouv.fr redirigée vers
   parcourir(racine);
   assert.deepEqual(fautes, []);
 });
+
+test("/comprendre : aucune phrase datée figée (« au 24 août 2026 », « mesuré le … »)", () => {
+  const s = aplati("app/comprendre/page.tsx");
+  assert.doesNotMatch(s, /en données au \d{1,2} \w+ 20\d\d/);
+  assert.doesNotMatch(s, /Millésime mesuré le/);
+});
