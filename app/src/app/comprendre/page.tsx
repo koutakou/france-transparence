@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { JsonLd } from "@/components/JsonLd";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 import { CONTACT_ISSUES_URL } from "@/lib/site";
+import { getMetaSourcesParIds } from "@/lib/queries/donnees";
 
 /**
  * Page /comprendre — appareil pédagogique du site.
@@ -573,6 +574,11 @@ const SOMMAIRE: { href: string; libelle: string }[] = [
 ];
 
 export default function PageComprendre() {
+  // Millésime IRCOM servi : date_donnees = 31/12 de l'année des revenus
+  // (pipelines/ingest_ircom.py). Lu en base plutôt qu'écrit : une phrase
+  // datée « mesuré le … » se figeait au jour où elle avait été écrite.
+  const metaIrcom = getMetaSourcesParIds(["S47"])?.[0] ?? null;
+  const anneeRevenusIrcom = metaIrcom ? Number(metaIrcom.date_donnees.slice(0, 4)) : null;
   return (
     <section className="flex flex-col gap-6">
       <JsonLd donnees={BALISAGE} />
@@ -1560,8 +1566,8 @@ export default function PageComprendre() {
             sur data.economie.gouv.fr. Licence Ouverte 2.0. Millésime 2025,
             jeu publié le 11 octobre 2024 — lendemain de l’enregistrement
             du projet à l’Assemblée nationale (10 octobre 2024, texte
-            n° 324). Aucun équivalent PLF 2026 ni LFI en données au
-            24 août 2026.
+            n° 324). C’est le seul millésime que le site ingère&nbsp;:
+            aucun jeu de recettes PLF 2026 ni LFI n’est ingéré à ce jour.
           </p>
           <p>
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
@@ -1595,9 +1601,10 @@ export default function PageComprendre() {
               limpot-sur-le-revenu-par-collectivite-territoriale-ircom
             </code>
             {" "}
-            sur data.gouv.fr. Licence Ouverte / Open Licence. Millésime
-            mesuré le 24 août 2026 : revenus 2024, déclarés en 2025,
-            fichier publié le 26 mai 2026 (campagne IRCOM 2025).
+            sur data.gouv.fr. Licence Ouverte / Open Licence.{" "}
+            {anneeRevenusIrcom
+              ? `Millésime servi : revenus ${anneeRevenusIrcom}, déclarés en ${anneeRevenusIrcom + 1} (campagne IRCOM ${anneeRevenusIrcom + 1}).`
+              : "Millésime servi : l’année des revenus que donne la date des données sur la page Recettes."}
           </p>
           <p>
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
