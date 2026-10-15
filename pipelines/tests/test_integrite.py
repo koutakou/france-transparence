@@ -1090,6 +1090,69 @@ def test_hatvp_flag_concordance_par_chambre_et_par_nature(conn):
     assert flags == {"PA721004": 1, "rne-pcr": 1, "rne-maire": 0}
 
 
+def test_hatvp_flag_depute_au_departement_en_toutes_lettres(conn):
+    """Cas réel relevé en relecture le 15/10/2026 : Melouka Hadj-Mimoune,
+    députée du Rhône (PA794910), n'a à la HATVP qu'un dossier d'adjointe au
+    maire de Villeurbanne, département « 69 ». Son mandat AN-P9 porte le NOM
+    « Rhône » : sans le code écrit par P9, la concordance échouait et la
+    députée perdait son lien HATVP."""
+    mandat = {"type": "depute", "legislature": 17, "date_debut": "2024-07-07",
+              "date_fin": None, "departement": "Rhône", "circonscription": "6",
+              "groupe": "SOC", "source": "AN-P9"}
+    hatvp = [_dossier_hatvp("HADJ-MIMOUNE", "Melouka", "commune", "69",
+                            "Adjointe au maire de Villeurbanne",
+                            classement="HADJ-MIMOUNE  Melouka19320")]
+    _fiche(conn, "PA794910", "Hadj-Mimoune", "Melouka",
+           [dict(mandat, code_departement="69")])
+    assert p7.croiser_hatvp_flag(conn, hatvp) == (1, 0)
+    # Mandat écrit avant le code (base d'avant ce correctif) : pas de
+    # concordance — c'est le faux négatif, il disparaît au cycle P9 suivant.
+    conn.execute("UPDATE elus SET mandats = ?", (json.dumps([mandat]),))
+    assert p7.croiser_hatvp_flag(conn, hatvp) == (0, 1)
+
+
+# Lignes réelles des fichiers RNE (conseillers régionaux) et HATVP du
+# 15/10/2026, copiées telles quelles.
+_CR_ENTETE = ("Code de la région;Libellé de la région;Code de la section départementale;"
+              "Libellé de la section départementale;Nom de l'élu;Prénom de l'élu;Code sexe;"
+              "Date de naissance;Code de la catégorie socio-professionnelle;"
+              "Libellé de la catégorie socio-professionnelle;Date de début du mandat;"
+              "Libellé de la fonction;Date de début de la fonction")
+_CR_QUERNEZ = ("53;Bretagne;29;Finistère;QUERNEZ;Michaël;M;1971-01-11;85;Personne diverse "
+               "sans activité professionnelle de moins de 60 ans (sauf retraité);2021-07-02;"
+               "1er Vice-président du conseil régional;2021-07-02")
+
+
+def _index_locaux_quernez(tmp_path):
+    chemin = tmp_path / "rne_cr.csv"
+    chemin.write_text(_CR_ENTETE + "\r\n" + _CR_QUERNEZ + "\r\n", encoding="utf-8")
+    cr = p7.lire_rne(chemin, p7._COLS_BASE + ("Libellé de la fonction",))
+    return p7.index_mandats_locaux({"cd": [], "cr": cr, "epci": []})
+
+
+def test_hatvp_flag_corrobore_par_un_mandat_rne_de_la_meme_personne(conn, tmp_path):
+    """Relecture du 15/10/2026 : sur 15 appariements écartés tirés au sort,
+    14 désignaient vraisemblablement la bonne personne. Cas réel : QUERNEZ
+    Michaël, maire de Quimperlé (29), déclare à la HATVP sa vice-présidence
+    du conseil régional de Bretagne, SANS département. La fiche n'enregistre
+    pas les mandats régionaux, mais le RNE des conseillers régionaux porte la
+    même personne — même nom, prénom ET date de naissance."""
+    _fiche(conn, "rne-9596fa92bf78518a", "QUERNEZ", "Michaël",
+           [{"source": "RNE", "type": "maire", "departement": "29",
+             "code_commune": "29233", "commune": "Quimperlé"}])
+    conn.execute("UPDATE elus SET date_naissance = '1971-01-11'")
+    hatvp = [_dossier_hatvp("QUERNEZ", "Michaël", "region", "",
+                            "Vice-Président du conseil régional de Bretagne",
+                            classement="quernezaaamichael7502")]
+    assert p7.croiser_hatvp_flag(conn, hatvp) == (0, 1)        # sans l'index
+    locaux = _index_locaux_quernez(tmp_path)
+    assert p7.croiser_hatvp_flag(conn, hatvp, locaux) == (1, 0)
+    # Contre-épreuve : une autre date de naissance, ce n'est plus la même
+    # personne pour le RNE — on renonce.
+    conn.execute("UPDATE elus SET date_naissance = '1971-01-12'")
+    assert p7.croiser_hatvp_flag(conn, hatvp, locaux) == (0, 1)
+
+
 def test_hatvp_flag_d_un_cycle_precedent_ne_survit_pas(conn):
     """Le flag était « jamais remis à 0 » : un flag posé à tort restait servi
     sur la base persistante même une fois l'appariement corrigé."""

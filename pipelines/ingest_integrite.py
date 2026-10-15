@@ -1272,7 +1272,37 @@ NATURES_HATVP = {
 }
 
 
-def dossier_corrobore_fiche(dossier: dict, mandats: list[dict]) -> bool:
+def index_mandats_locaux(rne: dict[str, list[dict]]) -> dict[tuple, set]:
+    """(nom, prénom, date de naissance) normalisés → {(nature HATVP, dép.)}
+    des mandats RNE qu'une fiche n'enregistre pas : conseiller départemental
+    (« departement »), régional (« region », département = section),
+    communautaire (« epci »), et « ctsp » pour les deux premiers quand le RNE
+    les rattache à une collectivité à statut particulier.
+
+    C'est la clé d'état civil du projet, date de naissance comprise : elle
+    permet de dire qu'un maire est AUSSI vice-président de son EPCI ou
+    conseiller régional — ce que la HATVP déclare souvent sans département —
+    sans rien déduire du seul nom.
+    """
+    index: dict[tuple, set] = defaultdict(set)
+    for cle_rne, nature in (("cd", "departement"), ("cr", "region"), ("epci", "epci")):
+        for r in rne.get(cle_rne, []):
+            cle = _cle_personne(r)
+            if not cle[2]:
+                continue
+            if nature == "region":
+                dep = normaliser_departement(r.get("Code de la section départementale"))
+            else:
+                dep = _dep_rne(r)
+            index[cle].add((nature, dep))
+            if nature != "epci" and (r.get("Code de la collectivité à statut particulier")
+                                     or "").strip():
+                index[cle].add(("ctsp", dep))
+    return index
+
+
+def dossier_corrobore_fiche(dossier: dict, mandats: list[dict],
+                            locaux: set | frozenset = frozenset()) -> bool:
     """Un dossier HATVP désigne-t-il la personne de cette fiche, au-delà du
     seul nom+prénom ?
 
@@ -1281,6 +1311,19 @@ def dossier_corrobore_fiche(dossier: dict, mandats: list[dict]) -> bool:
     s'écrit « 99 » à la HATVP, « ZZ » au RNE, en toutes lettres à l'AN) ;
     sinon même département normalisé quand la HATVP en publie un ; sinon,
     faute de département, même nature de mandat (NATURES_HATVP).
+
+    `locaux` : mandats RNE de la MÊME personne (clé nom, prénom, date de
+    naissance, voir index_mandats_locaux) que la fiche n'enregistre pas. Ils
+    concordent de la même façon — même département si la HATVP en publie un,
+    même nature sinon. Mesuré le 15/10/2026 sur un échantillon de 15 écartés
+    sans eux : 14 désignaient vraisemblablement la bonne personne (maire de
+    Trélivan, vice-présidente de Dinan Agglomération…).
+
+    Le département d'un mandat AN-P9 ou SENAT-P9 est un NOM (« Rhône ») :
+    c'est son `code_departement`, écrit par P9 depuis la source officielle de
+    chaque chambre, qui est comparé au code HATVP. Sans lui, une députée du
+    Rhône déclarant un mandat municipal dans le 69 n'était pas reconnue
+    (PA794910, relecture du 15/10/2026).
     """
     tm = dossier.get("type_mandat") or ""
     dep = normaliser_departement(dossier.get("departement"))
@@ -1290,14 +1333,22 @@ def dossier_corrobore_fiche(dossier: dict, mandats: list[dict]) -> bool:
         if tm in ("depute", "senateur") and m.get("type") == tm:
             return True
         if dep:
-            if dep == normaliser_departement(m.get("departement")):
+            if dep == normaliser_departement(
+                    m.get("code_departement") or m.get("departement")):
                 return True
         elif m.get("type") in NATURES_HATVP.get(tm, ()):
+            return True
+    for nature, dep_local in locaux:
+        if dep:
+            if dep == dep_local:
+                return True
+        elif nature == tm:
             return True
     return False
 
 
-def croiser_hatvp_flag(conn, dossiers: list[dict]) -> tuple[int, int]:
+def croiser_hatvp_flag(conn, dossiers: list[dict],
+                       locaux: dict[tuple, set] | None = None) -> tuple[int, int]:
     """hatvp_flag + hatvp_url quand la personne est UNE des deux côtés ET
     qu'un de ses dossiers concorde avec un mandat de la fiche.
 
@@ -1331,10 +1382,11 @@ def croiser_hatvp_flag(conn, dossiers: list[dict]) -> tuple[int, int]:
                                       (URL_HATVP_SITE + d["url_dossier"])
                                       if d["url_dossier"] else URL_HATVP_LISTE)
         dossiers_par_classement[d["classement"]].append(d)
-    elus_par_nom: dict[tuple, list[tuple[str, str | None]]] = defaultdict(list)
-    for r in conn.execute("SELECT id, nom, prenom, mandats FROM elus"):
+    elus_par_nom: dict[tuple, list[tuple]] = defaultdict(list)
+    for r in conn.execute("SELECT id, nom, prenom, date_naissance, mandats FROM elus"):
         elus_par_nom[(normaliser_texte(r["nom"]), normaliser_texte(r["prenom"]))].append(
-            (r["id"], r["mandats"]))
+            (r["id"], r["mandats"], (r["date_naissance"] or "").strip()))
+    locaux = locaux or {}
 
     n = ecartes = 0
     for cle, classements in hatvp_par_nom.items():
@@ -1343,13 +1395,14 @@ def croiser_hatvp_flag(conn, dossiers: list[dict]) -> tuple[int, int]:
         candidats = elus_par_nom.get(cle, [])
         if len(candidats) != 1:
             continue
-        ident, brut = candidats[0]
+        ident, brut, naissance = candidats[0]
         try:
             mandats = json.loads(brut) if brut else []
         except json.JSONDecodeError:
             mandats = []
         classement, url = next(iter(classements.items()))
-        if not any(dossier_corrobore_fiche(d, mandats)
+        siens = locaux.get(cle + (naissance,), frozenset()) if naissance else frozenset()
+        if not any(dossier_corrobore_fiche(d, mandats, siens)
                    for d in dossiers_par_classement[classement]):
             ecartes += 1
             continue
@@ -1492,7 +1545,8 @@ def ecrire(conn, dossiers: list[dict], rne: dict, chemins: dict,
     # --- elus : upsert prudent + croisement HATVP ----------------------
     personnes = preparer_personnes(rne)
     inseres, maj, rattrapes = upsert_elus(conn, personnes)
-    flags, flags_ecartes = croiser_hatvp_flag(conn, dossiers)
+    flags, flags_ecartes = croiser_hatvp_flag(conn, dossiers,
+                                              index_mandats_locaux(rne))
     collisions = controler_collisions_de_cle(conn)
     log.info("elus : %d insérés, %d complétés (fusion mandats), %d rattrapés sur"
              " une fiche AN/Sénat, %d hatvp_flag posés, %d appariement(s)"
