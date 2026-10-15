@@ -1087,9 +1087,15 @@ REQUETE_ETAT_CIVIL = ("SELECT id, nom, prenom, date_naissance, sexe, profession,
 def upsert_elus(conn, personnes: dict[tuple, dict]) -> tuple[int, int, int]:
     """UPSERT prudent par (nom, prénom, date de naissance) normalisés.
 
-    Ne touche jamais uid_an / matricule_senat ; ne remplit sexe, profession,
-    date_naissance que s'ils sont NULL ; remplace uniquement les mandats
-    "source": "RNE" du JSON, les autres sont conservés.
+    Ne touche jamais uid_an / matricule_senat ; ne remplit sexe et profession
+    que s'ils sont NULL ; remplace uniquement les mandats "source": "RNE" du
+    JSON, les autres sont conservés. `date_naissance` n'est JAMAIS écrite sur
+    une fiche existante (une version antérieure de cette docstring promettait
+    de la compléter) : elle fait partie de la clé d'appariement. Une fiche
+    sans date n'est atteinte par la clé exacte que par une personne RNE
+    elle-même sans date, et jamais par `_rattraper`, qui exige l'année : il
+    n'y aurait rien à compléter. Et la compléter changerait la clé d'une
+    fiche que P15 indexe sur la même date.
 
     Quand la clé exacte échoue, `_rattraper` tente une seconde fois contre les
     seules fiches AN/Sénat — voir sa docstring pour le pourquoi et les trois
