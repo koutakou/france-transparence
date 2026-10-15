@@ -1124,7 +1124,7 @@ export default function PageComprendre() {
           </p>
           <p>
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
-            Ce n’est pas la dette de l’État seul (sous-secteur S.1311). Ce
+            Ce n’est pas la dette de l’État seul (S13111), ni celle de l’administration centrale (S1311). Ce
             n’est pas la charge d’intérêts du budget général déjà publiée
             sur la même page (flux DGFiP, cumul depuis le 1<sup>er</sup>{" "}
             janvier). Ce n’est pas le déficit. Ce n’est pas un montant par
@@ -1163,7 +1163,7 @@ export default function PageComprendre() {
             Ce n’est pas le solde du budget général (flux de l’État, cumul
             depuis le 1<sup>er</sup> janvier). Ce n’est pas l’encours de
             dette (stock trimestriel déjà publié sur la même page). Ce
-            n’est pas le déficit de l’État seul (sous-secteur S.1311). Ce
+            n’est pas le déficit de l’État seul (S13111), ni celui de l’administration centrale (S1311). Ce
             n’est pas un montant par habitant. Le pourcentage du PIB n’est
             comparé à aucun seuil.
           </p>
@@ -1201,8 +1201,7 @@ export default function PageComprendre() {
             cumul depuis le 1<sup>er</sup> janvier). Ce n’est pas une
             ventilation CFAP : celle-ci est une table Eurostat distincte
             (S49). Ce n’est pas la décomposition INSEE par sous-secteur
-            (S50). Ce n’est pas la dépense de l’État seul (sous-secteur
-            S.1311). Ce n’est pas un montant par habitant. Ce n’est pas
+            (S50). Ce n’est pas la dépense de l’État seul (S13111), ni celle de l’administration centrale (S1311). Ce n’est pas un montant par habitant. Ce n’est pas
             le déficit (B9) ni l’encours (GD) au sens de Maastricht.
           </p>
         </div>
@@ -1243,7 +1242,7 @@ export default function PageComprendre() {
             Ce n’est pas l’exécution du budget général. Ce n’est pas le
             total TE de la table gov_10a_main (S44) : deux tables
             Eurostat distinctes, dont les totaux ne coïncident pas. Ce
-            n’est pas la dépense de l’État seul (S.1311). Ce n’est pas
+            n’est pas la dépense de l’État seul (S13111), ni celle de l’administration centrale (S1311). Ce n’est pas
             les prestations de protection sociale DREES (S45, tous
             régimes). Ce n’est pas un montant par habitant. Les groupes
             (GF0101…) ne sont pas ingérés : ils recouvrent les
@@ -1285,7 +1284,7 @@ export default function PageComprendre() {
             Ce n’est pas le budget général de l’État (source S13, flux
             cumulé depuis le 1<sup>er</sup> janvier, net des dégrèvements).
             TR n’est pas un montant «&nbsp;net DGFiP&nbsp;». Ce n’est pas
-            la recette de l’État seul (sous-secteur S.1311). Ce n’est pas
+            la recette de l’État seul (S13111), ni celle de l’administration centrale (S1311). Ce n’est pas
             un montant par habitant. Ce n’est pas le déficit (B9) ni
             l’encours (GD) au sens de Maastricht. On ne recalcule pas
             B9 = TR − TE : le déficit officiel reste S42. Ce n’est pas
