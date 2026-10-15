@@ -43,6 +43,11 @@ const INTERDITS = [
     "un mois sans montant connu n'est pas une colonne à zéro",
   ],
   [
+    "app/financement/page.tsx",
+    /produits_total \?\? 0/,
+    "un parti sans produits publiés n'est pas une barre à zéro",
+  ],
+  [
     "app/lobbying/page.tsx",
     /des activités rattachées à un destinataire/,
     "le dénominateur additionne des mentions de destinataire, pas des activités",
