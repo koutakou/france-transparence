@@ -51,6 +51,9 @@
 # montant_fourchette_haute (fourchette d'estimation FNS, jamais un montant),
 # ajoutées EN FIN de table par ALTER sur les bases antérieures
 # (`migrer_ao_en_cours` du pipeline P4) — même ordre sur une base neuve.
+# Le même jour, decp_top_acheteurs et decp_top_titulaires gagnent
+# montant_hors_suspects (qui fixe désormais le rang), nb_marches_suspects et
+# montant_suspects ; tables recréées par le filet de schéma de P3.
 
 > **Extrait daté.** Ce document décrit **83 tables**, **6 vues** et **58 index**, et cette
 > couverture est sa propriété essentielle : une table de la base absente d'ici est un trou de
@@ -395,7 +398,10 @@ CREATE TABLE decp_top_acheteurs (
     nom               TEXT,               -- libellé DÉCLARÉ au DECP, cf. § dédié
     nb_etablissements INTEGER NOT NULL,   -- SIRET distincts regroupés, sur la FENÊTRE
     nb_marches        INTEGER NOT NULL,   -- marchés distincts de la fenêtre 12 mois
-    montant_total     REAL                -- écrêté au plafond du pipeline
+    montant_total     REAL,               -- écrêté au plafond du pipeline
+    montant_hors_suspects REAL,           -- part à montant_suspect = 0 : FIXE LE RANG
+    nb_marches_suspects   INTEGER NOT NULL, -- marchés au drapeau montant_suspect
+    montant_suspects      REAL            -- leur part écrêtée, publiée à côté
 );
 CREATE TABLE decp_top_titulaires (
     rang              INTEGER PRIMARY KEY,
@@ -405,7 +411,10 @@ CREATE TABLE decp_top_titulaires (
     nb_etablissements INTEGER NOT NULL,   -- SIRET distincts regroupés, sur la FENÊTRE
     nb_marches        INTEGER NOT NULL,   -- marchés DISTINCTS : deux établissements
                                           -- co-titulaires ne comptent qu'un marché
-    montant_total     REAL                -- écrêté, puis divisé par co-titulaire
+    montant_total     REAL,               -- écrêté, puis divisé par co-titulaire
+    montant_hors_suspects REAL,           -- part à montant_suspect = 0 : FIXE LE RANG
+    nb_marches_suspects   INTEGER NOT NULL, -- marchés DISTINCTS au drapeau suspect
+    montant_suspects      REAL            -- leur part écrêtée, publiée à côté
 );
 CREATE TABLE decp_titulaires_qualite (
     id                        INTEGER PRIMARY KEY CHECK (id = 1),  -- ligne unique

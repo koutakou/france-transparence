@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { JsonLd } from "@/components/JsonLd";
 import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { CarteDepartements } from "@/components/client/CarteDepartements";
-import { DataTable } from "@/components/ui/DataTable";
+import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { Donut, type DonutPart } from "@/components/ui/Donut";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { LienOfficiel } from "@/components/ui/LienOfficiel";
@@ -29,7 +29,11 @@ import {
   perimetreAdlc,
   type SanctionsAdlc,
 } from "@/lib/queries/adlc";
-import { chargerDonneesMarches, type AlerteMarches } from "@/lib/queries/marches";
+import {
+  chargerDonneesMarches,
+  type AlerteMarches,
+  type TopAcheteur,
+} from "@/lib/queries/marches";
 import { moisClos, premierMoisIncomplet } from "@/lib/periodes";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 import { urlAnnuaireEntreprise } from "@/lib/urlOfficielle";
@@ -292,6 +296,41 @@ function Quantile({ libelle, valeur }: { libelle: string; valeur: number | null 
     </div>
   );
 }
+
+/**
+ * Colonnes de montant des deux classements. Le rang se fixe sur la part
+ * HORS SUSPECTS ; la part que le drapeau « montant suspect » recouvre est
+ * montrée dans sa propre colonne (montant, puis nombre de marchés entre
+ * parenthèses) — jamais retirée, jamais additionnée à la première à
+ * l'écran. Pas d'étiquette par cellule : l'en-tête la porte, et 20 cellules
+ * ×2 (HTML + charge RSC) pesaient ~40 Ko sur une page déjà au-delà du
+ * budget de 500 Ko.
+ */
+const COLONNES_MONTANT_TOP: Colonne<TopAcheteur>[] = [
+  {
+    cle: "montant_hors_suspects",
+    entete: "Montant hors suspects",
+    type: "montant",
+    rendu: (a) =>
+      a.montant_hors_suspects === null ? "—" : <Money valeur={a.montant_hors_suspects} />,
+  },
+  {
+    cle: "montant_suspects",
+    entete: "Montants suspects",
+    type: "montant",
+    rendu: (a) =>
+      a.nb_marches_suspects === 0 ? (
+        "—"
+      ) : (
+        <>
+          {a.montant_suspects === null ? "—" : <Money valeur={a.montant_suspects} />}{" "}
+          <span className="text-[11px] text-ink-muted">
+            ({formatNombre(a.nb_marches_suspects)})
+          </span>
+        </>
+      ),
+  },
+];
 
 /** Étiquette « suspect » : icône statut + libellé (jamais la couleur seule). */
 function EtiquetteSuspect() {
@@ -1083,7 +1122,7 @@ export default async function PageMarches() {
       {/* ---------------------------------------------------------- */}
       <Card
         titre="Principaux acheteurs et titulaires"
-        sousTitre="12 derniers mois (notification initiale), par entreprise (SIREN) — classement par montant notifié écrêté"
+        sousTitre="12 derniers mois (notification initiale), par entreprise (SIREN) — classement par montant notifié écrêté, hors montants suspects (affichés à part)"
         droite={badgeS1}
       >
         {/* grid-cols-1 explicite : piste minmax(0,1fr) — sans elle, la piste
@@ -1098,7 +1137,7 @@ export default async function PageMarches() {
                 const href = hrefAnnuaire(a) ?? undefined;
                 return {
                   libelle: a.nom ?? a.siren ?? "—",
-                  valeur: a.montant_total ?? 0,
+                  valeur: a.montant_hors_suspects ?? 0,
                   href,
                   hrefSource: href ? "Sirene" : undefined,
                 };
@@ -1155,13 +1194,7 @@ export default async function PageMarches() {
                     type: "nombre",
                   },
                   { cle: "nb_marches", entete: "Marchés", type: "nombre" },
-                  {
-                    cle: "montant_total",
-                    entete: "Montant",
-                    type: "montant",
-                    rendu: (a) =>
-                      a.montant_total === null ? "—" : <Money valeur={a.montant_total} />,
-                  },
+                  ...COLONNES_MONTANT_TOP,
                 ]}
                 lignes={donnees.topAcheteurs}
                 cleLigne={(a) => String(a.rang)}
@@ -1177,7 +1210,7 @@ export default async function PageMarches() {
                 const href = hrefAnnuaire(t) ?? undefined;
                 return {
                   libelle: t.nom ?? t.siren ?? "—",
-                  valeur: t.montant_total ?? 0,
+                  valeur: t.montant_hors_suspects ?? 0,
                   href,
                   hrefSource: href ? "Sirene" : undefined,
                 };
@@ -1212,13 +1245,7 @@ export default async function PageMarches() {
                     type: "nombre",
                   },
                   { cle: "nb_marches", entete: "Marchés", type: "nombre" },
-                  {
-                    cle: "montant_total",
-                    entete: "Montant",
-                    type: "montant",
-                    rendu: (t) =>
-                      t.montant_total === null ? "—" : <Money valeur={t.montant_total} />,
-                  },
+                  ...COLONNES_MONTANT_TOP,
                 ]}
                 lignes={donnees.topTitulaires}
                 cleLigne={(t) => String(t.rang)}
@@ -1250,6 +1277,18 @@ export default async function PageMarches() {
             additionnés. Le site n’exploite aucun référentiel de liens
             capitalistiques : un classement «&nbsp;par groupe&nbsp;» serait une
             reconstitution, pas une mesure.
+          </p>
+          <p className="mt-2 text-xs leading-relaxed text-ink-secondary">
+            Le rang se fixe sur les seuls montants{" "}
+            <strong className="font-medium text-ink">non suspects</strong>. Un
+            marché porte le drapeau «&nbsp;suspect&nbsp;» quand la source
+            elle-même classe son montant en anomalie, ou quand il dépasse
+            100&nbsp;M€ : ces montants restent affichés, dans la colonne
+            «&nbsp;Montants suspects&nbsp;», suivis de leur nombre de marchés
+            entre parenthèses, mais
+            ne font monter personne dans le classement. Une entreprise dont
+            tous les montants de la période sont suspects n’y est donc pas
+            rangée ; ses marchés figurent dans le total suspect de la page.
           </p>
           {qt && (
             <p className="mt-2 text-xs leading-relaxed text-ink-secondary">

@@ -50,7 +50,14 @@ Tables produites (module UI « Commande publique » + carte de France + Accueil)
   nb_marches (marchés DISTINCTS — un marché ne compte qu'une fois même si
   deux établissements du même SIREN y sont co-titulaires), montant_total
   (écrêté ; pour les titulaires, montant du marché divisé par le nombre de
-  co-titulaires). POURQUOI par entreprise : agrégé par établissement, un
+  co-titulaires), montant_hors_suspects (la même somme sur les seuls
+  marchés à montant_suspect = 0 — c'est ELLE qui fixe le rang),
+  nb_marches_suspects et montant_suspects (la part restante, publiée à côté,
+  jamais retirée). POURQUOI le rang hors suspects : classé sur montant_total,
+  le top acheteurs du 15/10/2026 plaçait deux maisons de retraite aux rangs
+  5 et 6 avec 2,7 et 2,4 Md€ — 27 de leurs 39 marchés portent 999 999 999 €,
+  valeur que la source classe elle-même « suspect » ou « aberrant », écrêtée
+  à 100 M€ chacune. POURQUOI par entreprise : agrégé par établissement, un
   groupe à réseau local est émietté en autant de lignes qu'il a de SIRET —
   aucune ne franchit le seuil d'entrée, et le groupe disparaît du classement
   dont il serait pourtant le premier. Seuls les identifiants CONFORMES
@@ -381,22 +388,28 @@ CREATE TABLE IF NOT EXISTS decp_agg_mois (
 );
 
 CREATE TABLE IF NOT EXISTS decp_top_acheteurs (
-    rang              INTEGER PRIMARY KEY,
-    siren             TEXT,
-    nom               TEXT,
-    nb_etablissements INTEGER NOT NULL,
-    nb_marches        INTEGER NOT NULL,
-    montant_total     REAL
+    rang                  INTEGER PRIMARY KEY,
+    siren                 TEXT,
+    nom                   TEXT,
+    nb_etablissements     INTEGER NOT NULL,
+    nb_marches            INTEGER NOT NULL,
+    montant_total         REAL,
+    montant_hors_suspects REAL,               -- fixe le rang
+    nb_marches_suspects   INTEGER NOT NULL,
+    montant_suspects      REAL
 );
 
 CREATE TABLE IF NOT EXISTS decp_top_titulaires (
-    rang              INTEGER PRIMARY KEY,
-    siren             TEXT,
-    nom               TEXT,
-    categorie         TEXT,
-    nb_etablissements INTEGER NOT NULL,
-    nb_marches        INTEGER NOT NULL,
-    montant_total     REAL
+    rang                  INTEGER PRIMARY KEY,
+    siren                 TEXT,
+    nom                   TEXT,
+    categorie             TEXT,
+    nb_etablissements     INTEGER NOT NULL,
+    nb_marches            INTEGER NOT NULL,
+    montant_total         REAL,
+    montant_hors_suspects REAL,               -- fixe le rang
+    nb_marches_suspects   INTEGER NOT NULL,
+    montant_suspects      REAL
 );
 
 CREATE TABLE IF NOT EXISTS decp_titulaires_qualite (
@@ -769,7 +782,8 @@ def transformer(
                {_SQL_SIREN.format(col='acheteur_siret')}                AS siren,
                acheteur_nom                                             AS nom,
                {_SQL_IDENTIFIANT_CONFORME.format(col='acheteur_siret')} AS identifiable,
-               montant_ecrete
+               montant_ecrete,
+               montant_suspect
         FROM recents
         WHERE acheteur_siret IS NOT NULL
         """
@@ -795,15 +809,25 @@ def transformer(
             SELECT siren,
                    count(DISTINCT acheteur_siret) AS nb_etablissements,
                    count(*)                       AS nb_marches,
-                   sum(montant_ecrete)            AS montant_total
+                   sum(montant_ecrete)            AS montant_total,
+                   sum(montant_ecrete) FILTER (montant_suspect = 0)
+                                                  AS montant_hors_suspects,
+                   count(*) FILTER (montant_suspect = 1)
+                                                  AS nb_marches_suspects,
+                   sum(montant_ecrete) FILTER (montant_suspect = 1)
+                                                  AS montant_suspects
             FROM acheteurs_conformes
             GROUP BY siren
         ),
         noms AS ({_sql_libelle_dominant('acheteurs_conformes', 'siren', 'nom')})
-        SELECT row_number() OVER (ORDER BY p.montant_total DESC NULLS LAST,
+        -- Rang sur la part HORS SUSPECTS (cf. docstring du module) ; la part
+        -- suspecte reste publiée à côté, jamais retirée.
+        SELECT row_number() OVER (ORDER BY p.montant_hors_suspects DESC NULLS LAST,
                                   p.siren)   AS rang,
                p.siren, n.nom,
-               p.nb_etablissements, p.nb_marches, p.montant_total
+               p.nb_etablissements, p.nb_marches, p.montant_total,
+               p.montant_hors_suspects, p.nb_marches_suspects,
+               p.montant_suspects
         FROM par_siren p
         LEFT JOIN noms n USING (siren)
         ORDER BY rang
@@ -836,7 +860,8 @@ def transformer(
                t.nom,
                t.categorie,
                {_SQL_IDENTIFIANT_CONFORME.format(col='t.titulaire_id')} AS identifiable,
-               r.montant_ecrete / r.nb_titulaires                       AS montant_part
+               r.montant_ecrete / r.nb_titulaires                       AS montant_part,
+               r.montant_suspect
         FROM t_titulaires t
         JOIN recents r USING (uid)
         """
@@ -867,16 +892,25 @@ def transformer(
             SELECT siren,
                    count(DISTINCT titulaire_id) AS nb_etablissements,
                    count(DISTINCT uid)          AS nb_marches,
-                   sum(montant_part)            AS montant_total
+                   sum(montant_part)            AS montant_total,
+                   sum(montant_part) FILTER (montant_suspect = 0)
+                                                AS montant_hors_suspects,
+                   count(DISTINCT uid) FILTER (montant_suspect = 1)
+                                                AS nb_marches_suspects,
+                   sum(montant_part) FILTER (montant_suspect = 1)
+                                                AS montant_suspects
             FROM titulaires_conformes
             GROUP BY siren
         ),
         noms AS ({_sql_libelle_dominant('titulaires_conformes', 'siren', 'nom')}),
         cats AS ({_sql_libelle_dominant('titulaires_conformes', 'siren', 'categorie')})
-        SELECT row_number() OVER (ORDER BY p.montant_total DESC NULLS LAST,
+        -- Rang sur la part HORS SUSPECTS, comme les acheteurs.
+        SELECT row_number() OVER (ORDER BY p.montant_hors_suspects DESC NULLS LAST,
                                   p.siren)   AS rang,
                p.siren, n.nom, c.categorie,
-               p.nb_etablissements, p.nb_marches, p.montant_total
+               p.nb_etablissements, p.nb_marches, p.montant_total,
+               p.montant_hors_suspects, p.nb_marches_suspects,
+               p.montant_suspects
         FROM par_siren p
         LEFT JOIN noms n USING (siren)
         LEFT JOIN cats c USING (siren)
@@ -1214,12 +1248,14 @@ _TABLES = {
     "decp_top_acheteurs": (
         "t_top_acheteurs",
         ["rang", "siren", "nom", "nb_etablissements", "nb_marches",
-         "montant_total"],
+         "montant_total", "montant_hors_suspects", "nb_marches_suspects",
+         "montant_suspects"],
     ),
     "decp_top_titulaires": (
         "t_top_titulaires",
         ["rang", "siren", "nom", "categorie", "nb_etablissements",
-         "nb_marches", "montant_total"],
+         "nb_marches", "montant_total", "montant_hors_suspects",
+         "nb_marches_suspects", "montant_suspects"],
     ),
     "decp_repartition": (
         "t_repartition",
