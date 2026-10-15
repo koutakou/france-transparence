@@ -8,7 +8,10 @@ Contrainte officielle : **7 requêtes/seconde/IP maximum** (HTTP 429 au-delà).
 Ce module s'auto-limite à ~6 req/s (intervalle minimal entre appels) et
 réessaie avec backoff en cas de 429 résiduel.
 
-Usage (autres pipelines) :
+⚠ AUCUN PIPELINE N'APPELLE CE MODULE (vérifié le 15/10/2026 : seuls ses
+tests l'importent) et `meta_sources` ne porte aucune ligne S10. Le besoin de
+masse est couvert par le stock Sirene (S18, `ingest_sirene.py`). Il reste
+une brique de résolution unitaire, utilisable ainsi :
     from pipelines.sirene import resolve_siret
     fiche = resolve_siret("11001401600015")
     # → {"siret": "11001401600015", "siren": "110014016",
@@ -16,7 +19,8 @@ Usage (autres pipelines) :
     #    "categorie_juridique": "7113",      # catégorie juridique INSEE niv. 3
     #    "categorie_entreprise": "GE",       # PME / ETI / GE (peut être None)
     #    "commune": "PARIS 08"}              # commune de l'établissement
-    # → None si le SIRET est inconnu de l'API.
+    # → None si le SIRET est inconnu de l'API, ou si le premier résultat
+    #   porte un autre SIREN que les 9 premiers chiffres du SIRET.
 
 C'est une API de *recherche*, pas d'extraction massive : PAS d'ingestion du
 stock Sirene (705 Mo) ici — réservé à la résolution unitaire (trous, fiches).
@@ -26,6 +30,7 @@ from __future__ import annotations
 
 import re
 import time
+from collections.abc import Callable
 
 import requests
 
@@ -80,14 +85,18 @@ def _etablissement_correspondant(resultat: dict, siret: str) -> dict:
 
 
 def resolve_siret(
-    siret: str, session: requests.Session | None = None
+    siret: str,
+    session: requests.Session | None = None,
+    cadence: Callable[[], None] | None = None,
 ) -> dict | None:
     """Résout un SIRET en (nom, catégories, commune) via recherche-entreprises.
 
     - `siret` : 14 chiffres (les espaces/points sont tolérés et retirés) ;
       toute autre forme lève ValueError — on ne devine jamais.
-    - Respecte la limite de 7 req/s (cadence + backoff sur 429).
-    - Retourne None si l'API ne connaît pas ce SIRET (résultats vides),
+    - Respecte la limite de 7 req/s (cadence + backoff sur 429). `cadence`
+      remplace l'espacement global du module (tests sur fausse session).
+    - Retourne None si l'API ne connaît pas ce SIRET (résultats vides, ou
+      premier résultat d'un autre SIREN que `siret[:9]`),
       sinon un dict : siret, siren, nom, categorie_juridique (code INSEE
       niveau 3, ex. '7113' = ministère), categorie_entreprise (PME/ETI/GE
       ou None), commune (libellé de la commune de l'établissement, ou None).
@@ -100,9 +109,10 @@ def resolve_siret(
         raise ValueError(f"SIRET invalide (14 chiffres attendus) : {siret!r}")
 
     s = session or _session()
+    attendre = cadence or _respecter_cadence
     reponse = None
     for tentative in range(1, _TENTATIVES_429 + 1):
-        _respecter_cadence()
+        attendre()
         reponse = s.get(
             API_URL,
             params={"q": siret, "per_page": 1, "page": 1},
@@ -122,6 +132,13 @@ def resolve_siret(
         return None
 
     unite = resultats[0]
+    # API de RECHERCHE : le premier résultat n'est pas garanti être l'unité
+    # légale du SIRET demandé. Le SIREN est les 9 premiers chiffres du SIRET ;
+    # un autre SIREN (ou aucun) = SIRET non résolu, jamais attribué à tort.
+    if unite.get("siren") != siret[:9]:
+        log.info("SIRET %s : premier résultat de SIREN %r, non retenu",
+                 siret, unite.get("siren"))
+        return None
     etab = _etablissement_correspondant(unite, siret)
     nom = (unite.get("nom_complet") or unite.get("nom_raison_sociale") or "").strip()
     if not nom:
