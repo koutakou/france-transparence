@@ -4,9 +4,9 @@ import type { CSSProperties } from "react";
  * Tooltip HTML des graphiques (DATAVIZ §5) — pas le `<title>` SVG natif.
  *
  * Chrome : fond `--surface-raised`, bordure `--border-raised`, rayon 8px,
- * ombre `0 8px 24px rgba(0,0,0,0.45)`, padding 8px 10px — règle `.ft-tip`
- * de globals.css, posée une fois pour toute la page (le style en ligne ne
- * porte que la position).
+ * ombre `0 8px 24px rgba(0,0,0,0.45)`, padding 8px 10px — classes `.ft-tip*`
+ * de globals.css, posées une fois pour toute la page (le style en ligne ne
+ * porte que la position et la couleur de série).
  * Ligne : clé = trait 12×2px de la couleur de série, **valeur d'abord**
  * (semibold `--ink-primary`), nom ensuite (`--ink-secondary`).
  *
@@ -63,22 +63,18 @@ export function TooltipGraphique({
       aria-hidden="true"
       data-i={dataI}
       data-dernier={dataDernier ? "1" : undefined}
-      className={`ft-tip pointer-events-none absolute z-20 max-w-[16rem] ${className ?? ""}`}
+      className={`ft-tip ${className ?? ""}`}
       style={style}
     >
-      {titre ? <p className="mb-1 text-[11px] leading-tight text-ink-muted">{titre}</p> : null}
-      <ul className="flex flex-col gap-0.5">
+      {titre ? <p className="ft-tip-titre">{titre}</p> : null}
+      <ul className="ft-tip-lignes">
         {lignes.map((l) => (
-          <li key={l.nom} className="flex items-baseline gap-2 text-[12px] leading-tight">
+          <li key={l.nom} className="ft-tip-ligne">
             {l.couleur ? (
-              <span
-                aria-hidden="true"
-                className="inline-block shrink-0 self-center rounded-full"
-                style={{ width: 12, height: 2, background: l.couleur }}
-              />
+              <span aria-hidden="true" className="ft-tip-cle" style={{ background: l.couleur }} />
             ) : null}
-            <span className="font-semibold text-ink">{l.valeur}</span>
-            <span className="text-ink-secondary">{l.nom}</span>
+            <span className="ft-tip-valeur">{l.valeur}</span>
+            <span className="ft-tip-nom">{l.nom}</span>
           </li>
         ))}
       </ul>
