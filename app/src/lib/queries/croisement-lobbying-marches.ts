@@ -137,6 +137,15 @@ export type EnsembleDecp = {
   /** Montant écrêté correspondant (même convention de ventilation). */
   montantHorsAc: number | null;
   /**
+   * Préfixes de 9 caractères DISTINCTS des identifiants de titulaires, sur
+   * tous les marchés, accords-cadres compris, identifiants non conformes
+   * compris (« 00001 », « 391 902 0… ») — le sens d'origine du champ, gardé
+   * pour les réutilisateurs de /api/lobbying-marches.json. Ce n'est PAS le
+   * dénominateur de la part des représentants d'intérêts titulaires : voir
+   * `sirensTitulairesHorsAc`.
+   */
+  sirensTitulaires: number;
+  /**
    * SIREN distincts titulaires d'au moins un marché HORS accords-cadres —
    * même périmètre et même clé que le numérateur `sirensHorsAc` : les 9
    * premiers caractères du SIRET de chaque titulaire, quand ce sont 9
@@ -273,17 +282,20 @@ export function getCroisementLobbyingMarches(): CroisementLobbyingMarches | null
     .get() as { marchesHorsAc: number; montantHorsAc: number | null };
 
   // Le numérateur (`sirensHorsAc`) ne compte que des marchés hors
-  // accords-cadres : le dénominateur ne peut pas en compter d'autres. Il
-  // portait sur toutes les techniques et tout préfixe d'identifiant, et
-  // rapportait 435 SIREN à un ensemble plus large que le leur.
+  // accords-cadres : son dénominateur ne peut pas en compter d'autres
+  // (`sirensTitulairesHorsAc`). `sirensTitulaires`, toutes techniques et
+  // tout préfixe d'identifiant, garde son sens d'origine pour l'export public
+  // mais ne sert plus à aucune part.
   const ensembleSirens = db
     .prepare(
-      `SELECT COUNT(DISTINCT siren9) AS sirensTitulairesHorsAc
-       FROM (${SQL_LIGNES_TITULAIRES})
-       WHERE ac = 0
-         AND siren9 GLOB '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'`,
+      `SELECT COUNT(DISTINCT siren9) AS sirensTitulaires,
+              COUNT(DISTINCT CASE
+                WHEN ac = 0
+                 AND siren9 GLOB '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
+                THEN siren9 END) AS sirensTitulairesHorsAc
+       FROM (${SQL_LIGNES_TITULAIRES})`,
     )
-    .get() as { sirensTitulairesHorsAc: number };
+    .get() as { sirensTitulaires: number; sirensTitulairesHorsAc: number };
 
   // 3. Agrégats du croisement, une seule passe. COUNT(DISTINCT uid) et non
   //    COUNT(*) : un marché dont DEUX co-titulaires sont au répertoire
@@ -375,6 +387,7 @@ export function getCroisementLobbyingMarches(): CroisementLobbyingMarches | null
     ensemble: {
       marchesHorsAc: ensembleMarches.marchesHorsAc,
       montantHorsAc: ensembleMarches.montantHorsAc,
+      sirensTitulaires: ensembleSirens.sirensTitulaires,
       sirensTitulairesHorsAc: ensembleSirens.sirensTitulairesHorsAc,
     },
     titulaires,
