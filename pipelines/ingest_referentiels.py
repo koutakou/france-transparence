@@ -89,18 +89,30 @@ URL_REFORGA_LATEST = (
     "https://echanges.dila.gouv.fr/OPENDATA/RefOrgaAdminEtat/"
     "FluxAnneeCourante/dila_refOrga_admin_Etat_fr_latest.zip"
 )
+# Source de la liste de SECOURS des ministères : le décret de composition du
+# gouvernement, publié au JO (lien sortant, la collecte Légifrance est bloquée).
+URL_DECRET_GOUVERNEMENT = (
+    "https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000053586369"
+)
 
 CHEMIN_GEOJSON = DATA_DIR / "geo" / "departements.geojson"
 
 SEUIL_GRANDE_VILLE = 50_000
 CODES_DROM = {"971", "972", "973", "974", "976"}
 
-# SIREN institutionnels documentés par les rapports (jamais devinés) :
+# SIREN institutionnels documentés (jamais devinés), utilisés quand
+# RefOrgaAdminEtat ne les porte pas — notamment quand il est injoignable :
 # - Ministère de l'Intérieur : 110014016 (09-referentiels.md §1.1, appel réel
 #   recherche-entreprises du 19/08/2026) ;
-# la Présidence de la République (100000017) est portée par RefOrgaAdminEtat.
+# - Premier ministre : 110001013 et Présidence de la République : 100000017,
+#   portés par RefOrgaAdminEtat (flux du 15/10/2026) et confirmés le même
+#   jour par recherche-entreprises (« GOUVERNEMENT PREMIER MINISTRE »,
+#   « REPUBLIQUE FRANCAISE PRESIDENCE », nature juridique 7111). Sans eux,
+#   le secours effaçait ces deux SIREN, qui servent à résoudre les acheteurs.
 SIREN_DOCUMENTES = {
     "ministere de l'interieur": "110014016",
+    "premier ministre": "110001013",
+    "presidence de la republique": "100000017",
 }
 
 # Institutions clés (id stable, nom canonique, sigle) — SIREN complété
@@ -128,8 +140,12 @@ INSTITUTIONS_CLES = [
 # indisponible/aberrant) : intitulés exacts du gouvernement Lecornu II
 # vérifiés par docs/recherche/03-parlement.md §1 (décret du 26/02/2026,
 # Légifrance JORFTEXT000053586369, croisé info.gouv.fr) — PAS une invention.
+# L'ENTITÉ est « Premier ministre », comme dans RefOrgaAdminEtat ; « chargé
+# de la Planification écologique et énergétique » est l'attribution de son
+# titulaire. Avec l'intitulé long, le secours fabriquait un autre identifiant
+# (min-premier-ministre-charge-de-la-…) que celui du flux (min-premier-ministre).
 MINISTERES_RAPPORT_03 = [
-    "Premier ministre, chargé de la Planification écologique et énergétique",
+    "Premier ministre",
     "Ministère de l'Intérieur",
     "Ministère des Armées et des Anciens combattants",
     "Ministère du Travail et des Solidarités",
@@ -620,7 +636,8 @@ def extraire_institutions(services: list[dict]) -> list[dict]:
                 "id": id_entite,
                 "nom": nom,
                 "sigle": sigle or (fiche.get("sigle") or "").strip() or None,
-                "siren": (fiche.get("siren") or "").strip() or None,
+                "siren": (fiche.get("siren") or "").strip()
+                or SIREN_DOCUMENTES.get(_normaliser(nom)),
             }
         )
     return institutions
@@ -628,14 +645,16 @@ def extraire_institutions(services: list[dict]) -> list[dict]:
 
 def charger_entites_etat(
     session: requests.Session,
-) -> tuple[list[dict], list[dict], str, str]:
-    """Ministères + institutions clés, avec la source retenue et sa date.
+) -> tuple[list[dict], list[dict], str, str, str | None]:
+    """Ministères + institutions clés, la source retenue, sa date, et le
+    motif du secours (None quand RefOrgaAdminEtat a servi).
 
     RefOrgaAdminEtat d'abord ; la liste vérifiée du rapport 03 s'il est
     indisponible OU aberrant. Le téléchargement est DANS le try : le
     03/10/2026, echanges.dila.gouv.fr réinitialisait toute connexion HTTPS,
     et un téléchargement placé hors du try faisait mourir toute l'ingestion
-    au lieu de mener au secours prévu pour ce cas exact.
+    au lieu de mener au secours prévu pour ce cas exact. Le motif sert à
+    dater et nommer la ligne meta S35 d'après la source RÉELLEMENT utilisée.
     """
     try:
         chemin_reforga = telecharger(
@@ -668,8 +687,42 @@ def charger_entites_etat(
             "liste vérifiée docs/recherche/03-parlement.md"
             " (décret du 26/02/2026, Légifrance JORFTEXT000053586369)",
             "2026-02-26",
+            # Motif court et lisible : il est publié dans la note meta S35.
+            f"serveur injoignable ({type(exc).__name__})"
+            if isinstance(exc, requests.RequestException)
+            else f"flux inexploitable ({type(exc).__name__} : {exc})"[:200],
         )
-    return ministeres, institutions, "RefOrgaAdminEtat (DILA)", date_reforga
+    return ministeres, institutions, "RefOrgaAdminEtat (DILA)", date_reforga, None
+
+
+def meta_entites_etat(
+    source_ministeres: str, motif_secours: str | None, jour: str
+) -> dict:
+    """Nom, URL et notes de la ligne meta S35, selon la source réellement
+    utilisée. En secours, rien n'y est attribué à RefOrgaAdminEtat."""
+    if motif_secours is None:
+        return {
+            "nom": "Référentiel de l'organisation administrative de l'État"
+                   " (DILA)",
+            "url": URL_REFORGA_LATEST,
+            "notes": "Ministères du gouvernement Lecornu II (type"
+                     f" 'ministere') — source : {source_ministeres} ;"
+                     " institutions clés (type 'institution') enrichies"
+                     " (SIREN Présidence : RefOrgaAdminEtat ; SIREN"
+                     " Intérieur : rapport 09 §1.1).",
+        }
+    return {
+        "nom": "Ministères de l'État — liste vérifiée (secours :"
+               " RefOrgaAdminEtat inexploitable)",
+        "url": URL_DECRET_GOUVERNEMENT,
+        "notes": f"RefOrgaAdminEtat (DILA) inexploitable le {jour} :"
+                 f" {motif_secours} → ministères depuis la"
+                 f" {source_ministeres} ; institutions clés sans"
+                 " RefOrgaAdminEtat ; SIREN Premier ministre et Présidence :"
+                 " relevés dans RefOrgaAdminEtat du 15/10/2026 ; SIREN"
+                 " Intérieur : rapport 09 §1.1 ; le SIREN d'une institution"
+                 " déjà connu en base n'est pas effacé.",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -738,7 +791,9 @@ def ecrire_en_base(
                ON CONFLICT(id) DO UPDATE SET
                    nom = excluded.nom,
                    sigle = excluded.sigle,
-                   siren = excluded.siren""",
+                   -- un SIREN absent de la source du jour (secours, fiche
+                   -- incomplète) n'efface pas celui d'un cycle précédent
+                   siren = COALESCE(excluded.siren, entites.siren)""",
             institutions,
         )
 
@@ -792,7 +847,7 @@ def main() -> int:
         villes = construire_villes(communes, prefectures)
 
         (ministeres, institutions, source_ministeres,
-         date_reforga) = charger_entites_etat(session)
+         date_reforga, motif_secours) = charger_entites_etat(session)
 
         # ------------------------------------------------ écritures
         octets_geojson = ecrire_geojson(geojson)
@@ -852,17 +907,15 @@ def main() -> int:
                       " (préfecture de police à part) → Paris reste une"
                       " grande ville non marquée préfecture.",
             )
+            meta_s35 = meta_entites_etat(
+                source_ministeres, motif_secours, aujourd_hui)
             db.upsert_meta(
                 conn, "S35-reforga-admin-etat",
-                "Référentiel de l'organisation administrative de l'État (DILA)",
-                URL_REFORGA_LATEST, "Licence Ouverte (fr-lo)", "quotidienne",
+                meta_s35["nom"], meta_s35["url"],
+                "Licence Ouverte (fr-lo)", "quotidienne",
                 date_donnees=date_reforga,
                 lignes=len(ministeres) + len(institutions),
-                notes="Ministères du gouvernement Lecornu II (type"
-                      f" 'ministere') — source : {source_ministeres} ;"
-                      " institutions clés (type 'institution') enrichies"
-                      " (SIREN Présidence : RefOrgaAdminEtat ; SIREN"
-                      " Intérieur : rapport 09 §1.1).",
+                notes=meta_s35["notes"],
             )
 
             log.info(
