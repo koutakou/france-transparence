@@ -2,6 +2,21 @@
 
 État au 20/08/2026, relu le 15/10/2026 (sections 1 et 2 mises à jour ce jour ; section datée du 15/10/2026 ajoutée en tête après l'audit du même jour). Les deux actions les plus attendues (domaine, e-mail de contact) sont **faites** : le site vit sur https://francetransparence.fr, servi par nginx depuis un serveur dédié, et les pages légales portent une adresse de contact dédiée. Ce fichier ne garde que ce qui reste ouvert.
 
+## 11/11/2026 — Venv du serveur : dépendances figées
+
+`requirements.txt` passe de bornes basses (`duckdb>=1.3`) à des versions exactes, transitives comprises. Au premier `ft-deploy` qui suit la fusion, `git pull` rend ce fichier plus récent que `.venv/bin/pip` : la règle `$(VENV)/bin/pip` du `Makefile` rejoue alors, au premier `make ingest-…`, `$(PYTHON) -m venv .venv`, `pip install --upgrade pip` et `pip install -r requirements.txt`. Il faut donc PyPI joignable à ce moment-là, et `python3.14` présent sur le serveur si `ft-deploy` ne passe pas `PYTHON=…`. Un échec arrête le cycle avant la bascule : le site de la veille reste servi. `make test` vérifie ensuite que la venv porte exactement les versions figées (`pipelines/tests/test_dependances.py`).
+
+1. **Avant la fusion, ou au plus tard avant le cycle suivant**, relever l'interpréteur et les versions de la venv, et la façon dont `ft-deploy` appelle `make` :
+   ```sh
+   sudo -u ftweb /srv/france-transparence/app/.venv/bin/python -V
+   sudo -u ftweb /srv/france-transparence/app/.venv/bin/pip freeze
+   command -v python3.14 python3
+   grep -n 'make\|PYTHON\|venv' /usr/local/bin/ft-deploy
+   ```
+   Les versions figées ont des roues pour CPython 3.10 à 3.14 en Linux x86_64 (glibc 2.26 ou plus récente ; Ubuntu 22.04 a 2.35), vérifié sur PyPI le 11/11/2026, et la suite hors réseau passe sous Python 3.10 comme sous 3.14.
+2. **Ne monter DuckDB en 2.x que si cet interpréteur est en 3.11 ou plus.** DuckDB 2.0 n'a aucune roue pour Python 3.10. La CI joue Python 3.14 : une proposition Dependabot `duckdb==2.0.0` y passera au vert, puis échouera à l'installation sur un serveur en 3.10. Le code et les tests passent sous 1.5.6 et sous 2.0.0.
+3. **L'arrêt des publications depuis le 08/11 n'est très probablement pas dû à DuckDB 2.** `requirements.txt` n'avait pas changé depuis le 25/08 : `make` ne réinstallait donc rien. Et le serveur a publié du 22/10 au 08/11, alors que DuckDB 2.0 faisait échouer la suite de tests dès qu'il était installé. Sa cause reste à lire dans `/var/log/france-transparence/deploiement.log` et `journalctl -u ft-deploy`.
+
 ## 15/10/2026 — À faire sur le serveur et sur GitHub
 
 L'audit du 15/10/2026 et les quinze propositions fusionnées le même jour (JOURNAL.md, décisions 35-46) laissent des gestes qu'aucune fusion ne fait : les scripts `ft-*`, nginx, la zone DNS et les réglages GitHub vivent hors du dépôt. Les correctifs fusionnés le 15/10 n'arrivent en ligne qu'au cycle `ft-deploy` du 16/10 : sauf mention contraire, chaque geste serveur ci-dessous se fait **après** ce cycle.
