@@ -36,7 +36,9 @@ export interface FluxTextesProps {
   /** Part de textes sans ministère émetteur (réel), pour le sous-titre. */
   pctSansMinistere: number;
   /** Nombre de JO parus dans la fenêtre (vient de la base, jamais figé). */
-  nbJours: number;
+  /** Ce que la fenêtre contient, dit par lib/jorf-fenetre.ts
+   *  (« 30 derniers JO parus », ou le compte et l'intervalle sans JO). */
+  mentionFenetre: string;
 }
 
 let textesPromesse: Promise<TextesFragment | null> | null = null;
@@ -112,7 +114,7 @@ export function FluxTextes({
   initiales,
   total,
   pctSansMinistere,
-  nbJours,
+  mentionFenetre,
 }: FluxTextesProps) {
   // Filtres : état initial restauré d'une URL partagée
   // `?nature=…&nominations=1&page=…` (validée), surchargé par toute action.
@@ -230,7 +232,7 @@ export function FluxTextes({
 
       <Card
         titre="Flux des textes"
-        sousTitre={`Fenêtre des ${formatNombre(nbJours)} derniers JO parus, JORF « Lois et décrets » — ce n’est pas le fonds DOLE. Du plus récent au plus ancien — ministère absent sur ${formatPct(
+        sousTitre={`Fenêtre : ${mentionFenetre}, JORF « Lois et décrets » — ce n’est pas le fonds DOLE. Du plus récent au plus ancien — ministère absent sur ${formatPct(
           pctSansMinistere,
         )} des textes (lois, Conseil constitutionnel… — réel), affiché « — »`}
       >

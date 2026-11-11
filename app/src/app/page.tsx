@@ -380,11 +380,7 @@ export default async function Accueil() {
           <KpiTile
             label="Textes au JO (30 j)"
             valeur={formatNombre(kpis.textesJo30j)}
-            perimetre={
-              kpis.joEnBaseDepuis
-                ? `JORF Lois et décrets — seulement les JO parus depuis le ${formatDateFr(kpis.joEnBaseDepuis)} : la base ne porte pas 30 jours`
-                : "JORF Lois et décrets, 30 derniers jours"
-            }
+            perimetre={kpis.perimetreJo30j}
           />
         </div>
       </div>

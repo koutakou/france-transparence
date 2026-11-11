@@ -16,6 +16,12 @@ import { StatStrip } from "@/components/ui/StatStrip";
 import { VueTableau } from "@/components/ui/VueTableau";
 import { libelleTypeDole } from "@/lib/dole-libelles";
 import { formatDateFr, formatNombre } from "@/lib/format";
+import {
+  libelleFenetreJo,
+  mentionFenetreJo,
+  noteFenetreSignalee,
+  phraseFenetreJo,
+} from "@/lib/jorf-fenetre";
 import { libelleNaturePluriel } from "@/lib/jorf-libelles";
 import {
   getDole,
@@ -29,11 +35,9 @@ import {
   getFluxTextes,
   getJorfKpis,
   getMetaJorf,
-  noteFenetreSignalee,
   getNominationsParMinistere,
   getParutionsParJour,
   getRepartitionNatures,
-  mentionFenetreJo,
   perimetreNominationsFenetre,
   perimetreNominationsJour,
   perimetreTextesFenetre,
@@ -142,7 +146,10 @@ export default async function DocumentsPage() {
   }
 
   // Fenêtre réduite ou discontinue : la note datée du pipeline, telle quelle.
-  const noteFenetre = noteFenetreSignalee(meta);
+  const noteFenetre = noteFenetreSignalee(meta?.notes);
+  // Chaque libellé de fenêtre part des dates lues en base : « N derniers JO
+  // parus » seulement si la série est continue.
+  const mentionFenetre = mentionFenetreJo(kpis.datesJo);
 
   const naturesFiltre = natures.flatMap((n) => (n.nature ? [{ code: n.nature, nb: n.nb }] : []));
 
@@ -209,9 +216,7 @@ export default async function DocumentsPage() {
           </h1>
           <p className="mt-2 text-sm text-ink-secondary">
             Journal officiel «&nbsp;Lois et décrets&nbsp;»
-            {meta ? <> ({meta.licence})</> : null} : les{" "}
-            {formatNombre(kpis.nbJours)} derniers JO parus, du{" "}
-            {formatDateFr(kpis.premierJo)} au {formatDateFr(kpis.dernierJo)}.
+            {meta ? <> ({meta.licence})</> : null} : {phraseFenetreJo(kpis.datesJo)}.
             Chaque texte renvoie vers Légifrance.
           </p>
           {noteFenetre ? (
@@ -224,7 +229,7 @@ export default async function DocumentsPage() {
             source={meta.nom}
             frequence={meta.frequence}
             url={meta.url}
-            mention={mentionFenetreJo(kpis.nbJours)}
+            mention={mentionFenetre}
           />
         )}
       </header>
@@ -233,14 +238,14 @@ export default async function DocumentsPage() {
       <StatStrip
         stats={[
           {
-            label: `Textes publiés (${formatNombre(kpis.nbJours)} derniers JO)`,
+            label: `Textes publiés (${libelleFenetreJo(kpis.datesJo)})`,
             valeur: formatNombre(kpis.textesFenetre),
-            perimetre: perimetreTextesFenetre(kpis.nbJours),
+            perimetre: perimetreTextesFenetre(kpis.datesJo),
           },
           {
             label: "Dont nominations",
             valeur: formatNombre(kpis.nominationsFenetre),
-            perimetre: perimetreNominationsFenetre(kpis.nbJours),
+            perimetre: perimetreNominationsFenetre(kpis.datesJo),
           },
           {
             label: `Textes du JO du ${formatDateFr(kpis.dernierJo)}`,
@@ -261,7 +266,7 @@ export default async function DocumentsPage() {
         initiales={flux?.lignes ?? []}
         total={flux?.total ?? kpis.textesFenetre}
         pctSansMinistere={pctSansMinistere}
-        nbJours={kpis.nbJours}
+        mentionFenetre={mentionFenetre}
       />
 
       <NoticeLecture
@@ -277,7 +282,7 @@ export default async function DocumentsPage() {
           <p>
             Livraisons quotidiennes JORFSIMPLE de la DILA (Journal
             officiel «&nbsp;Lois et décrets&nbsp;»). La fenêtre affichée
-            est celle des derniers JO parus, pas l’intégralité de
+            ne porte que des JO récents, pas l’intégralité de
             l’historique.
           </p>
         }
@@ -339,7 +344,7 @@ export default async function DocumentsPage() {
             libelleTotal="textes"
             ariaLabel={`Répartition des ${formatNombre(
               kpis.textesFenetre,
-            )} textes des ${formatNombre(kpis.nbJours)} derniers JO par nature`}
+            )} textes par nature (${mentionFenetre})`}
           />
           <p className="mt-2 text-[11px] leading-relaxed text-ink-muted">
             {formatNombre(naturesFiltre.length)} natures distinctes sur la fenêtre
@@ -354,9 +359,7 @@ export default async function DocumentsPage() {
       {/* --------------------- Nominations par ministère ----------------------- */}
       <Card
         titre="Nominations par ministère"
-        sousTitre={`Top ${formatNombre(nominations.top.length)} — fenêtre entière des ${formatNombre(
-          kpis.nbJours,
-        )} derniers JO, ${formatNombre(nominations.total)} nominations au total`}
+        sousTitre={`Top ${formatNombre(nominations.top.length)} — fenêtre entière (${mentionFenetre}), ${formatNombre(nominations.total)} nominations au total`}
       >
         <BarList
           items={nominations.top.map((n) => ({ libelle: n.ministere, valeur: n.nb }))}
