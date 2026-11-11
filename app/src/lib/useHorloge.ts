@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { instantDeLecture } from "@/lib/lecture";
 
 /**
  * Heure du visiteur, à la minute, lisible pendant le rendu client sans
@@ -23,6 +24,14 @@ function minuteCourante(): number {
   return Math.floor(Date.now() / MINUTE_MS) * MINUTE_MS;
 }
 
+/**
+ * Jamais avant `construitLe` (`instantDeLecture`) : une horloge de lecteur
+ * déréglée en arrière ne fait pas rajeunir la page — elle la rendrait « à
+ * jour » et rajeunirait les élus, au lieu de dire l'état de la construction.
+ */
 export function useHorloge(construitLe: number): number {
-  return useSyncExternalStore(abonner, minuteCourante, () => construitLe);
+  return instantDeLecture(
+    useSyncExternalStore(abonner, minuteCourante, () => construitLe),
+    construitLe,
+  );
 }

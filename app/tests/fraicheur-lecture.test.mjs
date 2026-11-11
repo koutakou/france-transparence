@@ -18,6 +18,7 @@ const {
   formatInstantFr,
   htmlBandeauSiteFige,
   ID_BANDEAU_SITE_FIGE,
+  instantDeLecture,
   SCRIPT_BANDEAU_SITE_FIGE,
   SEUIL_SITE_FIGE_HEURES,
 } = await importer("lib/lecture");
@@ -75,6 +76,25 @@ test("la phrase du badge date son âge : vraie lue sans JavaScript après le bui
   assert.match(phraseFraicheur("2024-10-11", g, new Date(CONSTRUIT)), /— 758 jours au 08\/11\/2026,/);
 });
 
+/* ------------- horloge du lecteur antérieure à la construction ------------- */
+
+test("instantDeLecture : jamais avant la construction de la page", () => {
+  assert.equal(instantDeLecture(LECTURE, CONSTRUIT), LECTURE);
+  assert.equal(instantDeLecture(CONSTRUIT, CONSTRUIT), CONSTRUIT);
+  const an2020 = Date.parse("2020-01-01T12:00:00Z");
+  assert.equal(instantDeLecture(an2020, CONSTRUIT), CONSTRUIT);
+  assert.equal(instantDeLecture(Number.NaN, CONSTRUIT), CONSTRUIT);
+  // Lu au 01/01/2020 sans borne : « 4 sources sur 4 » à jour, 51 ans au lieu de 57.
+  const lu = new Date(instantDeLecture(an2020, CONSTRUIT));
+  assert.equal(syntheseFraicheur(SERVIES, lu).parNiveau.a_jour, 3);
+  assert.equal(ageRevolu("1968-11-10", lu), 57);
+  assert.equal(syntheseFraicheur(SERVIES, new Date(an2020)).parNiveau.a_jour, 4);
+});
+
+test("useHorloge borne l'horloge par instantDeLecture", () => {
+  assert.match(lire("lib/useHorloge.ts"), /return instantDeLecture\(\s*useSyncExternalStore\(/);
+});
+
 /* ---------------------------- âge révolu ---------------------------- */
 
 test("âge révolu : celui du jour de lecture, à l'heure de Paris", () => {
@@ -92,23 +112,38 @@ test("âge révolu : celui du jour de lecture, à l'heure de Paris", () => {
 
 /* --------------------- bandeau « site non reconstruit » --------------------- */
 
-/** Joue le script EN LIGNE tel qu'il part dans la page, sur un DOM minimal. */
-function jouerBandeau(construitLe, maintenant) {
+/**
+ * Joue le script EN LIGNE tel qu'il part dans la page, sur un DOM minimal et
+ * une horloge réglable ; `minute()` rejoue la minuterie qu'il a posée.
+ */
+function bandeau(construitLe, maintenant) {
   const anciennete = { textContent: "" };
-  const bandeau = {
+  const el = {
     hidden: true,
     getAttribute: (nom) => (nom === "data-construit-le" ? String(construitLe) : null),
     querySelector: (sel) => (sel === "[data-anciennete]" ? anciennete : null),
   };
-  const contexte = {
-    document: { getElementById: (id) => (id === ID_BANDEAU_SITE_FIGE ? bandeau : null) },
-    Date: { now: () => maintenant },
+  const horloge = { t: maintenant };
+  const minuteries = [];
+  vm.runInNewContext(SCRIPT_BANDEAU_SITE_FIGE, {
+    document: { getElementById: (id) => (id === ID_BANDEAU_SITE_FIGE ? el : null) },
+    Date: { now: () => horloge.t },
+    setInterval: (f, ms) => minuteries.push([f, ms]),
     Number,
     Math,
+  });
+  const etat = () => ({ visible: !el.hidden, anciennete: anciennete.textContent });
+  return {
+    etat,
+    minuteries,
+    avancer(ms) {
+      horloge.t += ms;
+      for (const [f] of minuteries) f();
+      return etat();
+    },
   };
-  vm.runInNewContext(SCRIPT_BANDEAU_SITE_FIGE, contexte);
-  return { visible: !bandeau.hidden, anciennete: anciennete.textContent };
 }
+const jouerBandeau = (c, m) => bandeau(c, m).etat();
 
 test("bandeau : affiché sur le site figé lu le 11/11, avec son ancienneté", () => {
   assert.deepEqual(jouerBandeau(CONSTRUIT, LECTURE), { visible: true, anciennete: "3 jours" });
@@ -119,8 +154,19 @@ test("bandeau : masqué en régime normal, affiché passé le seuil", () => {
   assert.equal(jouerBandeau(CONSTRUIT, CONSTRUIT + 20 * H).visible, false);
   assert.equal(jouerBandeau(CONSTRUIT, CONSTRUIT + 36 * H - 1).visible, false);
   assert.deepEqual(jouerBandeau(CONSTRUIT, CONSTRUIT + 36 * H), { visible: true, anciennete: "1 jour" });
-  // Horloge du lecteur en arrière : jamais de bandeau.
+});
+
+test("bandeau : horloge du lecteur antérieure au build — jamais affiché", () => {
   assert.equal(jouerBandeau(CONSTRUIT, CONSTRUIT - 72 * H).visible, false);
+  assert.equal(jouerBandeau(CONSTRUIT, Date.parse("2020-01-01T12:00:00Z")).visible, false);
+});
+
+test("bandeau : un onglet resté ouvert le voit apparaître, puis vieillir", () => {
+  const b = bandeau(CONSTRUIT, CONSTRUIT + 35 * H);
+  assert.deepEqual(b.minuteries.map(([, ms]) => ms), [60_000]);
+  assert.equal(b.etat().visible, false);
+  assert.deepEqual(b.avancer(H), { visible: true, anciennete: "1 jour" });
+  assert.deepEqual(b.avancer(13 * H), { visible: true, anciennete: "2 jours" });
 });
 
 test("bandeau : aucun appel réseau, aucun stockage, aucun cookie", () => {
@@ -133,7 +179,7 @@ test("bandeau : aucun appel réseau, aucun stockage, aucun cookie", () => {
 test("bandeau : masqué dans le HTML, daté de la construction", () => {
   const html = htmlBandeauSiteFige(CONSTRUIT);
   assert.match(html, new RegExp(`<p id="${ID_BANDEAU_SITE_FIGE}" hidden data-construit-le="${CONSTRUIT}"`));
-  assert.match(html, /construite le 08\/11\/2026 à 05h26/);
+  assert.match(html, /Page construite le 08\/11\/2026 à 05h26/);
   assert.equal(formatInstantFr(CONSTRUIT), "08/11/2026 à 05h26");
   assert.ok(html.endsWith(`<script>${SCRIPT_BANDEAU_SITE_FIGE}</script>`));
 });
