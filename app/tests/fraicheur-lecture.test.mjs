@@ -228,3 +228,33 @@ test("titre d'accueil (titre par défaut) : 70 caractères au plus, comme tout t
   assert.ok(titre, "TITRE_DEFAUT introuvable dans layout.tsx");
   assert.ok(titre.length <= LONGUEUR_TITRE_PARTAGE, `${titre.length} caractères`);
 });
+
+/* ---- tuile « Textes au JO (30 j) » : libellé et compte sur la même fenêtre ---- */
+
+test("JO 30 j : le libellé prend la même fenêtre que le compte, au jour près, et un seul tiret", async () => {
+  const { perimetreJo30jArrete } = await importer("lib/jorf-fenetre");
+  const tirets = (s) => (s.match(/—/g) ?? []).length;
+  const fin = "2026-11-11";
+  // Compte : ]fin − 30 j ; fin] = du 13/10 au 11/11 inclus.
+  const db = new Database(":memory:");
+  db.exec("CREATE TABLE t (d TEXT)");
+  for (const d of ["2026-10-12", "2026-10-13", "2026-11-11"]) db.prepare("INSERT INTO t VALUES (?)").run(d);
+  const dansLeCompte = db
+    .prepare(`SELECT d FROM t WHERE ${fenetreArreteeSql("d", 30)} ORDER BY d`)
+    .all({ fin })
+    .map((l) => l.d);
+  assert.deepEqual(dansLeCompte, ["2026-10-13", "2026-11-11"]);
+  // Base dont le premier JO est le premier jour du compte (13/10) : pleine.
+  const jours = (debut, n) =>
+    Array.from({ length: n }, (_, i) => new Date(Date.parse(`${debut}T00:00:00Z`) + i * 86_400_000).toISOString().slice(0, 10));
+  const pleine = perimetreJo30jArrete(jours("2026-10-13", 30), fin);
+  assert.equal(pleine, "JORF Lois et décrets, 30 derniers jours (jusqu’au 11/11/2026, JO le plus récent ingéré)");
+  // Premier JO au 14/10 : un jour du compte manque, c'est dit.
+  const reduite = perimetreJo30jArrete(jours("2026-10-14", 29), fin);
+  assert.match(reduite, /seulement les JO parus depuis le 14\/10\/2026/);
+  assert.equal(tirets(reduite), 1);
+  // Base réelle du 11/11/2026 (index DILA vidé : deux JO).
+  const reelle = perimetreJo30jArrete(["2026-11-10", "2026-11-11"], fin);
+  assert.equal(tirets(reelle), 1);
+  assert.match(reelle, /\(jusqu’au 11\/11\/2026, JO le plus récent ingéré\)$/);
+});
