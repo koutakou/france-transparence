@@ -25,6 +25,11 @@ import fs from "node:fs";
 import path from "node:path";
 import type { FeatureCollection, Geometry } from "geojson";
 import { getDb, type MetaSource } from "@/lib/db";
+import {
+  comparaisonRompue,
+  getRupturesBudget,
+  type ComparaisonRompue,
+} from "@/lib/queries/budget-ruptures";
 import { AO_ACCUEIL_AFFICHEES } from "@/lib/echeances";
 import { editionsNonRelues, perimetreJo30j } from "@/lib/jorf-fenetre";
 import { getIdsFichesStatiques } from "@/lib/queries/elus";
@@ -76,8 +81,10 @@ export type ExecutionEtat = {
   dateFinMois: string; // ISO — dernier mois publié (2026-06-30)
   cumul: number; // € — montant_cumul
   cumulN1: number | null; // € — même mois N−1
-  /** Variation vs N−1 en %, null si N−1 absent (delta NEUTRE à l'affichage). */
+  /** Variation vs N−1 en %, null si N−1 absent ou si la comparaison est rompue. */
   deltaPct: number | null;
+  /** Rupture de périmètre S13 qui interdit la comparaison à N−1, sinon null. */
+  rupture: ComparaisonRompue | null;
 };
 
 export type PartTitre = { ligne: string; montant: number };
@@ -238,7 +245,7 @@ export function getDonneesAccueil(): DonneesAccueil | null {
   /* --- Compteur : dépenses nettes du budget général, dernier mois --- */
   const compteur = db
     .prepare(
-      `SELECT date_fin_mois AS dateFinMois,
+      `SELECT date_fin_mois AS dateFinMois, annee, mois,
               montant_cumul AS cumul,
               montant_cumul_n1 AS cumulN1
          FROM budget_mensuel
@@ -247,16 +254,24 @@ export function getDonneesAccueil(): DonneesAccueil | null {
         LIMIT 1`,
     )
     .get(LIGNE_DEPENSES_NETTES) as
-    | { dateFinMois: string; cumul: number; cumulN1: number | null }
+    | { dateFinMois: string; annee: number; mois: number; cumul: number; cumulN1: number | null }
     | undefined;
 
+  // Même règle que /depenses : pas de variation à travers une cellule en
+  // rupture de périmètre (budget_mensuel_ruptures).
+  const rupture = compteur
+    ? comparaisonRompue(getRupturesBudget(), LIGNE_DEPENSES_NETTES, compteur.annee, compteur.mois)
+    : null;
   const execution: ExecutionEtat | null = compteur
     ? {
-        ...compteur,
+        dateFinMois: compteur.dateFinMois,
+        cumul: compteur.cumul,
+        cumulN1: compteur.cumulN1,
         deltaPct:
-          compteur.cumulN1 !== null && compteur.cumulN1 !== 0
+          rupture === null && compteur.cumulN1 !== null && compteur.cumulN1 !== 0
             ? ((compteur.cumul - compteur.cumulN1) / Math.abs(compteur.cumulN1)) * 100
             : null,
+        rupture,
       }
     : null;
 

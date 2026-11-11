@@ -26,6 +26,7 @@ import {
 } from "@/lib/queries/accueil";
 import { jsonLdIdentiteSite, metadonneesPage } from "@/lib/seo";
 import { libelleBadgeSource } from "@/lib/libelles-sources";
+import { bornePerimetreRompu } from "@/lib/queries/budget-ruptures";
 
 // Rendu statique : la donnée ne change qu'à l'ingestion, le site est
 // reconstruit après chaque ingestion (docs/deploiement/DECISION.md).
@@ -344,7 +345,9 @@ export default async function Accueil() {
                     />
                   ) : (
                     <span className="text-xs text-ink-muted">
-                      comparaison N−1 non publiée
+                      {execution.rupture
+                        ? bornePerimetreRompu(execution.rupture)
+                        : "comparaison N−1 non publiée"}
                     </span>
                   )}
                 </div>

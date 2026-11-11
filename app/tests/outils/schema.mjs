@@ -129,6 +129,33 @@ export const SCHEMA = {
     lieu_execution_code       TEXT,
     lieu_execution_typecode   TEXT
 )`,
+  budget_mensuel: `CREATE TABLE budget_mensuel (
+    ligne_id         TEXT    NOT NULL,
+    ordre            INTEGER NOT NULL,
+    niveau           INTEGER NOT NULL,
+    categorie        TEXT    NOT NULL,
+    sous_categorie   TEXT    NOT NULL,
+    ligne            TEXT    NOT NULL,
+    date_fin_mois    TEXT    NOT NULL,
+    annee            INTEGER NOT NULL,
+    mois             INTEGER NOT NULL CHECK (mois BETWEEN 1 AND 12),
+    montant_cumul    REAL    NOT NULL,
+    montant_mois     REAL,
+    montant_cumul_n1 REAL,
+    montant_mois_n1  REAL,
+    PRIMARY KEY (ligne_id, date_fin_mois)
+)`,
+  budget_mensuel_ruptures: `CREATE TABLE budget_mensuel_ruptures (
+    ligne_id             TEXT    NOT NULL,
+    date_fin_mois        TEXT    NOT NULL,
+    annee                INTEGER NOT NULL,
+    mois                 INTEGER NOT NULL CHECK (mois BETWEEN 1 AND 12),
+    montant_publie       REAL    NOT NULL,
+    somme_composantes    REAL    NOT NULL,
+    identite             TEXT    NOT NULL,
+    definition_constatee TEXT,
+    PRIMARY KEY (ligne_id, date_fin_mois)
+)`,
 };
 
 /** Crée les tables `noms` dans `db` (better-sqlite3). */
