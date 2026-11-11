@@ -1,0 +1,30 @@
+2026-10-23T09:33:55.9723707Z ##[group]Run make venv PYTHON=python3
+2026-10-23T09:33:55.9725951Z [36;1mmake venv PYTHON=python3[0m
+2026-10-23T09:33:55.9727834Z [36;1mmake ingest PYTHON=python3[0m
+2026-10-23T09:33:55.9835699Z shell: /usr/bin/bash -e {0}
+2026-10-23T09:33:55.9837362Z env:
+2026-10-23T09:33:55.9839067Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.8/x64
+2026-10-23T09:33:55.9841934Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.8/x64/lib/pkgconfig
+2026-10-23T09:33:55.9844799Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.8/x64
+2026-10-23T09:40:04.0680402Z .venv/bin/python -m pipelines.ingest_hatvp_declarations
+2026-10-23T09:40:04.1943002Z 2026-10-23 09:40:04 INFO    [pipelines] téléchargement: https://www.hatvp.fr/livraison/merge/declarations.xml
+2026-10-23T09:40:38.7343490Z 2026-10-23 09:40:38 INFO    [pipelines] écrit: /home/runner/work/france-transparence/france-transparence/data/raw/hatvp_declarations/declarations.xml (75.8 Mo)
+2026-10-23T09:40:45.4774185Z .venv/bin/python -m pipelines.ingest_lobbying
+2026-10-23T09:40:45.6548102Z 2026-10-23 09:40:45 INFO    [pipelines] téléchargement: https://www.hatvp.fr/agora/opendata/csv/Vues_Separees_CSV.zip
+2026-10-23T09:40:46.3130884Z 2026-10-23 09:40:46 INFO    [pipelines] écrit: /home/runner/work/france-transparence/france-transparence/data/raw/lobbying/Vues_Separees_CSV.zip (0.0 Mo)
+2026-10-23T09:40:46.3151704Z 2026-10-23 09:40:46 ERROR   [lobbying] échec du pipeline lobbying
+2026-10-23T09:40:46.3152340Z Traceback (most recent call last):
+2026-10-23T09:40:46.3163092Z   File "/home/runner/work/france-transparence/france-transparence/pipelines/ingest_lobbying.py", line 1013, in main
+2026-10-23T09:40:46.3164044Z     executer()
+2026-10-23T09:40:46.3164331Z     ~~~~~~~~^^
+2026-10-23T09:40:46.3165503Z   File "/home/runner/work/france-transparence/france-transparence/pipelines/ingest_lobbying.py", line 972, in executer
+2026-10-23T09:40:46.3166521Z     dossier_csv = extraire_zip(chemin_zip, DOSSIER_RAW)
+2026-10-23T09:40:46.3167585Z   File "/home/runner/work/france-transparence/france-transparence/pipelines/ingest_lobbying.py", line 440, in extraire_zip
+2026-10-23T09:40:46.3168554Z     raise RuntimeError(
+2026-10-23T09:40:46.3169012Z         f"vues CSV manquantes dans le zip HATVP : {manquants}")
+2026-10-23T09:40:46.3171088Z RuntimeError: vues CSV manquantes dans le zip HATVP : ['10_actions_menees.csv', '12_decisions_concernees.csv', '13_ministeres_aai_api.csv', '14_observations.csv', '15_exercices.csv', '1_informations_generales.csv', '6_niveaux_intervention.csv', '7_domaines_intervention.csv', '8_objets_activites.csv', '9_secteurs_activites.csv']
+2026-10-23T09:40:46.3391441Z make: *** [Makefile:105: ingest-lobbying] Error 1
+2026-10-23T09:40:46.3407405Z ##[error]Process completed with exit code 2.
+2026-10-23T09:40:46.3603680Z Post job cleanup.
+2026-10-23T09:40:46.4415698Z [command]/usr/bin/git version
+2026-10-23T09:40:46.4475817Z git version 2.55.0

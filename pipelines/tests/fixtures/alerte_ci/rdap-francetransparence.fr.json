@@ -1,0 +1,27 @@
+{
+ "objectClassName": "domain",
+ "handle": "DOM106893452-FRNIC",
+ "ldhName": "francetransparence.fr",
+ "status": [
+  "client transfer prohibited",
+  "client delete prohibited"
+ ],
+ "events": [
+  {
+   "eventAction": "registration",
+   "eventDate": "2026-08-19T18:53:46.272708Z"
+  },
+  {
+   "eventAction": "expiration",
+   "eventDate": "2029-08-19T18:53:46.25532Z"
+  },
+  {
+   "eventAction": "last changed",
+   "eventDate": "2026-08-24T18:57:38.701087Z"
+  },
+  {
+   "eventAction": "last update of RDAP database",
+   "eventDate": "2026-11-11T14:54:13.683656883Z"
+  }
+ ]
+}

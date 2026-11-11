@@ -133,8 +133,12 @@ La chaîne met en jeu **trois** artefacts, pas deux :
 `R1a` et `R1c` — présents **deux fois**, dans `ft-deploy` et dans
 `.github/workflows/publication.yml` — rapprochent ① et ②. Côté CI, depuis le
 15/10/2026, leur verdict ne reste plus un simple avertissement de run vert :
-chaque cycle planifié ouvre (ou commente) une issue `redirections-301` tant
-qu'une anomalie demeure, et la ferme au premier cycle propre. Il avait fallu
+chaque cycle planifié ouvre (ou relance, une fois par semaine si rien ne
+change) une issue `redirections-301` assignée au propriétaire du dépôt tant
+qu'une anomalie demeure, et la ferme au premier cycle propre. Depuis le
+11/11/2026 ce suivi vit dans le job `veiller`, qui tourne aussi quand la
+validation échoue ; si elle échoue AVANT le contrôle, il n'y a pas de
+verdict ce jour-là, et le journal du job le dit. Il avait fallu
 dix jours pour qu'on lise celui du 05/10 (deux sénateurs cibles sortis au
 renouvellement du 27/09 : deux 301 vers un 404, lignes retirées de la table
 le 15/10). Personne ne

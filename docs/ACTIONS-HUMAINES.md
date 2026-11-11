@@ -50,6 +50,15 @@ Le correctif du 11/11 fait trois choses : un index sans livraison nocturne ne tu
 
 La réintégration depuis `jorf_textes_archive`, écrite le même jour, ne joue que sur une base qui persiste d'un cycle à l'autre : elle est sans effet sur le serveur tel qu'il ingère aujourd'hui.
 
+## 11/11/2026 — Alertes : ce que le dépôt ne peut pas faire à votre place
+
+Du 22/10 au 11/11/2026, la validation quotidienne a échoué vingt et un jours de suite et le site est resté figé à partir du 08/11 sans que personne soit prévenu : le dépôt n'avait aucun abonné, et l'issue d'échec ni personne d'assigné ni mention. Les issues d'alerte sont désormais assignées au propriétaire du dépôt et le mentionnent, et une vigie quotidienne regarde le site du dehors (RUNBOOK § 7). Restent quatre gestes :
+
+1. **Vérifier qu'une alerte arrive réellement.** Une issue `site-fige` (ou `publication-echec`) ouverte par `github-actions` vous est assignée et vous mentionne : le courriel ou la notification correspondante est-il arrivé ? L'API ne permet pas de le vérifier depuis le dépôt (le jeton n'a pas le scope `notifications`). Sinon : https://github.com/settings/notifications — activer le courriel pour « Participating, @mentions and custom », et « Actions : failed workflows only ».
+2. **S'abonner au dépôt** : Watch → Custom → Issues (ou All activity). `gh api repos/koutakou/france-transparence/subscribers` rendait `[]` le 11/11/2026. C'est le second canal, indépendant du code d'alerte.
+3. **Rendre le check `tests-python-3-10` requis** sur `main` (Settings → Branches), à côté de `construire`, une fois vu vert : il rejoue les tests des pipelines sous Python 3.10, pour qu'une montée de dépendance qui abandonne cet interpréteur soit refusée avant la fusion. À ne garder requis que tant que la venv du serveur peut être en 3.10 (section « Venv du serveur », ci-dessus).
+4. **Faire sortir l'alerte du serveur.** `ft-alerte` écrit dans le journal systemd et pousse vers un webhook « si l'un est configuré » ; le gel du 08/11 n'a atteint personne. La vigie le verra désormais, mais une fois par jour et seulement si GitHub fonctionne. À poser sur le serveur : un envoi réel (courriel vers la boîte de contact) à chaque échec de `ft-deploy`, répété chaque jour tant que `current` n'a pas basculé, avec le nombre de jours dans l'objet. Et, pour le gel en cours : `ft-etat`, puis `/var/log/france-transparence/deploiement.log`.
+
 ## 15/10/2026 — À faire sur le serveur et sur GitHub
 
 L'audit du 15/10/2026 et les quinze propositions fusionnées le même jour (JOURNAL.md, décisions 35-46) laissent des gestes qu'aucune fusion ne fait : les scripts `ft-*`, nginx, la zone DNS et les réglages GitHub vivent hors du dépôt. Les correctifs fusionnés le 15/10 n'arrivent en ligne qu'au cycle `ft-deploy` du 16/10 : sauf mention contraire, chaque geste serveur ci-dessous se fait **après** ce cycle.
@@ -98,7 +107,7 @@ L'audit du 15/10/2026 et les quinze propositions fusionnées le même jour (JOUR
 
 1. **Protection de `main`** : activer `enforce_admins` (Settings → Branches → « Do not allow bypassing the above settings »). Relevé le 15/10/2026 : `enforce_admins: false` et `strict: false`. La PR #106 a été fusionnée avec `construire` en échec, et `main` est tombé dans la minute. Pour une panne amont passagère, relancer le check plutôt que contourner. Activer aussi `strict` (branche à jour avant fusion) est recommandé par l'audit.
 2. **Dependabot** : `.github/dependabot.yml` propose les mises à jour, mais les **alertes** et **correctifs de sécurité** ne dépendent que des réglages (Settings → Code security → « Dependabot alerts » et « Dependabot security updates »), relevés désactivés le 15/10/2026.
-3. **Label `publication-echec`** : sa description dit encore « le site sert la veille », alors que la CI ne publie rien.
+3. **Label `publication-echec`** — FAIT le 11/11/2026 (description relevée ce jour : « La validation CI a échoué — le site en ligne n'est pas concerné »). Elle disait « le site sert la veille », alors que la CI ne publie rien. Commande jouée :
    ```sh
    gh label edit publication-echec --repo koutakou/france-transparence --description "La validation CI a échoué — le site en ligne n'est pas concerné"
    ```

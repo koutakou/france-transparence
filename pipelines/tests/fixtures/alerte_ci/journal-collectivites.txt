@@ -1,0 +1,42 @@
+2026-11-04T12:31:52.8032116Z ##[group]Run make venv PYTHON=python3
+2026-11-04T12:31:52.8033648Z [36;1mmake venv PYTHON=python3[0m
+2026-11-04T12:31:52.8035039Z [36;1mmake ingest PYTHON=python3[0m
+2026-11-04T12:31:52.8147348Z shell: /usr/bin/bash -e {0}
+2026-11-04T12:31:52.8148763Z env:
+2026-11-04T12:31:52.8150191Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.9/x64
+2026-11-04T12:31:52.8152117Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.9/x64/lib/pkgconfig
+2026-11-04T12:31:52.8154343Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.9/x64
+2026-11-04T12:37:50.4177855Z .venv/bin/python -m pipelines.ingest_financement
+2026-11-04T12:37:51.2377525Z 2026-11-04 12:37:51 INFO    [pipelines] téléchargement: https://static.data.gouv.fr/resources/comptes-des-partis-et-groupements-politiques/20260210-151846/comptes-partis-exercice-2021.csv
+2026-11-04T12:37:51.9504597Z 2026-11-04 12:37:51 INFO    [pipelines] écrit: /home/runner/work/france-transparence/france-transparence/data/raw/financement/comptes-partis-2021.csv (0.3 Mo)
+2026-11-04T12:37:53.4955132Z .venv/bin/python -m pipelines.ingest_collectivites
+2026-11-04T12:37:55.2802908Z 2026-11-04 12:37:55 INFO    [ingest_collectivites] fraîcheur OFGL constatée : {'ofgl-base-communes': '2026-07-29', 'ofgl-base-departements': '2026-08-05', 'ofgl-base-regions': '2026-07-17', 'dotations-communes': '2026-08-24'}
+2026-11-04T12:37:55.2807576Z 2026-11-04 12:37:55 INFO    [pipelines] téléchargement: https://data.ofgl.fr/api/explore/v2.1/catalog/datasets/ofgl-base-communes/exports/csv?where=year%28exer%29%3D2025+and+type_de_budget%3D%22Budget+principal%22+and+agregat+in+%28%22D%C3%A9penses+de+fonctionnement%22%2C%22D%C3%A9penses+d%27investissement%22%29&select=exer%2Ccom_code%2Ccom_name%2Cdep_code%2Cdep_name%2Creg_code%2Creg_name%2Csiren%2Cagregat%2Cmontant%2Ceuros_par_habitant%2Cptot
+2026-11-04T12:46:41.8846563Z 2026-11-04 12:46:41 ERROR   [ingest_collectivites] échec du pipeline finances locales
+2026-11-04T12:46:41.8847349Z Traceback (most recent call last):
+2026-11-04T12:46:41.8856966Z   File "/home/runner/work/france-transparence/france-transparence/pipelines/ingest_collectivites.py", line 1026, in main
+2026-11-04T12:46:41.8857935Z     executer()
+2026-11-04T12:46:41.8858230Z     ~~~~~~~~^^
+2026-11-04T12:46:41.8859085Z   File "/home/runner/work/france-transparence/france-transparence/pipelines/ingest_collectivites.py", line 953, in executer
+2026-11-04T12:46:41.8860050Z     chemins = telecharger_exports(session)
+2026-11-04T12:46:41.8861100Z   File "/home/runner/work/france-transparence/france-transparence/pipelines/ingest_collectivites.py", line 278, in telecharger_exports
+2026-11-04T12:46:41.8862098Z     chemins["communes"] = telecharger(
+2026-11-04T12:46:41.8862496Z                           ~~~~~~~~~~~^
+2026-11-04T12:46:41.8862978Z         _url_export("ofgl-base-communes", where, select),
+2026-11-04T12:46:41.8864007Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-11-04T12:46:41.8864417Z     ...<2 lines>...
+2026-11-04T12:46:41.8864728Z         session=session,
+2026-11-04T12:46:41.8865069Z         ^^^^^^^^^^^^^^^^
+2026-11-04T12:46:41.8865382Z     )
+2026-11-04T12:46:41.8865855Z     ^
+2026-11-04T12:46:41.8866642Z   File "/home/runner/work/france-transparence/france-transparence/pipelines/common.py", line 117, in telecharger
+2026-11-04T12:46:41.8867503Z     r.raise_for_status()
+2026-11-04T12:46:41.8867843Z     ~~~~~~~~~~~~~~~~~~^^
+2026-11-04T12:46:41.8868916Z   File "/home/runner/work/france-transparence/france-transparence/.venv/lib/python3.14/site-packages/requests/models.py", line 1167, in raise_for_status
+2026-11-04T12:46:41.8870109Z     raise HTTPError(http_error_msg, response=self)
+2026-11-04T12:46:41.8872920Z requests.exceptions.HTTPError: 401 Client Error: Unauthorized for url: https://data.ofgl.fr/api/explore/v2.1/catalog/datasets/ofgl-base-communes/exports/csv?where=year%28exer%29%3D2025+and+type_de_budget%3D%22Budget+principal%22+and+agregat+in+%28%22D%C3%A9penses+de+fonctionnement%22%2C%22D%C3%A9penses+d%27investissement%22%29&select=exer%2Ccom_code%2Ccom_name%2Cdep_code%2Cdep_name%2Creg_code%2Creg_name%2Csiren%2Cagregat%2Cmontant%2Ceuros_par_habitant%2Cptot
+2026-11-04T12:46:41.9129898Z make: *** [Makefile:105: ingest-collectivites] Error 1
+2026-11-04T12:46:41.9146935Z ##[error]Process completed with exit code 2.
+2026-11-04T12:46:41.9360909Z Post job cleanup.
+2026-11-04T12:46:42.0266252Z [command]/usr/bin/git version
+2026-11-04T12:46:42.0316491Z git version 2.56.0
