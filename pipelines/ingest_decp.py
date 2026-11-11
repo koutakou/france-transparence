@@ -141,9 +141,10 @@ Règle de mesure du délai de publication (les trois tables decp_publication_*) 
 3. Publié dans le délai légal ⇔ publication <= notification + 2 MOIS
    calendaires. Écrit en mois et non en « 60 jours » : voir DELAI_LEGAL_MOIS.
 4. Un marché n'est RETENU que si ses deux dates existent, tiennent dans
-   [BORNE_DATE_MIN, BORNE_DATE_MAX] et sont dans l'ordre. Les autres sont
-   classés en catégories EXCLUSIVES (sans notification, sans publication,
-   dates hors bornes, publication antérieure à la notification) et comptés
+   [BORNE_DATE_MIN, borne_date_max(date_ref)] (le lendemain de l'ingestion)
+   et sont dans l'ordre. Les autres sont classés en catégories EXCLUSIVES
+   (sans notification, sans publication, dates hors bornes, publication
+   antérieure à la notification) et comptés
    dans decp_publication_qualite : la somme des cinq classes recompose
    exactement la population de départ. Aucun n'est repêché avec un délai de
    zéro — un défaut de saisie n'est pas une publication à l'heure.
@@ -283,8 +284,20 @@ DECALAGE_COHORTE_CLOSE = 2
 # (0001-01-01) et des saisies à quatre chiffres fantaisistes ; hors de cet
 # intervalle, une date ne décrit pas un marché public réel. Le marché n'est
 # pas corrigé ni remplacé par zéro : il est écarté du calcul et compté à part.
+# La borne HAUTE se déduit du jour de l'ingestion (`borne_date_max`) : une
+# notification ou une publication postérieure au lendemain n'a pas encore pu
+# avoir lieu. Elle valait « 2030-01-01 » en dur : à partir de cette date,
+# tout marché notifié serait sorti du calcul des délais sans aucune erreur.
 BORNE_DATE_MIN = "1980-01-01"
-BORNE_DATE_MAX = "2030-01-01"
+# Marge d'un jour au-delà de date_ref : le parquet consolidé et la machine
+# qui l'ingère ne sont pas forcément au même fuseau.
+MARGE_BORNE_DATE_MAX_JOURS = 1
+
+
+def borne_date_max(date_ref: date) -> str:
+    """Dernière date plausible d'une notification ou d'une publication."""
+    return (date_ref + timedelta(days=MARGE_BORNE_DATE_MAX_JOURS)).isoformat()
+
 
 # Seuil du retard « de plus d'un an », en jours.
 JOURS_RETARD_LONG = 365
@@ -569,6 +582,7 @@ def transformer(
     p = {
         "plafond": PLAFOND_ECRETAGE_EUR,
         "date_ref": date_ref.isoformat(),
+        "borne_date_max": borne_date_max(date_ref),
     }
 
     lignes_parquet = duck.execute(
@@ -1113,9 +1127,9 @@ def transformer(
                    WHEN notification IS NULL THEN 'sans_notification'
                    WHEN publication  IS NULL THEN 'sans_publication'
                    WHEN notification NOT BETWEEN DATE '{BORNE_DATE_MIN}'
-                                             AND DATE '{BORNE_DATE_MAX}'
+                                             AND DATE '{p['borne_date_max']}'
                      OR publication  NOT BETWEEN DATE '{BORNE_DATE_MIN}'
-                                             AND DATE '{BORNE_DATE_MAX}'
+                                             AND DATE '{p['borne_date_max']}'
                         THEN 'dates_hors_bornes'
                    WHEN publication < notification THEN 'publication_anterieure'
                    ELSE 'retenu'

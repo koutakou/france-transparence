@@ -2496,8 +2496,8 @@ date alors le marché de son dernier avenant. Pourquoi — et pourquoi
 ### 3. `nb_marches_source` n'est pas `nb_retenus`, et l'écart est la matière de la table
 
 Un marché est **retenu** quand ses deux dates existent, tombent dans
-`[1980-01-01, 2030-01-01]`, et que la publication n'est pas antérieure à la
-notification. Chaque motif d'exclusion a son compteur —
+`[1980-01-01, lendemain de l'ingestion]`, et que la publication n'est pas
+antérieure à la notification. Chaque motif d'exclusion a son compteur —
 `nb_sans_notification`, `nb_sans_publication`, `nb_dates_hors_bornes`,
 `nb_publication_anterieure` — de sorte que l'entonnoir se rebâtit de tête,
 sans avoir à refaire la requête.

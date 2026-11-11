@@ -1135,9 +1135,9 @@ def test_publication_qualite_recompose_la_population_de_depart(resultat):
         WHERE (classe = 'retenu') <> (
               notification IS NOT NULL AND publication IS NOT NULL
           AND notification BETWEEN DATE '{ingest_decp.BORNE_DATE_MIN}'
-                               AND DATE '{ingest_decp.BORNE_DATE_MAX}'
+                               AND DATE '{ingest_decp.borne_date_max(DATE_REF)}'
           AND publication  BETWEEN DATE '{ingest_decp.BORNE_DATE_MIN}'
-                               AND DATE '{ingest_decp.BORNE_DATE_MAX}'
+                               AND DATE '{ingest_decp.borne_date_max(DATE_REF)}'
           AND publication >= notification)
         """
     ).fetchone()[0] == 0
@@ -1201,6 +1201,44 @@ def test_publication_le_classement_est_exclusif_sur_un_marche_a_deux_defauts(
         assert classes == {
             UID_MULTI: "sans_notification",
             UID_GEANT: "dates_hors_bornes",
+            UID_SANS_MONTANT: "dates_hors_bornes",
+        }
+    finally:
+        duck.close()
+
+
+def test_publication_borne_haute_suit_le_jour_de_l_ingestion(tmp_path):
+    """La borne haute de plausibilité se déduit du jour de l'ingestion.
+
+    Elle valait « 2030-01-01 » en dur : une ingestion de 2031 aurait classé
+    « dates hors bornes » tout marché notifié depuis le 01/01/2030, sans
+    erreur, et le calcul des délais de publication se serait vidé en
+    silence. Deux marchés retenus de la fixture sont redatés, et le
+    pipeline joué comme le 01/06/2031 :
+      · notifié le 03/03/2031, publié le 10/03/2031 → retenu (l'ancienne
+        borne l'écartait) ;
+      · publié le 03/06/2031, soit après le lendemain de l'ingestion →
+        « dates hors bornes » (l'ancienne borne le retenait).
+    """
+    date_ref = date(2031, 6, 1)
+    assert ingest_decp.borne_date_max(date_ref) == "2031-06-02"
+    chemin = _fixture_modifiee(
+        tmp_path / "decp_borne_haute.parquet",
+        {
+            UID_GEANT: ("2031-03-03", "2031-03-10"),
+            UID_SANS_MONTANT: ("2031-05-30", "2031-06-03"),
+        },
+    )
+    duck, _ = ingest_decp.transformer(chemin, date_ref)
+    try:
+        classes = dict(
+            duck.execute(
+                "SELECT uid, classe FROM t_publication_classee WHERE uid IN "
+                f"('{UID_GEANT}', '{UID_SANS_MONTANT}')"
+            ).fetchall()
+        )
+        assert classes == {
+            UID_GEANT: "retenu",
             UID_SANS_MONTANT: "dates_hors_bornes",
         }
     finally:
