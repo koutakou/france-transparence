@@ -18,7 +18,9 @@ Source (docs/SOURCES.md S3, docs/recherche/07-documents-juridique.md) :
 
 Tables créées (CREATE TABLE IF NOT EXISTS, réexécution sans doublons) :
 
-- jorf_textes — un texte publié au JO (fenêtre : les ~30 derniers JO parus).
+- jorf_textes — un texte publié au JO (fenêtre : les `--jours` derniers JO
+  PRÉSENTS EN BASE après l'ingestion, 30 par défaut — pas « ce que l'index
+  liste encore » : voir « Index réduit » plus bas).
   Un texte n'entre que s'il paraît au JO du jour de sa livraison (ou de la
   veille) : un texte ancien réécrit ne peut pas élargir la fenêtre.
   Les textes hors fenêtre sont copiés vers jorf_textes_archive (table
@@ -60,6 +62,21 @@ WARNING). Tous les tarballs sont téléchargés AVANT la première écriture :
 une panne en cours de route ne laisse pas une fenêtre à moitié renouvelée.
 Base neuve sans JORF à reprendre, archive illisible ou index au format
 inconnu → exit 1 (aucune donnée inventée).
+
+Index réduit. Quand la DILA régénère son stock (`Freemium_jorf_simple_*`,
+de l'ordre du Go), elle retire de l'index les livraisons antérieures :
+constaté le 08/11/2026, l'index est passé de plusieurs centaines de
+nocturnes à zéro, puis à une de plus par JO. Trois conséquences :
+- index joignable SANS nocturne (le lendemain de la régénération) → même
+  secours que ci-dessus, pas un échec : le format est reconnu, il n'y a
+  simplement rien de neuf à lire ;
+- la purge ne suit pas l'index : une base qui porte déjà ses JO les garde
+  tant qu'ils sont parmi les `--jours` derniers JO en base ;
+- une base neuve (CI, premier déploiement) n'a que ce que l'index liste :
+  la fenêtre est RÉDUITE et la note de meta_sources le dit, compteur et
+  date à l'appui. Le stock Freemium n'est PAS lu pour la compléter : plus
+  d'un Go à chaque base neuve pour une trentaine de JO, et son contenu n'a
+  jamais été ouvert ni mesuré ici.
 """
 
 from __future__ import annotations
@@ -87,12 +104,25 @@ LIEN_LEGIFRANCE = "https://www.legifrance.gouv.fr/jorf/id/{id}"
 # Nom exact des tarballs de livraison (index Apache, filenames ASCII).
 RE_LIVRAISON = re.compile(r'href="(JORFSIMPLE_(\d{8})-(\d{6})\.tar\.gz)"')
 
-# Livraison nocturne (~00h20-00h45 constaté, parfois jusqu'à 04h) = JO du jour.
-# Livraison du soir (~21h-22h45) = réécritures rétroactives, à ignorer.
+# Stock global régénéré par la DILA (nom relevé à l'index : 20250713-140000
+# puis 20261108-140000). Jamais téléchargé ici ; sa présence dit seulement
+# que l'index est celui que l'on connaît, et son stamp date la régénération.
+RE_STOCK = re.compile(r'href="(Freemium_jorf_simple_(\d{8})-(\d{6})\.tar\.gz)"')
+
+# Livraison nocturne (~00h20-00h45 constaté, parfois bien plus tard) = JO du
+# jour. Livraison du soir (~21h-22h45) = réécritures rétroactives, à ignorer.
 # Index relu le 15/10/2026 : aucune nocturne après 04h21 depuis juillet 2025,
 # et des correctifs isolés à 07h04, 10h14, 10h49, 10h54, 12h29…
 # Celui du 01/10/2026 à 10h54 réécrivait un décret paru au JO du 27/11/2007 :
 # admis par l'ancien seuil de 12 h, il avait reculé la fenêtre de dix-neuf ans.
+# MARGE, dite telle qu'elle est : la nocturne du 11/11/2026 (jour férié) est
+# stampée 04h43, au-delà du maximum précédent. Le seuil de 6 h n'est donc
+# plus qu'à 1 h 17 de la nocturne la plus tardive connue, et rien ne garantit
+# que la suivante restera dessous. Le seuil n'est pas relevé pour autant (le
+# correctif le plus matinal connu est de 07h04) : une nocturne livrée après
+# 6 h n'est pas ingérée, elle est NOMMÉE au journal du cycle par
+# `signaler_jours_sans_nocturne`. Et une nocturne publiée après le passage
+# du cycle n'est pas perdue : le cycle suivant relit tout l'index.
 HEURE_MAX_NOCTURNE = 6
 
 # Début de la livraison du soir (~21h-22h45 constaté). Entre HEURE_MAX_NOCTURNE
@@ -106,6 +136,28 @@ HEURE_MIN_SOIR = 20
 # nocturnes du 12/09 au 15/10/2026 : aucune exception). La veille est tolérée ;
 # plus ancien, c'est une réécriture, écartée et comptée.
 JOURS_TOLERES_AVANT_LIVRAISON = 1
+
+# Profondeur maximale de la fenêtre en jours civils PAR JO visé. Mesuré sur
+# les 30 nocturnes du 14/07 au 19/08/2026 : 30 JO couvrent 37 jours civils
+# (1,2 par JO). Le double laisse à une base persistante de quoi traverser
+# une panne de plusieurs semaines sans rien perdre, et borne quand même la
+# fenêtre : un texte de 2007 resté en table (état servi le 15/10/2026) ne
+# peut pas compter pour « un des 30 derniers JO en base ».
+JOURS_CIVILS_MAX_PAR_JO = 2
+
+# Écart normal entre deux JO consécutifs : 2 jours autour d'un lundi (pas de
+# JO le lundi), 3 autour d'un pont (15/08/2026 → 18/08/2026). Au-delà, la
+# fenêtre a probablement un trou — JO parus pendant que l'ingestion était
+# arrêtée et que l'index ne liste plus. On ne le devine pas : on le compte,
+# on le nomme au journal et dans la note de meta_sources.
+ECART_NORMAL_ENTRE_JO = 3
+
+# Débuts de la note de meta_sources quand la fenêtre n'est pas ce que son nom
+# promet. La page /documents affiche la note telle quelle quand elle commence
+# par l'une de ces marques (app/src/lib/queries/documents.ts,
+# MARQUES_FENETRE_SIGNALEE) : ne pas les reformuler d'un seul côté.
+MARQUE_FENETRE_REDUITE = "Fenêtre réduite"
+MARQUE_FENETRE_DISCONTINUE = "Fenêtre discontinue"
 
 # Les tarballs publiés sont immuables : présent en cache = jamais retéléchargé.
 CACHE_IMMUABLE_H = 24 * 365 * 100
@@ -235,6 +287,21 @@ def signaler_jours_sans_nocturne(html: str, debut: date) -> list[str]:
     else:
         log.info("jours sans nocturne avec livraison de journée dans la fenêtre : 0")
     return noms
+
+
+def stock_a_l_index(html: str) -> str | None:
+    """Stamp `AAAAMMJJ` du stock Freemium le plus récent listé à l'index, ou
+    None. Le stock n'est jamais téléchargé : son stamp date la régénération
+    qui a vidé l'index, pour le dire au journal et dans la note."""
+    stamps = [aaaammjj for _nom, aaaammjj, _h in RE_STOCK.findall(html)]
+    return max(stamps) if stamps else None
+
+
+def index_reconnu(html: str) -> bool:
+    """Vrai si l'index liste au moins un fichier que l'on sait nommer
+    (livraison de n'importe quelle heure, ou stock). Sépare « rien de neuf à
+    lire » (secours) de « page que l'on ne sait plus lire » (échec)."""
+    return bool(RE_LIVRAISON.search(html) or RE_STOCK.search(html))
 
 
 def jour_de_livraison(nom_tarball: str) -> date:
@@ -479,6 +546,93 @@ COLONNES_JORF_TEXTES = (
 )
 
 
+def _fr(iso: str) -> str:
+    """`2026-11-08` → `08/11/2026` (la note de meta_sources est lue telle
+    quelle sur /documents quand la fenêtre est signalée)."""
+    return date.fromisoformat(iso).strftime("%d/%m/%Y")
+
+
+def fenetre_en_base(conn, jours: int) -> list[str]:
+    """Dates des `jours` derniers JO PRÉSENTS EN BASE, ordre chronologique.
+
+    C'est la base qui porte la fenêtre, pas l'index : la DILA retire de
+    l'index les livraisons antérieures à chaque régénération de son stock,
+    et « la plus ancienne livraison encore listée » n'est alors plus le
+    début de rien. Borne de profondeur : aucun JO à plus de
+    `jours * JOURS_CIVILS_MAX_PAR_JO` jours civils du plus récent.
+    """
+    plus_recent = conn.execute("SELECT MAX(date_publi) FROM jorf_textes").fetchone()[0]
+    if plus_recent is None:
+        return []
+    plancher = (
+        date.fromisoformat(plus_recent)
+        - timedelta(days=jours * JOURS_CIVILS_MAX_PAR_JO)
+    ).isoformat()
+    return sorted(
+        r[0] for r in conn.execute(
+            "SELECT DISTINCT date_publi FROM jorf_textes WHERE date_publi >= ?"
+            " ORDER BY date_publi DESC LIMIT ?", (plancher, jours),
+        )
+    )
+
+
+def ecarts_anormaux(dates_jo: list[str]) -> list[tuple[str, str, int]]:
+    """(JO d'avant, JO d'après, jours civils entre les deux) pour chaque
+    paire de JO consécutifs de la fenêtre séparés de plus de
+    ECART_NORMAL_ENTRE_JO jours."""
+    trous = []
+    for avant, apres in zip(dates_jo, dates_jo[1:]):
+        ecart = (date.fromisoformat(apres) - date.fromisoformat(avant)).days
+        if ecart > ECART_NORMAL_ENTRE_JO:
+            trous.append((avant, apres, ecart))
+    return trous
+
+
+def note_fenetre(
+    dates_jo: list[str],
+    jours: int,
+    nocturnes_index: int,
+    stock: str | None,
+    constat: str,
+) -> str:
+    """Note de meta_sources : ce que la fenêtre contient VRAIMENT.
+
+    Fenêtre pleine et continue : compte et bornes. Sinon la note commence
+    par MARQUE_FENETRE_REDUITE ou MARQUE_FENETRE_DISCONTINUE, donne le
+    compteur, la date du constat et ce que l'index listait ce jour-là.
+    """
+    debut, fin = dates_jo[0], dates_jo[-1]
+    index_reduit = nocturnes_index < jours
+    etat_index = f"l'index de la DILA liste {nocturnes_index} livraison(s) nocturne(s)"
+    if index_reduit and stock:
+        etat_index += (
+            " depuis la régénération de son stock (Freemium du "
+            f"{_fr(f'{stock[:4]}-{stock[4:6]}-{stock[6:]}')})"
+        )
+    trous = ecarts_anormaux(dates_jo)
+    dit_trous = " ; ".join(
+        f"aucun JO en base entre le {_fr(a)} et le {_fr(b)} ({n} jours)"
+        for a, b, n in trous
+    )
+    if len(dates_jo) < jours:
+        note = (
+            f"{MARQUE_FENETRE_REDUITE} : {len(dates_jo)} JO en base sur les"
+            f" {jours} visés, du {_fr(debut)} au {_fr(fin)} (constat du"
+            f" {_fr(constat)}) ; {etat_index}, les JO antérieurs ne sont pas"
+            " dans cette base"
+        )
+        return f"{note} ; {dit_trous}" if trous else note
+    note = f"{len(dates_jo)} JO en base, du {_fr(debut)} au {_fr(fin)} ; {etat_index}"
+    if index_reduit:
+        note += ", la fenêtre tient par les JO déjà en base"
+    if trous:
+        return (
+            f"{MARQUE_FENETRE_DISCONTINUE} : {dit_trous} (constat du"
+            f" {_fr(constat)}) ; {note}"
+        )
+    return note
+
+
 def archiver_et_purger_jorf(conn, debut_fenetre: str, archive_le: str) -> int:
     """Copie puis DELETE les textes dont date_publi < début de fenêtre."""
     n = archiver_sortie_fenetre(
@@ -524,8 +678,9 @@ def reconstruire_agregats(conn) -> None:
 # ---------------------------------------------------------------------------
 
 
-def secours_dila_injoignable(motif: str) -> int:
-    """Serveur DILA injoignable : reprendre le JORF du dernier cycle réussi.
+def secours_cycle_precedent(motif: str) -> int:
+    """Rien de neuf à lire à la DILA (serveur injoignable, ou index sans
+    aucune livraison nocturne) : reprendre le JORF du dernier cycle réussi.
 
     N'écrit rien (voir db.publication_precedente). Exit 0 si un cycle
     précédent a laissé des textes datés, exit 1 sinon (base neuve).
@@ -537,13 +692,12 @@ def secours_dila_injoignable(motif: str) -> int:
         conn.close()
     if precedent is None:
         log.error(
-            "DILA injoignable (%s) et aucun JORF d'un cycle précédent à"
-            " reprendre : échec", motif,
+            "%s et aucun JORF d'un cycle précédent à reprendre : échec", motif,
         )
         return 1
     lignes, date_donnees = precedent
     log.warning(
-        "DILA injoignable (%s) → secours : jorf_textes reprise telle que"
+        "%s → secours : jorf_textes reprise telle que"
         " publiée par le dernier cycle réussi (%d textes, JO le plus récent"
         " du %s) ; rien n'est écrit, meta_sources S3 garde cette date",
         motif, lignes, date_donnees,
@@ -569,17 +723,43 @@ def main(argv: list[str] | None = None) -> int:
         r = session.get(URL_JORFSIMPLE, timeout=60)
         r.raise_for_status()
     except requests.RequestException as exc:
-        return secours_dila_injoignable(f"index JORFSIMPLE : {exc}")
+        return secours_cycle_precedent(
+            f"DILA injoignable (index JORFSIMPLE : {exc})")
 
     nocturnes = livraisons_nocturnes(r.text)
+    stock = stock_a_l_index(r.text)
     if not nocturnes:
-        log.error("aucune livraison nocturne trouvée dans l'index (format changé ?)")
-        return 1
+        if not index_reconnu(r.text):
+            log.error(
+                "index JORFSIMPLE illisible : ni livraison ni stock reconnus"
+                " (format changé ?)")
+            return 1
+        # Cas du 09/11/2026 : stock régénéré la veille, première nocturne
+        # attendue le lendemain. Sortir en erreur gelait tout le cycle pour
+        # un index parfaitement lisible.
+        return secours_cycle_precedent(
+            "index DILA réduit à 0 livraison nocturne ("
+            f"{len(RE_LIVRAISON.findall(r.text))} livraison(s) d'une autre"
+            f" heure listée(s), stock Freemium : {stock or 'aucun'})"
+        )
     selection = nocturnes[-args.jours:]
     log.info(
         "%d livraisons nocturnes à l'index, %d retenues (%s → %s)",
         len(nocturnes), len(selection), selection[0], selection[-1],
     )
+    # Journalisé à chaque cycle, cas normal compris : un index réduit ne
+    # casse rien, il doit donc se dire.
+    if len(nocturnes) < args.jours:
+        log.warning(
+            "index DILA réduit à %d livraison(s) nocturne(s) pour %d JO visés"
+            " (stock Freemium : %s) : la fenêtre ne tient que par les JO déjà"
+            " en base", len(nocturnes), args.jours, stock or "aucun",
+        )
+    else:
+        log.info(
+            "index DILA non réduit : %d livraisons nocturnes pour %d JO visés",
+            len(nocturnes), args.jours,
+        )
     signaler_jours_sans_nocturne(r.text, jour_de_livraison(selection[0]))
 
     # Tout le réseau AVANT la première écriture : une coupure au 12e tarball
@@ -594,7 +774,7 @@ def main(argv: list[str] | None = None) -> int:
                 session=session,
             )))
         except requests.RequestException as exc:
-            return secours_dila_injoignable(f"{nom} : {exc}")
+            return secours_cycle_precedent(f"DILA injoignable ({nom} : {exc})")
 
     conn = db.init_db()
     conn.executescript(_SCHEMA)
@@ -617,20 +797,48 @@ def main(argv: list[str] | None = None) -> int:
         conn.close()
         return 1
 
-    # Fenêtre glissante : la table ne garde que les JO couverts par ce run.
-    debut_fenetre = min(toutes_dates)
-    n_arch = archiver_et_purger_jorf(
-        conn, debut_fenetre, date.today().isoformat()
+    # Fenêtre glissante : les `--jours` derniers JO EN BASE, ceux de ce run
+    # compris. Elle se calculait sur `min(toutes_dates)`, c'est-à-dire sur
+    # la plus ancienne livraison encore listée : avec un index réduit à deux
+    # nocturnes, 28 JO encore dans la fenêtre partaient à l'archive, en
+    # sortie 0 et sans un mot.
+    aujourd_hui = date.today().isoformat()
+    dates_fenetre = fenetre_en_base(conn, args.jours)
+    debut_fenetre = dates_fenetre[0]
+    n_sortants = conn.execute(
+        "SELECT count(*) FROM jorf_textes WHERE date_publi < ?", (debut_fenetre,)
+    ).fetchone()[0]
+    archiver_et_purger_jorf(conn, debut_fenetre, aujourd_hui)
+    log.info(
+        "fenêtre : %d JO en base sur %d visés (%s → %s) ; %d texte(s) plus"
+        " ancien(s) archivé(s) puis purgé(s)",
+        len(dates_fenetre), args.jours, debut_fenetre, dates_fenetre[-1],
+        n_sortants,
     )
-    if n_arch:
+    if len(dates_fenetre) < args.jours:
+        log.warning(
+            "fenêtre RÉDUITE : %d JO en base sur %d visés — l'index ne liste"
+            " pas les JO antérieurs et la base ne les porte pas",
+            len(dates_fenetre), args.jours,
+        )
+    trous = ecarts_anormaux(dates_fenetre)
+    if trous:
+        log.warning(
+            "fenêtre DISCONTINUE : %d écart(s) de plus de %d jours entre deux"
+            " JO consécutifs en base : %s — des JO parus dans l'intervalle"
+            " peuvent manquer (à vérifier)",
+            len(trous), ECART_NORMAL_ENTRE_JO,
+            ", ".join(f"{a} → {b} ({n} j)" for a, b, n in trous),
+        )
+    else:
         log.info(
-            "fenêtre %s → : %d textes plus anciens archivés puis purgés",
-            debut_fenetre, n_arch,
+            "écarts de plus de %d jours entre deux JO consécutifs de la"
+            " fenêtre : 0", ECART_NORMAL_ENTRE_JO,
         )
 
     reconstruire_agregats(conn)
 
-    date_donnees = max(toutes_dates)
+    date_donnees = dates_fenetre[-1]
     lignes = conn.execute("SELECT count(*) FROM jorf_textes").fetchone()[0]
     db.upsert_meta(
         conn,
@@ -641,7 +849,8 @@ def main(argv: list[str] | None = None) -> int:
         frequence="quotidienne",
         date_donnees=date_donnees,
         lignes=lignes,
-        notes=f"{len(selection)} livraisons nocturnes, fenêtre {debut_fenetre} → {date_donnees}",
+        notes=note_fenetre(
+            dates_fenetre, args.jours, len(nocturnes), stock, aujourd_hui),
     )
     log.info(
         "terminé: %d textes upsertés, %d en table, JO le plus récent: %s",
