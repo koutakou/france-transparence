@@ -1350,16 +1350,37 @@ def ingerer_scrutins(conn, session: requests.Session) -> None:
              len(metas), dernier["numero"], dernier["date_scrutin"])
 
 
-class ExportSensVide(RuntimeError):
+class ElusenAbsente(RuntimeError):
     """Le dump export_sens ne porte aucune ligne `elusen`.
 
-    Panne amont RÉCURRENTE, pas une rupture de format : les 01, 05, 07 et
-    10/11/2026, data.senat.fr a servi aux cycles CI un export_sens.zip noté
-    « 0.0 Mo » au journal (8,1 à 8,2 Mo tous les autres jours depuis le
-    15/10), alors qu'ODSEN_GENERAL, le même jour, listait normalement ses
-    348 sénateurs en exercice ; au cycle suivant, le dump était revenu. Classe distincte pour que `ingerer_senat` puisse reprendre la
-    publication de la veille sur CE cas, et sur lui seul.
+    Deux causes possibles, que `ingerer_senat` départage par la TAILLE du
+    dump (`TAILLE_MIN_DUMP_EXPORT_SENS`) : un dump vide ou tronqué — panne
+    amont passagère, secourue — ou un dump complet qui ne porte plus la
+    table — rupture de format, qui doit échouer.
     """
+
+
+class ExportSensVide(RuntimeError):
+    """Dump export_sens vide ou tronqué que le secours ne peut pas couvrir
+    (base neuve, ou publication précédente trop ancienne)."""
+
+
+# Panne amont RÉCURRENTE : les 01, 05, 07 et 10/11/2026, data.senat.fr a
+# servi aux cycles CI un export_sens.zip noté « 0.0 Mo » au journal, alors
+# qu'ODSEN_GENERAL listait normalement ses 348 sénateurs ; au cycle suivant,
+# le dump était revenu. Mesuré le 11/11/2026 sur un dump normal : zip de
+# 8,6 Mo, export_sens.sql de 60 409 315 octets, 95 tables COPY. En deçà d'un
+# Mo, export_sens.sql n'est pas un dump complet (60 fois moins que la
+# normale) : c'est le cas secouru. Au-delà, un dump sans `elusen` est une
+# rupture de format, et elle échoue.
+TAILLE_MIN_DUMP_EXPORT_SENS = 1_000_000
+# Borne du secours. Sur tous les cycles CI du 15/10 au 11/11/2026, la panne
+# n'a jamais duré plus d'un jour (01→02, 05→06, 07→08, 10→11/11). Trois jours
+# sans cycle Sénat réussi couvrent deux pannes de ce type à la suite et un
+# week-end, tout en restant très en deçà du seuil de fraîcheur S6-ODSEN
+# (20 jours calendaires), qui seul ne réveillerait personne avant trois
+# semaines. Au-delà : l'étape échoue, pour qu'un humain regarde.
+MAX_JOURS_SECOURS_SENAT = 3
 
 
 def lire_mandats_senat(
@@ -1410,7 +1431,7 @@ def lire_mandats_senat(
         debuts.setdefault(matricule, []).append(_date_copy(row.get("eludatdeb")))
         dpt_en_cours[matricule] = (row.get("dptnum") or "").strip() or None
     if not lues:
-        raise ExportSensVide("export_sens : table elusen absente ou vide")
+        raise ElusenAbsente("export_sens : table elusen absente ou vide")
     ambigus = {m for m, d in debuts.items() if len(d) > 1}
     fins = {m: f for m, (_d, f) in derniers_clos.items() if m not in debuts}
     if codes_departement is not None:
@@ -1494,7 +1515,8 @@ def clore_mandats_sortis(conn, *, cle: str, source: str, actifs: set[str],
     return closes, sans_date
 
 
-def secours_export_sens_vide(conn, motif: str) -> None:
+def secours_export_sens_vide(conn, motif: str,
+                             maintenant: datetime | None = None) -> None:
     """export_sens servi vide : reprendre le Sénat du dernier cycle réussi.
 
     Même patron que `ingest_dole.secours_dila_injoignable` : RIEN n'est
@@ -1507,22 +1529,45 @@ def secours_export_sens_vide(conn, motif: str) -> None:
     effacer pour 348 sénateurs serait pire que de servir la veille).
 
     Sans publication précédente (base neuve, donc la CI) : la panne reste une
-    panne, l'étape échoue comme avant.
+    panne, l'étape échoue comme avant. Si le dernier cycle Sénat réussi date
+    de plus de MAX_JOURS_SECOURS_SENAT jours, aussi : le secours couvre une
+    panne passagère, pas une panne qui dure.
     """
     precedent = db.publication_precedente(conn, "senateurs", "S6-ODSEN")
     if precedent is None:
         raise ExportSensVide(
             f"{motif} — et aucun Sénat d'un cycle précédent à reprendre")
     lignes, date_donnees = precedent
+    ingestion = conn.execute(
+        "SELECT date_ingestion FROM meta_sources WHERE source_id = 'S6-ODSEN'"
+    ).fetchone()[0]
+    try:
+        derniere = datetime.fromisoformat(ingestion)
+        if derniere.tzinfo is None:
+            derniere = derniere.replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        derniere = None
+    instant = maintenant or datetime.now(timezone.utc)
+    if derniere is None or instant - derniere > timedelta(days=MAX_JOURS_SECOURS_SENAT):
+        raise ExportSensVide(
+            f"{motif} — dernier cycle Sénat réussi le {ingestion}, plus de "
+            f"{MAX_JOURS_SECOURS_SENAT} jours : le secours ne couvre pas une "
+            "panne qui dure, à examiner")
     log.warning(
         "Sénat : %s → secours : senateurs reprise telle que publiée par le"
         " dernier cycle réussi (%d sénateurs, données du %s) ; rien n'est"
-        " écrit, meta_sources S6-ODSEN garde cette date", motif, lignes,
-        date_donnees)
+        " écrit, meta_sources S6-ODSEN garde cette date (dernier cycle"
+        " réussi : %s)", motif, lignes, date_donnees, ingestion)
 
 
-def ingerer_senat(conn, session: requests.Session) -> None:
-    """Sénat ODSEN → senateurs (en exercice) + elus."""
+# Valeur rendue par une étape de P9 qui a servi la publication précédente :
+# le bilan la compte à part, il ne la confond pas avec une ingestion.
+SECOURS = "secours"
+
+
+def ingerer_senat(conn, session: requests.Session) -> str | None:
+    """Sénat ODSEN → senateurs (en exercice) + elus. Rend SECOURS si le
+    dump export_sens vide a mené au secours (rien n'est alors écrit)."""
     date_donnees = _date_last_modified(session, URL_ODSEN_GENERAL)
     chemin_general = telecharger(URL_ODSEN_GENERAL, "parlement/ODSEN_GENERAL.csv",
                                  max_age_heures=MAX_AGE_H, session=session)
@@ -1544,16 +1589,24 @@ def ingerer_senat(conn, session: requests.Session) -> None:
              len(actifs), len(lignes))
 
     # Date de début du mandat en cours : table `elusen` du dump export_sens.
+    taille_sql = 0
     try:
         with zipfile.ZipFile(chemin_export_sens) as z, \
                 z.open("export_sens.sql") as fp:
+            taille_sql = z.getinfo("export_sens.sql").file_size
             codes_senat: dict[str, str] = {}
             debuts_mandat, fins_mandat, lignes_elusen, ambigus = lire_mandats_senat(
                 fp, codes_senat)
-    except ExportSensVide as exc:
-        secours_export_sens_vide(
-            conn, f"{exc} ({chemin_export_sens.stat().st_size} octet(s) servis)")
-        return
+    except ElusenAbsente as exc:
+        motif = (f"{exc} (export_sens.sql de {taille_sql} octet(s), zip de "
+                 f"{chemin_export_sens.stat().st_size})")
+        if taille_sql >= TAILLE_MIN_DUMP_EXPORT_SENS:
+            # Un dump de taille normale sans `elusen` n'est pas une panne
+            # passagère : c'est le format qui a changé. Pas de secours.
+            raise RuntimeError(f"{motif} : dump complet sans table elusen, "
+                               "rupture de format") from exc
+        secours_export_sens_vide(conn, motif)
+        return SECOURS
 
     preserves_senateurs = preserves_elus = 0
     refus_senateurs = refus_elus = 0
@@ -1952,9 +2005,11 @@ def main() -> int:
         ("Datan (scores députés)", ingerer_datan),
     ]
     echecs: list[tuple[str, str]] = []
+    secourues: list[str] = []
     for nom_etape, fonction in etapes:
         try:
-            fonction(conn, session)
+            if fonction(conn, session) == SECOURS:
+                secourues.append(nom_etape)
         except Exception as e:  # une source en panne n'arrête pas les autres
             log.error("ÉCHEC %s : %s", nom_etape, e)
             echecs.append((nom_etape, str(e)))
@@ -1966,8 +2021,15 @@ def main() -> int:
                   " | ".join(f"{n} → {m}" for n, m in echecs))
         conn.close()
         return 1
-    log.info("bilan P9 : %d/%d sources ingérées sans échec (%.0f s)",
-             len(etapes), len(etapes), duree)
+    if secourues:
+        # Pas « sans échec » : une source n'a PAS été ingérée ce cycle.
+        log.warning("bilan P9 : %d/%d sources ingérées, %d reprise(s) du"
+                    " dernier cycle réussi (%s) (%.0f s)",
+                    len(etapes) - len(secourues), len(etapes), len(secourues),
+                    ", ".join(secourues), duree)
+    else:
+        log.info("bilan P9 : %d/%d sources ingérées sans échec (%.0f s)",
+                 len(etapes), len(etapes), duree)
     conn.close()
     return 0
 
