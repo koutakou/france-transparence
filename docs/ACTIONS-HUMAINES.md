@@ -17,6 +17,28 @@
 2. **Ne monter DuckDB en 2.x que si cet interpréteur est en 3.11 ou plus.** DuckDB 2.0 n'a aucune roue pour Python 3.10. La CI joue Python 3.14 : une proposition Dependabot `duckdb==2.0.0` y passerait au vert, puis échouerait à l'installation sur un serveur en 3.10. `.github/dependabot.yml` ignore donc `duckdb>=2.0.0` : lever cet `ignore` une fois l'interpréteur relevé en 3.11 ou plus. Le code et les tests passent sous 1.5.6 et sous 2.0.0.
 3. **L'arrêt des publications depuis le 08/11 n'est très probablement pas dû à DuckDB 2.** `requirements.txt` n'avait pas changé depuis le commit initial du 20/08 (4b95cbc) : `make` ne réinstallait donc rien. Et le serveur a publié du 22/10 au 08/11, alors que DuckDB 2.0 faisait échouer la suite de tests dès qu'il était installé. Sa cause reste à lire dans `/var/log/france-transparence/deploiement.log` et `journalctl -u ft-deploy`.
 
+## 11/11/2026 — Journal officiel : l'état de la base du serveur après le renouvellement du dépôt DILA
+
+Le 08/11/2026 la DILA a renouvelé son dépôt JORFSIMPLE et en a retiré toutes les livraisons antérieures. Jusqu'au correctif du 11/11, `ingest_jorf.py` sortait en erreur devant un index sans livraison nocturne (état du 09/11 au matin), puis, dès qu'une nocturne reparaissait, archivait tout JO antérieur à la plus ancienne livraison encore listée. `jorf` passe avant la plupart des pipelines dans `make ingest`. Ce que le dépôt ne sait pas : si `ft-deploy` ingère dans la base persistante ou dans une base neuve (le schéma du RUNBOOK dit « base SQLite neuve », d'autres passages décrivent une base servie qui persiste), et ce que devient la base quand un cycle échoue après `jorf`. Trois états sont donc possibles, à départager par lecture, **sans rien écrire** :
+
+1. **Lire le journal** des cycles du 09 au 11/11 :
+   ```sh
+   grep -n '\[jorf\]' /var/log/france-transparence/deploiement.log | tail -60
+   ```
+   « aucune livraison nocturne trouvée dans l'index » = cycle mort à `ingest-jorf` (ancien code). « textes plus anciens archivés puis purgés » avec un nombre de l'ordre de 2 600 = l'ancien code a vidé la fenêtre.
+2. **Lire la base** que `ft-deploy` ingère (chemin à relever dans le script ; par défaut `data/france.db` de l'arbre `app`) :
+   ```sh
+   sqlite3 "file:/srv/france-transparence/app/data/france.db?mode=ro" \
+     "SELECT 'table', count(DISTINCT date_publi), count(*), min(date_publi), max(date_publi) FROM jorf_textes
+      UNION ALL
+      SELECT 'archive', count(DISTINCT date_publi), count(*), min(date_publi), max(date_publi) FROM jorf_textes_archive WHERE archive_le >= '2026-11-09';"
+   ```
+   - une trentaine de JO en table, rien d'archivé depuis le 09/11 : la base est intacte, il n'y a rien à faire ;
+   - un ou deux JO en table et de l'ordre de 2 600 textes archivés depuis le 09/11 : l'ancien code a tourné. **Ne rien restaurer à la main** : le premier cycle joué avec le correctif réintègre depuis `jorf_textes_archive` les JO qui comptent parmi les 30 derniers JO connus, et l'écrit au journal (« N texte(s) de M JO réintégré(s) depuis jorf_textes_archive ») ;
+   - un ou deux JO en table et aucune archive : la base est repartie de zéro. Les JO antérieurs au 10/11 ne peuvent plus être relus dans le dépôt de la DILA ; `/documents` affiche alors « Fenêtre réduite : N JO sur les 30 visés… » et la fenêtre gagne un JO par parution. Si une sauvegarde de la base d'avant le 09/11 existe (`ft-sauvegarde`, deux générations compressées), c'est la seule source de ces JO : la décision de la restaurer revient à Mickael.
+3. **Après le premier cycle réussi**, relire `/documents` : la phrase d'en-tête dit le nombre de JO et leurs bornes. Une ligne « aucun JO entre le … et le … » signale des jours pendant lesquels l'ingestion était arrêtée et que le dépôt ne propose plus : ces JO ne reviendront pas d'eux-mêmes.
+4. **Corriger le RUNBOOK** une fois le point 2 lu : dire si l'ingestion du serveur repart d'une base neuve ou reprend la base persistante. La réponse change ce que valent les secours « cycle précédent » de `jorf`, `dole` et `referentiels`.
+
 ## 15/10/2026 — À faire sur le serveur et sur GitHub
 
 L'audit du 15/10/2026 et les quinze propositions fusionnées le même jour (JOURNAL.md, décisions 35-46) laissent des gestes qu'aucune fusion ne fait : les scripts `ft-*`, nginx, la zone DNS et les réglages GitHub vivent hors du dépôt. Les correctifs fusionnés le 15/10 n'arrivent en ligne qu'au cycle `ft-deploy` du 16/10 : sauf mention contraire, chaque geste serveur ci-dessous se fait **après** ce cycle.
