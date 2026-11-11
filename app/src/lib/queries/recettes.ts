@@ -23,8 +23,22 @@
  * Chaque fonction renvoie `null` tant que la base n'est pas construite
  * (`getDb()` null) — la page affiche alors son message honnête. Une valeur
  * absente reste `null`, jamais 0.
+ *
+ * Une cellule de total que le pipeline a trouvée hors de son identité
+ * comptable (`budget_mensuel_ruptures`, voir `./budget-ruptures`) reste
+ * lue telle que publiée, mais aucune variation n'est calculée à travers
+ * elle et elle n'est ni tracée ni tabulée avec les autres mois.
  */
 import { getDb, type MetaSource } from "@/lib/db";
+import {
+  comparaisonRompue,
+  getRupturesBudget,
+  omettreRuptures,
+  ruptureAu,
+  type ComparaisonRompue,
+  type RupturePerimetre,
+  type ValeurOmise,
+} from "@/lib/queries/budget-ruptures";
 
 /* Lignes de recettes de budget_mensuel (identifiants stables du pipeline). */
 const LIGNE_TOTAL_NETTES =
@@ -71,6 +85,10 @@ export interface KpisRecettes {
   /** Cumul des fonds de concours et attributions de produits (€). */
   fondsConcours: number | null;
   fondsConcoursN1: number | null;
+  /** Rupture de périmètre qui interdit de comparer le total à N−1, sinon null. */
+  ruptureTotal: ComparaisonRompue | null;
+  /** Idem pour le total des recettes fiscales nettes (identité : cinq impôts). */
+  ruptureFiscales: ComparaisonRompue | null;
 }
 
 interface LigneMensuelleRow {
@@ -109,6 +127,7 @@ export function getKpisRecettes(): KpisRecettes | null {
   const fiscales = lignes.find((l) => l.ligne_id === LIGNE_FISCALES);
   const nonFiscales = lignes.find((l) => l.ligne_id === LIGNE_NON_FISCALES);
   const fonds = lignes.find((l) => l.ligne_id === LIGNE_FONDS_CONCOURS);
+  const ruptures = getRupturesBudget();
   return {
     dateFinMois: total.date_fin_mois,
     annee: total.annee,
@@ -121,6 +140,8 @@ export function getKpisRecettes(): KpisRecettes | null {
     nonFiscalesN1: nonFiscales?.montant_cumul_n1 ?? null,
     fondsConcours: fonds?.montant_cumul ?? null,
     fondsConcoursN1: fonds?.montant_cumul_n1 ?? null,
+    ruptureTotal: comparaisonRompue(ruptures, LIGNE_TOTAL_NETTES, total.annee, total.mois),
+    ruptureFiscales: comparaisonRompue(ruptures, LIGNE_FISCALES, total.annee, total.mois),
   };
 }
 
@@ -130,14 +151,21 @@ export interface SerieAnnuelleRecettes {
   valeurs: (number | null)[];
 }
 
+export interface SerieRecettesNettes {
+  annees: SerieAnnuelleRecettes[];
+  /** Cellules retirées de la série pour rupture de périmètre (nommées sous le graphique). */
+  omises: ValeurOmise[];
+}
+
 /**
  * Série mensuelle des recettes nettes CUMULÉES du budget général, pour les
  * `nbAnnees` dernières années (la plus récente d'abord — série 1 de la
  * page). Testé : juin 2026 = 184,55 Md€, juin 2025 = 177,90 Md€ ; 2026
  * s'arrête au mois 6, les positions suivantes restent `null` (trou de
- * donnée, jamais un zéro).
+ * donnée, jamais un zéro). Une cellule en rupture de périmètre devient
+ * `null` et passe dans `omises`.
  */
-export function getSerieRecettesNettes(nbAnnees = 3): SerieAnnuelleRecettes[] | null {
+export function getSerieRecettesNettes(nbAnnees = 3): SerieRecettesNettes | null {
   const db = getDb();
   if (!db) return null;
   const lignes = db
@@ -160,9 +188,11 @@ export function getSerieRecettesNettes(nbAnnees = 3): SerieAnnuelleRecettes[] | 
     const valeurs = parAnnee.get(l.annee);
     if (valeurs && l.mois >= 1 && l.mois <= 12) valeurs[l.mois - 1] = l.montant_cumul;
   }
-  return [...parAnnee.entries()]
+  const annees = [...parAnnee.entries()]
     .sort((a, b) => b[0] - a[0])
     .map(([annee, valeurs]) => ({ annee, valeurs }));
+  const { series, omises } = omettreRuptures(annees, getRupturesBudget(), LIGNE_TOTAL_NETTES);
+  return { annees: series, omises };
 }
 
 export interface AnneeRecettes {
@@ -182,7 +212,11 @@ export interface SeriesLonguesRecettes {
     /** Dernier mois publié de l'année en cours (ISO). */
     dateFinMois: string;
     totalNettes: number | null;
+    /** Rupture de périmètre de ce cumul, s'il en porte une. */
+    rupture: RupturePerimetre | null;
   } | null;
+  /** Décembres retirés des années pleines pour rupture de périmètre. */
+  omises: ValeurOmise[];
 }
 
 /**
@@ -209,12 +243,17 @@ export function getSeriesLonguesRecettes(): SeriesLonguesRecettes | null {
     montant_cumul: number;
   }[];
   if (decembre.length === 0) return null;
+  const ruptures = getRupturesBudget();
+  const omises: ValeurOmise[] = [];
   const parAnnee = new Map<number, AnneeRecettes>();
   for (const l of decembre) {
     const a =
       parAnnee.get(l.annee) ??
       ({ annee: l.annee, totalNettes: null, fiscalesNettes: null } as AnneeRecettes);
-    if (l.ligne_id === LIGNE_TOTAL_NETTES) a.totalNettes = l.montant_cumul;
+    // Un décembre en rupture ne se trace pas avec les autres années pleines.
+    const rupture = ruptureAu(ruptures, l.ligne_id, l.annee, 12);
+    if (rupture) omises.push({ annee: l.annee, mois: 12, rupture });
+    else if (l.ligne_id === LIGNE_TOTAL_NETTES) a.totalNettes = l.montant_cumul;
     else a.fiscalesNettes = l.montant_cumul;
     parAnnee.set(l.annee, a);
   }
@@ -236,9 +275,10 @@ export function getSeriesLonguesRecettes(): SeriesLonguesRecettes | null {
           annee: dernier.annee,
           dateFinMois: dernier.date_fin_mois,
           totalNettes: dernier.montant_cumul,
+          rupture: ruptureAu(ruptures, LIGNE_TOTAL_NETTES, dernier.annee, dernier.mois),
         }
       : null;
-  return { annees, enCours };
+  return { annees, enCours, omises };
 }
 
 export interface GrandImpot {

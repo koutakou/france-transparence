@@ -54,6 +54,10 @@
 # Le même jour, decp_top_acheteurs et decp_top_titulaires gagnent
 # montant_hors_suspects (qui fixe désormais le rang), nb_marches_suspects et
 # montant_suspects ; tables recréées par le filet de schéma de P3.
+# et le 11/11/2026 : table budget_mensuel_ruptures (S13, P1) — CREATE recopié
+# du pipeline (avec IF NOT EXISTS : table neuve, pas une migration). Une ligne
+# par cellule de total hors de son identité comptable ; la valeur amont reste
+# dans budget_mensuel, telle que publiée.
 
 > **Extrait daté.** Ce document décrit **83 tables**, **6 vues** et **58 index**, et cette
 > couverture est sa propriété essentielle : une table de la base absente d'ici est un trou de
@@ -272,6 +276,17 @@ CREATE TABLE budget_mensuel (
 );
 CREATE INDEX idx_budget_mensuel_annee_mois
     ON budget_mensuel(annee, mois);
+CREATE TABLE budget_mensuel_ruptures (
+    ligne_id             TEXT    NOT NULL,
+    date_fin_mois        TEXT    NOT NULL,
+    annee                INTEGER NOT NULL,
+    mois                 INTEGER NOT NULL CHECK (mois BETWEEN 1 AND 12),
+    montant_publie       REAL    NOT NULL,
+    somme_composantes    REAL    NOT NULL,
+    identite             TEXT    NOT NULL,
+    definition_constatee TEXT,
+    PRIMARY KEY (ligne_id, date_fin_mois)
+);
 CREATE TABLE budget_vert (
     type_depense       TEXT NOT NULL,
     mission            TEXT NOT NULL,
@@ -1775,6 +1790,7 @@ CREATE INDEX idx_sirene_etat
 - ao_en_cours : 9011 lignes
 - budget_destination_2025 : 2404 lignes
 - budget_mensuel : 4212 lignes
+- budget_mensuel_ruptures : une ligne par cellule de total en rupture de périmètre, 0 si aucune (1 le 11/11/2026 : recettes nettes du 30/09/2026)
 - budget_vert : 1816 lignes
 - campagnes_2024 : 4010 lignes
 - collectivites_communes_series : 3200 lignes

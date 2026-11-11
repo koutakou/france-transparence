@@ -21,8 +21,19 @@
  *
  * Chaque fonction renvoie `null` tant que la base n'est pas construite
  * (`getDb()` null) — la page affiche alors son message honnête.
+ *
+ * Ruptures de périmètre S13 (`./budget-ruptures`) : une cellule de total
+ * hors de son identité comptable reste lue telle que publiée, sans
+ * variation calculée à travers elle, et hors de la courbe des cumuls.
  */
 import { getDb, type MetaSource } from "@/lib/db";
+import {
+  comparaisonRompue,
+  getRupturesBudget,
+  omettreRuptures,
+  type ComparaisonRompue,
+  type ValeurOmise,
+} from "@/lib/queries/budget-ruptures";
 
 /* Lignes de synthèse de budget_mensuel (identifiants stables du pipeline). */
 const LIGNE_DEPENSES_NETTES =
@@ -66,12 +77,16 @@ export interface KpisBudgetMensuel {
   /** Solde budgétaire cumulé (négatif = déficit). */
   solde: number | null;
   soldeN1: number | null;
+  /** Ruptures de périmètre qui interdisent la comparaison à N−1, sinon null. */
+  ruptureDepenses: ComparaisonRompue | null;
+  ruptureRecettes: ComparaisonRompue | null;
 }
 
 interface LigneMensuelleRow {
   ligne_id: string;
   date_fin_mois: string;
   annee: number;
+  mois: number;
   montant_cumul: number;
   montant_cumul_n1: number | null;
 }
@@ -87,7 +102,7 @@ export function getKpisBudgetMensuel(): KpisBudgetMensuel | null {
   if (!db) return null;
   const lignes = db
     .prepare(
-      `SELECT ligne_id, date_fin_mois, annee, montant_cumul, montant_cumul_n1
+      `SELECT ligne_id, date_fin_mois, annee, mois, montant_cumul, montant_cumul_n1
          FROM budget_mensuel
         WHERE date_fin_mois = (SELECT MAX(date_fin_mois) FROM budget_mensuel)
           AND ligne_id IN (?, ?, ?)`,
@@ -97,6 +112,8 @@ export function getKpisBudgetMensuel(): KpisBudgetMensuel | null {
   if (!depenses) return null;
   const recettes = lignes.find((l) => l.ligne_id === LIGNE_RECETTES_NETTES);
   const solde = lignes.find((l) => l.ligne_id === LIGNE_SOLDE);
+  const ruptures = getRupturesBudget();
+  const { annee, mois } = depenses;
   return {
     dateFinMois: depenses.date_fin_mois,
     annee: depenses.annee,
@@ -106,6 +123,8 @@ export function getKpisBudgetMensuel(): KpisBudgetMensuel | null {
     recettesNettesN1: recettes?.montant_cumul_n1 ?? null,
     solde: solde?.montant_cumul ?? null,
     soldeN1: solde?.montant_cumul_n1 ?? null,
+    ruptureDepenses: comparaisonRompue(ruptures, LIGNE_DEPENSES_NETTES, annee, mois),
+    ruptureRecettes: comparaisonRompue(ruptures, LIGNE_RECETTES_NETTES, annee, mois),
   };
 }
 
@@ -115,13 +134,20 @@ export interface SerieAnnuelleDepenses {
   valeurs: (number | null)[];
 }
 
+export interface SerieDepensesNettes {
+  annees: SerieAnnuelleDepenses[];
+  /** Cellules retirées de la série pour rupture de périmètre (nommées sous le graphique). */
+  omises: ValeurOmise[];
+}
+
 /**
  * Série mensuelle des dépenses nettes CUMULÉES du budget général, pour les
  * `nbAnnees` dernières années (la plus récente d'abord — c'est elle que la
  * page trace en série 1). Testé : juin 2026 = 240,54 Md€, juin 2025 =
- * 228,12 Md€, juin 2024 = 230,57 Md€ ; 2026 s'arrête au mois 6.
+ * 228,12 Md€, juin 2024 = 230,57 Md€ ; 2026 s'arrête au mois 6. Une
+ * cellule en rupture de périmètre devient `null` et passe dans `omises`.
  */
-export function getSerieDepensesNettes(nbAnnees = 3): SerieAnnuelleDepenses[] | null {
+export function getSerieDepensesNettes(nbAnnees = 3): SerieDepensesNettes | null {
   const db = getDb();
   if (!db) return null;
   const lignes = db
@@ -144,9 +170,11 @@ export function getSerieDepensesNettes(nbAnnees = 3): SerieAnnuelleDepenses[] | 
     const valeurs = parAnnee.get(l.annee);
     if (valeurs && l.mois >= 1 && l.mois <= 12) valeurs[l.mois - 1] = l.montant_cumul;
   }
-  return [...parAnnee.entries()]
+  const annees = [...parAnnee.entries()]
     .sort((a, b) => b[0] - a[0])
     .map(([annee, valeurs]) => ({ annee, valeurs }));
+  const { series, omises } = omettreRuptures(annees, getRupturesBudget(), LIGNE_DEPENSES_NETTES);
+  return { annees: series, omises };
 }
 
 export interface TitreDepense {

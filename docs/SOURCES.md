@@ -256,6 +256,7 @@ Contexte 2026 à garder en tête : LFI 2026 promulguée tardivement le 19/02/202
 - **Format/granularité** : **26 lignes** (solde, dépenses par grands titres — personnel, fonctionnement, intervention, dette… — recettes, comptes spéciaux) × une colonne par mois ; **pas de détail mission/programme** (01).
 - **Période/fraîcheur** : 2013 → **30/06/2026** constaté le 19/08 (dataset modifié le 07/08/2026) → **mensuel, ~5-7 semaines de décalage** ; mois infra-annuels provisoires (01).
 - **Licence** : LO v2.0. **Pièges** : noms de colonnes commençant par un chiffre → backticks en ODSQL ; anomalie `24_04_2024` (ne pas parser les dates de colonnes naïvement) ; ~10 décimales flottantes ; ne pas utiliser le jumeau vide `series-longues-smb_dgfip-vdef` (01).
+- **Rupture de périmètre d'une cellule** (constatée le 11/11/2026, jeu modifié en amont le 04/11/2026) : sur les 165 mois 01/2013 → 09/2026, « Total recettes nettes du budget général » = fiscales + non fiscales, SAUF au 30/09/2026 où la cellule vaut fiscales + non fiscales − prélèvements sur recettes + fonds de concours. P1 contrôle à chaque cycle quatre identités total/composantes, journalise le compte (zéro compris) et écrit les écarts dans `budget_mensuel_ruptures` ; la valeur amont n'est pas rectifiée, aucune variation n'est calculée à travers elle.
 - **Modules** : Dépenses de l'État (compteur mensuel, N vs N-1), Accueil.
 
 #### S14. HATVP — liste des déclarations publiées (`liste.csv`) ★ pièce maîtresse des alertes

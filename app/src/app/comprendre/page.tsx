@@ -847,6 +847,21 @@ export default function PageComprendre() {
               d’année civile, déjà compris dans S1311&nbsp;: on ne
               l’additionne ni à l’État (S13111) ni au S13.
             </li>
+            <li>
+              <strong className="font-medium text-ink">
+                11 novembre 2026 — Total des recettes nettes de l’État.
+              </strong>{" "}
+              À chaque ingestion, le site vérifie que quatre totaux de la
+              situation mensuelle DGFiP (recettes nettes, recettes
+              fiscales, dépenses nettes, prélèvements sur recettes)
+              égalent la somme de leurs composantes.
+              Dans la publication lue le 11 novembre 2026, la ligne du
+              30 septembre 2026 est la seule de la série à ne pas le
+              faire&nbsp;: elle déduit les prélèvements sur recettes et
+              inclut les fonds de concours. Elle est servie telle que
+              publiée, mais aucune variation n’est calculée à travers
+              elle et elle n’est pas tracée avec les autres mois.
+            </li>
           </ul>
         </div>
       </Card>

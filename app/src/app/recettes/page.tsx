@@ -10,6 +10,7 @@ import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { DeltaPct } from "@/components/ui/DeltaPct";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { KpiTile } from "@/components/ui/KpiTile";
+import { NoteRupturesPerimetre } from "@/components/ui/NoteRupturesPerimetre";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { VueTableau } from "@/components/ui/VueTableau";
 import { ESPACE_FINE, formatDateFr, formatNombre } from "@/lib/format";
@@ -17,6 +18,7 @@ import {
   getAgregatApu,
   perimetreAgregat,
 } from "@/lib/queries/agregats-apu";
+import { bornePerimetreRompu } from "@/lib/queries/budget-ruptures";
 import {
   getKpisRecettes,
   getRecettesFiscalesDetail,
@@ -149,19 +151,28 @@ export default async function PageRecettes() {
   );
 
   const vsN1 = `même période ${kpis.annee - 1}`;
-  const deltaTotal = variationPct(kpis.totalNettes, kpis.totalNettesN1);
-  const deltaFiscales = variationPct(kpis.fiscalesNettes, kpis.fiscalesNettesN1);
+  // Une cellule de total hors de son identité comptable (rupture de
+  // périmètre amont, constatée par le pipeline) ne se compare pas à N−1 :
+  // le chiffre reste servi tel que publié, la variation ne l'est pas, et la
+  // borne le dit au contact du chiffre.
+  const PERIMETRE_BG = "budget général, cumul depuis le 1er janvier";
+  const deltaTotal = kpis.ruptureTotal
+    ? null
+    : variationPct(kpis.totalNettes, kpis.totalNettesN1);
+  const deltaFiscales = kpis.ruptureFiscales
+    ? null
+    : variationPct(kpis.fiscalesNettes, kpis.fiscalesNettesN1);
   const deltaNonFiscales = variationPct(kpis.nonFiscales, kpis.nonFiscalesN1);
   const deltaFonds = variationPct(kpis.fondsConcours, kpis.fondsConcoursN1);
 
   // ---- LineChart : cumuls mensuels (Md€) + lignes de la vue tableau jumelle
-  const seriesCumul = (serie ?? []).map((s) => ({
+  const seriesCumul = (serie?.annees ?? []).map((s) => ({
     nom: String(s.annee),
     valeurs: s.valeurs.map((v) => (v === null ? null : v / 1e9)),
   }));
   const colonnesMois: Colonne<Record<string, string | number | null>>[] = [
     { cle: "mois", entete: "Mois" },
-    ...(serie ?? []).map((s) => ({
+    ...(serie?.annees ?? []).map((s) => ({
       cle: `a${s.annee}`,
       entete: `Cumul ${s.annee} (Md€)`,
       type: "montant" as const,
@@ -170,7 +181,7 @@ export default async function PageRecettes() {
   ];
   const lignesMois: Record<string, string | number | null>[] = MOIS_LONGS.map((mois, i) => {
     const ligne: Record<string, string | number | null> = { mois };
-    for (const s of serie ?? []) {
+    for (const s of serie?.annees ?? []) {
       const v = s.valeurs[i];
       ligne[`a${s.annee}`] = v === null ? null : v / 1e9;
     }
@@ -208,7 +219,9 @@ export default async function PageRecettes() {
             label: `Recettes nettes cumulées au ${formatDateFr(kpis.dateFinMois)}`,
             valeur: <MontantMd valeur={kpis.totalNettes} />,
             montantVedette: true,
-            perimetre: "budget général, cumul depuis le 1er janvier",
+            perimetre: kpis.ruptureTotal
+              ? `${PERIMETRE_BG} — ${bornePerimetreRompu(kpis.ruptureTotal)}`
+              : PERIMETRE_BG,
             delta: deltaTotal === null ? undefined : { valeur: deltaTotal, vs: vsN1 },
           },
           ...(kpis.fiscalesNettes === null
@@ -217,7 +230,9 @@ export default async function PageRecettes() {
                 {
                   label: "Recettes fiscales nettes",
                   valeur: <MontantMd valeur={kpis.fiscalesNettes} />,
-                  perimetre: "budget général, cumul depuis le 1er janvier",
+                  perimetre: kpis.ruptureFiscales
+                    ? `${PERIMETRE_BG} — ${bornePerimetreRompu(kpis.ruptureFiscales)}`
+                    : PERIMETRE_BG,
                   delta: deltaFiscales === null ? undefined : { valeur: deltaFiscales, vs: vsN1 },
                 },
               ]),
@@ -245,22 +260,22 @@ export default async function PageRecettes() {
                 {
                   label: "Fonds de concours et attributions de produits",
                   valeur: <MontantMd valeur={kpis.fondsConcours} />,
-                  perimetre: "budget général, cumul depuis le 1er janvier",
+                  perimetre: PERIMETRE_BG,
                   delta: deltaFonds === null ? undefined : { valeur: deltaFonds, vs: vsN1 },
                 },
               ]),
         ]}
       />
       <p className="text-xs leading-relaxed text-ink-muted">
-        Les fonds de concours et attributions de produits sont une ligne
-        propre, hors du total des recettes nettes — on ne les y additionne
-        pas.
+        {kpis.ruptureTotal?.cote === "mois"
+          ? `Les fonds de concours et attributions de produits sont une ligne propre : les autres mois, le total des recettes nettes publié par la DGFiP ne les contient pas ; celui du ${formatDateFr(kpis.dateFinMois)} a un autre périmètre (ci-dessus). On ne les y additionne pas.`
+          : "Les fonds de concours et attributions de produits sont une ligne propre, hors du total des recettes nettes — on ne les y additionne pas."}
       </p>
 
       {/* Cumuls mensuels et décomposition par impôt, côte à côte dès xl */}
-      {(serie && serie.length > 0) || detail ? (
+      {(serie && serie.annees.length > 0) || detail ? (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
-          {serie && serie.length > 0 && (
+          {serie && serie.annees.length > 0 && (
             <Card
               titre="Recettes nettes cumulées par mois"
               sousTitre="Budget général, nettes des remboursements et dégrèvements — cumul depuis le 1er janvier, en Md€"
@@ -270,7 +285,7 @@ export default async function PageRecettes() {
                 labels={MOIS_COURTS}
                 series={seriesCumul}
                 format={formatMd(1)}
-                ariaLabel={`Recettes nettes cumulées du budget général par mois, ${(serie ?? [])
+                ariaLabel={`Recettes nettes cumulées du budget général par mois, ${serie.annees
                   .map((s) => s.annee)
                   .join(" contre ")}`}
               />
@@ -281,6 +296,7 @@ export default async function PageRecettes() {
                   cleChamp="mois"
                 />
               </VueTableau>
+              <NoteRupturesPerimetre omises={serie.omises} />
             </Card>
           )}
           {detail && (
@@ -613,9 +629,14 @@ export default async function PageRecettes() {
               {longues.enCours.annee} est en cours et n&apos;est pas tracée
               avec les années pleines&nbsp;: cumul provisoire de{" "}
               {enMd(longues.enCours.totalNettes)} au{" "}
-              {formatDateFr(longues.enCours.dateFinMois)}.
+              {formatDateFr(longues.enCours.dateFinMois)}
+              {longues.enCours.rupture
+                ? ", ligne DGFiP d'un autre périmètre que les autres mois (voir le total en tête de page)"
+                : ""}
+              .
             </p>
           )}
+          <NoteRupturesPerimetre omises={longues.omises} />
         </Card>
       )}
 

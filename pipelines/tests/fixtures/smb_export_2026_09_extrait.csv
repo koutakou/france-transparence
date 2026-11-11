@@ -1,0 +1,27 @@
+﻿niveau_hierarchique;niveau_hierarchique_de_la_ligne;categorie;sous_categorie;ligne_d_information;31_08_2025;30_09_2025;31_08_2026;30_09_2026
+0;Nul;Solde budgétaire;Solde budgétaire;Solde budgétaire;-157450205559.26;-155401414250.65;-159603646599.08;-159172975739.57
+1;Sous-total de niveau 1;Dépenses;Budget général;Total dépenses nettes du budget général;300384423969.62;332703582608.74;313364933689.3;348194326537.91
+2;Sous-total de niveau 2;Dépenses;Budget général;Dotation des pouvoirs publics;1137842143.0;1137844318.0;1140106427.0;1140106427.0
+2;Sous-total de niveau 2;Dépenses;Budget général;Dépenses de personnel;104739393123.57;117176469744.06;107491427741.36;120220705530.87
+2;Sous-total de niveau 2;Dépenses;Budget général;Dépenses de fonctionnement;48651410826.72;52671844010.32;50244810218.59;54960944895.52
+2;Sous-total de niveau 2;Dépenses;Budget général;Charges de la dette de l’Etat;35795669526.33;38417297486.45;44280530365.63;47490892963.03
+2;Sous-total de niveau 2;Dépenses;Budget général;Dépenses d’investissement;14670226213.57;15734907586.62;16649867512.21;18067565373.21
+2;Sous-total de niveau 2;Dépenses;Budget général;Dépenses d’intervention;94202945952.55;106261874324.38;93160467432.42;105913911390.49
+2;Sous-total de niveau 2;Dépenses;Budget général;Dépenses d’opérations financières;1186936183.88;1303345138.91;397723992.09;400199957.79
+1;Sous-total de niveau 1;Dépenses;Prélèvements sur recettes;Total prélèvements sur recettes;47282418107.23;52609777826.78;49607697856.27;55861578305.91
+2;Sous-total de niveau 2;Dépenses;Prélèvements sur recettes;PSR au profit des collectivités territoriales;32360166348.95;35723853311.84;31343722607.57;35221814828.13
+2;Sous-total de niveau 2;Dépenses;Prélèvements sur recettes;PSR au profit de l'Union européenne;14922251758.28;16885924514.94;18263975248.7;20639763477.78
+1;Sous-total de niveau 1;Recettes;Budget général;Total recettes nettes du budget général;216255453347.39;258486937909.18;224863110362.91;219136720375.64
+2;Sous-total de niveau 2;Recettes;Budget général;Total recettes fiscales;199601150173.8;240992137546.29;205973605966.58;250469070389.07
+3;Sous-total de niveau 3;Recettes;Budget général;Impôt sur le revenu;46890759477.18;53137278216.8;48827672589.7;55878489106.84
+3;Sous-total de niveau 3;Recettes;Budget général;Impôt sur les sociétés;27739532627.74;42413515890.72;28416152890.26;42281461135.13
+3;Sous-total de niveau 3;Recettes;Budget général;Taxe intérieure de consommation sur les produits énergétiques;10620172357.49;12338744084.68;10099670454.87;11543421179.63
+3;Sous-total de niveau 3;Recettes;Budget général;Taxe sur la valeur ajoutée;67424265480.4;74818159108.77;71135573473.97;78548498138.32
+3;Sous-total de niveau 3;Recettes;Budget général;Autres recettes fiscales;46926420230.99;58284440245.3201;47494536557.78;62217200829.15
+2;Sous-total de niveau 2;Recettes;Budget général;Total recettes non fiscales;16654303173.59;17494800362.89;18889504396.33;19528914988.11
+1;Sous-total de niveau 1;Soldes;Comptes spéciaux;Solde des comptes spéciaux;-31516250642.87;-34339714774.2;-25184255084.69;-30115369577.3
+4;Sous-total de niveau 4;Soldes;Comptes spéciaux;CCF Avances aux collectivités territoriales;-27477307846.07;-29914300700.58;-28414020525.19;-33008863531.7
+1;Sous-total de niveau 1;Soldes;Budgets annexes;Solde des Budgets annexes;0.0;0.0;0.0;0.0
+4;Sous-total de niveau 4;Dépenses;Remboursements et dégrèvements;Remboursements et dégrèvements d'impôts d'Etat;101986074738.22;110222749170.15;103872020837.23;112871514423.37
+4;Sous-total de niveau 4;Dépenses;Remboursements et dégrèvements;Remboursements et dégrèvements d'impôts locaux;2925629118.02;3321361545.72;2692674803.51;3282603302.79
+1;Sous-total de niveau 1;Recettes;Budget général;Fonds de concours et attribution de produits;5477433813.07;5764723049.89;3690129668.27;5000313304.37
