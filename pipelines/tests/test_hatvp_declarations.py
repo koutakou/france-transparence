@@ -1643,3 +1643,74 @@ def test_reseau_meme_generation_que_liste_csv():
         session, "https://www.hatvp.fr/livraison/opendata/liste.csv")
     assert xml and csv
     assert abs((_date.fromisoformat(xml) - _date.fromisoformat(csv)).days) <= 1
+
+
+# ---------------------------------------------------------------------------
+# Date de donnée sans Last-Modified : jamais la date du jour (audit du 11/11/2026)
+# ---------------------------------------------------------------------------
+
+
+def test_sans_last_modified_borne_basse_la_plus_haute_jamais_le_jour():
+    """La plus haute des bornes basses connues, `None` sans aucune."""
+    assert p15.date_donnees_sans_last_modified("2026-10-27", "2024-12-18") == "2026-10-27"
+    assert p15.date_donnees_sans_last_modified(None, "2024-12-18") == "2024-12-18"
+    assert p15.date_donnees_sans_last_modified("2026-10-27", None) == "2026-10-27"
+    assert p15.date_donnees_sans_last_modified(None, None) is None
+
+
+def _executer_sans_last_modified(monkeypatch, chemin):
+    monkeypatch.setattr(p15, "session_http", lambda *a, **k: None)
+    monkeypatch.setattr(p15, "telecharger", lambda *a, **k: EXTRAIT_REEL)
+    monkeypatch.setattr(p15, "date_derniere_modification", lambda *a, **k: None)
+    vrai_parcourir = p15.parcourir
+
+    def parse_simule(chemin_xml, index_elus, index_souple=None):
+        donnees = vrai_parcourir(EXTRAIT_REEL, {ELU_UN: "PA1", ELU_DEUX: "PA2"})
+        donnees["stats"]["declarations_lues"] = 6_608
+        donnees["stats"]["rattachees"] = 2_332
+        donnees["stats"]["rattachees_par_repli"] = 71
+        return donnees
+
+    monkeypatch.setattr(p15, "parcourir", parse_simule)
+    return p15.executer(chemin_db=chemin, max_age_heures=None)
+
+
+def _date_s15(chemin):
+    conn = db.init_db(chemin=chemin)
+    try:
+        return conn.execute("SELECT date_donnees FROM meta_sources"
+                            " WHERE source_id = 'S15'").fetchone()[0]
+    finally:
+        conn.close()
+
+
+def test_sans_last_modified_garde_la_date_du_cycle_precedent(tmp_path, monkeypatch):
+    """MUTATION TUÉE : rétablir `date.today()` en repli.
+
+    Le cycle précédent avait daté S15 du 27/10/2026 (Last-Modified réel du
+    fichier HATVP relevé le 11/11/2026). Si l'en-tête disparaît, la source ne
+    doit pas rajeunir au jour de l'ingestion : elle garde le 27/10."""
+    chemin = tmp_path / "p15_sans_lm.db"
+    monkeypatch.setenv("FT_DB_PATH", str(chemin))
+    conn = db.init_db(chemin=chemin)
+    _base_de_gardefou(conn, {})
+    db.upsert_meta(conn, source_id="S15", nom=p15.NOM_SOURCE, url=p15.URL_DECLARATIONS,
+                   licence=p15.LICENCE, frequence=p15.FREQUENCE,
+                   date_donnees="2026-10-27", lignes=1)
+    conn.close()
+    stats = _executer_sans_last_modified(monkeypatch, chemin)
+    assert stats["date_donnees"] == "2026-10-27"
+    assert _date_s15(chemin) == "2026-10-27"
+
+
+def test_sans_last_modified_ni_cycle_precedent_le_depot_le_plus_recent(tmp_path, monkeypatch):
+    """Base neuve : le dépôt le plus récent de l'extrait réel (18/12/2024,
+    les deux déclarations rattachées sont du 24/07 et du 18/12/2024)."""
+    chemin = tmp_path / "p15_neuve_sans_lm.db"
+    monkeypatch.setenv("FT_DB_PATH", str(chemin))
+    conn = db.init_db(chemin=chemin)
+    _base_de_gardefou(conn, {})
+    conn.close()
+    stats = _executer_sans_last_modified(monkeypatch, chemin)
+    assert stats["date_donnees"] == "2024-12-18"
+    assert _date_s15(chemin) == "2024-12-18"
