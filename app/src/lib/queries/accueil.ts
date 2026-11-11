@@ -102,6 +102,10 @@ export type KpisAccueil = {
   marches30j: number;
   aoEnCours: number;
   textesJo30j: number;
+  /** Premier JO en base (ISO) quand la fenêtre JORF en base ne remonte PAS
+   *  à 30 jours — base neuve devant un index DILA réduit. `null` sinon :
+   *  la tuile « 30 j » ne doit pas borner à 30 jours ce qui en couvre trois. */
+  joEnBaseDepuis: string | null;
 };
 
 export type CompteursSuivi = {
@@ -347,6 +351,15 @@ export function getDonneesAccueil(): DonneesAccueil | null {
         )
         .get() as { n: number }
     ).n,
+    joEnBaseDepuis: (
+      db
+        .prepare(
+          `SELECT CASE WHEN MIN(date_publi) > date('now', '-30 days')
+                       THEN MIN(date_publi) END AS depuis
+             FROM jorf_textes`,
+        )
+        .get() as { depuis: string | null }
+    ).depuis,
   };
 
   /* --- Bandeau de couverture (counts réels, jamais figés) --- */
