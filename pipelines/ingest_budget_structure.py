@@ -77,6 +77,12 @@ from pipelines.common import obtenir_logger, reparer_mojibake, telecharger
 log = obtenir_logger("budget_structure")
 
 URL_BASE = "https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/"
+# Millésimes FIGÉS, déclarés comme tels (`editionFigee` de S20, S21, S23) :
+# aucun nom de jeu ne se dérive de l'année. Catalogue interrogé le
+# 11/11/2026 (`search("budget vert")`) : budgetvert_plf2024_opendata_vf,
+# plf25-budget-vert, plf-2026-budget-vert — trois conventions en trois ans —
+# et plf-2027-budget-vert répond 404. Une édition nouvelle s'ajoute ici à
+# la main, après lecture du catalogue ; /donnees dit l'âge de celle-ci.
 URL_VERT = URL_BASE + "plf-2026-budget-vert/exports/csv"
 URL_DEST = URL_BASE + "plf25-depenses-2025-selon-destination/exports/csv"
 URL_ASSOS = (URL_BASE + "plf25-donnees-de-l-annexe-jaune-effort-financier-"
