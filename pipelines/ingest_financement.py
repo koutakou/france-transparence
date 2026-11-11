@@ -645,7 +645,8 @@ def phrase_exercices_partis(
     """Début de la note S25 : ce qui est ingéré, et ce que la CNCCFP a publié
     d'après le jeu relu ce jour-là — jamais une affirmation figée."""
     dernier = max(exercices)
-    debut = f"Exercices {min(exercices)}-{dernier} ; "
+    debut = (f"Exercice {dernier} ; " if min(exercices) == dernier
+             else f"Exercices {min(exercices)}-{dernier} ; ")
     if publie is None:
         return debut + ("dernier exercice publié par la CNCCFP : non lisible "
                         f"dans le jeu data.gouv le {jour:%d/%m/%Y}")

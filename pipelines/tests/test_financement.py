@@ -919,6 +919,21 @@ def test_un_echec_en_cours_d_ecriture_rend_la_base_d_avant(monkeypatch, tmp_path
     assert _vidage(chemin) == avant
 
 
+def test_s25_date_donnees_suit_le_dernier_exercice_ingere(monkeypatch, tmp_path):
+    """date_donnees de S25 se déduit de EXERCICES (31/12 du dernier), pas
+    d'une date recopiée : joué avec le seul exercice 2023 de la fixture."""
+    chemin = _brancher_hors_ligne(monkeypatch, tmp_path, exercices=(2023,))
+    assert fin.main() == 0
+    c = db.connexion(chemin)
+    try:
+        (d, note) = c.execute(
+            "SELECT date_donnees, notes FROM meta_sources WHERE source_id = 'S25'").fetchone()
+    finally:
+        c.close()
+    assert d == "2023-12-31"
+    assert note.startswith("Exercice 2023 ; ")
+
+
 def test_un_cycle_reussi_ecrit_les_trois_lignes_meta(monkeypatch, tmp_path):
     chemin = _brancher_hors_ligne(monkeypatch, tmp_path)
     assert fin.main() == 0
@@ -933,19 +948,22 @@ def test_un_cycle_reussi_ecrit_les_trois_lignes_meta(monkeypatch, tmp_path):
 
 
 # Extrait réel des ressources du jeu CNCCFP (API data.gouv, 11/11/2026) :
-# titres, formats et dates de mise en ligne tels quels, avis PDF compris.
+# formats, titres et created_at recopiés tels quels, avis PDF compris.
 RESSOURCES_CNCCFP_2026_11_11 = [
     {"format": "csv", "title": "comptes_partis_exercice_2024.csv",
-     "created_at": "2026-02-10T00:00:00"},
+     "created_at": "2026-02-10T11:06:41.707000+00:00"},
     {"format": "pdf", "title": "Avis relatif à la publication générales des comptes des "
      "partis et groupements politiques au titre de l'exercice 2024",
-     "created_at": "2026-02-10T00:00:00"},
+     "created_at": "2026-02-10T11:18:54.116000+00:00"},
     {"format": "csv", "title": "comptes_partis_exercice_2023.csv",
-     "created_at": "2025-01-31T00:00:00"},
+     "created_at": "2025-01-31T16:09:09.306000+00:00"},
+    {"format": "pdf", "title": "Avis relatif à la publication générales des comptes des "
+     "partis et groupements politiques au titre de l'exercice 2023",
+     "created_at": "2025-01-31T15:12:58.584000+00:00"},
     {"format": "xlsx", "title": "comptes-partis-exercice-2020.xlsx",
-     "created_at": "2022-02-17T00:00:00"},
+     "created_at": "2022-02-17T15:47:22.562000+00:00"},
     {"format": "ods", "title": "Comptes partis exercice 2017",
-     "created_at": "2019-01-11T00:00:00"},
+     "created_at": "2019-01-11T13:58:34.422000+00:00"},
 ]
 
 
@@ -956,6 +974,17 @@ def test_note_s25_lit_le_dernier_exercice_publie_dans_le_jeu():
     relues à chaque ingestion ; un avis PDF ne compte pas."""
     publie = fin.dernier_exercice_publie(RESSOURCES_CNCCFP_2026_11_11)
     assert publie == (2024, "2026-02-10")
+    # Un avis PDF d'un exercice PLUS RÉCENT, mis en ligne le même jour que le
+    # CSV 2024 : seul le filtre de format peut l'écarter (même titre « exercice
+    # NNNN », même date). Il ne doit pas faire croire à un exercice 2025 paru.
+    avis_seul = [{"format": "pdf", "title": "Avis relatif à la publication générales des "
+                  "comptes des partis et groupements politiques au titre de l'exercice 2025",
+                  "created_at": "2026-02-10T11:18:54.116000+00:00"},
+                 *RESSOURCES_CNCCFP_2026_11_11]
+    assert fin.dernier_exercice_publie(avis_seul) == (2024, "2026-02-10")
+    # Contre-épreuve : le même titre en tableur, lui, compte.
+    tableur = [{**avis_seul[0], "format": "xlsx"}, *RESSOURCES_CNCCFP_2026_11_11]
+    assert fin.dernier_exercice_publie(tableur) == (2025, "2026-02-10")
     phrase = fin.phrase_exercices_partis((2021, 2022, 2023, 2024), publie, date(2026, 11, 11))
     assert phrase == ("Exercices 2021-2024 ; l'exercice 2024 (dépôt N+1, publication N+2) "
                       "est paru le 10/02/2026 et restait le plus récent publié au 11/11/2026")
@@ -965,8 +994,10 @@ def test_note_s25_dit_un_exercice_paru_et_non_ingere():
     """Le jour où la CNCCFP publie l'exercice 2025, la note le dit au lieu de
     prétendre que 2024 est le plus récent — et l'avertissement part dans le
     journal de chaque cycle (main)."""
+    # Ressource 2025 construite sur le modèle exact de celle de 2024.
     ressources = [{"format": "csv", "title": "comptes_partis_exercice_2025.csv",
-                   "created_at": "2027-02-09T00:00:00"}, *RESSOURCES_CNCCFP_2026_11_11]
+                   "created_at": "2027-02-09T11:06:41.707000+00:00"},
+                  *RESSOURCES_CNCCFP_2026_11_11]
     publie = fin.dernier_exercice_publie(ressources)
     assert publie == (2025, "2027-02-09")
     phrase = fin.phrase_exercices_partis((2021, 2022, 2023, 2024), publie, date(2027, 2, 10))

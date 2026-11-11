@@ -146,6 +146,10 @@ export default async function FinancementPage() {
     />
   );
 
+  // Exercices réellement ingérés (S25), pour la notice « limites ».
+  const exercicesIngeres = aideEvolution.map((a) => a.exercice);
+  const premierExercice = exercicesIngeres.length > 0 ? Math.min(...exercicesIngeres) : null;
+  const dernierExercice = exercicesIngeres.length > 0 ? Math.max(...exercicesIngeres) : null;
   const aide2024 = aideEvolution.find((a) => a.exercice === 2024) ?? null;
   const aide2021 = aideEvolution.find((a) => a.exercice === 2021) ?? null;
   const aide2022 = aideEvolution.find((a) => a.exercice === 2022) ?? null;
@@ -370,8 +374,10 @@ export default async function FinancementPage() {
         }
         limites={
           <p>
-            Les comptes que la Commission n’a pas publiés n’y figurent
-            pas. Cette page ne produit aucun classement d’opinion, aucune
+            {premierExercice !== null && dernierExercice !== null
+              ? `Seuls les comptes des exercices ${premierExercice} à ${dernierExercice} publiés par la Commission y figurent ; la note de la source, sur /donnees, dit si un exercice plus récent est paru.`
+              : "Seuls les comptes publiés par la Commission et repris dans la base y figurent."}{" "}
+            Cette page ne produit aucun classement d’opinion, aucune
             intention de vote, aucune mesure de notoriété. Elle ne publie
             aucune nuance politique.
           </p>
