@@ -64,9 +64,8 @@ concurrency:
 jobs:
   veiller:
     runs-on: ubuntu-24.04
-    # Chaque lecture réessaie pendant plus de trois minutes avant de dire une
-    # ressource injoignable (deploy/vigie_site.py) : site éteint, les quatre
-    # lectures épuisent leurs essais.
+    # Les lectures sont bornées à six minutes au pire (deploy/vigie_site.py,
+    # DUREE_MAX_LECTURES_S) et l'étape à dix : le job n'atteint pas ce délai.
     timeout-minutes: 20
     permissions:
       contents: read
@@ -84,7 +83,13 @@ jobs:
       # par son issue et laisse le run VERT : sinon il serait rouge chaque jour
       # tant qu'elle est ouverte, et ne distinguerait plus le jour où le site
       # se fige. Jamais rouge sur une proposition de fusion (à blanc).
+      #
+      # Le délai est posé sur l'ÉTAPE, pas seulement sur le job : une étape qui
+      # dépasse son délai échoue et laisse tourner l'étape de secours, alors
+      # qu'un job tué n'exécute plus rien.
       - name: Regarder le site du dehors et tenir les issues
+        id: vigie
+        timeout-minutes: 10
         env:
           GH_TOKEN: ${{ github.token }}
           DEPOT: ${{ github.repository }}
@@ -99,3 +104,31 @@ jobs:
           else
             python3 deploy/vigie_site.py
           fi
+
+      # LA VIGIE NE DOIT PAS MOURIR EN SILENCE. Si l'étape précédente n'est pas
+      # allée au bout (délai dépassé, erreur, appel refusé), aucun verdict n'a
+      # été rendu et aucune issue tenue — or le cas le plus probable est
+      # justement un site qui ne répond plus. Cette étape tient alors l'issue
+      # `site-fige` avec ce qu'on sait : la vigie n'a pas pu conclure.
+      # `abouti` distingue ce cas d'un run rouge ordinaire (site figé, issue
+      # déjà tenue), où il n'y a rien à ajouter.
+      - name: Secours — la vigie n'a pas pu conclure
+        if: (failure() || cancelled()) && steps.vigie.outputs.abouti != 'oui' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPOT: ${{ github.repository }}
+          PROPRIETAIRE: ${{ github.repository_owner }}
+          LIEN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -eu
+          {
+            echo "La vigie quotidienne ($LIEN) n'est pas allée au bout (délai dépassé ou erreur) : **l'état du site en ligne n'est pas connu ce jour**. Le cas le plus probable est un site qui ne répond plus."
+            echo
+            echo "À faire : ouvrir https://francetransparence.fr/ et lire le journal du run. Si le site répond, c'est la vigie qui est en panne. Sinon : \`ft-etat\` sur le serveur, docs/deploiement/RUNBOOK.md § 4."
+            echo
+            echo "Cette issue se ferme d'elle-même au premier passage de la vigie qui trouve le site reconstruit."
+          } > corps.md
+          python3 deploy/tenir_issue.py signaler --label site-fige \
+            --titre "La vigie n'a pas pu conclure sur l'état du site en ligne" \
+            --corps-fichier corps.md --etat vigie-sans-verdict --couleur B60205 \
+            --description "Le site en ligne n'est plus reconstruit, ou ne répond plus"

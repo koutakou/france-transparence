@@ -28,7 +28,10 @@ Aucun de ces tests ne touche au réseau ni à GitHub.
 from __future__ import annotations
 
 import json
+import os
 import re
+import shutil
+import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -128,7 +131,10 @@ def opt(nom, defaut=None):
 def tous(nom):
     return [a[i + 1] for i, x in enumerate(a) if x == nom]
 maintenant = os.environ["FAUX_GH_MAINTENANT"]
-if a[:2] == ["issue", "list"]:
+if a[:1] == ["api"]:
+    if any("/commits/" in x for x in a):
+        print(os.environ["FAUX_GH_DERNIER_COMMIT"])
+elif a[:2] == ["issue", "list"]:
     label, etat = opt("--label"), opt("--state", "open")
     print(json.dumps([
         {"number": i["number"], "title": i["title"], "createdAt": i["createdAt"],
@@ -174,6 +180,9 @@ class FauxGitHub:
         gh = binaires / "gh"
         gh.write_text(GH_FACTICE.replace("{python}", sys.executable))
         gh.chmod(0o755)
+        # Les étapes des workflows appellent `python3` : le même que ce test.
+        (binaires / "python3").symlink_to(sys.executable)
+        self.binaires = binaires
         self.mp = monkeypatch
         monkeypatch.setenv("PATH", f"{binaires}:/usr/bin:/bin")
         monkeypatch.setenv("FAUX_GH_ETAT", str(self.etat))
@@ -701,6 +710,7 @@ def test_une_echeance_reglee_ferme_son_issue(vigie, github):
 def test_une_lecture_est_reessayee_avant_de_dire_le_site_injoignable(monkeypatch):
     pauses, essais = [], []
     monkeypatch.setattr(vigie_site.time, "sleep", pauses.append)
+    monkeypatch.setattr(vigie_site, "_debut_des_lectures", None)
 
     def coupure_passagere():
         essais.append(1)
@@ -713,8 +723,216 @@ def test_une_lecture_est_reessayee_avant_de_dire_le_site_injoignable(monkeypatch
 
     def panne():
         raise OSError("Connection refused")
-    with pytest.raises(vigie_site.Illisible, match=f"après {vigie_site.ESSAIS} essais"):
+    with pytest.raises(vigie_site.Illisible, match=rf"après {vigie_site.ESSAIS} essai\(s\)"):
         vigie_site._avec_essais(panne, "site")
+
+
+@pytest.fixture
+def site_eteint(monkeypatch):
+    """Plus rien ne répond : chaque tentative consomme tout son délai, puis échoue.
+
+    L'horloge est factice : elle avance du délai à chaque tentative et de la
+    pause à chaque attente. Rend la fonction qui lit le temps écoulé.
+    """
+    horloge = [0.0]
+
+    def tentative(*_, **__):
+        horloge[0] += vigie_site.DELAI_S
+        raise OSError("timed out")
+
+    def attendre(secondes):
+        horloge[0] += secondes
+
+    monkeypatch.setattr(vigie_site.time, "monotonic", lambda: horloge[0])
+    monkeypatch.setattr(vigie_site.time, "sleep", attendre)
+    monkeypatch.setattr(vigie_site.urllib.request, "urlopen", tentative)
+    monkeypatch.setattr(vigie_site.socket, "create_connection", tentative)
+    return lambda: horloge[0]
+
+
+def test_site_eteint_la_vigie_conclut_bien_avant_le_delai_de_son_etape(
+        site_eteint, github, tmp_path, monkeypatch):
+    """Le cas le plus grave ne doit pas être celui où la vigie est tuée muette.
+
+    Avec quatre essais complets par lecture, un site éteint coûtait une
+    quinzaine de minutes de lectures pour un job borné à vingt.
+    """
+    sortie = tmp_path / "sortie-github"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(sortie))
+    assert vigie_site.main([], maintenant=github.a(utc(2026, 11, 12, 11, 23))) == 1
+    ecoule = site_eteint()
+    assert ecoule <= vigie_site.DUREE_MAX_LECTURES_S
+    # La première lecture, elle, a bien eu ses quatre essais.
+    assert ecoule >= sum(vigie_site.PAUSES_ENTRE_ESSAIS_S) + vigie_site.ESSAIS * vigie_site.DELAI_S
+    veiller = jobs(workflows()["vigie.yml"])["veiller"]
+    pas = etapes(veiller)["Regarder le site du dehors et tenir les issues"]
+    delai_etape = int(re.search(r"(?m)^        timeout-minutes: (\d+)$", pas).group(1))
+    delai_job = int(cle(veiller, "timeout-minutes"))
+    assert vigie_site.DUREE_MAX_LECTURES_S <= delai_etape * 60 * 0.6   # marge pour `gh`
+    assert delai_etape < delai_job
+    # Et l'issue est là, assignée ; la vigie dit qu'elle est allée au bout.
+    fige, = [i for i in github.issues if "site-fige" in i["labels"]]
+    assert fige["title"] == "Le site en ligne ne répond pas à la vigie"
+    assert fige["assignees"] == ["proprietaire"]
+    assert sortie.read_text() == "abouti=oui\n"
+
+
+def test_une_vigie_tombee_en_route_ne_se_dit_pas_aboutie(vigie, github, tmp_path, monkeypatch):
+    sortie = tmp_path / "sortie-github"
+    sortie.write_text("")
+    monkeypatch.setenv("GITHUB_OUTPUT", str(sortie))
+
+    def refus(*_, **__):
+        raise subprocess.CalledProcessError(1, "gh", stderr="HTTP 503")
+    monkeypatch.setattr(tenir_issue, "signaler", refus)
+    with pytest.raises(subprocess.CalledProcessError):
+        vigie.passer(utc(2026, 11, 11, 11, 23))
+    assert sortie.read_text() == ""
+    # À blanc aussi, la vigie qui va au bout le dit.
+    assert vigie.passer(utc(2026, 11, 11, 11, 23), "--a-blanc") == 0
+    assert sortie.read_text() == "abouti=oui\n"
+
+
+def test_le_certificat_demande_est_celui_du_site_et_le_premier_contact_fait_foi():
+    hotes = []
+
+    def certificat(hote):
+        hotes.append(hote)
+        return CERTIFICAT_SERVI
+    vigie_site.verdict_echeances(utc(2026, 11, 11), lire_servi, certificat)
+    assert hotes == ["francetransparence.fr"]
+    # Forme engendrée par le dépôt : courriel d'abord, puis le signalement privé.
+    courriel_puis_lien = SECURITY_SERVI.replace(
+        "Contact: https://github.com/koutakou/france-transparence/issues",
+        "Contact: mailto:adresse@exemple.fr\n"
+        "Contact: https://github.com/koutakou/france-transparence/security/advisories/new")
+    assert vigie_site.anomalies_security_txt(courriel_puis_lien, utc(2026, 11, 11)) == []
+    # L'ordre inverse n'est pas conforme : c'est le PREMIER contact qu'on suit.
+    lien_puis_courriel = SECURITY_SERVI.replace(
+        "Contact: https://github.com/koutakou/france-transparence/issues",
+        "Contact: https://github.com/koutakou/france-transparence/issues\n"
+        "Contact: mailto:adresse@exemple.fr")
+    assert len(vigie_site.anomalies_security_txt(lien_puis_courriel, utc(2026, 11, 11))) == 1
+
+
+# --- 3 ter. Les étapes shell des workflows, réellement exécutées ------------
+
+
+def jouer_etape(github, dossier, workflow, job, etape, **environnement):
+    """Exécute le script `run:` d'une étape, tel qu'écrit, contre le `gh` factice."""
+    texte = etapes(jobs(workflows()[workflow])[job])[etape]
+    script = texte.split("        run: |\n", 1)[1]
+    lignes = []
+    for ligne in script.splitlines():
+        if ligne.strip() and not ligne.startswith(" " * 10):
+            break  # commentaires de l'étape suivante
+        lignes.append(ligne[10:])
+    script = "\n".join(lignes)
+    script = script.replace("${{ github.run_id }}", "123")
+    assert "${{" not in script, "expression non remplacée"
+    travail = dossier / "travail"
+    travail.mkdir(exist_ok=True)
+    if not (travail / "deploy").exists():
+        (travail / "deploy").symlink_to(RACINE / "deploy")
+    fait = subprocess.run(
+        ["bash", "-c", script], cwd=travail, capture_output=True, text=True,
+        env={**os.environ, **environnement})
+    assert fait.returncode == 0, fait.stdout + fait.stderr
+    return fait.stdout
+
+
+@pytest.fixture
+def date_gnu(github):
+    """L'étape du cron calcule avec `date -d` (GNU), celui des runners."""
+    essai = subprocess.run(["date", "-u", "-d", "2026-01-01", "+%s"], capture_output=True)
+    if essai.returncode == 0:
+        return
+    gdate = shutil.which("gdate", path="/opt/homebrew/bin:/usr/local/bin")
+    if not gdate:
+        pytest.skip("`date -d` (GNU) absent de cette machine")
+    (github.binaires / "date").symlink_to(gdate)
+
+
+def test_l_etape_des_301_ouvre_ne_se_repete_pas_puis_ferme(github, tmp_path):
+    detail = "R1a, cible(s) non servie(s), le 301 mène à un 404 : SEN-21634U SEN-20130U."
+
+    def jouer(anomalies, instant):
+        github.a(instant)
+        return jouer_etape(github, tmp_path, "publication.yml", "veiller",
+                           "Tenir l'issue des redirections 301 d'élus",
+                           ANOMALIES=anomalies, DETAIL=detail, RESULTAT="success")
+    jouer("oui", datetime.now(timezone.utc))
+    issue, = github.issues
+    assert issue["labels"] == ["redirections-301"] and issue["assignees"] == ["proprietaire"]
+    assert "SEN-21634U SEN-20130U" in issue["body"] and "@proprietaire" in issue["body"]
+    journal = jouer("oui", datetime.now(timezone.utc))
+    assert github.issues[0]["comments"] == [], "même constat le jour même : pas de redite"
+    assert "état inchangé" in journal
+    # Sans verdict (construire tombé avant le contrôle) : l'issue reste telle quelle.
+    journal = jouer("", datetime.now(timezone.utc))
+    assert "::warning::" in journal and github.issues[0]["state"] == "OPEN"
+    jouer("non", datetime.now(timezone.utc))
+    assert github.issues[0]["state"] == "CLOSED"
+
+
+def test_l_etape_du_cron_previent_reactive_puis_ferme(github, tmp_path, date_gnu):
+    def jouer(age_jours):
+        dernier = datetime.now(timezone.utc) - timedelta(days=age_jours, hours=1)
+        github.a(datetime.now(timezone.utc))
+        return jouer_etape(github, tmp_path, "publication.yml", "veiller",
+                           "Échéance d'extinction du cron (60 jours sans activité)",
+                           BRANCHE="main",
+                           FAUX_GH_DERNIER_COMMIT=dernier.strftime("%Y-%m-%dT%H:%M:%SZ"))
+
+    def reactivations():
+        return [a[3] for a in github.appels("api", "-X", "PUT")]
+
+    journal = jouer(44)
+    assert "non jouée avant le 45e jour" in journal
+    assert github.issues == [] and reactivations() == []
+    jouer(45)
+    assert reactivations() == [
+        "repos/exemple/depot/actions/workflows/publication.yml/enable",
+        "repos/exemple/depot/actions/workflows/vigie.yml/enable"]
+    issue, = github.issues
+    assert issue["labels"] == ["cron-echeance"] and issue["assignees"] == ["proprietaire"]
+    assert "s'éteindront vers le" in issue["title"]
+    jouer(45)  # cycle suivant, même échéance
+    assert github.issues[0]["comments"] == [], "relance hebdomadaire, pas quotidienne"
+    assert len(reactivations()) == 4, "la réactivation, elle, est rejouée à chaque cycle"
+    # L'échéance est passée et le cycle tourne encore : l'état change, c'est dit.
+    jouer(61)
+    issue, = github.issues
+    assert "ne tiennent que par réactivation" in issue["title"]
+    assert len(issue["comments"]) == 1
+    # Un commit sur main : l'échéance s'éloigne, l'issue se ferme.
+    jouer(2)
+    assert github.issues[0]["state"] == "CLOSED"
+    assert "Échéance repoussée" in github.issues[0]["comments"][-1]["body"]
+
+
+def test_l_etape_de_secours_tient_site_fige_quand_la_vigie_n_a_pas_conclu(vigie, github, tmp_path):
+    veiller = jobs(workflows()["vigie.yml"])["veiller"]
+    pas = etapes(veiller)
+    assert list(pas) == ["Regarder le site du dehors et tenir les issues",
+                         "Secours — la vigie n'a pas pu conclure"]
+    assert pas["Regarder le site du dehors et tenir les issues"].startswith("        id: vigie\n")
+    secours = pas["Secours — la vigie n'a pas pu conclure"]
+    assert secours.startswith(
+        "        if: (failure() || cancelled()) && steps.vigie.outputs.abouti != 'oui' "
+        "&& github.event_name != 'pull_request'\n")
+    assert "--relance-jours" not in secours  # une vigie muette se dit chaque jour
+    github.a(utc(2026, 11, 12, 11, 40))
+    jouer_etape(github, tmp_path, "vigie.yml", "veiller",
+                "Secours — la vigie n'a pas pu conclure")
+    issue, = github.issues
+    assert issue["labels"] == ["site-fige"] and issue["assignees"] == ["proprietaire"]
+    assert issue["title"] == "La vigie n'a pas pu conclure sur l'état du site en ligne"
+    assert "https://exemple/run" in issue["body"]
+    # Le lendemain la vigie passe et trouve le site reconstruit : l'issue se ferme.
+    vigie.reconstruire(utc(2026, 11, 13, 4, 26))
+    vigie.passer(utc(2026, 11, 13, 11, 23))
+    assert [i for i in github.issues if "site-fige" in i["labels"]][0]["state"] == "CLOSED"
 
 
 # --- 4. Forme des workflows --------------------------------------------------
@@ -823,7 +1041,8 @@ def test_le_job_3_10_tourne_vraiment_sous_3_10_et_joue_pytest():
 
 
 def test_la_vigie_n_est_a_blanc_que_sur_une_proposition_de_fusion():
-    pas, = etapes(jobs(workflows()["vigie.yml"])["veiller"]).values()
+    pas = etapes(jobs(workflows()["vigie.yml"])["veiller"])[
+        "Regarder le site du dehors et tenir les issues"]
     assert re.search(
         r'if \[ "\$EVENEMENT" = "pull_request" \]; then\n'
         r'\s+python3 deploy/vigie_site\.py --a-blanc\n'
