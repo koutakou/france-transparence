@@ -98,11 +98,6 @@ function moisEnClair(mois: string): string {
   }).format(new Date(Date.UTC(annee, mm - 1, 1)));
 }
 
-/** La date de donnée est-elle celle du jour de construction du site ? */
-function estJourDeConstruction(iso: string): boolean {
-  return formatDateFr(iso) === formatDateFr(new Date().toISOString());
-}
-
 /**
  * Sanctions financières de l'Autorité de la concurrence (S52) — bloc
  * CLOISONNÉ, rendu après tout ce qui précède et séparé de lui par une
@@ -467,13 +462,12 @@ export default async function PageMarches() {
               "notification initiale, 12 derniers mois, plafond 100 M€ par marché ; courbe : mois civils clos",
           },
           {
-            label: "Marchés notifiés (30 derniers jours)",
-            valeur: formatNombre(kpis.nbMarches30j),
+            label: "Marchés notifiés (30 jours)",
+            valeur: kpis.nbMarches30j !== null ? formatNombre(kpis.nbMarches30j) : "—",
             // Même 6 544 que la tuile de l'accueil : les deux bornes disent
             // désormais la même chose, stock ET latence. Sans cela une page
             // prévenait d'un défaut dont l'autre ne prévenait pas.
-            perimetre:
-              "notification initiale, 30 derniers jours — ce n’est pas le stock total ; publication légale jusqu’à 2 mois, fenêtre incomplète",
+            perimetre: `notification initiale, 30 jours jusqu’au ${meta.s1 ? formatDateFr(meta.s1.date_donnees) : "—"} (date des données DECP) — ce n’est pas le stock total ; publication légale jusqu’à 2 mois, fenêtre incomplète`,
           },
           // Les deux tuiles qui suivent NE VIENNENT PAS des DECP. La seule
           // pastille servie au-dessus du bandeau (`badgeS1`, chapeau) est celle
@@ -1148,7 +1142,7 @@ export default async function PageMarches() {
       {/* ---------------------------------------------------------- */}
       <Card
         titre="Derniers marchés notifiés"
-        sousTitre="Les 20 notifications les plus récentes du flux consolidé (J-1)"
+        sousTitre="Les 20 notifications les plus récentes du flux consolidé, à la date de ses données"
         droite={badgeS1}
       >
         <TableDerniersMarches lignes={sansChamp(donnees.derniersMarches, "rang")} />
@@ -1174,7 +1168,6 @@ export default async function PageMarches() {
                 source="BOAMP"
                 frequence={meta.s2.frequence}
                 url={meta.s2.url}
-                mention={estJourDeConstruction(meta.s2.date_donnees) ? "jour même" : undefined}
               />
             )
           }

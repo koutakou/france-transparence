@@ -673,9 +673,10 @@ export default function PageComprendre() {
             <li>
               <strong className="font-medium text-ink">Le badge de fraîcheur.</strong>{" "}
               Il porte la date des données, pas celle du chargement de la
-              page. Une source «&nbsp;en attente d’une édition&nbsp;» n’est
-              pas en panne : aucune édition plus récente n’était parue au
-              moment de la construction du site.
+              page. Une source «&nbsp;en attente d’une édition&nbsp;» dit
+              seulement qu’aucune édition plus récente n’a été ingérée : le
+              site ne vérifie pas l’amont, où une édition peut avoir paru sans
+              y être encore prise.
             </li>
             <li>
               <strong className="font-medium text-ink">L’écrêtement.</strong>{" "}

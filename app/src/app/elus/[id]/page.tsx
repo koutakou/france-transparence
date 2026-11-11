@@ -4,7 +4,9 @@ import { notFound } from "next/navigation";
 import { getDb } from "@/lib/db";
 import { Card } from "@/components/ui/Card";
 import { JsonLd } from "@/components/JsonLd";
+import { AgeALaLecture } from "@/components/client/AgeALaLecture";
 import { InteretsDeclares } from "@/components/client/InteretsDeclares";
+import { instantDeConstruction } from "@/lib/lecture";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { LienOfficiel } from "@/components/ui/LienOfficiel";
@@ -176,17 +178,6 @@ const TYPES_DOCUMENT: Record<string, string> = {
   dspfm: "Déclaration de situation patrimoniale de fin de mandat",
 };
 
-function calculeAge(iso: string | null): number | null {
-  if (!iso) return null;
-  const naissance = new Date(iso);
-  if (Number.isNaN(naissance.getTime())) return null;
-  const present = new Date();
-  let age = present.getFullYear() - naissance.getFullYear();
-  const m = present.getMonth() - naissance.getMonth();
-  if (m < 0 || (m === 0 && present.getDate() < naissance.getDate())) age -= 1;
-  return age;
-}
-
 /** « 1 » → « 1re », « 5 » → « 5e » ; sinon la valeur telle quelle. */
 function circonscriptionLisible(brut: string): string {
   if (/^\d+$/.test(brut)) {
@@ -297,7 +288,9 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
   } = fiche;
 
   const nomComplet = `${elu.prenom ?? ""} ${elu.nom}`.trim();
-  const age = calculeAge(elu.date_naissance);
+  // Instant de construction : l'âge du HTML statique est daté de ce jour, puis
+  // recalculé chez le lecteur (AgeALaLecture).
+  const construitLe = instantDeConstruction();
   const neLe = elu.sexe === "F" ? "Née le" : elu.sexe === "M" ? "Né le" : "Né·e le";
 
   // Ligne de mandat principale (factuelle, depuis les tables officielles).
@@ -504,9 +497,14 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
         <h1 className="text-2xl font-semibold leading-tight text-ink">{nomComplet}</h1>
         {mandatPrincipal && <p className="text-sm text-ink-secondary">{mandatPrincipal}</p>}
         <p className="text-xs text-ink-muted">
-          {elu.date_naissance
-            ? `${neLe} ${formatDateFr(elu.date_naissance)}${age !== null ? ` (${formatNombre(age)} ans)` : ""}`
-            : "Date de naissance non publiée"}
+          {elu.date_naissance ? (
+            <>
+              {`${neLe} ${formatDateFr(elu.date_naissance)}`}
+              <AgeALaLecture naissance={elu.date_naissance} construitLe={construitLe} />
+            </>
+          ) : (
+            "Date de naissance non publiée"
+          )}
           {elu.profession ? ` · ${elu.profession}` : ""}
         </p>
         {liens.length > 0 && (

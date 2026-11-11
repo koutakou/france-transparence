@@ -304,7 +304,9 @@ export default async function PageElus() {
             Parité : {formatNombre(stats.deputes.nb_femmes)} femmes sur{" "}
             {formatNombre(stats.deputes.nb)}
             {partFemmesAn !== null ? ` (${formatPct(partFemmesAn)})` : ""} · âge moyen{" "}
-            {stats.deputes.age_moyen !== null ? `${formatNombre(stats.deputes.age_moyen, 1)} ans` : "—"}{" "}
+            {stats.deputes.age_moyen !== null && stats.deputes.age_au
+              ? `${formatNombre(stats.deputes.age_moyen, 1)} ans au ${formatDateFr(stats.deputes.age_au)}`
+              : "—"}{" "}
             — calculés depuis l’état civil du répertoire des élus.
           </p>
         )}
@@ -343,8 +345,8 @@ export default async function PageElus() {
               Parité : {formatNombre(stats.senateurs.nb_femmes)} femmes sur{" "}
               {formatNombre(stats.senateurs.nb)}
               {partFemmesSenat !== null ? ` (${formatPct(partFemmesSenat)})` : ""} · âge moyen{" "}
-              {stats.senateurs.age_moyen !== null
-                ? `${formatNombre(stats.senateurs.age_moyen, 1)} ans`
+              {stats.senateurs.age_moyen !== null && stats.senateurs.age_au
+                ? `${formatNombre(stats.senateurs.age_moyen, 1)} ans au ${formatDateFr(stats.senateurs.age_au)}`
                 : "—"}{" "}
               — calculés depuis les données open data du Sénat.
             </p>

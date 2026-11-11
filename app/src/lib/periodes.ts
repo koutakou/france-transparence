@@ -95,3 +95,17 @@ export function premierMoisIncomplet(dateDonnees: string, delaiJours: number): s
   const limite = new Date(donnee - Math.round(delaiJours) * JOUR_MS + JOUR_MS);
   return limite.toISOString().slice(0, 7);
 }
+
+/**
+ * Prédicat SQL d'une fenêtre de `jours` jours civils ARRÊTÉE à `@fin`, la
+ * date des données de la source (`meta_sources.date_donnees`) : ]fin − jours ;
+ * fin]. Jamais `date('now', …)` : évaluée au build, cette fenêtre-là
+ * couvrait les 30 jours précédant la construction, se lisait « 30 derniers
+ * jours » trois jours plus tard sur un site figé, et finissait sur des jours
+ * vides quand la source avait du retard. Ancrée sur la donnée, elle dit la
+ * même chose à toute date de lecture — à condition d'écrire `@fin` à côté.
+ * `colonne` est un nom de colonne écrit dans le code, jamais une saisie.
+ */
+export function fenetreArreteeSql(colonne: string, jours: number): string {
+  return `${colonne} > date(@fin, '-${Math.trunc(jours)} days') AND ${colonne} <= @fin`;
+}

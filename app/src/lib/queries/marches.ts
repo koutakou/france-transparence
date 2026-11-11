@@ -5,8 +5,8 @@
  * Datation d'un marché (pipelines/ingest_decp.py) : `date_notification` est
  * la date de la notification INITIALE du marché — un avenant ultérieur ne
  * le redate pas. TOUTES les fenêtres de ce fichier portent sur elle : le
- * 12 mois des agrégats, le 36 mois de la série, le « 30 derniers jours »
- * calculé ici sur decp_marches. Les ATTRIBUTS (montant, titulaires, objet,
+ * 12 mois des agrégats, le 36 mois de la série, les « 30 jours » arrêtés à
+ * la date des données S1, calculés ici sur decp_marches. Les ATTRIBUTS (montant, titulaires, objet,
  * procédure) sont ceux de la version courante du marché.
  *
  * Sémantique des montants (pipelines/ingest_decp.py, fiche S1) :
@@ -58,6 +58,7 @@
  */
 import { getDb, type MetaSource } from "@/lib/db";
 import { AO_AFFICHEES, RESERVE_HEURES, reserveEcheances } from "@/lib/echeances";
+import { fenetreArreteeSql } from "@/lib/periodes";
 
 /* ------------------------------------------------------------------ */
 /* Types de lignes                                                     */
@@ -455,7 +456,8 @@ export type DonneesMarches = {
   kpis: {
     nbMarches12m: number;
     montant12m: number | null; // écrêté
-    nbMarches30j: number;
+    /** 30 jours arrêtés à la date des données S1 ; `null` sans ligne meta S1. */
+    nbMarches30j: number | null;
     aoEnCours: number;
     marchesAVenir: number;
   };
@@ -929,16 +931,24 @@ export function chargerDonneesMarches(
     )
     .get() as { nb: number | null; montant: number | null };
 
-  // 30 jours glissants sur la date de NOTIFICATION INITIALE : un marché
-  // ancien modifié hier n'y entre pas. Fenêtre récente, donc la plus
-  // exposée à la latence légale de publication (≤ 2 mois) — elle est
-  // structurellement incomplète, et le compte varie d'un jour à l'autre.
-  const nb30j = db
-    .prepare(
-      `SELECT COUNT(*) AS nb FROM decp_marches
-       WHERE date_notification >= date('now', '-30 days')`,
-    )
-    .get() as { nb: number };
+  // 30 jours sur la date de NOTIFICATION INITIALE : un marché ancien modifié
+  // hier n'y entre pas. Fenêtre récente, donc la plus exposée à la latence
+  // légale de publication (≤ 2 mois) — elle est structurellement incomplète,
+  // et le compte varie d'un jour à l'autre. Arrêtée à la date des données S1
+  // (que la tuile écrit), jamais à « maintenant » : évaluée au build, elle se
+  // lisait « 30 derniers jours » bien après.
+  const finS1 = metaPar("S1")?.date_donnees ?? null;
+  const nb30j =
+    finS1 === null
+      ? null
+      : (
+          db
+            .prepare(
+              `SELECT COUNT(*) AS nb FROM decp_marches
+               WHERE ${fenetreArreteeSql("date_notification", 30)}`,
+            )
+            .get({ fin: finS1 }) as { nb: number }
+        ).nb;
 
   // Instantané BOAMP re-filtré au moment de la requête (annulations +
   // dates limites passées écartées). Vérifié : 9 005 le 19/08/2026.
@@ -1166,7 +1176,7 @@ export function chargerDonneesMarches(
     kpis: {
       nbMarches12m: total12m.nb ?? 0,
       montant12m: total12m.montant,
-      nbMarches30j: nb30j.nb,
+      nbMarches30j: nb30j,
       aoEnCours: aoEnCours.nb,
       marchesAVenir: aVenir.nb,
     },

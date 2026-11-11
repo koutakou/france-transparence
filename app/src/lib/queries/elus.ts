@@ -96,8 +96,13 @@ export function getGroupesSenat(): GroupeSenat[] | null {
 export type StatsChambre = {
   nb: number;
   nb_femmes: number;
-  /** Âge moyen en années (date_naissance du répertoire), 1 décimale. */
+  /**
+   * Âge moyen en années (date_naissance du répertoire), 1 décimale, à la
+   * date `age_au` — jamais à « maintenant », qui serait le jour du build.
+   */
   age_moyen: number | null;
+  /** Date des données de la composition (S5-AMO10 / S6-ODSEN) ; `null` sans ligne meta. */
+  age_au: string | null;
 };
 
 export type StatsElus = {
@@ -160,22 +165,39 @@ export const PERIMETRE_SCORE_DATAN =
 export function getStatsElus(): StatsElus | null {
   const db = getDb();
   if (!db) return null;
-  const deputes = db
-    .prepare(
-      `SELECT COUNT(*) AS nb,
-              SUM(CASE WHEN e.sexe = 'F' THEN 1 ELSE 0 END) AS nb_femmes,
-              ROUND(AVG((julianday('now') - julianday(e.date_naissance)) / 365.25), 1) AS age_moyen
-       FROM deputes d JOIN elus e ON e.uid_an = d.uid_an`,
-    )
-    .get() as StatsChambre;
-  const senateurs = db
-    .prepare(
-      `SELECT COUNT(*) AS nb,
-              SUM(CASE WHEN sexe = 'F' THEN 1 ELSE 0 END) AS nb_femmes,
-              ROUND(AVG((julianday('now') - julianday(date_naissance)) / 365.25), 1) AS age_moyen
-       FROM senateurs`,
-    )
-    .get() as StatsChambre;
+  // Âge moyen arrêté à la date des données de la composition de la chambre,
+  // que la page écrit : la composition est celle de ce jour-là. Calculé à
+  // l'heure de la requête, il était celui du jour du build, sans le dire.
+  const dateDonnees = (id: string): string | null =>
+    (
+      db.prepare("SELECT date_donnees AS d FROM meta_sources WHERE source_id = ?").get(id) as
+        | { d: string | null }
+        | undefined
+    )?.d ?? null;
+  const auAn = dateDonnees("S5-AMO10");
+  const auSenat = dateDonnees("S6-ODSEN");
+  const deputes = {
+    ...(db
+      .prepare(
+        `SELECT COUNT(*) AS nb,
+                SUM(CASE WHEN e.sexe = 'F' THEN 1 ELSE 0 END) AS nb_femmes,
+                ROUND(AVG((julianday(@au) - julianday(e.date_naissance)) / 365.25), 1) AS age_moyen
+         FROM deputes d JOIN elus e ON e.uid_an = d.uid_an`,
+      )
+      .get({ au: auAn }) as Omit<StatsChambre, "age_au">),
+    age_au: auAn,
+  };
+  const senateurs = {
+    ...(db
+      .prepare(
+        `SELECT COUNT(*) AS nb,
+                SUM(CASE WHEN sexe = 'F' THEN 1 ELSE 0 END) AS nb_femmes,
+                ROUND(AVG((julianday(@au) - julianday(date_naissance)) / 365.25), 1) AS age_moyen
+         FROM senateurs`,
+      )
+      .get({ au: auSenat }) as Omit<StatsChambre, "age_au">),
+    age_au: auSenat,
+  };
   const maires = db
     .prepare(
       `SELECT COUNT(*) AS nb

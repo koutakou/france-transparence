@@ -3,12 +3,14 @@ import Link from "next/link";
 import { LogoBouclier } from "@/components/LogoBouclier";
 import { MainNav } from "@/components/MainNav";
 import { SearchBox } from "@/components/ui/SearchBox";
+import { formatInstantFr, htmlBandeauSiteFige, instantDeConstruction } from "@/lib/lecture";
 import { IMAGE_PARTAGE, openGraphPage, URL_LICENCE } from "@/lib/seo";
 import { REPO_URL, SITE_URL } from "@/lib/site";
 import "./globals.css";
 
-const TITRE_DEFAUT =
-  "France Transparence — l'argent public et la vie politique, en données ouvertes";
+// 70 caractères au plus (LONGUEUR_TITRE_PARTAGE, seo.ts) : l'ancien titre en
+// comptait 78, et X le coupait en plein mot. Vérifié par npm test.
+const TITRE_DEFAUT = "France Transparence — argent public et vie politique, données ouvertes";
 const DESCRIPTION_DEFAUT =
   "Dépenses de l'État, marchés publics, élus, lobbying, financement de la vie politique : données publiques officielles, fraîcheur mesurée et affichée, sources et limites documentées.";
 
@@ -74,6 +76,10 @@ const CSP =
   "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'";
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
+  // Instant de construction de CETTE page (le gabarit est rendu avec chaque
+  // page de l'export) : écrit dans le pied de page, et point de départ du
+  // bandeau qui signale, chez le lecteur, un site resté sans reconstruction.
+  const construitLe = instantDeConstruction();
   return (
     <html lang="fr" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
@@ -122,6 +128,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* scroll-mt-32 : header sticky ~118–121 px. Sans ça, le skip-link
             depuis le milieu de page pose #contenu sous le chrome (mesuré :
             mainTop=0, headerBottom=118). */}
+        {/* Bandeau « page construite il y a N jours » (lib/lecture.ts) :
+            masqué dans le HTML, affiché par son script en ligne au-delà de
+            SEUIL_SITE_FIGE_HEURES. Rendu en HTML brut parce que React
+            n'hydrate pas l'intérieur d'un `dangerouslySetInnerHTML` : le
+            script peut l'écrire avant l'hydratation sans qu'elle l'efface. */}
+        <div
+          className="mx-auto w-full max-w-7xl px-5"
+          dangerouslySetInnerHTML={{ __html: htmlBandeauSiteFige(construitLe) }}
+        />
         <main id="contenu" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 scroll-mt-32 px-5 py-6">{children}</main>
         <footer className="border-t border-card-border">
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-1.5 px-5 py-4 text-xs leading-relaxed text-ink-muted">
@@ -153,7 +168,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               >
                 Données
               </Link>
-              .
+              . Page construite le {formatInstantFr(construitLe)} (heure de Paris).
             </p>
             {/* `prefetch={false}` sur ces liens légaux et de méthode : ils
                 sont dans le pied de page de TOUTES les pages, donc
