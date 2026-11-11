@@ -1077,6 +1077,25 @@ def date_derniere_modification(session, url: str) -> str | None:
         return None
 
 
+def date_donnees_sans_last_modified(precedente: str | None,
+                                    depot_max: str | None) -> str | None:
+    """La date de donnée à retenir quand le Last-Modified manque.
+
+    Jamais la date du jour : le jour où la HATVP cesserait d'envoyer l'en-tête,
+    S15 paraîtrait fraîche à chaque cycle, fichier régénéré ou non — le
+    contraire de la règle « date de la donnée, jamais date du build ».
+    On retient la plus haute des deux BORNES BASSES que l'on sait vraies :
+    - `precedente` : la date de donnée du cycle précédent (meta_sources), car
+      le fichier servi aujourd'hui est au moins aussi récent que l'ancien ;
+    - `depot_max` : le dépôt le plus récent parmi les déclarations lues, car
+      un fichier ne peut pas être antérieur à ce qu'il contient.
+    Au pire la source paraît PLUS ÂGÉE qu'elle n'est (le niveau de /donnees
+    le dira), jamais plus fraîche. `None` si aucune des deux n'existe.
+    """
+    bornes = [d for d in (precedente, depot_max) if d]
+    return max(bornes) if bornes else None
+
+
 # ---------------------------------------------------------------------------
 # Garde-fou de rattachement : ce qu'aucun seuil de volume ne peut voir
 # ---------------------------------------------------------------------------
@@ -1343,13 +1362,14 @@ def executer(chemin_db=None, max_age_heures: float | None = 6.0) -> dict:
     chemin = telecharger(URL_DECLARATIONS, REP_RAW / "declarations.xml",
                          max_age_heures=max_age_heures, session=session)
     date_donnees = date_derniere_modification(session, URL_DECLARATIONS)
-    if not date_donnees:
-        log.warning("declarations.xml : Last-Modified indisponible, "
-                    "date d'ingestion utilisée")
-        date_donnees = date.today().isoformat()
 
     conn = db.init_db(chemin=chemin_db)
     try:
+        # Lue AVANT l'écriture : c'est la date du cycle précédent.
+        ligne_meta = conn.execute(
+            "SELECT date_donnees FROM meta_sources WHERE source_id = ?",
+            (ID_SOURCE,)).fetchone()
+        date_precedente = ligne_meta[0] if ligne_meta else None
         index_elus = construire_index_elus(conn)
         if len(index_elus) < 500:
             raise ValueError(
@@ -1463,6 +1483,22 @@ def executer(chemin_db=None, max_age_heures: float | None = 6.0) -> dict:
                 f"{ENV_PERTES_ACQUITTEES}=<uuid,uuid> — la liste complète est "
                 f"dans le journal, ligne « perte de rattachement, liste "
                 f"complète ».")
+
+        if not date_donnees:
+            depot_max = max((e["date_depot"] or "" for e in donnees["entetes"]),
+                            default="") or None
+            date_donnees = date_donnees_sans_last_modified(date_precedente,
+                                                           depot_max)
+            if not date_donnees:
+                raise ValueError(
+                    "declarations.xml : Last-Modified indisponible, aucune date "
+                    "de cycle précédent ni de dépôt lu — date de donnée "
+                    "inconnue, on n'en invente pas")
+            log.warning(
+                "declarations.xml : Last-Modified indisponible — date de donnée "
+                "%s retenue (borne basse : cycle précédent %s, dépôt le plus "
+                "récent %s), jamais la date du jour", date_donnees,
+                date_precedente or "—", depot_max or "—")
 
         ecrire(conn, donnees)
         controler_absence_patrimoine(conn)
