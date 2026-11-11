@@ -26,7 +26,7 @@ import path from "node:path";
 import type { FeatureCollection, Geometry } from "geojson";
 import { getDb, type MetaSource } from "@/lib/db";
 import { AO_ACCUEIL_AFFICHEES } from "@/lib/echeances";
-import { perimetreJo30j } from "@/lib/jorf-fenetre";
+import { editionsNonRelues, perimetreJo30j } from "@/lib/jorf-fenetre";
 import { getIdsFichesStatiques } from "@/lib/queries/elus";
 
 /* ------------------------------------------------------------------ */
@@ -360,6 +360,14 @@ export function getDonneesAccueil(): DonneesAccueil | null {
       ).map((l) => l.date_publi),
       // Le même seuil que le compte ci-dessus, lu au même endroit.
       (db.prepare(`SELECT date('now', '-30 days') AS seuil`).get() as { seuil: string }).seuil,
+      // Éditions que le pipeline n'a pas pu relire : nommées dans sa note.
+      editionsNonRelues(
+        (
+          db.prepare(`SELECT notes FROM meta_sources WHERE source_id = 'S3'`).get() as
+            | { notes: string | null }
+            | undefined
+        )?.notes,
+      ),
     ),
   };
 

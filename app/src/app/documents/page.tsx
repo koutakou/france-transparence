@@ -17,6 +17,7 @@ import { VueTableau } from "@/components/ui/VueTableau";
 import { libelleTypeDole } from "@/lib/dole-libelles";
 import { formatDateFr, formatNombre } from "@/lib/format";
 import {
+  editionsNonRelues,
   libelleFenetreJo,
   mentionFenetreJo,
   noteFenetreSignalee,
@@ -149,7 +150,8 @@ export default async function DocumentsPage() {
   const noteFenetre = noteFenetreSignalee(meta?.notes);
   // Chaque libellé de fenêtre part des dates lues en base : « N derniers JO
   // parus » seulement si la série est continue.
-  const mentionFenetre = mentionFenetreJo(kpis.datesJo);
+  const nonRelues = editionsNonRelues(meta?.notes);
+  const mentionFenetre = mentionFenetreJo(kpis.datesJo, nonRelues);
 
   const naturesFiltre = natures.flatMap((n) => (n.nature ? [{ code: n.nature, nb: n.nb }] : []));
 
@@ -216,7 +218,7 @@ export default async function DocumentsPage() {
           </h1>
           <p className="mt-2 text-sm text-ink-secondary">
             Journal officiel «&nbsp;Lois et décrets&nbsp;»
-            {meta ? <> ({meta.licence})</> : null} : {phraseFenetreJo(kpis.datesJo)}.
+            {meta ? <> ({meta.licence})</> : null} : {phraseFenetreJo(kpis.datesJo, nonRelues)}.
             Chaque texte renvoie vers Légifrance.
           </p>
           {noteFenetre ? (
@@ -238,14 +240,14 @@ export default async function DocumentsPage() {
       <StatStrip
         stats={[
           {
-            label: `Textes publiés (${libelleFenetreJo(kpis.datesJo)})`,
+            label: `Textes publiés (${libelleFenetreJo(kpis.datesJo, nonRelues)})`,
             valeur: formatNombre(kpis.textesFenetre),
-            perimetre: perimetreTextesFenetre(kpis.datesJo),
+            perimetre: perimetreTextesFenetre(mentionFenetre),
           },
           {
             label: "Dont nominations",
             valeur: formatNombre(kpis.nominationsFenetre),
-            perimetre: perimetreNominationsFenetre(kpis.datesJo),
+            perimetre: perimetreNominationsFenetre(mentionFenetre),
           },
           {
             label: `Textes du JO du ${formatDateFr(kpis.dernierJo)}`,

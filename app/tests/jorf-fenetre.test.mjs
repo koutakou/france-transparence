@@ -6,6 +6,7 @@ import fs from "node:fs";
 import {
   ECART_NORMAL_ENTRE_JO,
   MARQUES_FENETRE_SIGNALEE,
+  editionsNonRelues,
   libelleFenetreJo,
   mentionFenetreJo,
   noteFenetreSignalee,
@@ -130,4 +131,61 @@ test("la note du pipeline n'est affichée que si elle signale la fenêtre", () =
   );
   assert.equal(noteFenetreSignalee(null), null);
   assert.equal(noteFenetreSignalee(""), null);
+});
+
+// Une copie locale altérée au milieu de la fenêtre : le JO du 16/07 manque
+// entre ceux du 14/07 et du 17/07. Trois jours d'écart, comme autour d'un
+// pont : les dates seules ne le montrent pas, la note du pipeline le nomme.
+const SANS_LE_16 = TRENTE_JO.filter((d) => d !== "2026-07-16");
+const NOTE_NON_RELUE =
+  "Fenêtre réduite : 29 JO sur les 30 visés, du 14/07/2026 au 19/08/2026 (constat du 19/08/2026) ; le dépôt public de la DILA propose 1 édition quotidienne du JO depuis son renouvellement du 08/11/2026, les JO plus anciens ne sont pas affichés ici ; édition quotidienne non relue : 16/07/2026";
+
+test("édition non relue : les dates ne la montrent pas, la note la nomme", () => {
+  assert.deepEqual(trousEntreJo(SANS_LE_16), []);
+  assert.deepEqual(editionsNonRelues(NOTE_NON_RELUE), ["2026-07-16"]);
+  assert.deepEqual(
+    editionsNonRelues("… ; éditions quotidiennes non relues : 17/07/2026, 16/07/2026 (constat du 19/08/2026) ; 28 JO, du 14/07/2026 au 19/08/2026"),
+    ["2026-07-16", "2026-07-17"],
+  );
+  assert.deepEqual(editionsNonRelues("30 JO, du 14/07/2026 au 19/08/2026 ; …"), []);
+  assert.deepEqual(editionsNonRelues(null), []);
+  // La forme de la clause est celle que le pipeline écrit.
+  const pipeline = fs.readFileSync(
+    new URL("../../pipelines/ingest_jorf.py", import.meta.url),
+    "utf8",
+  );
+  assert.ok(pipeline.includes('"édition quotidienne non relue : "'));
+  assert.ok(pipeline.includes('"éditions quotidiennes non relues : "'));
+});
+
+test("édition non relue : aucun libellé ne dit « derniers JO parus »", () => {
+  const manquantes = editionsNonRelues(NOTE_NON_RELUE);
+  assert.equal(mentionFenetreJo(SANS_LE_16, manquantes), "29 JO, sans l’édition du 16/07/2026");
+  assert.equal(libelleFenetreJo(SANS_LE_16, manquantes), "29 JO, série incomplète");
+  assert.equal(
+    phraseFenetreJo(SANS_LE_16, manquantes),
+    "29 JO parus entre le 14/07/2026 et le 19/08/2026, sans l’édition du 16/07/2026",
+  );
+  assert.equal(
+    mentionFenetreJo(SANS_LE_16, ["2026-07-16", "2026-07-17"]),
+    "29 JO, sans les éditions des 16/07/2026, 17/07/2026",
+  );
+  // Trou ET édition non relue : les deux sont dits.
+  assert.equal(
+    mentionFenetreJo(TROUEE, ["2026-07-16"]),
+    "16 JO, aucun entre le 31/07/2026 et le 19/08/2026, sans l’édition du 16/07/2026",
+  );
+  // Sans le second argument, rien ne change (fenêtre saine).
+  assert.equal(mentionFenetreJo(TRENTE_JO, []), "30 derniers JO parus");
+});
+
+test("tuile d'accueil : l'édition non relue n'est nommée que dans les 30 jours", () => {
+  assert.equal(
+    perimetreJo30j(SANS_LE_16, "2026-07-16", ["2026-07-16"]),
+    "JORF Lois et décrets, 30 derniers jours — sans l’édition du 16/07/2026",
+  );
+  assert.equal(
+    perimetreJo30j(SANS_LE_16, "2026-07-17", ["2026-07-16"]),
+    "JORF Lois et décrets, 30 derniers jours",
+  );
 });
