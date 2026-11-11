@@ -64,7 +64,10 @@ concurrency:
 jobs:
   veiller:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    # Chaque lecture réessaie pendant plus de trois minutes avant de dire une
+    # ressource injoignable (deploy/vigie_site.py) : site éteint, les quatre
+    # lectures épuisent leurs essais.
+    timeout-minutes: 20
     permissions:
       contents: read
       issues: write
@@ -74,9 +77,13 @@ jobs:
       # dépendance : le python3 de l'image et sa bibliothèque standard.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # Le job finit ROUGE quand une anomalie est relevée (hors proposition de
-      # fusion) : l'issue est le canal, le run rouge en est un second pour qui
-      # reçoit les courriels d'échec d'Actions.
+      # L'issue est le canal ; la couleur du run en est un second, pour qui
+      # reçoit les courriels d'échec d'Actions. ROUGE = à lire aujourd'hui : le
+      # site est figé ou injoignable, ou une échéance est signalée pour la
+      # première fois ou change d'état. Une échéance déjà signalée reste tenue
+      # par son issue et laisse le run VERT : sinon il serait rouge chaque jour
+      # tant qu'elle est ouverte, et ne distinguerait plus le jour où le site
+      # se fige. Jamais rouge sur une proposition de fusion (à blanc).
       - name: Regarder le site du dehors et tenir les issues
         env:
           GH_TOKEN: ${{ github.token }}

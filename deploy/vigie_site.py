@@ -31,8 +31,11 @@ Usage : python3 deploy/vigie_site.py [--a-blanc]
   --a-blanc : joue les contrôles, écrit ce qui serait fait, ne touche à
               aucune issue (vérification d'une proposition de fusion).
 Environnement (hors --a-blanc) : GH_TOKEN, DEPOT, PROPRIETAIRE, LIEN (run).
-Code de sortie : 0 si tout est sain (et toujours à blanc), 1 si une anomalie
-est relevée.
+Code de sortie : 1 si le site est figé ou injoignable, ou si une échéance
+est signalée pour la première fois ou change d'état ; 0 sinon, et toujours à
+blanc. Une échéance DÉJÀ signalée est tenue par son issue : elle ne rougit
+pas le run chaque jour, sinon la couleur du run ne distinguerait plus le jour
+où le site se fige.
 """
 
 from __future__ import annotations
@@ -67,8 +70,11 @@ SEUIL_TLS_JOURS = 21
 SEUIL_DOMAINE_JOURS = 60
 SEUIL_SECURITY_TXT_JOURS = 30
 
-ESSAIS = 3
-PAUSE_ENTRE_ESSAIS_S = 20
+# Quatre essais étalés sur plus de trois minutes avant de dire une ressource
+# injoignable : un redémarrage de nginx ou une coupure de transit ne doit pas
+# ouvrir une issue. Les pauses s'allongent d'un essai à l'autre.
+PAUSES_ENTRE_ESSAIS_S = (20, 60, 120)
+ESSAIS = len(PAUSES_ENTRE_ESSAIS_S) + 1
 DELAI_S = 30
 AGENT = "france-transparence-vigie (supervision quotidienne du site)"
 
@@ -154,7 +160,7 @@ def anomalies_security_txt(texte: str, maintenant: datetime) -> list[str]:
 
 
 def _avec_essais(lecture, quoi: str):
-    """Trois essais espacés : une coupure d'une seconde n'est pas une panne."""
+    """Plusieurs essais espacés : une coupure passagère n'est pas une panne."""
     derniere = None
     for essai in range(1, ESSAIS + 1):
         try:
@@ -166,7 +172,7 @@ def _avec_essais(lecture, quoi: str):
             print(f"  {quoi} : essai {essai}/{ESSAIS} en échec "
                   f"({type(erreur).__name__}: {str(erreur)[:160]})")
             if essai < ESSAIS:
-                time.sleep(PAUSE_ENTRE_ESSAIS_S)
+                time.sleep(PAUSES_ENTRE_ESSAIS_S[essai - 1])
     raise Illisible(f"{quoi} injoignable après {ESSAIS} essais "
                     f"({type(derniere).__name__}: {str(derniere)[:160]})")
 
@@ -193,8 +199,13 @@ def expiration_du_certificat(hote: str) -> datetime:
 # --- Verdicts --------------------------------------------------------------
 
 
-def verdict_fraicheur(maintenant: datetime, lire=telecharger) -> dict:
-    """État de la reconstruction : {'anomalie', 'etat', 'titre', 'detail'}."""
+def verdict_fraicheur(maintenant: datetime, lire=None) -> dict:
+    """État de la reconstruction : {'anomalie', 'etat', 'titre', 'relance', 'detail'}.
+
+    Les durées des titres sont comptées depuis `genere_le`, pas depuis
+    l'ouverture de l'issue : c'est le site qui est figé depuis N jours.
+    """
+    lire = lire or telecharger
     try:
         genere = generation_du_site(lire(URL_META))
     except Illisible as erreur:
@@ -202,6 +213,7 @@ def verdict_fraicheur(maintenant: datetime, lire=telecharger) -> dict:
         return {
             "anomalie": True, "etat": "injoignable",
             "titre": "Le site en ligne ne répond pas à la vigie",
+            "relance": "Le site en ligne ne répond toujours pas à la vigie — relance",
             "detail": f"`{URL_META}` n'a pas pu être lu : {erreur}.",
         }
     heures = (maintenant - genere).total_seconds() / 3600
@@ -211,10 +223,13 @@ def verdict_fraicheur(maintenant: datetime, lire=telecharger) -> dict:
         return {"anomalie": False, "etat": "sain", "titre": "",
                 "detail": f"site généré le {genere:%d/%m/%Y à %H:%M} UTC"}
     jours = int(heures // 24)
+    duree = f"{jours} jour{'s' if jours > 1 else ''}"
     return {
         "anomalie": True, "etat": f"fige-{genere:%Y-%m-%d}",
         "titre": f"Le site en ligne n'est plus reconstruit depuis le "
-                 f"{genere:%d/%m} ({jours} jour{'s' if jours > 1 else ''})",
+                 f"{genere:%d/%m} ({duree})",
+        "relance": f"Le site en ligne est figé depuis le {genere:%d/%m} "
+                   f"({duree}) — relance",
         "detail": f"`{URL_META}` porte `genere_le` = {genere:%d/%m/%Y à %H:%M} UTC, "
                   f"soit {heures:.0f} h (seuil : {SEUIL_FIGE_HEURES} h). Le site "
                   "sert toujours cet export : ses dates de données restent "
@@ -222,9 +237,10 @@ def verdict_fraicheur(maintenant: datetime, lire=telecharger) -> dict:
     }
 
 
-def verdict_echeances(maintenant: datetime, lire=telecharger,
-                      certificat=expiration_du_certificat) -> dict:
+def verdict_echeances(maintenant: datetime, lire=None, certificat=None) -> dict:
     """Certificat, domaine, security.txt : {'anomalie', 'etat', 'constats'}."""
+    lire = lire or telecharger
+    certificat = certificat or expiration_du_certificat
     constats: list[str] = []
     cles: list[str] = []
 
@@ -276,14 +292,13 @@ Aucune de ces échéances ne se règle depuis le dépôt : voir docs/ACTIONS-HUM
 Cette issue est relancée une fois par semaine tant que le constat ne change pas, et se ferme d'elle-même quand il disparaît."""
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None, maintenant: datetime | None = None) -> int:
     analyseur = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     analyseur.add_argument("--a-blanc", action="store_true")
     a = analyseur.parse_args(argv)
-    maintenant = datetime.now(timezone.utc)
+    maintenant = maintenant or datetime.now(timezone.utc)
     fraicheur = verdict_fraicheur(maintenant)
     echeances = verdict_echeances(maintenant)
-    anomalie = fraicheur["anomalie"] or echeances["anomalie"]
 
     if a.a_blanc:
         # Toujours 0 : à blanc, on vérifie que la vigie FONCTIONNE, pas que
@@ -300,20 +315,24 @@ def main(argv: list[str] | None = None) -> int:
             CORPS_FIGE.format(detail=fraicheur["detail"], lien=lien),
             fraicheur["etat"], relance_jours=0, couleur="B60205",
             description="Le site en ligne n'est plus reconstruit, ou ne répond plus",
+            maintenant=maintenant,
         )
         tenir_issue.relancer(
             depot, proprietaire, "site-fige", "site-fige-persistant",
-            "Le site en ligne est figé depuis {duree} — relance",
+            fraicheur["relance"], maintenant=maintenant,
         )
     else:
         tenir_issue.retablir(
             depot, "site-fige",
             f"Rétabli : {fraicheur['detail']} (vigie : {lien}).",
+            maintenant=maintenant,
         )
         tenir_issue.retablir(depot, "site-fige-persistant",
-                             "Rétabli : le site est de nouveau reconstruit.")
+                             "Rétabli : le site est de nouveau reconstruit.",
+                             maintenant=maintenant)
+    geste = "aucun"
     if echeances["anomalie"]:
-        tenir_issue.signaler(
+        _, geste = tenir_issue.signaler(
             depot, proprietaire, "site-echeances",
             "Site en ligne : une échéance approche ou un fichier servi n'est pas conforme",
             CORPS_ECHEANCES.format(
@@ -321,14 +340,23 @@ def main(argv: list[str] | None = None) -> int:
             echeances["etat"], relance_jours=7, couleur="FBCA04",
             description="Site en ligne : certificat, nom de domaine ou "
                         "security.txt à échéance proche ou non conforme",
+            maintenant=maintenant,
         )
     else:
         tenir_issue.retablir(
             depot, "site-echeances",
             f"Rétabli : certificat, nom de domaine et security.txt sont dans "
             f"leurs seuils (vigie : {lien}).",
+            maintenant=maintenant,
         )
-    return 1 if anomalie else 0
+    # Rouge = à lire aujourd'hui : le site est figé, ou une échéance vient
+    # d'être signalée ou de changer. Une échéance déjà connue (inchangée, ou
+    # simplement relancée) reste tenue par son issue et laisse le run vert.
+    nouveau = geste in ("ouverte", "commentée")
+    print(f"Verdict : site-fige={fraicheur['etat']} ; site-echeances="
+          f"{echeances['etat']} (issue {geste}) → run "
+          f"{'ROUGE' if fraicheur['anomalie'] or nouveau else 'vert'}.")
+    return 1 if fraicheur["anomalie"] or nouveau else 0
 
 
 if __name__ == "__main__":
