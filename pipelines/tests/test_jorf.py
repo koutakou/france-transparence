@@ -5,6 +5,7 @@ Fixtures : XML réels extraits du tarball DILA JORFSIMPLE_20260819-003035.tar.gz
 """
 
 import tarfile
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
@@ -13,17 +14,23 @@ import requests
 from pipelines import db, ingest_jorf
 from pipelines.ingest_jorf import (
     _SCHEMA,
+    MARQUE_FENETRE_DISCONTINUE,
+    MARQUE_FENETRE_REDUITE,
     URL_JORFSIMPLE,
     construire_lien,
+    ecarts_anormaux,
     est_nomination,
+    index_reconnu,
     ingerer_tarball,
     jour_de_livraison,
     livraisons_de_journee_sans_nocturne,
     livraisons_nocturnes,
     ministere_du_chemin,
+    note_fenetre,
     parser_sommaire,
     parser_texte,
     reconstruire_agregats,
+    stock_a_l_index,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -551,6 +558,291 @@ def test_dila_injoignable_sur_base_neuve_echoue(monkeypatch, tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Index réduit par la DILA (cas réel du 08/11/2026) : la base porte la fenêtre
+# ---------------------------------------------------------------------------
+
+# Extrait VERBATIM de l'index réel relu le 11/11/2026 : la DILA a régénéré
+# son stock le 08/11 et retiré toutes les livraisons antérieures. Restent
+# trois livraisons du soir et deux nocturnes, dont celle de 04h43.
+INDEX_11_11 = """
+<img src="/icons/compressed.gif" alt="[   ]"> <a href="Freemium_jorf_simple_20261108-140000.tar.gz">Freemium_jorf_simple_20261108-140000.tar.gz</a>              2026-11-08 13:02  1.1G
+<img src="/icons/compressed.gif" alt="[   ]"> <a href="JORFSIMPLE_20261108-210452.tar.gz">JORFSIMPLE_20261108-210452.tar.gz</a>                        2026-11-08 21:08  626K
+<img src="/icons/compressed.gif" alt="[   ]"> <a href="JORFSIMPLE_20261109-212854.tar.gz">JORFSIMPLE_20261109-212854.tar.gz</a>                        2026-11-09 21:33  2.2M
+<img src="/icons/compressed.gif" alt="[   ]"> <a href="JORFSIMPLE_20261110-002231.tar.gz">JORFSIMPLE_20261110-002231.tar.gz</a>                        2026-11-10 00:22   71K
+<img src="/icons/compressed.gif" alt="[   ]"> <a href="JORFSIMPLE_20261110-213159.tar.gz">JORFSIMPLE_20261110-213159.tar.gz</a>                        2026-11-10 21:41  923K
+<img src="/icons/compressed.gif" alt="[   ]"> <a href="JORFSIMPLE_20261111-044354.tar.gz">JORFSIMPLE_20261111-044354.tar.gz</a>                        2026-11-11 04:44   84K
+"""
+# Le même index tel qu'il se lisait au passage du cycle du 09/11 (05:17) :
+# les deux premières lignes seulement, aucune nocturne.
+INDEX_09_11 = "\n".join(INDEX_11_11.splitlines()[:3]) + "\n"
+
+# Un texte RÉEL par JO (le premier du sommaire) pour les 30 JO parus du
+# 14/07 au 19/08/2026, extrait des 30 nocturnes de cette période : de quoi
+# poser une base persistante qui porte sa fenêtre entière.
+TRENTE_JO = FIXTURES / "jorf" / "un_texte_par_jo_20260714_20260819.tsv"
+
+# Le stock régénéré en tête d'un index construit : sert la note de la fenêtre.
+LIGNE_STOCK = '<a href="Freemium_jorf_simple_20261108-140000.tar.gz">'
+
+
+def _trente_jo():
+    lignes = [l.split("\t") for l in TRENTE_JO.read_text(encoding="utf-8").splitlines()]
+    assert len(lignes) == 30 and len({l[0] for l in lignes}) == 30
+    return lignes
+
+
+def _base_trente_jo(tmp_path):
+    """Base persistante : 30 JO réels, ligne meta S3 datée du 19/08/2026."""
+    base = tmp_path / "persistante.db"
+    c = db.init_db(chemin=base)
+    c.executescript(_SCHEMA)
+    c.executemany(
+        "INSERT INTO jorf_textes (date_publi, texte_id, nature, titre,"
+        " lien_legifrance) VALUES (?, ?, ?, ?, ?)",
+        [(d, i, n, t, construire_lien(i)) for d, i, n, t in _trente_jo()],
+    )
+    db.upsert_meta(c, "S3", "DILA", URL_JORFSIMPLE, "fr-lo", "quotidienne",
+                   date_donnees="2026-08-19", lignes=30)
+    c.close()
+    return base
+
+
+@pytest.fixture()
+def nocturne_du_lendemain(tmp_path):
+    """Cas construit : une nocturne stampée du 20/08 qui porte encore le JO
+    du 19/08 (la veille est tolérée). Sert de SECONDE livraison d'un index
+    réduit, sans inventer un JO."""
+    chemin = tmp_path / "JORFSIMPLE_20260820-002500.tar.gz"
+    with tarfile.open(chemin, "w:gz") as tar:
+        tar.add(SOMMAIRE, arcname=f"{CHEMIN_CONT}/JORFCONT000054706874.xml")
+        tar.add(TEXTE_ARRETE, arcname=f"{CHEMIN_CONT}/JORFTEXT000054708438.xml")
+    return chemin
+
+
+def _jo_en_base(c):
+    return [r[0] for r in c.execute(
+        "SELECT DISTINCT date_publi FROM jorf_textes ORDER BY 1")]
+
+
+def _note_s3(c):
+    return c.execute(
+        "SELECT notes FROM meta_sources WHERE source_id = 'S3'").fetchone()[0]
+
+
+def test_index_reel_du_11_11_reconnu():
+    """L'index réduit reste un index que l'on sait lire : deux nocturnes,
+    un stock daté. Aucune livraison de journée à signaler."""
+    assert livraisons_nocturnes(INDEX_11_11) == [
+        "JORFSIMPLE_20261110-002231.tar.gz",
+        "JORFSIMPLE_20261111-044354.tar.gz",
+    ]
+    assert stock_a_l_index(INDEX_11_11) == "20261108"
+    assert index_reconnu(INDEX_11_11) and index_reconnu(INDEX_09_11)
+    assert livraisons_nocturnes(INDEX_09_11) == []
+    assert stock_a_l_index(INDEX_EXTRAIT_15_10) is None
+    assert not index_reconnu("<h1>Index of /OPENDATA/JORFSIMPLE</h1>")
+
+
+def test_index_reduit_a_deux_nocturnes_la_base_garde_ses_trente_jo(
+    monkeypatch, tmp_path, mini_tarball, nocturne_du_lendemain, caplog
+):
+    """LE cas du 08/11/2026. La base servie porte 30 JO, l'index n'en liste
+    plus que deux livraisons : la fenêtre se calculait sur la plus ancienne
+    livraison listée, et 29 JO partaient à l'archive en sortie 0. Ils sont
+    parmi les 30 derniers JO en base : ils restent, rien n'est archivé."""
+    base = _base_trente_jo(tmp_path)
+    index = LIGNE_STOCK + (
+        '<a href="JORFSIMPLE_20260819-003035.tar.gz">'
+        '<a href="JORFSIMPLE_20260820-002500.tar.gz">'
+    )
+    with caplog.at_level("INFO"):
+        code, c = _jouer_main(monkeypatch, tmp_path, index, {
+            "JORFSIMPLE_20260819-003035.tar.gz": mini_tarball,
+            "JORFSIMPLE_20260820-002500.tar.gz": nocturne_du_lendemain,
+        }, base=base)
+    assert code == 0
+    assert _jo_en_base(c) == [l[0] for l in _trente_jo()]
+    assert c.execute("SELECT count(*) FROM jorf_textes_archive").fetchone()[0] == 0
+    # 30 textes de la base + les 2 du JO du 19/08 livrés cette nuit.
+    assert c.execute("SELECT count(*) FROM jorf_textes").fetchone()[0] == 32
+    note = _note_s3(c)
+    assert note.startswith("30 JO en base, du 14/07/2026 au 19/08/2026")
+    assert "liste 2 livraison(s) nocturne(s)" in note
+    assert "Freemium du 08/11/2026" in note
+    c.close()
+    avert = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert sum("index DILA réduit à 2 livraison(s) nocturne(s)" in m for m in avert) == 1
+    assert not any("RÉDUITE" in m or "DISCONTINUE" in m for m in avert)
+
+
+def test_la_fenetre_glisse_sur_les_jo_en_base_pas_sur_l_index(
+    monkeypatch, tmp_path, mini_tarball
+):
+    """Même base de 30 JO, fenêtre demandée de 10 JO, UNE nocturne à l'index.
+    Restent les 10 derniers JO en base, exactement ; les 20 autres sortent
+    vers l'archive, comptés. Sur le code d'avant il n'en restait qu'un."""
+    base = _base_trente_jo(tmp_path)
+    monkeypatch.setenv("FT_DB_PATH", str(base))
+
+    class _Session:
+        def get(self, url, timeout=None):
+            return _Reponse('<a href="JORFSIMPLE_20260819-003035.tar.gz">')
+
+    monkeypatch.setattr(ingest_jorf, "session_http", lambda *a, **k: _Session())
+    monkeypatch.setattr(ingest_jorf, "telecharger", lambda url, dest, **k: mini_tarball)
+    assert ingest_jorf.main(["--jours", "10"]) == 0
+    c = db.connexion(base)
+    attendus = [l[0] for l in _trente_jo()][-10:]
+    assert _jo_en_base(c) == attendus
+    assert c.execute("SELECT count(*) FROM jorf_textes_archive").fetchone()[0] == 20
+    assert c.execute(
+        "SELECT MAX(date_publi) FROM jorf_textes_archive").fetchone()[0] < attendus[0]
+    assert _note_s3(c).startswith("10 JO en base, du 07/08/2026 au 19/08/2026")
+    c.close()
+
+
+def test_index_sans_nocturne_mene_au_secours(monkeypatch, tmp_path, caplog):
+    """Index réel du 09/11/2026 à l'heure du cycle : un stock, une livraison
+    du soir, AUCUNE nocturne. Ce n'est pas un format inconnu : le cycle
+    sortait en erreur à tort. Secours : rien n'est écrit, sortie 0, et le
+    journal dit l'index réduit à zéro."""
+    base = _base_trente_jo(tmp_path)
+    avant = _instantane(base)
+    code, c = _jouer_main(monkeypatch, tmp_path, INDEX_09_11, {}, base=base)
+    c.close()
+    assert code == 0
+    assert _instantane(base) == avant
+    avert = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert len(avert) == 1
+    assert "index DILA réduit à 0 livraison nocturne" in avert[0]
+    assert "20261108" in avert[0] and "secours" in avert[0]
+    assert "2026-08-19" in avert[0]
+
+
+def test_index_sans_nocturne_sur_base_neuve_echoue(monkeypatch, tmp_path):
+    """Limite du secours : sans JORF d'un cycle précédent il n'y a rien
+    d'honnête à servir. Passe aussi sur le code d'avant (il échouait
+    toujours)."""
+    code, c = _jouer_main(monkeypatch, tmp_path, INDEX_09_11, {})
+    c.close()
+    assert code == 1
+
+
+def test_index_illisible_echoue_meme_avec_une_base(monkeypatch, tmp_path):
+    """Ni livraison ni stock reconnus : la page a changé de forme, et le
+    secours masquerait une panne que personne ne réparerait. Échec, comme
+    avant. Il tue la mutation qui envoie tout index vide au secours."""
+    base = _base_trente_jo(tmp_path)
+    code, c = _jouer_main(
+        monkeypatch, tmp_path, "<h1>Index of /OPENDATA/JORFSIMPLE</h1>", {},
+        base=base)
+    c.close()
+    assert code == 1
+
+
+def test_base_vide_et_index_reduit_la_fenetre_se_dit_reduite(
+    monkeypatch, tmp_path, mini_tarball, nocturne_du_lendemain, caplog
+):
+    """Base neuve (CI, premier déploiement) devant l'index réduit : elle n'a
+    que ce que l'index liste. La note ne dit pas « 30 JO » : elle commence
+    par la marque, donne le compteur, les bornes, la date du constat et
+    l'état de l'index."""
+    index = LIGNE_STOCK + (
+        '<a href="JORFSIMPLE_20260819-003035.tar.gz">'
+        '<a href="JORFSIMPLE_20260820-002500.tar.gz">'
+    )
+    code, c = _jouer_main(monkeypatch, tmp_path, index, {
+        "JORFSIMPLE_20260819-003035.tar.gz": mini_tarball,
+        "JORFSIMPLE_20260820-002500.tar.gz": nocturne_du_lendemain,
+    })
+    assert code == 0
+    assert _jo_en_base(c) == ["2026-08-19"]
+    note = _note_s3(c)
+    constat = c.execute(
+        "SELECT substr(date_ingestion, 1, 10) FROM meta_sources"
+        " WHERE source_id = 'S3'").fetchone()[0]
+    c.close()
+    assert note.startswith(
+        f"{MARQUE_FENETRE_REDUITE} : 1 JO en base sur les 30 visés,"
+        " du 19/08/2026 au 19/08/2026 (constat du ")
+    assert "liste 2 livraison(s) nocturne(s)" in note
+    assert "Freemium du 08/11/2026" in note
+    assert "les JO antérieurs ne sont pas dans cette base" in note
+    # La date du constat est celle du cycle (UTC ou Paris : même jour ou veille).
+    assert constat[:4] in note
+    avert = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert sum("fenêtre RÉDUITE : 1 JO en base sur 30 visés" in m for m in avert) == 1
+
+
+def test_ecarts_entre_jo_mesures_sur_trente_jo_reels():
+    """Sur les 30 JO réels du 14/07 au 19/08/2026 : aucun écart de plus de
+    trois jours (le plus long : 15/08 → 18/08, pont du 15 août puis lundi).
+    Retirer une semaine de JO en fait apparaître UN, nommé."""
+    dates = [l[0] for l in _trente_jo()]
+    assert ecarts_anormaux(dates) == []
+    assert ("2026-08-15", "2026-08-18") in list(zip(dates, dates[1:]))
+    troues = [d for d in dates if not "2026-08-01" <= d <= "2026-08-07"]
+    assert ecarts_anormaux(troues) == [("2026-07-31", "2026-08-08", 8)]
+
+
+def test_fenetre_discontinue_se_dit_dans_la_note_et_au_journal(
+    monkeypatch, tmp_path, mini_tarball, caplog
+):
+    """Contrepartie de la nouvelle règle : une base qui garde ses JO pendant
+    que l'ingestion est arrêtée peut avoir un TROU que l'index ne sait plus
+    combler. Base arrêtée au JO du 31/07, index réduit à la nocturne du
+    19/08 : la note commence par la marque et nomme l'intervalle."""
+    base = _base_trente_jo(tmp_path)
+    c = db.connexion(base)
+    c.execute("DELETE FROM jorf_textes WHERE date_publi > '2026-07-31'")
+    c.commit()
+    c.close()
+    code, c = _jouer_main(
+        monkeypatch, tmp_path, '<a href="JORFSIMPLE_20260819-003035.tar.gz">',
+        {"JORFSIMPLE_20260819-003035.tar.gz": mini_tarball}, base=base)
+    assert code == 0
+    note = _note_s3(c)
+    assert _jo_en_base(c)[-2:] == ["2026-07-31", "2026-08-19"]
+    c.close()
+    assert note.startswith(f"{MARQUE_FENETRE_REDUITE} : 16 JO en base sur les 30 visés")
+    assert "aucun JO en base entre le 31/07/2026 et le 19/08/2026 (19 jours)" in note
+    avert = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert sum("fenêtre DISCONTINUE : 1 écart(s)" in m for m in avert) == 1
+
+
+def test_note_fenetre_pleine_mais_discontinue():
+    """30 JO en base dont un intervalle sans JO : la marque passe en tête,
+    le compte reste dit."""
+    dates = [l[0] for l in _trente_jo()]
+    troues = [d for d in dates if not "2026-08-01" <= d <= "2026-08-07"]
+    note = note_fenetre(troues, len(troues), 400, None, "2026-08-19")
+    assert note.startswith(
+        f"{MARQUE_FENETRE_DISCONTINUE} : aucun JO en base entre le 31/07/2026"
+        " et le 08/08/2026 (8 jours) (constat du 19/08/2026) ; 24 JO en base")
+    pleine = note_fenetre(dates, 30, 400, None, "2026-08-19")
+    assert pleine == (
+        "30 JO en base, du 14/07/2026 au 19/08/2026 ; l'index de la DILA"
+        " liste 400 livraison(s) nocturne(s)")
+
+
+def test_compteurs_de_fenetre_journalises_a_chaque_cycle(
+    monkeypatch, tmp_path, mini_tarball, caplog
+):
+    """Cycle sans rien à signaler sur les écarts : le compteur est écrit
+    quand même, à zéro, ainsi que le nombre de textes purgés."""
+    with caplog.at_level("INFO"):
+        code, c = _jouer_main(
+            monkeypatch, tmp_path, '<a href="JORFSIMPLE_20260819-003035.tar.gz">',
+            {"JORFSIMPLE_20260819-003035.tar.gz": mini_tarball})
+    c.close()
+    assert code == 0
+    messages = [r.getMessage() for r in caplog.records]
+    assert sum("JO consécutifs de la fenêtre : 0" in m for m in messages) == 1
+    assert sum("0 texte(s) plus ancien(s) archivé(s) puis purgé(s)" in m
+               for m in messages) == 1
+
+
+# ---------------------------------------------------------------------------
 # Intégration réseau : index réel + dernier tarball nocturne réel
 # ---------------------------------------------------------------------------
 
@@ -562,9 +854,20 @@ def test_integration_index_et_dernier_jo(tmp_path):
     session = session_http()
     r = session.get(URL_JORFSIMPLE, timeout=60)
     r.raise_for_status()
+    # L'index est celui que l'on sait lire : au moins un fichier reconnu.
+    # AUCUN nombre de livraisons n'est exigé — la DILA vide l'index à chaque
+    # régénération de son stock (08/11/2026 : de 404 nocturnes à zéro, et
+    # l'ancienne assertion « plus de 10 » échouait sur un amont sain).
+    assert index_reconnu(r.text), r.text[:500]
     nocturnes = livraisons_nocturnes(r.text)
-    # Historique profond côté DILA : il y a toujours largement plus de 10 nocturnes.
-    assert len(nocturnes) > 10
+    # Ce que la règle horaire écarte n'est pas une nocturne, et inversement.
+    for nom in nocturnes:
+        assert jour_de_livraison(nom) <= date.today() + timedelta(days=1)
+    assert nocturnes == sorted(nocturnes)
+    if not nocturnes:
+        pytest.skip(
+            "index JORFSIMPLE lisible mais sans aucune nocturne (stock"
+            f" Freemium : {stock_a_l_index(r.text)}) : rien à télécharger")
 
     dernier = nocturnes[-1]
     chemin = telecharger(
