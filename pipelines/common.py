@@ -147,7 +147,7 @@ def telecharger_ressource(
     url: str,
     dest: str | Path,
     modifiee_le: str | None,
-    max_age_heures: float,
+    max_age_heures: float | None,
     session: requests.Session | None = None,
     timeout: int = 300,
 ) -> Path:

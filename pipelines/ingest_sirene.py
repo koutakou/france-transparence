@@ -113,7 +113,7 @@ import duckdb
 import requests
 
 from pipelines import db
-from pipelines.common import obtenir_logger, session_http, telecharger
+from pipelines.common import obtenir_logger, session_http, telecharger_ressource
 
 log = obtenir_logger("ingest_sirene")
 
@@ -137,8 +137,13 @@ MARQUEUR_FORMAT = "parquet"
 MARQUEUR_EXCLU = "historique"
 
 FICHIER_RAW = "sirene/StockUniteLegale.parquet"
-# Millésime mensuel : re-télécharger 705 Mo par jour n'apporterait rien et
-# pèserait sur l'amont. 30 jours de cache restent en deçà de la cadence.
+# Millésime mensuel : re-télécharger ~700 Mo par jour n'apporterait rien et
+# pèserait sur l'amont. Le cache à nom fixe est servi jusqu'à 30 jours, MAIS
+# jamais au-delà de la parution suivante : `telecharger_ressource` le jette
+# dès que l'API annonce une ressource modifiée après la copie locale. Sans
+# cela (mesuré le 11/11/2026), le stock du 1er novembre, publié le 03/11,
+# n'était pas pris : le site servait encore celui du 1er octobre, et
+# l'aurait servi jusqu'à 30 jours après chaque parution.
 # NB : ce TTL n'a d'effet que si la purge quotidienne de `data/raw` épargne
 # ce fichier (voir /etc/france-transparence/cache-long.conf côté serveur).
 CACHE_HEURES = 30 * 24.0
@@ -279,7 +284,10 @@ def resoudre_ressource(session: requests.Session | None = None,
             return {
                 "url": ressource["url"],
                 "titre": titre,
-                "derniere_modification": (ressource.get("last_modified") or "")[:10],
+                # Horodatage COMPLET : il est comparé à l'heure de la copie
+                # locale. Tronqué au jour, un stock publié le 03/11 à 09:54
+                # passait pour plus ancien qu'une copie faite le 03/11 à 05:00.
+                "derniere_modification": ressource.get("last_modified") or "",
                 "octets": str(ressource.get("filesize") or ""),
             }
     titres = [r.get("title") for r in dataset.get("resources", [])]
@@ -460,8 +468,10 @@ def executer(chemin_db: str | Path | None = None,
             ressource = resoudre_ressource(session=session)
             log.info("ressource : %s (%s, %s o)", ressource["titre"],
                      ressource["derniere_modification"], ressource["octets"])
-            chemin_parquet = telecharger(
+            # `max_age_heures=None` force le téléchargement (comme `telecharger`).
+            chemin_parquet = telecharger_ressource(
                 ressource["url"], FICHIER_RAW,
+                ressource["derniere_modification"],
                 max_age_heures=max_age_heures, session=session,
             )
 
