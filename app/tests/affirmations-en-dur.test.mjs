@@ -113,6 +113,26 @@ const INTERDITS = [
     "le nombre de communes se lit en base",
   ],
   [
+    "app/collectivites/page.tsx",
+    /n’est pas encore publiée/,
+    "n'énoncer que l'existant : la donnée manque au jeu lu, daté, pas « pas encore »",
+  ],
+  [
+    "app/collectivites/page.tsx",
+    /la Lozère de\s+13/,
+    "un écart mesuré sur les communes manquantes change quand l'OFGL les intègre",
+  ],
+  [
+    "app/collectivites/page.tsx",
+    /séries 2018-2025|"budgets principaux, comptes provisoires|\(provisoire\)`/,
+    "« provisoire » et la période des séries se déduisent de la lecture et des données",
+  ],
+  [
+    "components/client/SeriesCommunes.tsx",
+    /évolution 2018-2025/,
+    "la période des séries communales se lit en base",
+  ],
+  [
     "app/depenses/page.tsx",
     /formatValeur=\{\(v\) => formatEuros\(v, "Md"\)\}/,
     "un montant en Md€ s'arrondit à une décimale fixe, comme sur l'accueil",

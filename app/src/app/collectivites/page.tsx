@@ -14,7 +14,8 @@ import { SeriesCommunes } from "@/components/client/SeriesCommunes";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { TableTronquee } from "@/components/client/TableTronquee";
 import { VueTableau } from "@/components/ui/VueTableau";
-import { ESPACE_FINE, formatEuros, formatNombre } from "@/lib/format";
+import { comptesProvisoires } from "@/lib/comptes-locaux";
+import { ESPACE_FINE, formatDateFr, formatEuros, formatNombre } from "@/lib/format";
 import {
   getConseilsDepartementaux,
   getDepartementsDepenses,
@@ -25,6 +26,7 @@ import {
   getKpisCommunes,
   getMetaFinancesLocales,
   getNbRegionsReferentiel,
+  getPeriodeSeriesCommunes,
   getRegions,
 } from "@/lib/queries/collectivites";
 import {
@@ -134,6 +136,10 @@ export default async function PageCollectivites() {
   const nbRegionsReferentiel = getNbRegionsReferentiel();
   const conseilsDep = getConseilsDepartementaux() ?? [];
   const grandesCommunes = getGrandesCommunes() ?? [];
+  const periodeSeries = getPeriodeSeriesCommunes();
+  const libellePeriodeSeries = periodeSeries
+    ? `${periodeSeries.debut}-${periodeSeries.fin}`
+    : null;
   const dgfTopFlop = getDgfCommunesTopFlop();
   const dgfDepartements = getDgfDepartements() ?? [];
   const rei = getRei();
@@ -151,7 +157,16 @@ export default async function PageCollectivites() {
   );
 
   const exerciceComptes = kpis?.exercice ?? departements[0]?.exercice ?? 2025;
-  const mentionComptes = `comptes ${exerciceComptes} provisoires`;
+  // « provisoire » seulement tant que c'est certain (lib/comptes-locaux.ts) :
+  // comptes lus avant le 1er décembre N+1. Ensuite, la page date la lecture
+  // et ne qualifie plus la version — ni provisoire, ni définitive.
+  const provisoires = comptesProvisoires(exerciceComptes, meta.date_ingestion);
+  const luLe = formatDateFr(meta.date_ingestion);
+  const mentionComptes = provisoires
+    ? `comptes ${exerciceComptes} provisoires`
+    : `comptes ${exerciceComptes} lus le ${luLe}`;
+  const qualifComptes = provisoires ? " (provisoire)" : "";
+  const perimetreComptes = `budgets principaux${provisoires ? ", comptes provisoires" : ""} — communes ayant rendu leurs comptes, via agrégats départementaux, hors budgets annexes`;
 
   // Carte €/hab : valeurs présentes + bornes réelles (min Orne / max Paris).
   const valeursCarte: Record<string, number> = {};
@@ -198,14 +213,12 @@ export default async function PageCollectivites() {
         label: `Fonctionnement des communes (${kpis.exercice})`,
         valeur: <Money valeur={kpis.total_fonctionnement} />,
         montantVedette: true,
-        perimetre:
-          "budgets principaux, comptes provisoires — communes ayant rendu leurs comptes, via agrégats départementaux, hors budgets annexes",
+        perimetre: perimetreComptes,
       },
       {
         label: `Investissement des communes (${kpis.exercice})`,
         valeur: <Money valeur={kpis.total_investissement} />,
-        perimetre:
-          "budgets principaux, comptes provisoires — communes ayant rendu leurs comptes, via agrégats départementaux, hors budgets annexes",
+        perimetre: perimetreComptes,
       },
     );
   }
@@ -323,9 +336,11 @@ export default async function PageCollectivites() {
           </h1>
           <p className="mt-2 text-sm text-ink-secondary">
             Comptes {exerciceComptes} des collectivités (OFGL / DGFiP), budgets
-            principaux, montants provisoires jusqu&apos;en décembre{" "}
-            {exerciceComptes + 1} (calendrier de l&apos;OFGL). DGF
-            jusqu&apos;à l&apos;exercice {exerciceDgf ?? "—"}.
+            principaux, lus le {luLe}
+            {provisoires
+              ? ` : provisoires jusqu’à l’intégration des balances définitives de la DGFiP, fin décembre ${exerciceComptes + 1} (calendrier de l’OFGL)`
+              : ` ; l’OFGL intègre fin décembre ${exerciceComptes + 1} les balances définitives de la DGFiP, et ce site ne distingue pas les deux versions`}
+            . DGF jusqu&apos;à l&apos;exercice {exerciceDgf ?? "—"}.
           </p>
         </div>
         {badge(mentionComptes)}
@@ -429,7 +444,7 @@ export default async function PageCollectivites() {
       <section id="carte">
         <Card
           titre="Dépenses communales par habitant"
-          sousTitre={`Fonctionnement + investissement des communes, agrégés par département — exercice ${exerciceComptes} (provisoire)`}
+          sousTitre={`Fonctionnement + investissement des communes, agrégés par département — exercice ${exerciceComptes}${qualifComptes}`}
           droite={badge(mentionComptes)}
         >
           <div className="mx-auto w-full max-w-[22rem]">
@@ -460,12 +475,16 @@ export default async function PageCollectivites() {
           titre="Grandes communes"
           sousTitre={
             grandesCommunes.length > 0
-              ? `Les ${grandesCommunes.length} communes les plus peuplées — exercice ${grandesCommunes[0].exercice} (provisoire), séries 2018-2025 au clic`
+              ? `Les ${grandesCommunes.length} communes les plus peuplées — exercice ${grandesCommunes[0].exercice}${qualifComptes}${libellePeriodeSeries ? `, séries ${libellePeriodeSeries} au clic` : ""}`
               : undefined
           }
           droite={badge(mentionComptes)}
         >
-          <SeriesCommunes lignes={lignesGrandesCommunes} hauteurMax="420px" />
+          <SeriesCommunes
+            lignes={lignesGrandesCommunes}
+            hauteurMax="420px"
+            periodeSeries={libellePeriodeSeries}
+          />
           {/* Encadré méthode — cadre éditorial du module : aucune note,
               aucun classement, aucun jugement ; la seule comparaison est la
               médiane de strate, et une donnée absente reste absente. */}
@@ -473,8 +492,8 @@ export default async function PageCollectivites() {
             <p className="mb-1 font-medium uppercase tracking-[0.04em]">Méthode</p>
             <p>
               Budget principal seul (les budgets annexes et les dépenses portées par
-              l&apos;intercommunalité n&apos;y figurent pas). Exercice {exerciceComptes}{" "}
-              provisoire
+              l&apos;intercommunalité n&apos;y figurent pas). Exercice {exerciceComptes}
+              {qualifComptes}
               {kpis ? ` : ${formatNombre(kpis.nb_communes)} communes y figurent` : ""} ;
               celles dont les comptes manquent encore à la source s&apos;affichent
               « donnée non disponible », jamais 0. La comparaison
@@ -518,11 +537,10 @@ export default async function PageCollectivites() {
         commentLire={
           <p>
             Tous les montants portent sur le budget principal seul. Une
-            commune absente d’un exercice provisoire n’a pas dépensé zéro :
-            sa donnée n’est pas encore publiée. La colonne Population est la
-            somme des seules communes ayant rendu leurs comptes : elle
-            sous-estime les départements où il en manque, la Lozère de
-            13&nbsp;% parce que Mende y figure parmi les manquantes. Un
+            commune absente n’a pas dépensé zéro : ses comptes ne figurent
+            pas dans le jeu de l’OFGL lu le {luLe}. La colonne Population est
+            la somme des seules communes ayant rendu leurs comptes : elle
+            sous-estime les départements où il en manque. Un
             écart à la médiane de strate n’est ni une faute ni un mérite. La
             participation électorale porte sur les préfectures, les communes
             de plus de 50&nbsp;000&nbsp;habitants, et les 200 communes les

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import socket
 import sqlite3
-
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -373,21 +373,40 @@ DISPONIBILITE_2025 = [{"presence_budget": "0", "n": 97},
                       {"presence_budget": "1", "n": 34778}]
 
 
+# Jour de lecture de la base du 11/11/2026.
+LU_LE = date(2026, 11, 11)
+
+
 def test_note_s16_derive_les_communes_manquantes_des_donnees():
     dispo = p11.compter_disponibilite(DISPONIBILITE_2025)
     assert dispo == (97, 34778)
-    phrase = p11.phrase_comptes_provisoires(2025, dispo)
+    phrase = p11.phrase_comptes_provisoires(2025, dispo, LU_LE)
     assert phrase.startswith("Comptes 2025 provisoires jusqu'à déc. 2026 (97 communes sans "
                              "comptes publiés sur 34\u202f875 existantes au 1er janvier 2025")
     # Un autre état de la source donne une autre phrase : rien n'est figé.
     autre = p11.phrase_comptes_provisoires(2026, p11.compter_disponibilite(
-        [{"presence_budget": "1", "n": 34875}]))
+        [{"presence_budget": "1", "n": 34875}]), date(2027, 7, 20))
     assert "(0 communes sans comptes publiés sur 34\u202f875" in autre
     assert "déc. 2027" in autre and "97" not in autre
 
 
+def test_note_s16_ne_dit_plus_provisoires_passe_le_calendrier_de_l_ofgl():
+    """Le 01/01/2027, l'ancienne note aurait dit « Comptes 2025 provisoires
+    jusqu'à déc. 2026 » : vrai et périmé à la fois. Passé le 1er décembre
+    N+1, l'OFGL a pu intégrer les balances définitives ; la note date alors
+    la lecture et ne qualifie plus la version, ni provisoire ni définitive."""
+    assert p11.comptes_provisoires(2025, date(2026, 11, 30))
+    assert not p11.comptes_provisoires(2025, date(2026, 12, 1))
+    dispo = p11.compter_disponibilite(DISPONIBILITE_2025)
+    janvier = p11.phrase_comptes_provisoires(2025, dispo, date(2027, 1, 1))
+    assert janvier.startswith("Comptes 2025 lus le 01/01/2027, sans distinction ici entre "
+                              "version provisoire et définitive")
+    assert "provisoires" not in janvier and "définitifs" not in janvier
+    assert "(97 communes sans comptes publiés" in janvier
+
+
 def test_note_s16_disponibilite_illisible_ne_devient_pas_zero():
-    phrase = p11.phrase_comptes_provisoires(2025, None)
+    phrase = p11.phrase_comptes_provisoires(2025, None, LU_LE)
     assert phrase.endswith("(nombre de communes sans comptes publiés : non disponible)")
     with pytest.raises(ValueError):
         p11.compter_disponibilite([{"presence_budget": "2", "n": 1}])

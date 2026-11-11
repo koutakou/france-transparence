@@ -667,7 +667,7 @@ curl "https://recherche-entreprises.api.gouv.fr/search?q=21750001600019"
 
 ### Finances locales
 - **Sources** : S16 (OFGL : comptes + dotations), **S48** (REI, fiscalité directe locale, bloc cloisonné), S27 (fonds de carte + population), S28 (balances, drill-down non ingéré), S33 (strates, non ingéré), S32 (subventions locales, panel non ingéré).
-- **Fraîcheur affichable** : « Comptes 2025 provisoires jusqu'à déc. 2026 (N communes sans comptes publiés sur M existantes au 1er janvier 2025…) », N et M relus à chaque ingestion (06) · « Dotations de l'État : exercice 2026 » (06).
+- **Fraîcheur affichable** : « Comptes 2025 provisoires jusqu'à déc. 2026 (N communes sans comptes publiés sur M existantes au 1er janvier 2025…) », N et M relus à chaque ingestion (06) ; « provisoires » n'est écrit que pour une lecture antérieure au 1er décembre N+1, ensuite « Comptes N lus le JJ/MM/AAAA, sans distinction ici entre version provisoire et définitive » (`comptes_provisoires`, ingest_collectivites.py ; même règle dans app/src/lib/comptes-locaux.ts) · « Dotations de l'État : exercice 2026 » (06).
 - **Contenu concret** : carte départementale en 1 requête `group_by` (101 départements) ; carte communale pré-calculée (34 778 communes, €/habitant natif) ; fiches collectivité (séries 2012/2018→2025, DGF 2018-2026, comparaison de strate) ; drill-down comptable par SIREN à la demande. **Jamais** de vue « subventions France entière » (aucune consolidation nationale SCDL, 06).
 
 ### Documents/JO
