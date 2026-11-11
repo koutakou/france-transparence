@@ -220,6 +220,49 @@ def test_neutraliser_flux_suit_le_mois_precedent_et_l_annee_precedente():
     assert par_cle[(_RECETTES_NETTES, "2025-09-30")]["montant_mois"] is None
 
 
+def test_bilan_compte_les_mois_reellement_controles():
+    # 28 mois dans l'extrait (24 de 2013/2023, 4 de 2025-2026) : chacune des
+    # quatre identités est contrôlée sur les 28, aucune n'est muette. Tue la
+    # mutation qui ajoute à une identité une composante que la source ne
+    # publie pas (le mois devenait « ignoré » et le journal le disait
+    # contrôlé).
+    bilan = {}
+    p1.detecter_ruptures(_serie_septembre_2026(), bilan)
+    assert set(bilan) == set(p1.IDENTITES)
+    for total, b in bilan.items():
+        assert (b["controles"], b["non_controlables"]) == (28, []), total
+
+
+def test_bilan_dit_le_mois_dont_une_composante_manque():
+    psr_ue = "depenses/prelevements-sur-recettes/psr-au-profit-de-l-union-europeenne"
+    serie = [e for e in _serie_septembre_2026()
+             if not (e["ligne_id"] == psr_ue and e["date_fin_mois"] == "2026-08-31")]
+    bilan = {}
+    p1.detecter_ruptures(serie, bilan)
+    psr = bilan["depenses/prelevements-sur-recettes/total-prelevements-sur-recettes"]
+    assert (psr["controles"], psr["non_controlables"]) == (27, ["2026-08-31"])
+    # Les autres identités ne sont pas touchées.
+    assert bilan[_RECETTES_NETTES]["controles"] == 28
+
+
+def test_main_vide_les_ruptures_d_un_cycle_precedent(monkeypatch, tmp_path):
+    """Le cycle suivant réécrit la table : une rupture corrigée en amont n'y
+    survit pas (tue la mutation qui retire le DELETE de la transaction)."""
+    base = tmp_path / "budget.db"
+    monkeypatch.setenv("FT_DB_PATH", str(base))
+    for export, attendu in (("smb_export_2026_09_extrait.csv", 1),
+                            ("smb_export_extrait.csv", 0)):
+        fixtures = {"budget/smb_export.csv": FIXTURES / export,
+                    "budget/smb_2013_2023.csv": FIXTURES / "smb_2013_2023_extrait.csv"}
+        monkeypatch.setattr(p1, "telecharger",
+                            lambda url, dest, f=fixtures, **_: f[dest])
+        assert p1.main() == 0
+        conn = sqlite3.connect(base)
+        n = conn.execute("SELECT count(*) FROM budget_mensuel_ruptures").fetchone()[0]
+        conn.close()
+        assert n == attendu, export
+
+
 def test_main_ecrit_la_rupture_et_ne_publie_pas_le_flux(monkeypatch, tmp_path):
     fixtures = {
         "budget/smb_export.csv": FIXTURES / "smb_export_2026_09_extrait.csv",

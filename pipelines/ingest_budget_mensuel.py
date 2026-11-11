@@ -307,14 +307,21 @@ def _combinaison(valeurs: dict[str, float], termes: dict[str, int]) -> float | N
     return sum(signe * valeurs[l] for l, signe in termes.items())
 
 
-def detecter_ruptures(enregistrements: list[dict]) -> list[dict]:
+def detecter_ruptures(enregistrements: list[dict],
+                      bilan: dict[str, dict] | None = None) -> list[dict]:
     """Cellules de total dont l'identité comptable (IDENTITES) ne tient pas.
 
     Pure, sans effet : renvoie une ligne par (total, mois) en écart, avec
     l'identité attendue, la somme des composantes et, si une définition de
     DEFINITIONS_CONNUES redonne la cellule à TOLERANCE_IDENTITE_EUROS près,
-    son libellé (sinon None). Un mois où une composante manque n'est pas
-    contrôlable : il n'est ni conforme ni en rupture, il est ignoré.
+    son libellé (sinon None).
+
+    Un mois où le total ou une composante manque n'est PAS contrôlable : il
+    n'est ni conforme ni en rupture. Il n'est pas compté comme contrôlé pour
+    autant : `bilan`, s'il est fourni, reçoit pour chaque total le nombre de
+    mois réellement contrôlés et la liste des mois non contrôlables — sans
+    quoi une identité dont une composante a disparu en amont (ou mal
+    recopiée ici) passerait muette pour « contrôlée ».
     """
     par_mois: dict[tuple[int, int], dict[str, float]] = {}
     dates: dict[tuple[int, int], str] = {}
@@ -322,12 +329,19 @@ def detecter_ruptures(enregistrements: list[dict]) -> list[dict]:
         cle = (e["annee"], e["mois"])
         par_mois.setdefault(cle, {})[e["ligne_id"]] = e["montant_cumul"]
         dates[cle] = e["date_fin_mois"]
+    if bilan is not None:
+        for total in IDENTITES:
+            bilan[total] = {"controles": 0, "non_controlables": []}
     ruptures = []
     for (annee, mois), valeurs in sorted(par_mois.items()):
         for total, (libelle, termes) in IDENTITES.items():
             somme = _combinaison(valeurs, termes)
             if total not in valeurs or somme is None:
+                if bilan is not None:
+                    bilan[total]["non_controlables"].append(dates[(annee, mois)])
                 continue
+            if bilan is not None:
+                bilan[total]["controles"] += 1
             publie = valeurs[total]
             if abs(publie - somme) <= TOLERANCE_IDENTITE_EUROS:
                 continue
@@ -434,12 +448,26 @@ def main() -> int:
         # Journalisé à CHAQUE cycle, zéro compris : un contrôle muet au vert
         # est indiscernable d'un contrôle débranché. Avertit, ne lève pas :
         # la cellule est une donnée officielle, la série reste publiée.
-        ruptures = detecter_ruptures(enregistrements)
+        bilan: dict[str, dict] = {}
+        ruptures = detecter_ruptures(enregistrements, bilan)
         nb_flux = neutraliser_flux(enregistrements, ruptures)
         nb_mois = len({e["date_fin_mois"] for e in enregistrements})
-        log.info("identités comptables : %d identités × %d mois contrôlés, "
-                 "%d rupture(s) de périmètre, %d flux mensuels neutralisés",
-                 len(IDENTITES), nb_mois, len(ruptures), nb_flux)
+        # Ce qui a été RÉELLEMENT contrôlé, identité par identité : un mois
+        # sans le total ou sans une composante n'est pas « contrôlé ».
+        log.info("identités comptables (%d mois publiés) : %s ; %d rupture(s) "
+                 "de périmètre, %d flux mensuels neutralisés", nb_mois,
+                 " ; ".join(f"{t.split('/')[-1]} {b['controles']}/{nb_mois} "
+                            f"mois contrôlés, {len(b['non_controlables'])} "
+                            "non contrôlable(s)" for t, b in bilan.items()),
+                 len(ruptures), nb_flux)
+        for total, b in bilan.items():
+            if b["non_controlables"]:
+                log.warning(
+                    "identité %s non contrôlable sur %d mois (total ou "
+                    "composante absent de la source) : %s", total,
+                    len(b["non_controlables"]),
+                    ", ".join(b["non_controlables"][:12])
+                    + (" …" if len(b["non_controlables"]) > 12 else ""))
         for r in ruptures:
             log.warning(
                 "rupture de périmètre amont : %s au %s = %.2f € publié, "

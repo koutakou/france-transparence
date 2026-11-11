@@ -105,6 +105,45 @@ export function bornePerimetreRompu({ rupture, cote }: ComparaisonRompue): strin
   return `ce mois-ci, la ligne DGFiP ${contenu} : variation non calculée`;
 }
 
+/** Ce que l'API publique dit, sur chaque ligne, d'une comparaison rompue. */
+export interface RupturePerimetreApi {
+  /** « mois » : cette cellule est en rupture ; « n1 » : c'est celle de N−1. */
+  cote: "mois" | "n1";
+  /** Date de la cellule en rupture (celle-ci, ou la même date N−1). */
+  date_fin_mois: string;
+  identite: string;
+  definition_constatee: string | null;
+  /** Toujours false : `montant_cumul` et `montant_cumul_n1` ne se comparent pas. */
+  comparable_n1: false;
+}
+
+/**
+ * Annote les lignes de l'export `/api/budget-mensuel.json` : chaque ligne
+ * reçoit `rupture_perimetre` (null quand rien n'interdit la comparaison à
+ * N−1). Les valeurs publiées ne sont pas touchées — un réutilisateur qui
+ * calcule une variation sur `montant_cumul` / `montant_cumul_n1` est averti
+ * sur la ligne même qu'elle comparerait deux définitions différentes.
+ */
+export function annoterRuptures<
+  T extends { ligne_id: string; annee: number; mois: number },
+>(lignes: T[], ruptures: Ruptures): (T & { rupture_perimetre: RupturePerimetreApi | null })[] {
+  return lignes.map((l) => {
+    const c = comparaisonRompue(ruptures, l.ligne_id, l.annee, l.mois);
+    return {
+      ...l,
+      rupture_perimetre: c
+        ? {
+            cote: c.cote,
+            date_fin_mois: c.rupture.dateFinMois,
+            identite: c.rupture.identite,
+            definition_constatee: c.rupture.definitionConstatee,
+            comparable_n1: false,
+          }
+        : null,
+    };
+  });
+}
+
 /** Une valeur retirée d'une série parce qu'elle n'a pas la définition des autres. */
 export interface ValeurOmise {
   annee: number;
