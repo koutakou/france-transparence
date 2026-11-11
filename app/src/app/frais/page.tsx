@@ -440,8 +440,8 @@ export default async function FraisPage() {
     PERIMETRE_REVERSEMENTS_AN,
   );
   pousser(
-    "elysee-charges-2024",
-    () => "Charges de la présidence de la République (2024)",
+    "elysee-charges-2025",
+    () => "Charges de la présidence de la République (2025)",
     PERIMETRE_ELYSEE_CHARGES,
   );
   pousser(

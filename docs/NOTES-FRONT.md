@@ -57,7 +57,7 @@ Condensé des avertissements « pour le front » remontés par chaque pipeline a
 
 ## Frais & train de vie (S31)
 - `trainvie_faits` (56) : chaque ligne porte source_nom/source_url/date_source affichables ; notes = contexte. `trainvie_opacites` (8) : la « boîte noire » — refus AN/Sénat du 11/06/2026, contraste CE 2023 (élus locaux communicables). Le déficit Élysée 2023 est stocké positif avec libellé « Déficit ».
-- Surveiller la parution du rapport Cour des comptes Élysée exercice 2025 (opacité dédiée).
+- Élysée : l'exercice 2025 (rapport Cour des comptes S2026-0961 du 17/09/2026) est ingéré (`elysee-*-2025`) et porte la tuile de tête ; surveiller la parution du rapport sur l'exercice 2026, qui ne passe par aucune sonde.
 
 ## Finances locales (S16)
 - Carte : `collectivites_departements(code_dep, …, euros_par_hab, population, nb_communes, exercice=2025)` ; €/hab = (fonct+inv)/pop ; min 1 055 (Orne), max 4 493 (Paris).

@@ -121,6 +121,10 @@ const ORDRE_FAITS: Record<TrainvieCategorie, string[]> = {
     "ctrl-senat-justificatifs-julia",
   ],
   elysee: [
+    "elysee-charges-2025",
+    "elysee-excedent-2025",
+    "elysee-dotation-2025",
+    "elysee-activite-presidentielle-2025",
     "elysee-charges-2024",
     "elysee-deplacements-nb-2024",
     "elysee-deplacements-cout-2024",
@@ -165,7 +169,7 @@ const ORDRE_OPACITES = [
   "reversements-senat",
   "frais-representation-ministres",
   "remunerations-cabinets",
-  "elysee-exercice-2025-non-paru",
+  "elysee-comptes-rapport-annuel",
   "indemnites-locales-versees",
   "contraste-elus-locaux-communicables",
 ];
@@ -198,7 +202,7 @@ export const PERIMETRE_REVERSEMENTS_AN =
 
 /** Comptes de la présidence, exercice audité — pas une dotation LFI. */
 export const PERIMETRE_ELYSEE_CHARGES =
-  "comptes audités par la Cour des comptes, exercice 2024";
+  "comptes audités par la Cour des comptes, exercice 2025";
 
 /** Dotation votée en LFI — pas le projet de loi de finances. */
 export const PERIMETRE_LFI2026_AN =

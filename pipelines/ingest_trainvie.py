@@ -89,6 +89,14 @@ URL_SENAT_CDP = (
     "https://www.senat.fr/fileadmin/cru-1783325159/Organisation_interne/"
     "Comite_de_deontologie/Rapports_d_activite/RapportActivite2024-2025.pdf"
 )
+URL_CCOMPTES_ELYSEE_2025_PAGE = (
+    "https://www.ccomptes.fr/fr/publications/les-comptes-et-la-gestion-des-services-"
+    "de-la-presidence-de-la-republique-exercice-2025"
+)
+URL_CCOMPTES_ELYSEE_2025_PDF = (
+    "https://www.ccomptes.fr/sites/default/files/2026-09/"
+    "20260917_S2026-0961-Presidence-Republique.pdf"
+)
 URL_CCOMPTES_ELYSEE_2024_PAGE = (
     "https://www.ccomptes.fr/fr/publications/les-comptes-et-la-gestion-des-services-"
     "de-la-presidence-de-la-republique-exercice-2024"
@@ -147,6 +155,10 @@ SRC_AN_DEONTOLOGUE = (
     "Rapport du déontologue de l'Assemblée nationale du 13/05/2026 (exercice 2024)"
 )
 SRC_SENAT_CDP = "Comité de déontologie parlementaire du Sénat — rapport d'activité 2024-2025"
+SRC_CCOMPTES_2025 = (
+    "Cour des comptes — « Les comptes et la gestion des services de la présidence "
+    "de la République », exercice 2025 (S2026-0961, publié le 17/09/2026)"
+)
 SRC_CCOMPTES_2024 = (
     "Cour des comptes — « Les comptes et la gestion des services de la présidence "
     "de la République », exercice 2024 (publié le 18/07/2025)"
@@ -356,6 +368,45 @@ FAITS: list[dict] = [
                "inférieur à l'inflation (16,2 %). Aucun montant de reversement publié."),
 
     # --- Élysée (le train de vie le mieux audité : Cour des comptes) -----
+    # Exercice 2025 : rapport S2026-0961, délibéré le 06/07/2026, publié le
+    # 17/09/2026 (PDF de 81 pages, lu le 11/11/2026). Montants pris à
+    # l'euro dans l'annexe n° 1 (compte de résultat), sauf l'activité
+    # présidentielle, que le rapport ne donne qu'arrondie (p. 17).
+    dict(id="elysee-charges-2025", categorie="elysee",
+         libelle="Charges de la présidence de la République (exercice 2025)",
+         valeur=125257724.2, unite="euros", periode="2025",
+         institution="Présidence de la République",
+         source_nom=SRC_CCOMPTES_2025, source_url=URL_CCOMPTES_ELYSEE_2025_PDF,
+         date_source="2026-09-17",
+         notes="Annexe n° 1, p. 78 (« Total charges ») ; 125,3 M€ au tableau n° 1, "
+               "p. 14 : +2 % par rapport à 2024. Produits : 130 386 928,1 €."),
+    dict(id="elysee-excedent-2025", categorie="elysee",
+         libelle="Excédent de l'exercice 2025 de la présidence de la République",
+         valeur=5129203.8, unite="euros", periode="2025",
+         institution="Présidence de la République",
+         source_nom=SRC_CCOMPTES_2025, source_url=URL_CCOMPTES_ELYSEE_2025_PDF,
+         date_source="2026-09-17",
+         notes="Annexe n° 1, p. 78 (« Résultat de l'activité (bénéfice) ») ; "
+               "5,1 M€ p. 13, après 6,7 M€ en 2024."),
+    dict(id="elysee-dotation-2025", categorie="elysee",
+         libelle="Dotation annuelle de la présidence de la République (exercice 2025)",
+         valeur=122563852.0, unite="euros", periode="2025",
+         institution="Présidence de la République",
+         source_nom=SRC_CCOMPTES_2025, source_url=URL_CCOMPTES_ELYSEE_2025_PDF,
+         date_source="2026-09-17",
+         notes="Annexe n° 1, p. 75 (« Dotation annuelle ») ; identique à celle de "
+               "2024 (p. 15)."),
+    dict(id="elysee-activite-presidentielle-2025", categorie="elysee",
+         libelle="Dépenses liées à l'activité présidentielle, déplacements compris "
+                 "(exercice 2025)",
+         valeur=23900000.0, unite="euros", periode="2025",
+         institution="Présidence de la République",
+         source_nom=SRC_CCOMPTES_2025, source_url=URL_CCOMPTES_ELYSEE_2025_PDF,
+         date_source="2026-09-17",
+         notes="Rapport, p. 17 : montant arrondi par la Cour (24 M€ en 2024 sur le même "
+               "périmètre). Réceptions comprises : ce n'est pas le seul coût des "
+               "déplacements. 31 déplacements en Europe et 24 hors d'Europe ou "
+               "outre-mer, contre 25 et 16 en 2024."),
     dict(id="elysee-dotation-2024", categorie="elysee",
          libelle="Dotation de l'État à la présidence de la République (LFI 2024)",
          valeur=122563852.0, unite="euros", periode="2024",
@@ -623,15 +674,20 @@ OPACITES: list[dict] = [
                        "confidentialité prévue par son Règlement.",
          source_nom=SRC_SENAT_CDP,
          source_url=URL_SENAT_CDP, date="2025"),
-    dict(id="elysee-exercice-2025-non-paru",
-         sujet="Comptes de l'Élysée, exercice 2025",
-         ce_qui_manque="Le rapport de la Cour des comptes sur l'exercice 2025 n'est pas paru "
-                       "au 19/08/2026 ; un seul rapport PDF par an, 12 à 18 mois après les "
-                       "dépenses, sans données infra-annuelles ni open data.",
+    # L'opacité « exercice 2025 non paru » (constat du 19/08/2026) est tombée
+    # avec la parution du rapport le 17/09/2026. Ce qui reste vrai, et vérifié
+    # sur ce rapport, c'est le format et le rythme de la seule publication.
+    dict(id="elysee-comptes-rapport-annuel",
+         sujet="Comptes de l'Élysée : un rapport par an, en PDF",
+         ce_qui_manque="Les comptes de la présidence de la République ne sont rendus publics "
+                       "que par le rapport annuel de la Cour des comptes, un PDF publié "
+                       "plusieurs mois après la clôture de l'exercice : celui de l'exercice "
+                       "2025 l'a été le 17/09/2026. Aucun jeu de données n'accompagne ce "
+                       "rapport.",
          base_du_refus="Calendrier de publication de la Cour des comptes ; aucune obligation "
-                       "de délai ; l'Élysée ne publie pas lui-même de page budget à jour.",
-         source_nom="Cour des comptes — page « exercice 2024 » (dernier rapport paru)",
-         source_url=URL_CCOMPTES_ELYSEE_2024_PAGE, date="2026-08-19"),
+                       "de délai ni de format ouvert.",
+         source_nom=SRC_CCOMPTES_2025,
+         source_url=URL_CCOMPTES_ELYSEE_2025_PAGE, date="2026-09-17"),
 ]
 
 # Date de CONSULTATION du corpus. Les pages sans date propre (Sénat, DGCL,
@@ -763,7 +819,7 @@ def ingester(conn: sqlite3.Connection | None = None) -> tuple[int, int]:
             conn,
             source_id=SOURCE_ID,
             nom="Corpus officiel « train de vie » (constantes sourcées)",
-            url=URL_CCOMPTES_ELYSEE_2024_PAGE,
+            url=URL_CCOMPTES_ELYSEE_2025_PAGE,
             licence="Publications officielles (hors open data)",
             frequence="à parution (annuelle)",
             # Document source le plus récent du corpus, calculé (cf.
@@ -773,7 +829,8 @@ def ingester(conn: sqlite3.Connection | None = None) -> tuple[int, int]:
             lignes=len(FAITS) + len(OPACITES),
             notes=f"{len(FAITS)} faits sourcés + {len(OPACITES)} opacités documentées "
                   "(05-frais-indemnites.md, URLs re-vérifiées le 19/08/2026 ; "
-                  "rapport Cour des comptes Élysée exercice 2025 non paru, à surveiller).",
+                  "Élysée exercice 2025 : rapport Cour des comptes S2026-0961 du "
+                  "17/09/2026, lu le 11/11/2026).",
         )
 
         par_categorie = Counter(f["categorie"] for f in FAITS)
