@@ -877,9 +877,10 @@ def test_resoudre_ressource_choisit_le_parquet_du_stock_courant():
     assert ressource["url"].endswith("StockUniteLegale.parquet")
     assert "Historique" not in ressource["titre"]
     assert not ressource["url"].endswith(".zip")
-    # `last_modified` est tronquée à la date : la partie horaire n'a pas de
-    # sens pour un millésime mensuel.
-    assert ressource["derniere_modification"] == "2026-08-01"
+    # `last_modified` est gardée ENTIÈRE : elle est comparée à l'heure de la
+    # copie locale (tronquée au jour, une parution à 09:54 passait pour plus
+    # ancienne qu'une copie faite à 05:00 le même jour).
+    assert ressource["derniere_modification"] == "2026-08-01T05:12:44.123000+00:00"
     assert ressource["octets"] == "739142016"
     # Un seul appel, sur l'API dataset, avec un timeout.
     url, _, timeout = session.appels[0]
@@ -929,3 +930,69 @@ def test_resoudre_ressource_propage_l_erreur_http():
     session = _FausseSession({"resources": []}, statut=503)
     with pytest.raises(RuntimeError):
         resoudre_ressource(session=session)
+
+
+# ---------------------------------------------------------------------------
+# 9. Cache du parquet : jamais servi au-delà de la parution suivante
+# ---------------------------------------------------------------------------
+# Constat du 11/11/2026 : le stock du 1er novembre était publié depuis le
+# 03/11 (last_modified 2026-11-03, URL horodatée 20261103-095402), et la base
+# portait encore celui du 1er octobre. Le cache à nom fixe était servi tant
+# que la copie avait moins de 30 jours, sans regarder la date amont.
+
+URL_PARQUET_NOVEMBRE = (
+    "https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-"
+    "leurs-etablissements-siren-siret/20261103-095402/"
+    "stock-stockunitelegale-parquet.parquet"
+)
+
+
+def _dataset_publie_le(instant):
+    return {"resources": [{
+        "title": "Sirene : Fichier StockUniteLegale - 01 novembre 2026 (format parquet)",
+        "url": URL_PARQUET_NOVEMBRE,
+        "filesize": 717_824_037,
+        "last_modified": instant.isoformat(),
+    }]}
+
+
+def _copie_locale(raw, instant):
+    import os
+    copie = raw / "sirene" / "StockUniteLegale.parquet"
+    copie.parent.mkdir(parents=True)
+    copie.write_bytes(FIXTURE.read_bytes())
+    os.utime(copie, (instant.timestamp(), instant.timestamp()))
+    return copie
+
+
+@pytest.mark.parametrize("copie_avant_parution, telecharge", [
+    # Copie du MÊME JOUR, quatre heures avant la parution : le cas que la date
+    # tronquée au jour laissait passer, et que le TTL de 30 jours servait.
+    (True, True),
+    # Contre-épreuve : copie postérieure à la parution, le cache est servi.
+    (False, False),
+])
+def test_un_stock_publie_apres_la_copie_locale_est_retelecharge(
+        chemin_base, monkeypatch, tmp_path, copie_avant_parution, telecharge):
+    from datetime import datetime, timedelta, timezone
+
+    from pipelines import common
+    from pipelines.tests.session_factice import SessionFactice
+
+    _assouplir_gardefous(monkeypatch)
+    raw = tmp_path / "raw"
+    monkeypatch.setattr(common, "RAW_DIR", raw)
+    # Dates relatives au jour du test : la copie a toujours moins de 30 jours,
+    # le TTL seul la servirait donc toujours.
+    parution = (datetime.now(timezone.utc) - timedelta(days=2)).replace(
+        hour=9, minute=54, second=2, microsecond=0)
+    copie = parution + (timedelta(hours=-4) if copie_avant_parution
+                        else timedelta(hours=4))
+    _copie_locale(raw, copie)
+    session = SessionFactice({
+        ingest_sirene.URL_DATASET_API: _dataset_publie_le(parution),
+        URL_PARQUET_NOVEMBRE: FIXTURE.read_bytes(),
+    })
+    stats = executer(chemin_db=chemin_base, session=session)
+    assert (URL_PARQUET_NOVEMBRE in session.appels) is telecharge
+    assert stats["lignes_parquet"] == LIGNES_PARQUET
