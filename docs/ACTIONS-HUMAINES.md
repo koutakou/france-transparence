@@ -4,9 +4,9 @@
 
 ## 11/11/2026 — Venv du serveur : dépendances figées
 
-`requirements.txt` passe de bornes basses (`duckdb>=1.3`) à des versions exactes, transitives comprises. Au premier `ft-deploy` qui suit la fusion, `git pull` rend ce fichier plus récent que `.venv/bin/pip` : la règle `$(VENV)/bin/pip` du `Makefile` rejoue alors, au premier `make ingest-…`, `$(PYTHON) -m venv .venv`, `pip install --upgrade pip` et `pip install -r requirements.txt`. Il faut donc PyPI joignable à ce moment-là, et `python3.14` présent sur le serveur si `ft-deploy` ne passe pas `PYTHON=…`. Un échec arrête le cycle avant la bascule : le site de la veille reste servi. `make test` vérifie ensuite que la venv porte exactement les versions figées (`pipelines/tests/test_dependances.py`).
+`requirements.txt` passe de bornes basses (`duckdb>=1.3`) à des versions exactes, transitives comprises. Au premier `ft-deploy` qui suit la fusion, `git pull` rend ce fichier plus récent que `.venv/bin/pip`. Au premier `make ingest-…`, la règle `$(VENV)/bin/pip` du `Makefile` lance alors `pip install --upgrade pip`, puis `pip install -r requirements.txt`, **avec l'interpréteur de la venv existante** (`.venv/bin/python`). Elle ne rappelle `$(PYTHON)` (`python3.14` par défaut) que si la venv n'a pas d'interpréteur exécutable. Une venv existante n'a donc besoin ni de `python3.14` ni d'un `PYTHON=…` passé par `ft-deploy`, et elle ne change pas d'interpréteur. **PyPI doit rester joignable à ce moment-là.** Un échec arrête le cycle avant la bascule : le site de la veille reste servi. `make test` vérifie ensuite que la venv porte exactement les versions figées (`pipelines/tests/test_dependances.py`, qui passe sous Python 3.10 à 3.14 et ne regarde ni pip ni setuptools). Changer d'interpréteur reste un geste explicite : supprimer `.venv`, puis `make venv PYTHON=…`.
 
-1. **Avant la fusion, ou au plus tard avant le cycle suivant**, relever l'interpréteur et les versions de la venv, et la façon dont `ft-deploy` appelle `make` :
+1. **Avant toute montée de DuckDB en 2.x** (point 2), relever l'interpréteur et les versions de la venv, et la façon dont `ft-deploy` appelle `make` :
    ```sh
    sudo -u ftweb /srv/france-transparence/app/.venv/bin/python -V
    sudo -u ftweb /srv/france-transparence/app/.venv/bin/pip freeze

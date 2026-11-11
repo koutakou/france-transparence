@@ -3,7 +3,6 @@
 
 PYTHON ?= python3.14
 VENV   := .venv
-PIP    := $(VENV)/bin/pip
 PY     := $(VENV)/bin/python
 
 # Ordre d'ingestion : référentiels d'abord (entites), parlement AVANT integrite
@@ -82,11 +81,20 @@ PIPELINES := referentiels budget_mensuel budget_structure decp boamp approch \
 # recherche de règles implicites (ingest-%) pour les cibles phony.
 .PHONY: venv ingest pipelines test dev build build-static serve-static app-install
 
+# La venv n'est CRÉÉE avec $(PYTHON) que si elle n'existe pas encore. Quand
+# requirements.txt change, on installe avec l'interpréteur de la venv
+# EXISTANTE, sans rappeler $(PYTHON) : sur une machine dont la venv a été
+# créée par un autre interpréteur (ou qui n'a pas python3.14), une mise à jour
+# des dépendances ne doit ni échouer sur « python3.14: not found » ni
+# reconstruire la venv sous un autre Python. Changer d'interpréteur reste un
+# geste explicite : supprimer .venv, puis `make venv PYTHON=…`.
+# `--clear` ne s'applique qu'à une venv sans interpréteur exécutable (absente,
+# ou dont le Python a disparu) : `venv` sans lui garderait le lien cassé.
 venv: $(VENV)/bin/pip
 $(VENV)/bin/pip: requirements.txt
-	$(PYTHON) -m venv $(VENV)
-	$(PIP) install --upgrade pip
-	$(PIP) install -r requirements.txt
+	test -x $(PY) || $(PYTHON) -m venv --clear $(VENV)
+	$(PY) -m pip install --upgrade pip
+	$(PY) -m pip install -r requirements.txt
 	@touch $(VENV)/bin/pip
 
 ingest: $(addprefix ingest-,$(PIPELINES))

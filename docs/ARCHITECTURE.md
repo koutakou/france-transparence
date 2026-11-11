@@ -236,7 +236,7 @@ Côté app : pages de module dans `app/src/app/<module>/page.tsx` (routes de nav
 
 | Commande | Effet |
 |---|---|
-| `make venv` | crée `.venv` (python3.14) + `pip install -r requirements.txt` |
+| `make venv` | crée `.venv` si elle n'a pas d'interpréteur (python3.14), puis `pip install -r requirements.txt` avec l'interpréteur de la venv |
 | `make ingest` / `make ingest-<source>` | joue tous les pipelines / un seul |
 | `make test` | pytest du socle et des pipelines |
 | `make app-install` | `npm install` dans `app/` |
