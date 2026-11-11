@@ -59,6 +59,37 @@ Du 22/10 au 11/11/2026, la validation quotidienne a échoué vingt et un jours d
 3. **Rendre le check `tests-python-3-10` requis** sur `main` (Settings → Branches), à côté de `construire`, une fois vu vert : il rejoue les tests des pipelines sous Python 3.10, pour qu'une montée de dépendance qui abandonne cet interpréteur soit refusée avant la fusion. À ne garder requis que tant que la venv du serveur peut être en 3.10 (section « Venv du serveur », ci-dessus).
 4. **Faire sortir l'alerte du serveur.** `ft-alerte` écrit dans le journal systemd et pousse vers un webhook « si l'un est configuré » ; le gel du 08/11 n'a atteint personne. La vigie le verra désormais, mais une fois par jour et seulement si GitHub fonctionne. À poser sur le serveur : un envoi réel (courriel vers la boîte de contact) à chaque échec de `ft-deploy`, répété chaque jour tant que `current` n'a pas basculé, avec le nombre de jours dans l'objet. Et, pour le gel en cours : `ft-etat`, puis `/var/log/france-transparence/deploiement.log`.
 
+## 11/11/2026 — `ft-deploy` ingère-t-il dans une base neuve ou dans la base du dernier cycle ? Trois secours en dépendent
+
+Les secours « publication précédente » de `jorf`, `dole` et `ingest-parlement` (dump `export_sens` vide, borne de 3 jours) lisent la base **du cycle en cours** (`db.publication_precedente`, `cycle_precedent`). Ils ne jouent que si cette base porte déjà un cycle réussi. Or le dépôt se contredit sur ce point, et seul `/usr/local/bin/ft-deploy` le tranche :
+
+- **base neuve** : c'est ce que disent le [RUNBOOK § 1](deploiement/RUNBOOK.md) (« make ingest (base SQLite neuve) »), la section Journal officiel ci-dessus et `ingest_jorf.py` ;
+- **base qui persiste** : c'est ce que supposent le RUNBOOK § 4 (une table réécrite à la main avec un acquittement P15, puis « `ft-deploy` tout court », qui ne passe que si le cycle relit cette table), `docs/HATVP-DECLARATIONS.md` (contrôles inter-cycles « qui ne vivent que sur le serveur ») et `ingest_decp.py` (`_reconcilier_schema` : « la base servie est persistante et migrée »). Et `make ingest` ne supprime pas `data/france.db` : la base n'est neuve que si `ft-deploy` l'efface ou en désigne une autre.
+
+Ce qui est sûr : **la CI ingère toujours dans une base neuve**. Le cycle planifié saute la restauration du cache ; un autre événement n'ingère que si aucun cache ne correspond, et sinon n'ingère pas du tout. Les secours n'y jouent donc jamais. Si le serveur ingère lui aussi dans une base neuve, une panne de ces trois sources fait échouer le cycle comme avant, en tout-ou-rien. C'est honnête (la veille reste servie), mais la nuit entière est perdue.
+
+1. **Relever** (lecture seule) :
+   ```sh
+   grep -n 'france\.db\|FT_DB_PATH\|FRANCE_DB_PATH\|make ingest\|rm \|mv \|cp \|sqlite3' /usr/local/bin/ft-deploy
+   ls -l --time-style=long-iso /srv/france-transparence/app/data/france.db*
+   sqlite3 -readonly /srv/france-transparence/app/data/france.db \
+     "SELECT 'votes_recents_archive', count(*), min(archive_le) FROM votes_recents_archive
+      UNION ALL SELECT 'jorf_textes_archive', count(*), min(archive_le) FROM jorf_textes_archive;"
+   ```
+   Une base neuve n'archive que ce que son propre cycle a fait sortir de la fenêtre. Mesuré sur une base neuve ingérée le 11/11/2026 : les deux tables sont **vides** ; au plus, elles porteraient des dates `archive_le` de ce seul cycle. Des lignes datées d'avant le dernier cycle prouvent que la base persiste. Si `ft-deploy` désigne une autre base que `data/france.db`, poser la même question à celle-là.
+2. **Si la base est neuve**, la recommandation est de faire partir `ft-deploy` d'une **copie** de la base du dernier cycle publié, posée à l'endroit où ingère `make ingest` avant son lancement, jamais du fichier servi lui-même. C'est ce qui rendrait effectifs les secours `jorf`, `dole` et ODSEN. Vérifié dans le code le 11/11/2026, cette copie ne change rien pour les tables que leur pipeline remplace en entier à chaque cycle, par `DELETE` puis `INSERT` ou par `DROP` puis recréation, en transaction :
+   - `referentiels`, `budget_mensuel` (et `budget_mensuel_ruptures`), `budget_structure`, `decp`, `boamp`, `approch`, `lobbying`, `financement`, `collectivites`, `elections`, `trainvie`, `cada`, `registre_ue`, `dette_maastricht`, `deficit_maastricht`, `dole`, `agregats_apu`, `cge`, `protection_sociale`, `recettes_plf`, `ircom`, `rei`, `cofog_apu`, `comptes_apu_insee`, `odac_insee`, `adlc`, `sirene` ;
+   - dans `parlement` : `deputes` et `groupes_an` (suppression de la législature puis réinsertion), `senateurs` (remplacement puis suppression des absents), `votes_senat`, `scrutins_senat` et `participation_senat` ;
+   - la table partagée `alertes` : chaque pipeline n'en supprime que ses propres types.
+
+   **Ce qui n'est PAS remplacé**, et changerait donc de comportement :
+   - `elus` n'est jamais vidée. P9 complète et met à jour les fiches, et date la fin des mandats des sortants ; P7 complète et supprime les seuls doublons qu'il rattrape. Avec une base copiée, les fiches des élus sortis de la chambre **restent publiées**, mandat clos, alors qu'une base neuve ne les recrée pas. Le nombre de fiches, le sitemap et les redirections 301 changent : à relire avant de basculer.
+   - `scrutins` est en `INSERT OR REPLACE`, jamais vidée. C'est sans effet aujourd'hui : le fichier amont porte toute la législature.
+   - `jorf_textes` est une fenêtre glissante, avec réintégration depuis `jorf_textes_archive`. Les tables `*_archive` (JO, votes AN et Sénat, annonces BOAMP) sont en `INSERT OR IGNORE` : elles **croissent** d'un cycle à l'autre et ne sont pas servies.
+   - Les contrôles inter-cycles de P15 (`hatvp_decl_*`, comparées au cycle précédent avant d'être recréées) et le plafond de rattrapages de P7 deviendraient **actifs**. Un cycle pourrait alors échouer et exiger un acquittement nommé (RUNBOOK § 4), ce qui est leur rôle.
+   - Le **schéma** : `CREATE TABLE IF NOT EXISTS` ne migre pas une base copiée. Seuls `decp` (`_reconcilier_schema`) et `boamp` (`migrer_ao_en_cours`) migrent leurs tables. Une proposition qui change le schéma d'une autre table casserait le cycle serveur sans que la CI, sur base neuve, le voie : c'est déjà arrivé (f336df8, 0597ad0). Il faudrait donc soit une migration dans chaque pipeline concerné, soit, en cas d'échec de schéma, un repli vers une base neuve.
+3. **Si la base persiste déjà**, les secours sont effectifs sur le serveur, et c'est le RUNBOOK § 1 (« base SQLite neuve »), la section Journal officiel ci-dessus et `ingest_jorf.py` qu'il faut corriger.
+
 ## 15/10/2026 — À faire sur le serveur et sur GitHub
 
 L'audit du 15/10/2026 et les quinze propositions fusionnées le même jour (JOURNAL.md, décisions 35-46) laissent des gestes qu'aucune fusion ne fait : les scripts `ft-*`, nginx, la zone DNS et les réglages GitHub vivent hors du dépôt. Les correctifs fusionnés le 15/10 n'arrivent en ligne qu'au cycle `ft-deploy` du 16/10 : sauf mention contraire, chaque geste serveur ci-dessous se fait **après** ce cycle.
