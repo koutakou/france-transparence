@@ -250,6 +250,23 @@ export function getFraisData(): FraisData | null {
 }
 
 /** Faits regroupés par catégorie, dans l'ordre d'affichage du module. */
+/**
+ * Période commune à un groupe de faits (`periode`, ex. « 2026 »), ou `null`
+ * s'ils n'en partagent pas une seule. Les en-têtes de catégorie de /frais en
+ * dérivent leur millésime au lieu de l'écrire : « dotations 2026 » serait
+ * resté affiché sur des faits d'un autre exercice.
+ */
+export function periodeCommune(faits: Pick<TrainvieFait, "periode">[]): string | null {
+  const periodes = new Set(faits.map((f) => f.periode));
+  return periodes.size === 1 ? [...periodes][0] : null;
+}
+
+/** Même chose pour la date de la source (`date_source`). */
+export function dateSourceCommune(faits: Pick<TrainvieFait, "date_source">[]): string | null {
+  const dates = new Set(faits.map((f) => f.date_source));
+  return dates.size === 1 ? [...dates][0] : null;
+}
+
 export function grouperParCategorie(
   faits: TrainvieFait[],
 ): { categorie: TrainvieCategorie; faits: TrainvieFait[] }[] {
