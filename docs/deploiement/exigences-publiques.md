@@ -112,6 +112,8 @@ Les points de conformité relevés à l'établissement de ce document sont en pl
 
 ## 5. Période électorale — règles éditoriales en vigueur
 
+> **Rectification datée du 11/11/2026.** Le gel du point 1 n'est outillé par rien : le dépôt ne contient aucun mécanisme qui suspende une publication, et la chaîne décrite au [RUNBOOK](RUNBOOK.md) § 1 (`ft-deploy`, chaque nuit) reconstruit et republie toutes les pages, alertes nominatives comprises, sans exception de calendrier. Ce paragraphe ne connaît que les sénatoriales du 27/09/2026. Avant le prochain scrutin national (présidentielle de 2027), une décision reste à prendre : soit un gel posé dans `ft-deploy` (serveur, hors dépôt — à poser à la main), soit une règle réécrite pour dire ce que le site fait réellement.
+
 Le décret de convocation cité au § 1.4 ouvre une période électorale ; les règles que le site s'applique alors sont les suivantes.
 
 1. **Gel éditorial la veille et le jour du scrutin** : aucune publication nouvelle nominative sur des candidats ou des sortants (site et éventuels relais sociaux), aucun résultat avant les heures légales (art. L. 49 et L. 52-2 c. élect. — prudence au-delà du strict champ « propagande »). Les données permanentes et datées du site restent en ligne : ce n'est pas de la propagande.

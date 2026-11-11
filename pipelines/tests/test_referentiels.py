@@ -380,6 +380,10 @@ def test_meta_s35_nomme_la_source_reellement_utilisee():
     normal = meta_entites_etat("RefOrgaAdminEtat (DILA)", None, "2026-10-15")
     assert normal["nom"].endswith("(DILA)")
     assert normal["url"] == URL_REFORGA_LATEST
+    # La composition suit le flux du jour : aucun gouvernement nommé en dur
+    # (la note disait « gouvernement Lecornu II » quel que soit le flux).
+    assert "Lecornu" not in normal["notes"]
+    assert normal["notes"].startswith("Ministères tels que le flux les livre")
 
     secours = meta_entites_etat(
         "liste vérifiée docs/recherche/03-parlement.md",
