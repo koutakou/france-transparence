@@ -8,10 +8,11 @@ Tables produites (base FT_DB_PATH sinon data/france.db) :
   est_prefecture (1 = préfecture, coordonnées du bâtiment issues de
   l'annuaire DILA ; 0 = commune > 50 000 hab., centroïde geo.api.gouv.fr) ;
 - entites (table noyau, cf. pipelines/db.py) : les ministères ACTUELS
-  (gouvernement Lecornu II) type 'ministere' — extraits du référentiel de
-  l'organisation administrative de l'État (RefOrgaAdminEtat, DILA, flux
-  quotidien), à défaut liste vérifiée du rapport 03 (décret du 26/02/2026,
-  Légifrance JORFTEXT000053586369) — et 7 institutions clés type
+  type 'ministere' — extraits du référentiel de l'organisation
+  administrative de l'État (RefOrgaAdminEtat, DILA, flux quotidien : la
+  composition suit le flux, aucun gouvernement n'est nommé en dur), à
+  défaut liste vérifiée du rapport 03 (gouvernement Lecornu II, décret du
+  26/02/2026, Légifrance JORFTEXT000053586369) — et 7 institutions clés type
   'institution' (Présidence, AN, Sénat, Conseil constitutionnel, HATVP,
   CNCCFP, Cour des comptes).
 
@@ -733,7 +734,10 @@ def meta_entites_etat(
             "nom": "Référentiel de l'organisation administrative de l'État"
                    " (DILA)",
             "url": URL_REFORGA_LATEST,
-            "notes": "Ministères du gouvernement Lecornu II (type"
+            # Aucun gouvernement nommé : la composition est celle que le
+            # flux du jour livre, datée par date_donnees ; « Lecornu II »
+            # écrit ici serait devenu faux au premier changement.
+            "notes": "Ministères tels que le flux les livre (type"
                      f" 'ministere') — source : {source_ministeres} ;"
                      " institutions clés (type 'institution') enrichies"
                      " (SIREN Présidence : RefOrgaAdminEtat ; SIREN"
