@@ -10,8 +10,10 @@ Les fixtures sont des EXTRAITS OCTET POUR OCTET des fichiers publiés
 - extrait-comptes-partis-2023.csv : 4 partis dont 2 en XPF et 1 sans unité.
 """
 
+import logging
 import re
 import string
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -928,6 +930,69 @@ def test_un_cycle_reussi_ecrit_les_trois_lignes_meta(monkeypatch, tmp_path):
         assert c.execute("SELECT count(*) FROM campagnes_2024").fetchone()[0] > 0
     finally:
         c.close()
+
+
+# Extrait réel des ressources du jeu CNCCFP (API data.gouv, 11/11/2026) :
+# titres, formats et dates de mise en ligne tels quels, avis PDF compris.
+RESSOURCES_CNCCFP_2026_11_11 = [
+    {"format": "csv", "title": "comptes_partis_exercice_2024.csv",
+     "created_at": "2026-02-10T00:00:00"},
+    {"format": "pdf", "title": "Avis relatif à la publication générales des comptes des "
+     "partis et groupements politiques au titre de l'exercice 2024",
+     "created_at": "2026-02-10T00:00:00"},
+    {"format": "csv", "title": "comptes_partis_exercice_2023.csv",
+     "created_at": "2025-01-31T00:00:00"},
+    {"format": "xlsx", "title": "comptes-partis-exercice-2020.xlsx",
+     "created_at": "2022-02-17T00:00:00"},
+    {"format": "ods", "title": "Comptes partis exercice 2017",
+     "created_at": "2019-01-11T00:00:00"},
+]
+
+
+def test_note_s25_lit_le_dernier_exercice_publie_dans_le_jeu():
+    """« reste le plus récent publié » était écrit en dur : la note l'aurait
+    encore affirmé après la parution de l'exercice 2025 (attendue début
+    2027). Le dernier exercice publié se lit dans les ressources du jeu,
+    relues à chaque ingestion ; un avis PDF ne compte pas."""
+    publie = fin.dernier_exercice_publie(RESSOURCES_CNCCFP_2026_11_11)
+    assert publie == (2024, "2026-02-10")
+    phrase = fin.phrase_exercices_partis((2021, 2022, 2023, 2024), publie, date(2026, 11, 11))
+    assert phrase == ("Exercices 2021-2024 ; l'exercice 2024 (dépôt N+1, publication N+2) "
+                      "est paru le 10/02/2026 et restait le plus récent publié au 11/11/2026")
+
+
+def test_note_s25_dit_un_exercice_paru_et_non_ingere():
+    """Le jour où la CNCCFP publie l'exercice 2025, la note le dit au lieu de
+    prétendre que 2024 est le plus récent — et l'avertissement part dans le
+    journal de chaque cycle (main)."""
+    ressources = [{"format": "csv", "title": "comptes_partis_exercice_2025.csv",
+                   "created_at": "2027-02-09T00:00:00"}, *RESSOURCES_CNCCFP_2026_11_11]
+    publie = fin.dernier_exercice_publie(ressources)
+    assert publie == (2025, "2027-02-09")
+    phrase = fin.phrase_exercices_partis((2021, 2022, 2023, 2024), publie, date(2027, 2, 10))
+    assert "plus récent" not in phrase
+    assert ("l'exercice 2025, publié par la CNCCFP le 09/02/2027, n'est pas ingéré à ce "
+            "jour (10/02/2027)") in phrase
+    # Jeu illisible : la note le dit, elle ne retombe pas sur l'ancienne phrase.
+    illisible = fin.phrase_exercices_partis((2021, 2022, 2023, 2024), None, date(2027, 2, 10))
+    assert "non lisible" in illisible and "plus récent" not in illisible
+
+
+def test_un_cycle_signale_un_exercice_publie_non_ingere(monkeypatch, tmp_path, caplog):
+    chemin = _brancher_hors_ligne(monkeypatch, tmp_path)
+    ressources = fin.resoudre_ressources(None)
+    monkeypatch.setattr(fin, "resoudre_ressources",
+                        lambda session: {**ressources, "dernier_publie": (2025, "2027-02-09")})
+    with caplog.at_level(logging.INFO):
+        assert fin.main() == 0
+    assert any("exercice 2025 publié par la CNCCFP" in m for m in caplog.messages)
+    c = db.connexion(chemin)
+    try:
+        (note,) = c.execute(
+            "SELECT notes FROM meta_sources WHERE source_id = 'S25'").fetchone()
+    finally:
+        c.close()
+    assert "l'exercice 2025, publié par la CNCCFP le 09/02/2027, n'est pas ingéré" in note
 
 
 def test_upsert_meta_sans_commit_suit_la_transaction(tmp_path):
