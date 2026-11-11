@@ -75,7 +75,18 @@ SEUIL_SECURITY_TXT_JOURS = 30
 # ouvrir une issue. Les pauses s'allongent d'un essai à l'autre.
 PAUSES_ENTRE_ESSAIS_S = (20, 60, 120)
 ESSAIS = len(PAUSES_ENTRE_ESSAIS_S) + 1
-DELAI_S = 30
+DELAI_S = 15
+# MAIS LE TOUT EST BORNÉ. Site éteint, trois des quatre lectures échouent :
+# si chacune épuisait ses essais, la vigie dépasserait le délai de son job et
+# serait tuée AVANT d'ouvrir l'issue — dans le cas le plus grave. Les
+# lectures partagent donc un budget : une fois entamé au point qu'une pause
+# et un essai de plus n'y tiennent pas, une lecture en échec n'est plus
+# réessayée. Pire cas : BUDGET_LECTURES_S, plus un essai par lecture restante.
+BUDGET_LECTURES_S = 300
+NB_LECTURES = 4
+DUREE_MAX_LECTURES_S = BUDGET_LECTURES_S + NB_LECTURES * DELAI_S
+
+_debut_des_lectures: float | None = None
 AGENT = "france-transparence-vigie (supervision quotidienne du site)"
 
 
@@ -160,7 +171,10 @@ def anomalies_security_txt(texte: str, maintenant: datetime) -> list[str]:
 
 
 def _avec_essais(lecture, quoi: str):
-    """Plusieurs essais espacés : une coupure passagère n'est pas une panne."""
+    """Plusieurs essais espacés, dans la limite du budget commun des lectures."""
+    global _debut_des_lectures
+    if _debut_des_lectures is None:
+        _debut_des_lectures = time.monotonic()
     derniere = None
     for essai in range(1, ESSAIS + 1):
         try:
@@ -171,9 +185,16 @@ def _avec_essais(lecture, quoi: str):
             derniere = erreur
             print(f"  {quoi} : essai {essai}/{ESSAIS} en échec "
                   f"({type(erreur).__name__}: {str(erreur)[:160]})")
-            if essai < ESSAIS:
-                time.sleep(PAUSES_ENTRE_ESSAIS_S[essai - 1])
-    raise Illisible(f"{quoi} injoignable après {ESSAIS} essais "
+            if essai == ESSAIS:
+                break
+            pause = PAUSES_ENTRE_ESSAIS_S[essai - 1]
+            ecoule = time.monotonic() - _debut_des_lectures
+            if ecoule + pause + DELAI_S > BUDGET_LECTURES_S:
+                print(f"  {quoi} : pas de nouvel essai, budget de lecture "
+                      f"entamé ({ecoule:.0f} s sur {BUDGET_LECTURES_S})")
+                break
+            time.sleep(pause)
+    raise Illisible(f"{quoi} injoignable après {essai} essai(s) "
                     f"({type(derniere).__name__}: {str(derniere)[:160]})")
 
 
@@ -292,10 +313,25 @@ Aucune de ces échéances ne se règle depuis le dépôt : voir docs/ACTIONS-HUM
 Cette issue est relancée une fois par semaine tant que le constat ne change pas, et se ferme d'elle-même quand il disparaît."""
 
 
+def _dire_abouti() -> None:
+    """Dit au workflow que la vigie est allée AU BOUT : verdicts rendus, issues tenues.
+
+    Un run rouge peut vouloir dire « site figé, issue tenue » ou « vigie
+    tombée en route ». L'étape de secours de vigie.yml ne doit agir que dans
+    le second cas : elle lit cette sortie.
+    """
+    sortie = os.environ.get("GITHUB_OUTPUT")
+    if sortie:
+        with open(sortie, "a", encoding="utf-8") as f:
+            f.write("abouti=oui\n")
+
+
 def main(argv: list[str] | None = None, maintenant: datetime | None = None) -> int:
     analyseur = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     analyseur.add_argument("--a-blanc", action="store_true")
     a = analyseur.parse_args(argv)
+    global _debut_des_lectures
+    _debut_des_lectures = None
     maintenant = maintenant or datetime.now(timezone.utc)
     fraicheur = verdict_fraicheur(maintenant)
     echeances = verdict_echeances(maintenant)
@@ -305,6 +341,7 @@ def main(argv: list[str] | None = None, maintenant: datetime | None = None) -> i
         # le site va bien — une proposition de fusion n'y peut rien.
         print(f"À BLANC, aucune issue touchée. site-fige : {fraicheur['etat']} ; "
               f"site-echeances : {echeances['etat']}.")
+        _dire_abouti()
         return 0
 
     depot, proprietaire = os.environ["DEPOT"], os.environ["PROPRIETAIRE"]
@@ -353,6 +390,7 @@ def main(argv: list[str] | None = None, maintenant: datetime | None = None) -> i
     # d'être signalée ou de changer. Une échéance déjà connue (inchangée, ou
     # simplement relancée) reste tenue par son issue et laisse le run vert.
     nouveau = geste in ("ouverte", "commentée")
+    _dire_abouti()
     print(f"Verdict : site-fige={fraicheur['etat']} ; site-echeances="
           f"{echeances['etat']} (issue {geste}) → run "
           f"{'ROUGE' if fraicheur['anomalie'] or nouveau else 'vert'}.")

@@ -693,7 +693,7 @@ jobs:
             } > corps.md
             python3 deploy/tenir_issue.py signaler --label redirections-301 \
               --titre "Redirections 301 d'élus : la table ne correspond plus aux fiches servies" \
-              --corps-fichier corps.md --etat "$(printf '%s' "$DETAIL" | sha256sum | cut -c1-16)" \
+              --corps-fichier corps.md --etat "$(printf '%s' "$DETAIL" | cksum | cut -d' ' -f1)" \
               --relance-jours 7 --couleur FBCA04 \
               --description "Une redirection 301 d'élu mène à un 404 ou masque une fiche servie"
           elif [ "${ANOMALIES:-}" = "non" ]; then
