@@ -1,7 +1,8 @@
 "use client";
 
 import { Money } from "@/components/ui/Money";
-import { AO_ACCUEIL_AFFICHEES, echeancesOuvertes } from "@/lib/echeances";
+import { AO_ACCUEIL_AFFICHEES, RESERVE_HEURES, echeancesOuvertes } from "@/lib/echeances";
+import { phraseEcheancesEpuisees } from "@/lib/phrases";
 import type { AoProcheCloture } from "@/lib/queries/accueil";
 import { useHorloge } from "@/lib/useHorloge";
 import { useTrancheEcheances } from "@/lib/useTrancheEcheances";
@@ -70,8 +71,7 @@ export function AoProchesCloture({
   if (lignes.length === 0) {
     return (
       <li className="py-2 text-[13px] text-ink-muted">
-        Les échéances de la liste arrêtée le {libelleConstruction} sont toutes passées à
-        cette heure ; la liste est reconstruite à chaque publication du site.
+        {phraseEcheancesEpuisees(libelleConstruction, RESERVE_HEURES)}
       </li>
     );
   }

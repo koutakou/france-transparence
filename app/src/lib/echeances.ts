@@ -112,8 +112,13 @@ export function trancheDeNom(nom: string): number | null {
 /**
  * Tranches que la PAGE peut demander, d'après SON instant de construction :
  * de celle de la construction à celle qui contient la fin de la réserve.
- * Au-delà, le navigateur reste sur la dernière (qui porte, comme la réserve
- * d'avant, les échéances suivantes) : la liste s'épuise alors et le dit.
+ * Au-delà, le navigateur reste sur la dernière, qui ne porte, comme toutes
+ * les autres, que les lignes affichables pendant SON heure (`contenuTranche`) :
+ * passé cette heure, la liste s'épuise — même si des appels d'offres plus
+ * lointains de l'instantané sont encore ouverts — et le dit
+ * (`phraseEcheancesEpuisees`, lib/phrases.ts). Prolonger la dernière tranche
+ * coûterait le poids d'un fragment chargé sans geste : environ 480 clôtures
+ * par jour ouvré.
  */
 export function tranchesDeLaPage(
   construitLe: number,

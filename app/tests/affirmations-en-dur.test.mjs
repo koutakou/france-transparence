@@ -153,6 +153,11 @@ const INTERDITS = [
     "le millésime d'un en-tête de catégorie se lit dans les faits du groupe",
   ],
   [
+    "lib/echeances.ts",
+    /qui porte, comme la réserve\s+\/?\*?\s*d'avant, les échéances suivantes/,
+    "la dernière tranche ne porte que les lignes affichables pendant son heure",
+  ],
+  [
     "app/depenses/page.tsx",
     /formatValeur=\{\(v\) => formatEuros\(v, "Md"\)\}/,
     "un montant en Md€ s'arrondit à une décimale fixe, comme sur l'accueil",
