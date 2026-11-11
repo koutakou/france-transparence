@@ -72,6 +72,10 @@ nocturnes à zéro, puis à une de plus par JO. Trois conséquences :
   simplement rien de neuf à lire ;
 - la purge ne suit pas l'index : une base qui porte déjà ses JO les garde
   tant qu'ils sont parmi les `--jours` derniers JO en base ;
+- ce qu'un cycle a archivé À TORT revient : avant de calculer la fenêtre,
+  les textes de jorf_textes_archive dont le JO compte parmi les `--jours`
+  derniers JO connus (table + archive) sont réintégrés, sans écraser un
+  texte déjà en table, et quittent l'archive. Compté à chaque cycle ;
 - une base neuve (CI, premier déploiement) n'a que ce que l'index liste :
   la fenêtre est RÉDUITE et la note de meta_sources le dit, compteur et
   date à l'appui. Le stock Freemium n'est PAS lu pour la compléter : plus
@@ -552,8 +556,10 @@ def _fr(iso: str) -> str:
     return date.fromisoformat(iso).strftime("%d/%m/%Y")
 
 
-def fenetre_en_base(conn, jours: int) -> list[str]:
+def fenetre_en_base(conn, jours: int, avec_archive: bool = False) -> list[str]:
     """Dates des `jours` derniers JO PRÉSENTS EN BASE, ordre chronologique.
+    `avec_archive` : compte aussi les JO de jorf_textes_archive (ce qui
+    DEVRAIT être en fenêtre, pour la réintégration).
 
     C'est la base qui porte la fenêtre, pas l'index : la DILA retire de
     l'index les livraisons antérieures à chaque régénération de son stock,
@@ -568,12 +574,49 @@ def fenetre_en_base(conn, jours: int) -> list[str]:
         date.fromisoformat(plus_recent)
         - timedelta(days=jours * JOURS_CIVILS_MAX_PAR_JO)
     ).isoformat()
+    tables = "SELECT date_publi FROM jorf_textes"
+    if avec_archive:
+        tables += " UNION SELECT date_publi FROM jorf_textes_archive"
     return sorted(
         r[0] for r in conn.execute(
-            "SELECT DISTINCT date_publi FROM jorf_textes WHERE date_publi >= ?"
+            f"SELECT DISTINCT date_publi FROM ({tables}) WHERE date_publi >= ?"
             " ORDER BY date_publi DESC LIMIT ?", (plancher, jours),
         )
     )
+
+
+def reintegrer_depuis_archive(conn, jours: int) -> tuple[int, list[str]]:
+    """Ramène en table les textes archivés dont le JO est dans la fenêtre.
+
+    POURQUOI : jusqu'au 11/11/2026 la purge suivait l'index. Un cycle joué
+    devant l'index réduit a envoyé à l'archive des JO qui comptaient encore
+    parmi les 30 derniers ; `jorf` passant avant la plupart des pipelines, un
+    cycle qui échoue plus loin peut avoir laissé la base dans cet état sans
+    rien publier. La fenêtre de référence se calcule donc sur table +
+    archive, et ce qui y tombe revient.
+
+    `INSERT OR IGNORE` : un texte déjà en table (livré de nouveau depuis)
+    n'est pas écrasé par sa copie archivée. Les lignes revenues quittent
+    l'archive : un texte est en table OU en archive, jamais les deux.
+    Retourne (textes réintégrés, dates des JO concernés).
+    """
+    dates = fenetre_en_base(conn, jours, avec_archive=True)
+    if not dates:
+        return 0, []
+    debut = dates[0]
+    concernes = [r[0] for r in conn.execute(
+        "SELECT DISTINCT date_publi FROM jorf_textes_archive"
+        " WHERE date_publi >= ? ORDER BY 1", (debut,))]
+    if not concernes:
+        return 0, []
+    colonnes = ", ".join(COLONNES_JORF_TEXTES)
+    n = conn.execute(
+        f"INSERT OR IGNORE INTO jorf_textes ({colonnes})"
+        f" SELECT {colonnes} FROM jorf_textes_archive WHERE date_publi >= ?",
+        (debut,),
+    ).rowcount
+    conn.execute("DELETE FROM jorf_textes_archive WHERE date_publi >= ?", (debut,))
+    return n, concernes
 
 
 def ecarts_anormaux(dates_jo: list[str]) -> list[tuple[str, str, int]]:
@@ -588,6 +631,13 @@ def ecarts_anormaux(dates_jo: list[str]) -> list[tuple[str, str, int]]:
     return trous
 
 
+def _editions(n: int) -> str:
+    return (
+        "1 édition quotidienne du JO" if n == 1
+        else f"{n} éditions quotidiennes du JO"
+    )
+
+
 def note_fenetre(
     dates_jo: list[str],
     jours: int,
@@ -599,32 +649,36 @@ def note_fenetre(
 
     Fenêtre pleine et continue : compte et bornes. Sinon la note commence
     par MARQUE_FENETRE_REDUITE ou MARQUE_FENETRE_DISCONTINUE, donne le
-    compteur, la date du constat et ce que l'index listait ce jour-là.
+    compteur, la date du constat et ce que la DILA proposait ce jour-là.
+    Elle est LUE sur /documents : mots du lecteur, pas ceux du pipeline
+    (« édition quotidienne », pas « livraison nocturne » ; « renouvellement
+    du dépôt », pas « Freemium »). Elle ne dit pas où sont les JO plus
+    anciens (absents, ou à l'archive) : seulement qu'ils ne sont pas affichés.
     """
     debut, fin = dates_jo[0], dates_jo[-1]
     index_reduit = nocturnes_index < jours
-    etat_index = f"l'index de la DILA liste {nocturnes_index} livraison(s) nocturne(s)"
+    etat_index = f"le dépôt public de la DILA propose {_editions(nocturnes_index)}"
     if index_reduit and stock:
         etat_index += (
-            " depuis la régénération de son stock (Freemium du "
-            f"{_fr(f'{stock[:4]}-{stock[4:6]}-{stock[6:]}')})"
+            " depuis son renouvellement du "
+            f"{_fr(f'{stock[:4]}-{stock[4:6]}-{stock[6:]}')}"
         )
     trous = ecarts_anormaux(dates_jo)
     dit_trous = " ; ".join(
-        f"aucun JO en base entre le {_fr(a)} et le {_fr(b)} ({n} jours)"
+        f"aucun JO entre le {_fr(a)} et le {_fr(b)} ({n} jours)"
         for a, b, n in trous
     )
     if len(dates_jo) < jours:
         note = (
-            f"{MARQUE_FENETRE_REDUITE} : {len(dates_jo)} JO en base sur les"
-            f" {jours} visés, du {_fr(debut)} au {_fr(fin)} (constat du"
-            f" {_fr(constat)}) ; {etat_index}, les JO antérieurs ne sont pas"
-            " dans cette base"
+            f"{MARQUE_FENETRE_REDUITE} : {len(dates_jo)} JO sur les {jours}"
+            f" visés, du {_fr(debut)} au {_fr(fin)} (constat du"
+            f" {_fr(constat)}) ; {etat_index}, les JO plus anciens ne sont"
+            " pas affichés ici"
         )
         return f"{note} ; {dit_trous}" if trous else note
-    note = f"{len(dates_jo)} JO en base, du {_fr(debut)} au {_fr(fin)} ; {etat_index}"
+    note = f"{len(dates_jo)} JO, du {_fr(debut)} au {_fr(fin)} ; {etat_index}"
     if index_reduit:
-        note += ", la fenêtre tient par les JO déjà en base"
+        note += ", les JO plus anciens viennent des ingestions précédentes"
     if trous:
         return (
             f"{MARQUE_FENETRE_DISCONTINUE} : {dit_trous} (constat du"
@@ -736,7 +790,9 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         # Cas du 09/11/2026 : stock régénéré la veille, première nocturne
         # attendue le lendemain. Sortir en erreur gelait tout le cycle pour
-        # un index parfaitement lisible.
+        # un index parfaitement lisible. Une livraison de journée listée
+        # seule peut être la nocturne en retard : elle est nommée ici aussi.
+        signaler_jours_sans_nocturne(r.text, date.min)
         return secours_cycle_precedent(
             "index DILA réduit à 0 livraison nocturne ("
             f"{len(RE_LIVRAISON.findall(r.text))} livraison(s) d'une autre"
@@ -803,6 +859,17 @@ def main(argv: list[str] | None = None) -> int:
     # nocturnes, 28 JO encore dans la fenêtre partaient à l'archive, en
     # sortie 0 et sans un mot.
     aujourd_hui = date.today().isoformat()
+    n_revenus, jo_revenus = reintegrer_depuis_archive(conn, args.jours)
+    if n_revenus or jo_revenus:
+        log.warning(
+            "%d texte(s) de %d JO réintégré(s) depuis jorf_textes_archive"
+            " (%s → %s) : archivés par un cycle précédent alors qu'ils"
+            " comptent parmi les %d derniers JO connus",
+            n_revenus, len(jo_revenus), jo_revenus[0], jo_revenus[-1],
+            args.jours,
+        )
+    else:
+        log.info("textes réintégrés depuis jorf_textes_archive : 0")
     dates_fenetre = fenetre_en_base(conn, args.jours)
     debut_fenetre = dates_fenetre[0]
     n_sortants = conn.execute(
