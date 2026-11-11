@@ -212,6 +212,11 @@ def test_comptes_elysee_2025_repris_du_rapport_s2026_0961(conn):
         assert f["date_source"] == "2026-09-17", fait_id
         assert f["source_url"].endswith("20260917_S2026-0961-Presidence-Republique.pdf")
         assert "p. " in f["notes"], fait_id  # page citée dans le fait même
+    # Les décomptes de déplacements des deux rapports n'ont pas le même
+    # découpage (25 + 16 pour 2024 dans celui-ci, 34 + 3 dans le précédent) :
+    # la note ne les juxtapose pas comme comparables.
+    note = lignes["elysee-activite-presidentielle-2025"]["notes"]
+    assert "25 et 16" not in note and "ne se compare pas" in note
     # Plus aucune opacité ne prétend le rapport non paru.
     for o in conn.execute("SELECT * FROM trainvie_opacites"):
         texte = f"{o['sujet']} {o['ce_qui_manque']}".lower()
