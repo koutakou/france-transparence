@@ -96,6 +96,10 @@ type SeuilSource = { unite: UniteAge; retard: number; alerte: number; editionFig
  *
  * Ordre et valeurs repris ligne à ligne de `fraicheur.conf`.
  * Dernière synchronisation : 25/08/2026, 44 sources (ajout de S52).
+ * ⚠ Divergence voulue depuis le 11/11/2026 : S7-DATAN, S45, S47, S48 et S49
+ * ont été recalibrés ici sur le calendrier amont relevé ce jour-là (détail
+ * sur chaque ligne) ; `fraicheur.conf` n'est pas accessible depuis le dépôt
+ * et doit recevoir les mêmes valeurs à la main (docs/ACTIONS-HUMAINES.md).
  */
 const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // Quotidiennes strictes, calendrier ouvré
@@ -107,7 +111,13 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // Quotidiennes mais événementielles (le contenu ne bouge qu'à un événement)
   "S5-AMO10": { unite: "jc", retard: 20, alerte: 45 },
   "S6-ODSEN": { unite: "jc", retard: 20, alerte: 45 },
-  "S7-DATAN": { unite: "jc", retard: 20, alerte: 45 },
+  // Datan publie chaque jour, week-ends compris : dateMaj quotidienne du
+  // 22 au 28/10/2026 (journaux CI, 24 et 25/10 inclus), et du jour même le
+  // 19/08/2026, en pleine trêve parlementaire. Elle s'est arrêtée au 28/10
+  // alors que l'Assemblée a publié 606 scrutins du 29/10 au 10/11 (base du
+  // 11/11/2026) : avec 20/45, les scores restaient « à jour ». Ce n'est pas
+  // une source événementielle comme AMO10 — l'âge normal est de 0 à 1 jour.
+  "S7-DATAN": { unite: "jc", retard: 7, alerte: 14 },
   "S35-reforga-admin-etat": { unite: "jc", retard: 45, alerte: 90 },
   "S11-annuaire-administration": { unite: "jc", retard: 60, alerte: 120 },
   // Calendrier parlementaire (trêve estivale mi-juillet → début octobre)
@@ -144,7 +154,10 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // Millésime figé : DECRETS_AIDE_PUBLIQUE (ingest_financement.py) est une
   // liste de décrets consultés, tenue à la main.
   S37: { unite: "jc", retard: 400, alerte: 440, editionFigee: true },
-  S31: { unite: "jc", retard: 450, alerte: 550 },
+  // Millésime figé : ingest_trainvie.py n'est fait que de constantes
+  // relevées à la main dans des publications officielles (Cour des comptes,
+  // DGCL, lois de finances) ; un rapport paru n'y entre pas seul.
+  S31: { unite: "jc", retard: 450, alerte: 550, editionFigee: true },
   // Annuelle EDP (notification avril N+1). date_donnees = 31/12 du TIME
   // max, jamais `updated`. 400/440 sonnerait dès février, avant la
   // notification d'avril (~477 j après le 31/12). 520/600 = 17/20 mois.
@@ -153,13 +166,17 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // jamais `updated`. 400/440 sonnerait dès février, avant la
   // publication de juillet. 520/600 = 17/20 mois, comme S42 EDP.
   S44: { unite: "jc", retard: 520, alerte: 600 },
-  // Annuelle GFS détaillée (juillet N+1). TIME 2025 listé, 0 valeur FR
-  // au 25/08/2026 : date_donnees = 31/12 du TIME max de TOTAL (2024 →
-  // 2024-12-31), jamais `updated` ni OBS_PERIOD_OVERALL_LATEST.
-  // 650/750 comme S45 : millésime 2024 encore servi en 2026. 520/600
-  // (S44) sonnerait dès que 2025 manque, alors que la table S44, elle,
-  // porte déjà 2025.
-  S49: { unite: "jc", retard: 650, alerte: 750 },
+  // Annuelle GFS détaillée (COFOG). date_donnees = 31/12 du TIME max de
+  // TOTAL (2024 → 2024-12-31), jamais `updated` ni
+  // OBS_PERIOD_OVERALL_LATEST. Calendrier amont : transmission à t+12 mois
+  // (règlement 549/2013), diffusion principale EN FÉVRIER t+2 (métadonnées
+  // ESMS gov_10a_exp, relevées le 11/11/2026) — et non « juillet N+1 » :
+  // la diffusion du 21/10/2026 listait TIME 2025 sans valeur FR. L'édition
+  // précédente a donc ~790 jours quand la suivante paraît (31/12/2024 →
+  // fin février 2027). 820 ≈ fin mars t+2, un mois après la diffusion
+  // principale ; 900 ≈ mi-juin. 650/750 la disait « à surveiller » chaque
+  // année dès la mi-octobre, sans retard amont.
+  S49: { unite: "jc", retard: 820, alerte: 900 },
   // Annuelle INSEE comptes des APU (Insee Résultats, mai N+1).
   // date_donnees = 31/12 de l'année max (2025 → 2025-12-31), jamais
   // modified Melodi (2026-06-08) ni la date de parution (29/05/2026).
@@ -180,21 +197,32 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // couvre un exercice de retard de la pièce sans sonner dès février.
   S22: { unite: "jc", retard: 650, alerte: 750 },
   // Annuelle DREES, comptes de la protection sociale. date_donnees =
-  // 31/12 de l'année max (2024 → 2024-12-31), jamais last_update
-  // 2025-12-18. 650/750 comme S22 : millésime 2024 paru en décembre
-  // 2025 ; 400/440 sonnerait dès l'été. Rupture à poser dans
-  // fraicheur.conf (hors de ce fichier).
-  S45: { unite: "jc", retard: 650, alerte: 750 },
+  // 31/12 de l'année max (2024 → 2024-12-31), jamais last_update.
+  // Calendrier amont relevé le 11/11/2026 : l'année N paraît en décembre
+  // N+1 (export 305 du 18/12/2025 pour 2024, fichier « 1959 à 2024 » du
+  // 17/12/2025). L'édition précédente a alors ~717 jours : 650/750 la
+  // disait « à surveiller » chaque année du 12 octobre à la parution, sans
+  // retard amont. 730 = 31/12 N+1, passé la parution habituelle ; 800 ≈
+  // mi-mars. Une seule parution observée : à revoir à la suivante.
+  S45: { unite: "jc", retard: 730, alerte: 800 },
   // Annuelle IRCOM (DGFiP). date_donnees = 31/12 de l'année des
-  // REVENUS (2024 → 2024-12-31), jamais last_update data.gouv
-  // (2026-05-26). Publication ~mai N+2. 650/750 comme S22/S45 :
-  // 400/440 sonnerait dès l'été.
-  S47: { unite: "jc", retard: 650, alerte: 750 },
+  // REVENUS (2024 → 2024-12-31), jamais last_update data.gouv.
+  // Calendrier amont (created_at des ressources, relevé le 11/11/2026) :
+  // revenus 2021 le 08/06/2023, 2022 le 10/06/2024, 2023 le 09/04/2025,
+  // 2024 le 07/04/2026. L'édition précédente a alors 828 à 892 jours :
+  // 650/750 la disait « à surveiller » dès octobre et « en retard » en
+  // janvier, l'amont étant à l'heure. 900 couvre la parution la plus
+  // tardive observée (juin N+2) ; 960 ≈ mi-août N+2.
+  S47: { unite: "jc", retard: 900, alerte: 960 },
   // Annuelle REI (DGFiP). date_donnees = 31/12 de l'année
-  // d'IMPOSITION (2025 → 2025-12-31), jamais last_update data.gouv
-  // (2026-05-11) ni last-modified du zip. Publication ~mai/juin N+1.
-  // 650/750 comme S22/S45/S47 : 400/440 sonnerait dès l'été.
-  S48: { unite: "jc", retard: 650, alerte: 750 },
+  // d'IMPOSITION (2025 → 2025-12-31), jamais last_update data.gouv ni
+  // last-modified du zip. Calendrier amont relevé le 11/11/2026 : REI 2023
+  // versé le 29/05/2024, REI 2025 le 12/05/2026 (la date du REI 2024 est
+  // perdue : toutes les ressources ont été re-versées le 17/10/2025).
+  // L'édition précédente a ~500 jours quand la suivante paraît : 650/750
+  // ne signalait un REI manquant qu'en octobre N+2. 560 ≈ mi-juillet N+2,
+  // 650 ≈ mi-octobre.
+  S48: { unite: "jc", retard: 560, alerte: 650 },
   // Annuelles à décalage structurel documenté
   // Millésime figé : « plf25-depenses-2025-selon-destination », écrit en dur
   // (ingest_budget_structure.py).

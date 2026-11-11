@@ -90,6 +90,20 @@ Ce qui est sûr : **la CI ingère toujours dans une base neuve**. Le cycle plani
    - Le **schéma** : `CREATE TABLE IF NOT EXISTS` ne migre pas une base copiée. Seuls `decp` (`_reconcilier_schema`) et `boamp` (`migrer_ao_en_cours`) migrent leurs tables. Une proposition qui change le schéma d'une autre table casserait le cycle serveur sans que la CI, sur base neuve, le voie : c'est déjà arrivé (f336df8, 0597ad0). Il faudrait donc soit une migration dans chaque pipeline concerné, soit, en cas d'échec de schéma, un repli vers une base neuve.
 3. **Si la base persiste déjà**, les secours sont effectifs sur le serveur, et c'est le RUNBOOK § 1 (« base SQLite neuve »), la section Journal officiel ci-dessus et `ingest_jorf.py` qu'il faut corriger.
 
+## 11/11/2026 — Seuils de fraîcheur : reporter cinq lignes dans `fraicheur.conf`
+
+La copie versionnée des seuils (`SEUILS_SOURCES`, désormais dans `app/src/lib/fraicheur.ts`) a été recalibrée sur le calendrier amont relevé le 11/11/2026 ; le référentiel du serveur, `/etc/france-transparence/fraicheur.conf`, ne peut pas l'être depuis le dépôt. Tant qu'il ne l'est pas, `ft-fraicheur` et la page `/donnees` ne disent pas la même chose de ces cinq sources. Le motif de chaque valeur est écrit sur sa ligne dans `fraicheur.ts`.
+
+| Source | Avant (retard / alerte) | Après | Unité |
+|---|---|---|---|
+| `S7-DATAN` | 20 / 45 | 7 / 14 | jc |
+| `S45` | 650 / 750 | 730 / 800 | jc |
+| `S47` | 650 / 750 | 900 / 960 | jc |
+| `S48` | 650 / 750 | 560 / 650 | jc |
+| `S49` | 650 / 750 | 820 / 900 | jc |
+
+Contrôle : `ft-fraicheur --json` doit afficher ces valeurs. S31 est en outre dit « millésime figé » sur `/donnees` ; ce n'est pas un seuil, `fraicheur.conf` ne le porte pas.
+
 ## 15/10/2026 — À faire sur le serveur et sur GitHub
 
 L'audit du 15/10/2026 et les quinze propositions fusionnées le même jour (JOURNAL.md, décisions 35-46) laissent des gestes qu'aucune fusion ne fait : les scripts `ft-*`, nginx, la zone DNS et les réglages GitHub vivent hors du dépôt. Les correctifs fusionnés le 15/10 n'arrivent en ligne qu'au cycle `ft-deploy` du 16/10 : sauf mention contraire, chaque geste serveur ci-dessous se fait **après** ce cycle.
