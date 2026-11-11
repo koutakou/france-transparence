@@ -639,7 +639,6 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
       {senateur && (
         <Card
           titre="Mandat au Sénat"
-          sousTitre="Renouvellement du Sénat le 27/09/2026."
           droite={<Badge source={sources["S6-ODSEN"]} />}
         >
           <dl className="grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2">

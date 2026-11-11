@@ -133,6 +133,16 @@ const INTERDITS = [
     "la période des séries communales se lit en base",
   ],
   [
+    "app/elus/page.tsx",
+    /enouvellement du Sénat le \d/,
+    "une date d'élection écrite au futur se lit, passée, comme la date du mandat",
+  ],
+  [
+    "app/elus/[id]/page.tsx",
+    /enouvellement du Sénat le \d/,
+    "la fiche porte déjà « Mandat en cours depuis », lu dans la donnée",
+  ],
+  [
     "app/financement/page.tsx",
     /celle\s+du décret en vigueur/,
     "le décret le plus récent est celui qui est ingéré, nommé, pas « celui en vigueur »",
