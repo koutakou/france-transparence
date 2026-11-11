@@ -55,5 +55,13 @@ updates:
       pipelines:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+    # DuckDB 2.x n'a aucune roue pour Python 3.10 et l'interpréteur de la
+    # venv du serveur n'est pas connu : une proposition `duckdb==2.x` passerait
+    # au vert en CI (3.14) et échouerait à l'installation sur un serveur en
+    # 3.10. À LEVER quand cet interpréteur est relevé en 3.11 ou plus
+    # (docs/ACTIONS-HUMAINES.md, section du 11/11/2026, points 1 et 2).
+    ignore:
+      - dependency-name: "duckdb"
+        versions: [">=2.0.0"]
     commit-message:
       prefix: "Dépendances pipelines"
