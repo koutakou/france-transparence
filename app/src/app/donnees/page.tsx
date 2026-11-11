@@ -1,3 +1,7 @@
+import {
+  BadgeFraicheurLecture,
+  SyntheseFraicheurLecture,
+} from "@/components/client/FraicheurLecture";
 import { ZoneDefilante } from "@/components/client/ZoneDefilante";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -5,16 +9,14 @@ import { Card } from "@/components/ui/Card";
 import { JsonLd } from "@/components/JsonLd";
 import { DataTable } from "@/components/ui/DataTable";
 import { formatDateFr, formatNombre } from "@/lib/format";
+import { instantDeConstruction } from "@/lib/lecture";
 import {
   getCatalogueSources,
-  constatAttente,
   getCouvertureBudgetMensuel,
   getCouvertureMarchesAgregats,
   getDerniereIngestion,
   getDerniereIngestionParIds,
   getLicences,
-  type Fraicheur,
-  type NiveauFraicheur,
   type SourceCataloguee,
 } from "@/lib/queries/donnees";
 import {
@@ -23,14 +25,15 @@ import {
   metadonneesPage,
 } from "@/lib/seo";
 
-// Rendu statique : le catalogue est figé au build, qui suit chaque
-// ingestion (docs/deploiement/DECISION.md) — il reste donc à jour.
+// Rendu statique : le catalogue est figé au build. L'état de fraîcheur, lui,
+// est recalculé dans le navigateur à la date de lecture (FraicheurLecture) ;
+// sans JavaScript, il reste celui du jour de construction, et le dit.
 
 export const metadata: Metadata = metadonneesPage({
   chemin: "/donnees/",
   titre: "Données & exports",
   description:
-    "Le manifeste de méthode du site : catalogue des sources avec fraîcheur mesurée, périmètre et limites assumées, licences et crédits, exports JSON quotidiens, reproduction locale.",
+    "Le manifeste de méthode du site : catalogue des sources avec fraîcheur mesurée, périmètre et limites assumées, licences et crédits, exports JSON datés, reproduction locale.",
 });
 
 /**
@@ -42,91 +45,13 @@ export const metadata: Metadata = metadonneesPage({
  *    poste — ce qu'elle contient, ce qui en est publié (docs/SOURCES.md
  *    §2 encart + §3) ;
  * 3. licences réellement présentes en base et crédits obligatoires ;
- * 4. les exports JSON quotidiens (site statique — plus une API interrogeable) ;
+ * 4. les exports JSON datés (site statique — plus une API interrogeable) ;
  * 5. reproduction (make ingest).
  */
 
 /* ---------------------------------------------------------------- */
-/* Badge de fraîcheur (pastille + libellé — jamais la couleur seule) */
+/* Badge de fraîcheur : île `FraicheurLecture` (recalcul à la lecture) */
 /* ---------------------------------------------------------------- */
-
-const NIVEAUX: Record<NiveauFraicheur, { jeton: string; libelle: string }> = {
-  a_jour: { jeton: "var(--status-good)", libelle: "À jour" },
-  a_surveiller: { jeton: "var(--status-warning)", libelle: "À surveiller" },
-  en_retard: { jeton: "var(--status-serious)", libelle: "En retard" },
-  attente_edition: {
-    jeton: "var(--status-critical)",
-    libelle: "En attente d’une édition",
-  },
-  non_calibre: { jeton: "var(--viz-autre)", libelle: "Seuil non calibré" },
-};
-
-/** « 678 jours », « 2 jours ouvrés » — l'unité est celle du seuil de la source. */
-function libelleAge(f: Fraicheur): string {
-  const pluriel = f.ageJours >= 2 ? "s" : "";
-  const unite = f.unite === "jo" ? `jour${pluriel} ouvré${pluriel}` : `jour${pluriel}`;
-  return `${formatNombre(f.ageJours)} ${unite}`;
-}
-
-/** Seuil affiché avec son unité (« 850 j », « 20 j ouvrés »). */
-function libelleSeuil(f: Fraicheur, jours: number): string {
-  return `${formatNombre(jours)} ${f.unite === "jo" ? "j ouvrés" : "j"}`;
-}
-
-/**
- * La phrase exacte derrière le badge — factuelle et datée.
- *
- * Pour une source en attente, elle ne dit RIEN de l'amont, de l'avenir ni
- * de l'intention de l'éditeur : seulement qu'aucune édition plus récente
- * n'était INGÉRÉE à la date du build (`constatAttente`). C'est le seul fait
- * que le site vérifie.
- */
-function phraseFraicheur(s: SourceCataloguee): string {
-  const f = s.fraicheur;
-  const donneesAu = `Données au ${formatDateFr(s.date_donnees)}`;
-  if (f.niveau === "non_calibre") {
-    return `${donneesAu}, soit ${libelleAge(f)}. Aucun seuil n’est calibré pour cette source : son état n’est pas évalué.`;
-  }
-  const seuils = `seuils calibrés pour cette source : ${libelleSeuil(f, f.seuilRetardJours ?? 0)} (à surveiller) / ${libelleSeuil(f, f.seuilAlerteJours ?? 0)} (alerte)`;
-  if (f.niveau === "attente_edition") {
-    const constat = constatAttente(f);
-    return `${donneesAu}. ${constat.charAt(0).toUpperCase()}${constat.slice(1)} — ${libelleAge(f)}, ${seuils}.`;
-  }
-  return `${donneesAu}, soit ${libelleAge(f)} — ${seuils}.`;
-}
-
-function BadgeFraicheur({ source }: { source: SourceCataloguee }) {
-  const f = source.fraicheur;
-  const n = NIVEAUX[f.niveau];
-  const detaille = f.niveau === "en_retard" || f.niveau === "attente_edition";
-  // La phrase complète (date, âge, seuils propres à la source) se déplie au
-  // clic, au clavier et au doigt : un attribut `title` ne s'ouvre qu'au
-  // survol de la souris.
-  return (
-    <details className="group">
-      <summary className="inline-flex cursor-pointer list-none flex-col gap-0.5 [&::-webkit-details-marker]:hidden">
-        <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-          <span
-            aria-hidden="true"
-            className="inline-block size-2 shrink-0 rounded-full"
-            style={{ background: n.jeton }}
-          />
-          <span className="text-ink-secondary underline decoration-dotted underline-offset-2">
-            {n.libelle}
-          </span>
-        </span>
-        {detaille && (
-          <span className="whitespace-nowrap pl-3.5 text-[11px] text-ink-muted">
-            {libelleAge(f)}
-          </span>
-        )}
-      </summary>
-      <p className="mt-1 max-w-[16rem] whitespace-normal pl-3.5 text-[11px] leading-snug text-ink-muted">
-        {phraseFraicheur(source)}
-      </p>
-    </details>
-  );
-}
 
 /** Fréquence courte (la précision complète reste en title). */
 function FrequenceCourte({ frequence }: { frequence: string }) {
@@ -162,7 +87,7 @@ const POSTES: { poste: string; donnee: string; publie: string }[] = [
     donnee:
       "Les seuls flux réellement quotidiens sont contractuels ou normatifs : les marchés notifiés et les textes du Journal officiel.",
     publie:
-      "Les derniers marchés notifiés (J−1, mention « en cours de consolidation », latence légale ≤ 2 mois) et les derniers textes au Journal officiel (jour même, lot nocturne).",
+      "Les derniers marchés notifiés (fréquence déclarée quotidienne, mention « en cours de consolidation », latence légale ≤ 2 mois) et les derniers textes au Journal officiel (lot nocturne de la DILA), chacun sous la date de ses données.",
   },
   {
     poste: "Notes de frais",
@@ -216,7 +141,7 @@ const POSTES: { poste: string; donnee: string; publie: string }[] = [
 ];
 
 /* ---------------------------------------------------------------- */
-/* Exports JSON quotidiens (site statique — plus d'API paramétrique)  */
+/* Exports JSON datés (site statique — plus d'API paramétrique)       */
 /* ---------------------------------------------------------------- */
 
 /**
@@ -317,7 +242,10 @@ const EXPORTS: ExportJson[] = [
 /* ---------------------------------------------------------------- */
 
 export default async function PageDonnees() {
-  const sources = getCatalogueSources();
+  // Un seul instant pour toute la page : l'état serveur, son ancrage dit au
+  // lecteur, et le point de départ du recalcul fait dans le navigateur.
+  const construitLe = instantDeConstruction();
+  const sources = getCatalogueSources(new Date(construitLe));
   const licences = getLicences();
   const derniereIngestion = getDerniereIngestion();
 
@@ -341,14 +269,13 @@ export default async function PageDonnees() {
   /* Synthèse de fraîcheur, en tête du tableau : combien de sources sont à
      jour au regard de LEUR seuil, et lesquelles attendent une édition plus
      récente. Ce que l'open data ne contient pas se documente ; ça se dit
-     sobrement, daté, avec l'ancienneté — sans rien affirmer de l'avenir. */
-  const compte = (n: NiveauFraicheur) =>
-    sources.filter((s) => s.fraicheur.niveau === n).length;
-  const nbAJour = compte("a_jour");
-  const nbASurveiller = compte("a_surveiller");
-  const nbEnRetard = compte("en_retard");
-  const nbNonCalibre = compte("non_calibre");
-  const enAttente = sources.filter((s) => s.fraicheur.niveau === "attente_edition");
+     sobrement, daté, avec l'ancienneté — sans rien affirmer de l'avenir.
+     Seules les dates partent vers le navigateur, qui recompte. */
+  const sourcesDatees = sources.map(({ source_id, nom, date_donnees }) => ({
+    source_id,
+    nom,
+    date_donnees,
+  }));
 
   /* Balisage `DataCatalog` + `Dataset` : dates de modification et couvertures
      temporelles LUES EN BASE — un balisage qui affirmerait une fraîcheur que
@@ -401,37 +328,7 @@ export default async function PageDonnees() {
         sousTitre="meta_sources — chaque source porte sa date de données réelle, sa date d'ingestion, sa fréquence déclarée et sa licence"
       >
         <div className="mb-4 flex flex-col gap-2 text-[13px] leading-relaxed text-ink-secondary">
-          <p>
-            <strong className="text-ink">
-              {formatNombre(nbAJour)} source{nbAJour > 1 ? "s" : ""} sur{" "}
-              {formatNombre(sources.length)}
-            </strong>{" "}
-            {nbAJour > 1 ? "sont à jour" : "est à jour"} au regard du seuil calibré
-            pour chacune
-            {nbASurveiller > 0 ? `, ${nbASurveiller} à surveiller` : ""}
-            {nbEnRetard > 0 ? `, ${nbEnRetard} en retard` : ""}
-            {nbNonCalibre > 0 ? `, ${nbNonCalibre} sans seuil calibré` : ""}
-            {enAttente.length > 0
-              ? `, ${enAttente.length} en attente d’une édition plus récente`
-              : ""}
-            .
-          </p>
-          {enAttente.length > 0 && (
-            <ul className="flex flex-col gap-1.5">
-              {enAttente.map((s) => (
-                <li
-                  key={s.source_id}
-                  className="border-l pl-3"
-                  style={{ borderColor: "var(--viz-grid)" }}
-                >
-                  <span className="text-ink">{s.nom}</span>{" "}
-                  <span className="text-[11px] text-ink-muted">({s.source_id})</span>{" "}
-                  — données au {formatDateFr(s.date_donnees)} ;{" "}
-                  {constatAttente(s.fraicheur)} ({libelleAge(s.fraicheur)}).
-                </li>
-              ))}
-            </ul>
-          )}
+          <SyntheseFraicheurLecture sources={sourcesDatees} construitLe={construitLe} />
         </div>
         <DataTable
           colonnes={[
@@ -456,7 +353,13 @@ export default async function PageDonnees() {
             {
               cle: "fraicheur",
               entete: "Fraîcheur",
-              rendu: (s: SourceCataloguee) => <BadgeFraicheur source={s} />,
+              rendu: (s: SourceCataloguee) => (
+                <BadgeFraicheurLecture
+                  sourceId={s.source_id}
+                  dateDonnees={s.date_donnees}
+                  construitLe={construitLe}
+                />
+              ),
             },
             {
               cle: "licence",
@@ -490,9 +393,9 @@ export default async function PageDonnees() {
             <span className="font-semibold text-ink-secondary">
               Règle du badge de fraîcheur
             </span>{" "}
-            — l’âge de la donnée (aujourd’hui − date des données) est comparé
-            à <strong className="text-ink-secondary">deux seuils calibrés pour
-            cette source-là</strong>, et non à sa fréquence déclarée&nbsp;:
+            — l’âge de la donnée (jour du calcul − date des données) est
+            comparé à <strong className="text-ink-secondary">deux seuils calibrés
+            pour cette source-là</strong>, et non à sa fréquence déclarée&nbsp;:
             «&nbsp;à jour&nbsp;» sous le premier seuil, «&nbsp;à
             surveiller&nbsp;» entre les deux, «&nbsp;en retard&nbsp;» au-delà
             du second, «&nbsp;en attente d’une édition&nbsp;» quand le
@@ -505,7 +408,11 @@ export default async function PageDonnees() {
             clôture de l’exercice (un âge de deux ans y est normal). Cinq
             sources publiées les jours ouvrés (Journal officiel, BOAMP,
             marchés publics, lobbying HATVP, APProch) ont leur âge compté en
-            jours ouvrés.
+            jours ouvrés. Le jour du calcul est écrit en tête du tableau&nbsp;:
+            c’est le jour de construction du site dans la page servie, puis la
+            date de lecture une fois la page recalculée par le navigateur
+            (JavaScript actif). Seules les dates des données et les seuils
+            servent à ce recalcul&nbsp;; rien n’est demandé à un serveur.
           </p>
           <p>
             <span className="font-semibold text-ink-secondary">
@@ -519,7 +426,7 @@ export default async function PageDonnees() {
             construit le site, ni dans un dépôt fraîchement cloné,
             l’application en embarque une copie&nbsp;:{" "}
             <code className="rounded bg-raised px-1 py-0.5">
-              app/src/lib/queries/donnees.ts
+              app/src/lib/fraicheur.ts
             </code>
             , où le point de synchronisation des deux est documenté. Les deux
             se modifient ensemble.
@@ -529,7 +436,7 @@ export default async function PageDonnees() {
               «&nbsp;En attente d’une édition&nbsp;» décrit la source, pas le
               site
             </span>{" "}
-            — à cette date, aucune édition plus récente n’a été ingérée. Le
+            — au jour du calcul, aucune édition plus récente n’a été ingérée. Le
             site ne vérifie pas l’amont : ce n’est ni le constat qu’aucune
             édition n’y a paru, ni une panne du dashboard, ni un
             pronostic. Quand le pipeline vise un millésime fixé, le badge le
@@ -680,14 +587,14 @@ export default async function PageDonnees() {
         </div>
       </Card>
 
-      {/* 4. Exports JSON quotidiens */}
+      {/* 4. Exports JSON datés */}
       <Card
-        titre="Exports JSON (reconstruits chaque matin)"
-        sousTitre="Fichiers statiques publiés avec le site à chaque ingestion — des instantanés datés téléchargeables, pas une API paramétrable"
+        titre="Exports JSON"
+        sousTitre={`Fichiers statiques construits avec cette version du site (le ${formatDateFr(new Date(construitLe).toISOString())}) — des instantanés datés téléchargeables, pas une API paramétrable`}
       >
         <p className="mb-4 max-w-3xl text-[13px] leading-relaxed text-ink-secondary">
           Chaque fichier est un <strong className="text-ink">instantané
-          quotidien daté</strong> (champ{" "}
+          daté</strong>, reconstruit avec le site (champ{" "}
           <code className="rounded bg-raised px-1 py-0.5 text-xs">genere_le</code>{" "}
           de{" "}
           <code className="rounded bg-raised px-1 py-0.5 text-xs">meta.json</code>

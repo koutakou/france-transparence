@@ -259,7 +259,7 @@ un fichier de base d'octet identique. Le parquet est mis en cache 168 h dans
 `data/raw/elections/`. Durée d'ingestion cache chaud : **0,6 s**.
 
 Fraîcheur recommandée (à reporter dans `/etc/france-transparence/fraicheur.conf`
-et `app/src/lib/queries/donnees.ts`) :
+et `app/src/lib/fraicheur.ts`) :
 
 ```
 S26 |jc|1100|1300|5|Résultats électoraux agrégés (MI) : PAS de cadence périodique,

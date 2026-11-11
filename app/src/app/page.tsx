@@ -17,7 +17,7 @@ import { Money } from "@/components/ui/Money";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { VueTableau } from "@/components/ui/VueTableau";
 import type { MetaSource } from "@/lib/db";
-import { estVeille } from "@/lib/periodes";
+import { formatInstantFr } from "@/lib/lecture";
 import { ESPACE_FINE, formatDateFr, formatNombre } from "@/lib/format";
 import {
   getDonneesAccueil,
@@ -45,23 +45,6 @@ export const metadata: Metadata = metadonneesPage({
 /** `240 537 726 398,7` € → `240,54 Md€` (héros et KPI, décimales choisies). */
 function mdE(v: number, decimales = 1): string {
   return `${formatNombre(v / 1e9, decimales)}${ESPACE_FINE}Md€`;
-}
-
-/** Instant (ms) → `JJ/MM/AAAA à HHhMM`, heure de Paris. */
-function formatInstantFr(ms: number): string {
-  const d = new Date(ms);
-  const date = new Intl.DateTimeFormat("fr-FR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    timeZone: "Europe/Paris",
-  }).format(d);
-  const heure = new Intl.DateTimeFormat("fr-FR", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Europe/Paris",
-  }).format(d);
-  return `${date} à ${heure.replace(":", "h")}`;
 }
 
 /** Libellés courts des sources pour les badges (URL/date/fréquence réelles). */
@@ -206,13 +189,9 @@ export default async function Accueil() {
     sources,
   } = donnees;
 
-  /* --- « J-1 » sur les pastilles DECP : vrai seulement si la donnée est
-         datée de la veille (heure de Paris) de la construction. Une donnée
-         du jour même, ou en retard de plusieurs jours, ne la porte pas. --- */
-  const mentionDecp =
-    sources.S1 && estVeille(sources.S1.date_donnees, new Date(construitLe))
-      ? "J-1"
-      : undefined;
+  /* --- Pas de « J-1 » sur les pastilles DECP : la mention était évaluée
+         au build et restait affichée sur un site figé, alors que les DECP
+         n'étaient plus de la veille de la LECTURE. La date du badge suffit. --- */
 
   /* --- Carte : valeurs par département limitées au fond métropole
          (l'outre-mer est hors du rendu — codes 97x/98x écartés).
@@ -372,8 +351,8 @@ export default async function Accueil() {
         <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3 xl:grid-cols-1">
           <KpiTile
             label="Marchés notifiés (30 j)"
-            valeur={formatNombre(kpis.marches30j)}
-            perimetre="notification initiale, 30 derniers jours — ce n’est pas le stock total ; publication légale jusqu’à 2 mois, fenêtre incomplète"
+            valeur={kpis.marches30j !== null ? formatNombre(kpis.marches30j) : "—"}
+            perimetre={`notification initiale, 30 jours jusqu’au ${sources.S1 ? formatDateFr(sources.S1.date_donnees) : "—"} (date des données DECP) — ce n’est pas le stock total ; publication légale jusqu’à 2 mois, fenêtre incomplète`}
           />
           <KpiTile
             label="Appels d'offres en cours (BOAMP)"
@@ -382,13 +361,13 @@ export default async function Accueil() {
           />
           <KpiTile
             label="Textes au JO (30 j)"
-            valeur={formatNombre(kpis.textesJo30j)}
+            valeur={kpis.textesJo30j !== null ? formatNombre(kpis.textesJo30j) : "—"}
             perimetre={kpis.perimetreJo30j}
           />
         </div>
       </div>
       <div className="flex flex-wrap gap-1.5">
-        <BadgeSource source={sources.S1} mention={mentionDecp} />
+        <BadgeSource source={sources.S1} />
         <BadgeSource source={sources.S2} />
         <BadgeSource source={sources.S3} />
       </div>
@@ -414,7 +393,7 @@ export default async function Accueil() {
         ]}
       />
       <div className="flex flex-wrap gap-1.5">
-        <BadgeSource source={sources.S1} mention={mentionDecp} />
+        <BadgeSource source={sources.S1} />
         <BadgeSource source={sources.S16} />
         <BadgeSource source={sources.S17} />
         <BadgeSource source={sources["S35-reforga-admin-etat"]} />
@@ -490,7 +469,7 @@ export default async function Accueil() {
         <Card
           titre="Marchés publics par département"
           sousTitre="Marchés notifiés, 12 derniers mois — montants écrêtés (plafond 100 M€ par marché), acheteurs à département connu · points : préfectures · outre-mer hors carte"
-          droite={<BadgeSource source={sources.S1} mention={mentionDecp} />}
+          droite={<BadgeSource source={sources.S1} />}
         >
           <div className="mx-auto w-full max-w-[22rem]">
             <CarteDepartements
@@ -524,7 +503,7 @@ export default async function Accueil() {
         <div className="min-w-0">
           <Card
             titre="Derniers marchés notifiés"
-            droite={<BadgeSource source={sources.S1} mention={mentionDecp} />}
+            droite={<BadgeSource source={sources.S1} />}
           >
             <ul className="flex flex-col">
               {derniersMarches.map((m) => (

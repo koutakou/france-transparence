@@ -31,7 +31,9 @@ import {
   type ComparaisonRompue,
 } from "@/lib/queries/budget-ruptures";
 import { AO_ACCUEIL_AFFICHEES } from "@/lib/echeances";
+import { formatDateFr } from "@/lib/format";
 import { editionsNonRelues, perimetreJo30j } from "@/lib/jorf-fenetre";
+import { fenetreArreteeSql } from "@/lib/periodes";
 import { getIdsFichesStatiques } from "@/lib/queries/elus";
 
 /* ------------------------------------------------------------------ */
@@ -107,12 +109,14 @@ export type PrefectureCarte = {
 };
 
 export type KpisAccueil = {
-  marches30j: number;
+  /** 30 jours arrêtés à la date des données S1 ; `null` sans ligne meta S1. */
+  marches30j: number | null;
   aoEnCours: number;
-  textesJo30j: number;
+  /** 30 jours arrêtés à la date des données S3 ; `null` sans ligne meta S3. */
+  textesJo30j: number | null;
   /** Périmètre de la tuile « Textes au JO (30 j) », calculé sur les dates
-   *  des JO en base : « 30 derniers jours » seulement si la base les porte
-   *  sans intervalle (lib/jorf-fenetre.ts, perimetreJo30j). */
+   *  des JO en base (lib/jorf-fenetre.ts, perimetreJo30j) pour la même
+   *  fenêtre que le compte, arrêtée à la date des données S3. */
   perimetreJo30j: string;
 };
 
@@ -339,17 +343,28 @@ export function getDonneesAccueil(): DonneesAccueil | null {
     )
     .all() as PrefectureCarte[];
 
-  /* --- KPI (fenêtres relatives à la requête ; page force-dynamic) --- */
+  /* --- KPI. Les fenêtres de 30 jours sont arrêtées à la date des données
+         de leur source (fenetreArreteeSql), que la tuile écrit : une fenêtre
+         « 30 derniers jours » évaluée au build cessait d'être vraie dès le
+         lendemain, et plus encore sur un site resté figé. --- */
+  const dateDonnees = (id: string): string | null =>
+    (
+      db.prepare("SELECT date_donnees AS d FROM meta_sources WHERE source_id = ?").get(id) as
+        | { d: string | null }
+        | undefined
+    )?.d ?? null;
+  const compte30j = (table: string, colonne: string, fin: string | null): number | null =>
+    fin === null
+      ? null
+      : (
+          db
+            .prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE ${fenetreArreteeSql(colonne, 30)}`)
+            .get({ fin }) as { n: number }
+        ).n;
+  const finS3 = dateDonnees("S3");
   const kpis: KpisAccueil = {
-    // 30 jours glissants sur la notification INITIALE (cf. rappels ci-dessus).
-    marches30j: (
-      db
-        .prepare(
-          `SELECT COUNT(*) AS n FROM decp_marches
-            WHERE date_notification >= date('now', '-30 days')`,
-        )
-        .get() as { n: number }
-    ).n,
+    // 30 jours sur la notification INITIALE (cf. rappels ci-dessus).
+    marches30j: compte30j("decp_marches", "date_notification", dateDonnees("S1")),
     // snapshot BOAMP → re-filtrage de la date limite au moment de la requête
     aoEnCours: (
       db
@@ -359,31 +374,27 @@ export function getDonneesAccueil(): DonneesAccueil | null {
         )
         .get() as { n: number }
     ).n,
-    textesJo30j: (
-      db
-        .prepare(
-          `SELECT COUNT(*) AS n FROM jorf_textes
-            WHERE date_publi >= date('now', '-30 days')`,
-        )
-        .get() as { n: number }
-    ).n,
-    perimetreJo30j: perimetreJo30j(
-      (
-        db
-          .prepare(`SELECT DISTINCT date_publi FROM jorf_textes ORDER BY date_publi`)
-          .all() as { date_publi: string }[]
-      ).map((l) => l.date_publi),
-      // Le même seuil que le compte ci-dessus, lu au même endroit.
-      (db.prepare(`SELECT date('now', '-30 days') AS seuil`).get() as { seuil: string }).seuil,
-      // Éditions que le pipeline n'a pas pu relire : nommées dans sa note.
-      editionsNonRelues(
-        (
-          db.prepare(`SELECT notes FROM meta_sources WHERE source_id = 'S3'`).get() as
-            | { notes: string | null }
-            | undefined
-        )?.notes,
-      ),
-    ),
+    textesJo30j: compte30j("jorf_textes", "date_publi", finS3),
+    perimetreJo30j:
+      finS3 === null
+        ? "JORF Lois et décrets — date des données non publiée"
+        : `${perimetreJo30j(
+            (
+              db
+                .prepare(`SELECT DISTINCT date_publi FROM jorf_textes ORDER BY date_publi`)
+                .all() as { date_publi: string }[]
+            ).map((l) => l.date_publi),
+            // Le même seuil que le compte ci-dessus : ]fin − 30 j ; fin].
+            (db.prepare(`SELECT date(?, '-30 days') AS seuil`).get(finS3) as { seuil: string }).seuil,
+            // Éditions que le pipeline n'a pas pu relire : nommées dans sa note.
+            editionsNonRelues(
+              (
+                db.prepare(`SELECT notes FROM meta_sources WHERE source_id = 'S3'`).get() as
+                  | { notes: string | null }
+                  | undefined
+              )?.notes,
+            ),
+          )} — jusqu’au ${formatDateFr(finS3)} (JO le plus récent ingéré)`,
   };
 
   /* --- Bandeau de couverture (counts réels, jamais figés) --- */
