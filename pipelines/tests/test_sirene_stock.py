@@ -996,3 +996,27 @@ def test_un_stock_publie_apres_la_copie_locale_est_retelecharge(
     stats = executer(chemin_db=chemin_base, session=session)
     assert (URL_PARQUET_NOVEMBRE in session.appels) is telecharge
     assert stats["lignes_parquet"] == LIGNES_PARQUET
+
+
+def test_un_stock_sans_date_amont_garde_le_cache_et_avertit(
+        chemin_base, monkeypatch, tmp_path, caplog):
+    """`last_modified` absent : on ne sait pas si un stock plus récent est
+    paru. Re-télécharger ~700 Mo à chaque cycle ne le prouverait pas : le
+    TTL de 30 jours décide, et le journal le dit en AVERTISSEMENT."""
+    from datetime import datetime, timedelta, timezone
+
+    from pipelines import common
+    from pipelines.tests.session_factice import SessionFactice
+
+    _assouplir_gardefous(monkeypatch)
+    raw = tmp_path / "raw"
+    monkeypatch.setattr(common, "RAW_DIR", raw)
+    _copie_locale(raw, datetime.now(timezone.utc) - timedelta(days=2))
+    dataset = _dataset_publie_le(datetime.now(timezone.utc))
+    del dataset["resources"][0]["last_modified"]
+    session = SessionFactice({ingest_sirene.URL_DATASET_API: dataset,
+                              URL_PARQUET_NOVEMBRE: FIXTURE.read_bytes()})
+    with caplog.at_level("WARNING"):
+        executer(chemin_db=chemin_base, session=session)
+    assert URL_PARQUET_NOVEMBRE not in session.appels
+    assert "date de modification amont inconnue" in caplog.text
