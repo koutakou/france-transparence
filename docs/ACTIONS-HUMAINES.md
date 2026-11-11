@@ -98,7 +98,7 @@ La copie versionnée des seuils (`SEUILS_SOURCES`, désormais dans `app/src/lib/
 |---|---|---|---|
 | `S7-DATAN` | 20 / 45 | 7 / 14 | jc |
 | `S45` | 650 / 750 | 730 / 800 | jc |
-| `S47` | 650 / 750 | 900 / 960 | jc |
+| `S47` | 650 / 750 | 910 / 970 | jc |
 | `S48` | 650 / 750 | 560 / 650 | jc |
 | `S49` | 650 / 750 | 820 / 900 | jc |
 
