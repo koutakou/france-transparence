@@ -1044,6 +1044,8 @@ def test_compteurs_de_fenetre_journalises_a_chaque_cycle(
     assert code == 0
     messages = [r.getMessage() for r in caplog.records]
     assert sum("JO consécutifs de la fenêtre : 0" in m for m in messages) == 1
+    assert sum("éditions illisibles à l'intérieur de la fenêtre : 0" in m
+               for m in messages) == 1
     assert sum("0 texte(s) plus ancien(s) archivé(s) puis purgé(s)" in m
                for m in messages) == 1
 
@@ -1182,13 +1184,148 @@ def test_copie_alteree_tronquee_ou_sans_empreinte_n_est_pas_relue(
         NOCTURNE_19_08: mini_tarball})
     assert code == 0
     assert _jo_en_base(c) == [l[0] for l in _trente_jo()][3:]
-    assert _note_s3(c).startswith(f"{MARQUE_FENETRE_REDUITE} : 27 JO sur les 30 visés")
+    note = _note_s3(c)
+    assert note.startswith(f"{MARQUE_FENETRE_REDUITE} : 27 JO sur les 30 visés")
+    # Les trois manquent AVANT le premier JO relu : la fenêtre est plus
+    # courte, pas trouée, et la note ne nomme aucune édition non relue.
+    assert "non relue" not in note
     c.close()
     avert = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
     assert sum("20260714-005537.tar.gz ne correspond plus à son empreinte" in m
                for m in avert) == 1
     assert sum("20260716-010042.tar.gz illisible ou tronquée" in m for m in avert) == 1
     assert sum("20260717-003012.tar.gz sans empreinte lisible" in m for m in avert) == 1
+
+
+def test_copie_ecartee_au_milieu_de_la_fenetre_est_nommee_dans_la_note(
+    monkeypatch, tmp_path, mini_tarball, caplog
+):
+    """La copie du 16/07 est altérée, celles du 14/07 et du 17/07 sont
+    saines : le JO du 16/07 manque ENTRE deux JO relus. Trois jours d'écart,
+    comme autour d'un pont — aucun contrôle sur les dates ne le voit. La
+    note le nomme, dans la clause que /documents et l'accueil relisent."""
+    coffre = _poser_coffre(monkeypatch, tmp_path, sauf=(NOCTURNE_19_08,))
+    alteree = coffre / "JORFSIMPLE_20260716-010042.tar.gz"
+    octets = bytearray(alteree.read_bytes())
+    octets[-9] ^= 0xFF
+    alteree.write_bytes(bytes(octets))
+    with caplog.at_level("INFO"):
+        code, c = _jouer_main(monkeypatch, tmp_path, INDEX_UNE_NOCTURNE, {
+            NOCTURNE_19_08: mini_tarball})
+    assert code == 0
+    attendus = [l[0] for l in _trente_jo() if l[0] != "2026-07-16"]
+    assert _jo_en_base(c) == attendus
+    assert ecarts_anormaux(attendus) == []
+    note = _note_s3(c)
+    c.close()
+    assert note.startswith(f"{MARQUE_FENETRE_REDUITE} : 29 JO sur les 30 visés")
+    assert note.endswith(" ; édition quotidienne non relue : 16/07/2026")
+    avert = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert sum("fenêtre INCOMPLÈTE : 1 édition(s)" in m and "2026-07-16" in m
+               for m in avert) == 1
+
+
+def test_editions_non_relues_dans_la_note():
+    """Forme de la clause, au singulier et au pluriel, fenêtre pleine ou
+    réduite : c'est elle que l'app relit."""
+    dates = [l[0] for l in _trente_jo()]
+    sans = [d for d in dates if d not in ("2026-07-16", "2026-07-17")]
+    assert note_fenetre(
+        sans, len(sans), 400, None, "2026-08-19", ("2026-07-17", "2026-07-16")
+    ) == (
+        f"{MARQUE_FENETRE_DISCONTINUE} : aucun JO entre le 14/07/2026 et le"
+        " 18/07/2026 (4 jours) ; éditions quotidiennes non relues :"
+        " 16/07/2026, 17/07/2026 (constat du 19/08/2026) ; 28 JO, du"
+        " 14/07/2026 au 19/08/2026 ; le dépôt public de la DILA propose 400"
+        " éditions quotidiennes du JO")
+    sans_le_16 = [d for d in dates if d != "2026-07-16"]
+    assert note_fenetre(
+        sans_le_16, 29, 400, None, "2026-08-19", ("2026-07-16",)
+    ).startswith(
+        f"{MARQUE_FENETRE_DISCONTINUE} : édition quotidienne non relue :"
+        " 16/07/2026 (constat du 19/08/2026) ; 29 JO, du ")
+    assert note_fenetre(
+        sans_le_16, 30, 400, None, "2026-08-19", ("2026-07-16",)
+    ).endswith(" ; édition quotidienne non relue : 16/07/2026")
+    assert "non relue" not in note_fenetre(dates, 30, 400, None, "2026-08-19")
+
+
+def test_copie_du_coffre_alteree_est_reparee_tant_que_l_index_la_liste(
+    monkeypatch, tmp_path, mini_tarball, caplog
+):
+    """Un octet de la copie a changé, l'empreinte à côté est restée juste, et
+    la DILA liste encore la livraison. La copie passait pour « déjà
+    conservée » : elle est comparée à la source et réécrite, avec un
+    avertissement. Même chose pour une empreinte gâtée."""
+    coffre = tmp_path / "coffre" / "S3-JORFSIMPLE"
+    monkeypatch.setattr(ingest_jorf, "dossiers_coffre", lambda: [coffre])
+    index = f'<a href="{NOCTURNE_19_08}">'
+    tarballs = {NOCTURNE_19_08: mini_tarball}
+    code, c = _jouer_main(monkeypatch, tmp_path, index, tarballs)
+    c.close()
+    assert code == 0
+    copie = coffre / NOCTURNE_19_08
+    juste = mini_tarball.read_bytes()
+    assert copie.read_bytes() == juste
+
+    octets = bytearray(juste)
+    octets[len(octets) // 2] ^= 0xFF
+    copie.chmod(0o600)
+    copie.write_bytes(bytes(octets))
+    caplog.clear()
+    with caplog.at_level("INFO"):
+        code, c = _jouer_main(monkeypatch, tmp_path, index, tarballs)
+    c.close()
+    assert code == 0
+    assert copie.read_bytes() == juste
+    messages = [r.getMessage() for r in caplog.records]
+    assert sum(f"copie de {NOCTURNE_19_08} altérée (contenu), réécrite" in m
+               for m in messages if True) == 1
+    assert sum("1 nocturne(s) ajoutée(s) dont 1 réparée(s)" in m for m in messages) == 1
+    assert copie_verifiee(NOCTURNE_19_08, copies_locales()[NOCTURNE_19_08]) == copie
+
+    (coffre / (NOCTURNE_19_08 + ".sha256")).write_text("0" * 64 + "  x\n")
+    caplog.clear()
+    code, c = _jouer_main(monkeypatch, tmp_path, index, tarballs)
+    c.close()
+    assert code == 0
+    avert = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert sum(f"copie de {NOCTURNE_19_08} altérée (empreinte), réécrite" in m
+               for m in avert) == 1
+    assert copie_verifiee(NOCTURNE_19_08, copies_locales()[NOCTURNE_19_08]) == copie
+
+
+def test_un_essai_a_un_jour_ne_vide_pas_le_coffre(
+    monkeypatch, tmp_path, mini_tarball, caplog
+):
+    """`--jours 1` sur une base jetable : la rétention du coffre reste celle
+    de la fenêtre par défaut (60 jours), pas deux jours. Les 29 copies du
+    14/07 au 18/08 sont toujours là après l'essai."""
+    coffre = _poser_coffre(monkeypatch, tmp_path, sauf=(NOCTURNE_19_08,))
+    avant = sorted(f.name for f in coffre.iterdir())
+    assert len(avant) == 58
+    with caplog.at_level("INFO"):
+        code, c = _jouer_main(
+            monkeypatch, tmp_path, f'<a href="{NOCTURNE_19_08}">',
+            {NOCTURNE_19_08: mini_tarball}, args=("--jours", "1"))
+    assert code == 0
+    assert _jo_en_base(c) == ["2026-08-19"]
+    c.close()
+    assert sorted(f.name for f in coffre.iterdir()) == sorted(
+        avant + [NOCTURNE_19_08, NOCTURNE_19_08 + ".sha256"])
+    messages = [r.getMessage() for r in caplog.records]
+    assert sum("30 conservée(s), 0 purgée(s) (plus de 60 jours)" in m
+               for m in messages) == 1
+    # Une fenêtre plus LARGE que le défaut élargit la rétention d'autant :
+    # une copie de 80 jours tient pour 45 JO visés (90 jours), pas pour 30.
+    ancienne = coffre / "JORFSIMPLE_20260531-003000.tar.gz"
+    ancienne.write_bytes(mini_tarball.read_bytes())
+    _empreindre(ancienne)
+    assert conserver_au_coffre([mini_tarball], 45) == coffre
+    assert ancienne.is_file()
+    assert conserver_au_coffre([mini_tarball], 30) == coffre
+    assert not ancienne.exists()
+    assert not ancienne.with_name(ancienne.name + ".sha256").exists()
 
 
 def test_un_nom_qui_n_est_pas_une_nocturne_n_est_jamais_relu(tmp_path):
@@ -1302,8 +1439,8 @@ def test_le_coffre_recoit_la_nocturne_du_cycle_et_perd_les_trop_anciennes(
         f"{sha}  {NOCTURNE_19_08}\n")
     assert (coffre / NOCTURNE_19_08).stat().st_mode & 0o777 == 0o600
     messages = [r.getMessage() for r in caplog.records]
-    assert sum("1 nocturne(s) ajoutée(s), 2 conservée(s), 1 purgée(s)" in m
-               for m in messages) == 1
+    assert sum("1 nocturne(s) ajoutée(s) dont 0 réparée(s), 2 conservée(s),"
+               " 1 purgée(s) (plus de 60 jours)" in m for m in messages) == 1
 
     caplog.clear()
     with caplog.at_level("INFO"):
@@ -1312,8 +1449,8 @@ def test_le_coffre_recoit_la_nocturne_du_cycle_et_perd_les_trop_anciennes(
     c.close()
     assert code == 0
     messages = [r.getMessage() for r in caplog.records]
-    assert sum("0 nocturne(s) ajoutée(s), 2 conservée(s), 0 purgée(s)" in m
-               for m in messages) == 1
+    assert sum("0 nocturne(s) ajoutée(s) dont 0 réparée(s), 2 conservée(s),"
+               " 0 purgée(s)" in m for m in messages) == 1
 
 
 def test_sans_coffre_inscriptible_le_cycle_passe_et_le_dit(

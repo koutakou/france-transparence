@@ -190,6 +190,11 @@ ECART_NORMAL_ENTRE_JO = 3
 MARQUE_FENETRE_REDUITE = "Fenêtre réduite"
 MARQUE_FENETRE_DISCONTINUE = "Fenêtre discontinue"
 
+# Fenêtre visée par défaut, en JO. C'est aussi le plancher de la rétention
+# du coffre : un essai `--jours 1` sur une base jetable ne doit pas vider
+# le coffre de la machine au-delà de deux jours.
+JOURS_DEFAUT = 30
+
 # Nom complet d'une livraison, pour reconnaître une copie locale.
 RE_NOM_LIVRAISON = re.compile(r"JORFSIMPLE_(\d{8})-(\d{6})\.tar\.gz")
 
@@ -491,20 +496,40 @@ def conserver_au_coffre(chemins: list[Path], jours: int) -> Path | None:
         )
         return None
 
-    ajoutees = 0
+    # Rétention : la profondeur de la fenêtre, jamais moins que celle de la
+    # fenêtre par défaut. Le coffre est celui de la MACHINE, pas de l'essai.
+    retention = max(jours, JOURS_DEFAUT) * JOURS_CIVILS_MAX_PAR_JO
+    ajoutees = reparees = 0
     for chemin in chemins:
         cible = coffre / chemin.name
         empreinte = coffre / (chemin.name + ".sha256")
         if chemin.resolve() == cible.resolve():
             continue
         sha = archive_amont._sha256_fichier(chemin)
+        # C'est le CONTENU de la copie qui est comparé à la source, pas
+        # seulement le fichier d'empreinte : une copie altérée sous une
+        # empreinte restée juste passait pour « déjà conservée », et le JO
+        # était perdu le jour où la DILA retirait la livraison. Tant que la
+        # source est là, la copie se répare.
         try:
-            deja = cible.is_file() and empreinte.read_text(
+            copie_juste = (
+                cible.is_file() and archive_amont._sha256_fichier(cible) == sha)
+        except OSError:
+            copie_juste = False
+        try:
+            empreinte_juste = empreinte.read_text(
                 encoding="ascii").split()[0] == sha
         except (OSError, IndexError, UnicodeDecodeError):
-            deja = False
-        if deja:
+            empreinte_juste = False
+        if copie_juste and empreinte_juste:
             continue
+        if cible.exists() or empreinte.exists():
+            log.warning(
+                "coffre : copie de %s altérée (%s), réécrite depuis la"
+                " livraison lue ce cycle", chemin.name,
+                "contenu" if not copie_juste else "empreinte",
+            )
+            reparees += 1
         archive_amont._ecrire_copie(chemin, cible, compresser=False)
         archive_amont._ecrire_empreinte(empreinte, sha, chemin.name)
         archive_amont._chmod_coffre(cible)
@@ -515,17 +540,16 @@ def conserver_au_coffre(chemins: list[Path], jours: int) -> Path | None:
     purgees = 0
     if gardees:
         plancher = max(jour_de_livraison(n) for n in gardees) - timedelta(
-            days=jours * JOURS_CIVILS_MAX_PAR_JO)
+            days=retention)
         for nom in gardees:
             if jour_de_livraison(nom) < plancher:
                 (coffre / nom).unlink(missing_ok=True)
                 (coffre / (nom + ".sha256")).unlink(missing_ok=True)
                 purgees += 1
     log.info(
-        "coffre %s : %d nocturne(s) ajoutée(s), %d conservée(s), %d purgée(s)"
-        " (plus de %d jours)",
-        coffre, ajoutees, len(gardees) - purgees, purgees,
-        jours * JOURS_CIVILS_MAX_PAR_JO,
+        "coffre %s : %d nocturne(s) ajoutée(s) dont %d réparée(s), %d"
+        " conservée(s), %d purgée(s) (plus de %d jours)",
+        coffre, ajoutees, reparees, len(gardees) - purgees, purgees, retention,
     )
     return coffre
 
@@ -863,6 +887,7 @@ def note_fenetre(
     nocturnes_index: int | None,
     stock: str | None,
     constat: str,
+    non_relues: tuple[str, ...] = (),
 ) -> str:
     """Note de meta_sources : ce que la fenêtre contient VRAIMENT.
 
@@ -873,6 +898,13 @@ def note_fenetre(
     (« édition quotidienne », pas « livraison nocturne » ; « renouvellement
     du dépôt », pas « Freemium »). Elle ne dit pas où sont les JO plus
     anciens (absents, ou à l'archive) : seulement qu'ils ne sont pas affichés.
+
+    `non_relues` : jours (ISO) des éditions connues de la machine mais dont
+    aucune copie n'a passé les contrôles, et qui tombent À L'INTÉRIEUR de la
+    fenêtre. Un JO manquant entre deux autres ne se voit pas aux dates (un
+    lundi sans JO fait le même écart) : il est donc nommé, dans une clause
+    de forme fixe que /documents et l'accueil relisent pour corriger leurs
+    libellés (app/src/lib/jorf-fenetre.ts, editionsNonRelues).
     """
     debut, fin = dates_jo[0], dates_jo[-1]
     index_reduit = nocturnes_index is None or nocturnes_index < jours
@@ -883,10 +915,17 @@ def note_fenetre(
             f"{_fr(f'{stock[:4]}-{stock[4:6]}-{stock[6:]}')}"
         )
     trous = ecarts_anormaux(dates_jo)
-    dit_trous = " ; ".join(
+    manques = [
         f"aucun JO entre le {_fr(a)} et le {_fr(b)} ({n} jours)"
         for a, b, n in trous
-    )
+    ]
+    if non_relues:
+        manques.append(
+            ("édition quotidienne non relue : " if len(non_relues) == 1
+             else "éditions quotidiennes non relues : ")
+            + ", ".join(_fr(d) for d in sorted(non_relues)))
+    trous = manques
+    dit_trous = " ; ".join(manques)
     if len(dates_jo) < jours:
         note = (
             f"{MARQUE_FENETRE_REDUITE} : {len(dates_jo)} JO sur les {jours}"
@@ -991,7 +1030,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--jours",
         type=int,
-        default=30,
+        default=JOURS_DEFAUT,
         help="nombre de JO (livraisons nocturnes) à conserver (défaut : 30)",
     )
     args = ap.parse_args(argv)
@@ -1092,6 +1131,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # Ce que l'index ne donne pas (ou plus) : relu depuis la copie locale.
     relues: list[str] = []
+    ecartees: list[str] = []
     for nom in selection:
         if nom in chemins:
             continue
@@ -1099,6 +1139,8 @@ def main(argv: list[str] | None = None) -> int:
         if chemin is not None:
             chemins[nom] = chemin
             relues.append(nom)
+        else:
+            ecartees.append(nom)
     if relues:
         log.warning(
             "%d livraison(s) absente(s) de l'index relue(s) depuis une copie"
@@ -1160,6 +1202,21 @@ def main(argv: list[str] | None = None) -> int:
         len(dates_fenetre), args.jours, debut_fenetre, dates_fenetre[-1],
         n_sortants,
     )
+    # Éditions connues mais illisibles, À L'INTÉRIEUR de la fenêtre : le JO
+    # manque entre deux autres. (Avant le premier JO, la fenêtre est
+    # seulement plus courte, et « N derniers JO » reste vrai.)
+    non_relues = tuple(sorted(
+        j for j in (jour_de_livraison(n).isoformat() for n in ecartees)
+        if debut_fenetre < j < dates_fenetre[-1] and j not in dates_fenetre
+    ))
+    if non_relues:
+        log.warning(
+            "fenêtre INCOMPLÈTE : %d édition(s) connue(s) mais illisible(s)"
+            " à l'intérieur de la fenêtre : %s — dit dans la note et sur"
+            " /documents", len(non_relues), ", ".join(non_relues),
+        )
+    else:
+        log.info("éditions illisibles à l'intérieur de la fenêtre : 0")
     if len(dates_fenetre) < args.jours:
         log.warning(
             "fenêtre RÉDUITE : %d JO en base sur %d visés — l'index ne liste"
@@ -1196,7 +1253,8 @@ def main(argv: list[str] | None = None) -> int:
         lignes=lignes,
         notes=note_fenetre(
             dates_fenetre, args.jours,
-            len(nocturnes) if html is not None else None, stock, aujourd_hui),
+            len(nocturnes) if html is not None else None, stock, aujourd_hui,
+            non_relues),
     )
     log.info(
         "terminé: %d textes upsertés, %d en table, JO le plus récent: %s",

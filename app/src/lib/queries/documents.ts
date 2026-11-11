@@ -11,7 +11,6 @@
  * natures ARRETE 1475, DECRET 534 ; 369 textes sans ministère (13,3 %).
  */
 import { getDb, type MetaSource } from "@/lib/db";
-import { mentionFenetreJo } from "@/lib/jorf-fenetre";
 
 /** Chiffres de cadrage de la fenêtre des 30 derniers JO. */
 export interface JorfKpis {
@@ -174,13 +173,14 @@ export function getJorfKpis(): JorfKpis | null {
 
 /**
  * Périmètre de la tuile « Textes publiés » : fenêtre JORF, pas le fonds DOLE.
- * La mention de fenêtre vient des dates lues en base, jamais d'une constante,
- * et nomme un intervalle sans JO s'il y en a un.
+ * La mention de fenêtre (lib/jorf-fenetre.ts, mentionFenetreJo) vient des
+ * dates lues en base, jamais d'une constante, et nomme ce qui manque à la
+ * série : intervalle sans JO, édition non relue.
  */
-export function perimetreTextesFenetre(datesJo: readonly string[]): string {
+export function perimetreTextesFenetre(mentionFenetre: string): string {
   return [
     "JORF « Lois et décrets »",
-    mentionFenetreJo(datesJo),
+    mentionFenetre,
     "ce n’est pas le fonds DOLE",
   ].join(" · ");
 }
@@ -189,10 +189,10 @@ export function perimetreTextesFenetre(datesJo: readonly string[]): string {
  * Périmètre de la tuile « Dont nominations » : même fenêtre, textes marqués
  * nomination — ce n'est pas une biographie.
  */
-export function perimetreNominationsFenetre(datesJo: readonly string[]): string {
+export function perimetreNominationsFenetre(mentionFenetre: string): string {
   return [
     "même fenêtre",
-    mentionFenetreJo(datesJo),
+    mentionFenetre,
     "textes marqués nomination",
     "ce n’est pas une biographie",
   ].join(" · ");
