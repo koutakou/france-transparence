@@ -17,27 +17,38 @@
 2. **Ne monter DuckDB en 2.x que si cet interpréteur est en 3.11 ou plus.** DuckDB 2.0 n'a aucune roue pour Python 3.10. La CI joue Python 3.14 : une proposition Dependabot `duckdb==2.0.0` y passerait au vert, puis échouerait à l'installation sur un serveur en 3.10. `.github/dependabot.yml` ignore donc `duckdb>=2.0.0` : lever cet `ignore` une fois l'interpréteur relevé en 3.11 ou plus. Le code et les tests passent sous 1.5.6 et sous 2.0.0.
 3. **L'arrêt des publications depuis le 08/11 n'est très probablement pas dû à DuckDB 2.** `requirements.txt` n'avait pas changé depuis le commit initial du 20/08 (4b95cbc) : `make` ne réinstallait donc rien. Et le serveur a publié du 22/10 au 08/11, alors que DuckDB 2.0 faisait échouer la suite de tests dès qu'il était installé. Sa cause reste à lire dans `/var/log/france-transparence/deploiement.log` et `journalctl -u ft-deploy`.
 
-## 11/11/2026 — Journal officiel : l'état de la base du serveur après le renouvellement du dépôt DILA
+## 11/11/2026 — Journal officiel : ce que donnera le premier cycle du serveur, et ce qu'il faut y lire
 
-Le 08/11/2026 la DILA a renouvelé son dépôt JORFSIMPLE et en a retiré toutes les livraisons antérieures. Jusqu'au correctif du 11/11, `ingest_jorf.py` sortait en erreur devant un index sans livraison nocturne (état du 09/11 au matin), puis, dès qu'une nocturne reparaissait, archivait tout JO antérieur à la plus ancienne livraison encore listée. `jorf` passe avant la plupart des pipelines dans `make ingest`. Ce que le dépôt ne sait pas : si `ft-deploy` ingère dans la base persistante ou dans une base neuve (le schéma du RUNBOOK dit « base SQLite neuve », d'autres passages décrivent une base servie qui persiste), et ce que devient la base quand un cycle échoue après `jorf`. Trois états sont donc possibles, à départager par lecture, **sans rien écrire** :
+Le 08/11/2026 la DILA a renouvelé son dépôt JORFSIMPLE et en a retiré toutes les livraisons antérieures : le 11/11 il ne proposait plus que deux éditions quotidiennes (10/11 et 11/11). `ft-deploy` ingère chaque nuit dans une base **neuve** ([RUNBOOK](deploiement/RUNBOOK.md)) : la fenêtre du JO n'a donc jamais tenu que par ce que le dépôt listait encore, et il n'existe pas de « base de la veille » à reprendre.
 
-1. **Lire le journal** des cycles du 09 au 11/11 :
+Le correctif du 11/11 fait trois choses : un index sans livraison nocturne ne tue plus le cycle ; chaque nocturne téléchargée est copiée, avec son empreinte SHA-256, dans un coffre hors de `data/raw` ; une livraison que l'index ne liste plus est relue depuis une copie locale vérifiée (coffre, ou `data/raw/jorf` si le fichier y est encore). Poids mesuré : 4,7 Mo pour 30 nocturnes, rétention de 60 jours, soit de l'ordre de 10 Mo.
+
+**Ce que le dépôt ne sait pas, et qui décide du premier cycle** : si `data/raw/jorf` porte encore, sur le serveur, les nocturnes téléchargées avant le 08/11. La purge de 23 h les retire, sauf si `jorf/` figure dans `/etc/france-transparence/cache-long.conf` ou si la purge n'a pas tourné pendant les cycles en échec depuis le 09/11.
+
+1. **Avant le premier cycle** qui suit la fusion, relever (lecture seule) :
    ```sh
-   grep -n '\[jorf\]' /var/log/france-transparence/deploiement.log | tail -60
+   ls -l /srv/france-transparence/app/data/raw/jorf | tail -40
+   grep -n 'jorf' /etc/france-transparence/cache-long.conf
    ```
-   « aucune livraison nocturne trouvée dans l'index » = cycle mort à `ingest-jorf` (ancien code). « textes plus anciens archivés puis purgés » avec un nombre de l'ordre de 2 600 = l'ancien code a vidé la fenêtre.
-2. **Lire la base** que `ft-deploy` ingère (chemin à relever dans le script ; par défaut `data/france.db` de l'arbre `app`) :
+   - des `JORFSIMPLE_202610*` et `JORFSIMPLE_202611*` d'avant 06 h sont encore là : le premier cycle les relit, la fenêtre revient à une trentaine de JO **dès ce cycle**, et ils entrent au coffre. Ne rien purger à la main avant ;
+   - le dossier est vide ou ne porte que les nocturnes du jour : le premier cycle publie les seuls JO que le dépôt propose (2 le 11/11, un de plus par parution), `/documents` l'affiche comme « Fenêtre réduite : N JO sur les 30 visés… », et la fenêtre regagne un JO par parution — trente JO au bout d'une trentaine de parutions, soit cinq à six semaines. Les JO du 06/10 au 08/11 ne reviendront pas d'eux-mêmes : ils ne sont plus dans le dépôt, et les sauvegardes de la base ne sont pas des livraisons que le pipeline sait relire.
+2. **Après le premier cycle**, vérifier que le coffre s'est rempli, et lequel :
    ```sh
-   sqlite3 "file:/srv/france-transparence/app/data/france.db?mode=ro" \
-     "SELECT 'table', count(DISTINCT date_publi), count(*), min(date_publi), max(date_publi) FROM jorf_textes
-      UNION ALL
-      SELECT 'archive', count(DISTINCT date_publi), count(*), min(date_publi), max(date_publi) FROM jorf_textes_archive WHERE archive_le >= '2026-11-09';"
+   grep -n '\[jorf\].*\(coffre\|relue\|fenêtre\)' /var/log/france-transparence/deploiement.log | tail -12
+   ls -l /data/france-transparence/amont/S3-JORFSIMPLE /srv/france-transparence/app/data/amont/S3-JORFSIMPLE 2>/dev/null | tail
    ```
-   - une trentaine de JO en table, rien d'archivé depuis le 09/11 : la base est intacte, il n'y a rien à faire ;
-   - un ou deux JO en table et de l'ordre de 2 600 textes archivés depuis le 09/11 : l'ancien code a tourné. **Ne rien restaurer à la main** : le premier cycle joué avec le correctif réintègre depuis `jorf_textes_archive` les JO qui comptent parmi les 30 derniers JO connus, et l'écrit au journal (« N texte(s) de M JO réintégré(s) depuis jorf_textes_archive ») ;
-   - un ou deux JO en table et aucune archive : la base est repartie de zéro. Les JO antérieurs au 10/11 ne peuvent plus être relus dans le dépôt de la DILA ; `/documents` affiche alors « Fenêtre réduite : N JO sur les 30 visés… » et la fenêtre gagne un JO par parution. Si une sauvegarde de la base d'avant le 09/11 existe (`ft-sauvegarde`, deux générations compressées), c'est la seule source de ces JO : la décision de la restaurer revient à Mickael.
-3. **Après le premier cycle réussi**, relire `/documents` : la phrase d'en-tête dit le nombre de JO et leurs bornes. Une ligne « aucun JO entre le … et le … » signale des jours pendant lesquels l'ingestion était arrêtée et que le dépôt ne propose plus : ces JO ne reviendront pas d'eux-mêmes.
-4. **Corriger le RUNBOOK** une fois le point 2 lu : dire si l'ingestion du serveur repart d'une base neuve ou reprend la base persistante. La réponse change ce que valent les secours « cycle précédent » de `jorf`, `dole` et `referentiels`.
+   Le pipeline écrit d'abord dans le coffre de `archive_amont.py` (`/data/france-transparence/amont/S3-JORFSIMPLE`). S'il n'est pas inscriptible par l'utilisateur qui ingère (`ftweb`), il se replie sur `data/amont/S3-JORFSIMPLE` dans l'arbre `app`, hors de `data/raw` et ignoré par git. La ligne « coffre … : N nocturne(s) ajoutée(s) » dit lequel a servi. « aucun coffre inscriptible » = rien n'est conservé, et la prochaine régénération du stock DILA réduira de nouveau la fenêtre : donner alors le dossier à `ftweb`, par exemple
+   ```sh
+   install -d -o ftweb -g ftweb -m 700 /srv/france-transparence/app/data/amont/S3-JORFSIMPLE
+   ```
+3. **Vérifier que rien ne vide `data/amont`** : ni la purge de 23 h (elle doit ne viser que `data/raw`), ni un `git clean` de `ft-deploy`. Relever :
+   ```sh
+   grep -n 'clean\|find .*-delete\|-mmin\|rm -' /usr/local/bin/ft-deploy
+   ```
+   Si le repli dans l'arbre est celui qui sert, l'inscrire dans la sauvegarde locale n'est pas utile (10 Mo reconstructibles tant que le dépôt DILA les propose), mais il ne doit pas être effacé entre deux cycles.
+4. **Jours suivants** : `ft-fraicheur` et la phrase d'en-tête de `/documents` disent le nombre de JO et leurs bornes. Une ligne « aucun JO entre le … et le … » signale des jours que ni le dépôt ni les copies ne couvrent.
+
+La réintégration depuis `jorf_textes_archive`, écrite le même jour, ne joue que sur une base qui persiste d'un cycle à l'autre : elle est sans effet sur le serveur tel qu'il ingère aujourd'hui.
 
 ## 15/10/2026 — À faire sur le serveur et sur GitHub
 

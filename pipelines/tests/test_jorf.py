@@ -4,6 +4,8 @@ Fixtures : XML réels extraits du tarball DILA JORFSIMPLE_20260819-003035.tar.gz
 (JORF n°0192 du 19 août 2026) — aucune donnée fabriquée.
 """
 
+import hashlib
+import io
 import tarfile
 from datetime import date, timedelta
 from pathlib import Path
@@ -18,7 +20,11 @@ from pipelines.ingest_jorf import (
     MARQUE_FENETRE_REDUITE,
     URL_JORFSIMPLE,
     archiver_et_purger_jorf,
+    choisir_livraisons,
+    conserver_au_coffre,
     construire_lien,
+    copie_verifiee,
+    copies_locales,
     ecarts_anormaux,
     est_nomination,
     index_reconnu,
@@ -35,6 +41,20 @@ from pipelines.ingest_jorf import (
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+
+@pytest.fixture(autouse=True)
+def _ni_coffre_ni_cache_de_la_machine(monkeypatch, tmp_path):
+    """Aucun test ne lit ni n'écrit les copies de nocturnes de la machine
+    qui le joue (sur le serveur, `make test` tourne à côté du vrai coffre
+    et du vrai `data/raw/jorf`). Par défaut : cache vide, et un coffre qui
+    ne peut pas être créé — l'état d'un poste sans droits. Les tests du
+    coffre posent le leur avec `_poser_coffre`."""
+    bouchon = tmp_path / "pas-un-dossier"
+    bouchon.write_bytes(b"")
+    monkeypatch.setattr(ingest_jorf, "dossier_cache", lambda: tmp_path / "cache-vide")
+    monkeypatch.setattr(ingest_jorf, "dossiers_coffre", lambda: [bouchon / "coffre"])
+
 SOMMAIRE = FIXTURES / "jorf_sommaire_JORFCONT000054706874.xml"
 TEXTE_NOMINATION = FIXTURES / "jorf_texte_nomination_JORFTEXT000054708776.xml"
 TEXTE_ARRETE = FIXTURES / "jorf_texte_arrete_JORFTEXT000054708438.xml"
@@ -670,7 +690,7 @@ def test_index_reduit_a_deux_nocturnes_la_base_garde_ses_trente_jo(
     assert note == (
         "30 JO, du 14/07/2026 au 19/08/2026 ; le dépôt public de la DILA"
         " propose 2 éditions quotidiennes du JO depuis son renouvellement du"
-        " 08/11/2026, les JO plus anciens viennent des ingestions précédentes")
+        " 08/11/2026, les JO plus anciens viennent de ce qui a été conservé ici")
     c.close()
     avert = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
     assert sum("index DILA réduit à 2 livraison(s) nocturne(s)" in m for m in avert) == 1
@@ -1026,6 +1046,301 @@ def test_compteurs_de_fenetre_journalises_a_chaque_cycle(
     assert sum("JO consécutifs de la fenêtre : 0" in m for m in messages) == 1
     assert sum("0 texte(s) plus ancien(s) archivé(s) puis purgé(s)" in m
                for m in messages) == 1
+
+
+# ---------------------------------------------------------------------------
+# Copies locales des nocturnes : une base NEUVE retrouve sa fenêtre
+# ---------------------------------------------------------------------------
+
+# Extrait RÉEL des 30 nocturnes du 14/07 au 19/08/2026 : pour chacune, son
+# sommaire JORFCONT et le plus court de ses textes JORFTEXT, octets et
+# chemins d'origine (`<stamp>/jorf/simple/JORF/CONT/…`), en une archive.
+EXTRAITS_30_NOCTURNES = (
+    FIXTURES / "jorf" / "extraits_30_nocturnes_20260714_20260819.tar.gz")
+
+
+def _nocturnes_reelles(dossier, sauf=()):
+    """Écrit une nocturne par stamp de l'extrait dans `dossier`, sous son
+    nom de livraison réel. Retourne les chemins, ordre chronologique."""
+    dossier.mkdir(parents=True, exist_ok=True)
+    par_stamp: dict[str, list] = {}
+    with tarfile.open(EXTRAITS_30_NOCTURNES, "r:gz") as lot:
+        for m in lot.getmembers():
+            par_stamp.setdefault(m.name.split("/", 1)[0], []).append(
+                (m, lot.extractfile(m).read()))
+    chemins = []
+    for stamp, membres in sorted(par_stamp.items()):
+        nom = f"JORFSIMPLE_{stamp}.tar.gz"
+        if nom in sauf:
+            continue
+        with tarfile.open(dossier / nom, "w:gz") as tar:
+            for m, octets in membres:
+                tar.addfile(m, io.BytesIO(octets))
+        chemins.append(dossier / nom)
+    return chemins
+
+
+def _empreindre(chemin):
+    sha = hashlib.sha256(chemin.read_bytes()).hexdigest()
+    chemin.with_name(chemin.name + ".sha256").write_text(
+        f"{sha}  {chemin.name}\n", encoding="ascii")
+
+
+def _poser_coffre(monkeypatch, tmp_path, sauf=()):
+    """Un coffre inscriptible portant les nocturnes réelles et leurs
+    empreintes, comme `conserver_au_coffre` les laisse."""
+    coffre = tmp_path / "coffre" / "S3-JORFSIMPLE"
+    for chemin in _nocturnes_reelles(coffre, sauf=sauf):
+        _empreindre(chemin)
+    monkeypatch.setattr(ingest_jorf, "dossiers_coffre", lambda: [coffre])
+    return coffre
+
+
+NOCTURNE_19_08 = "JORFSIMPLE_20260819-003035.tar.gz"
+INDEX_UNE_NOCTURNE = LIGNE_STOCK + f'<a href="{NOCTURNE_19_08}">'
+
+
+def test_les_extraits_sont_trente_nocturnes_d_un_jo_chacune(tmp_path, conn):
+    """La fixture dit ce qu'elle est : 30 livraisons, 30 JO, les dates de
+    la fixture d'un texte par JO."""
+    chemins = _nocturnes_reelles(tmp_path / "n")
+    assert len(chemins) == 30
+    dates = []
+    for chemin in chemins:
+        n, d = ingerer_tarball(chemin, conn)
+        assert n == 1 and len(d) == 1
+        dates += d
+    assert dates == [l[0] for l in _trente_jo()]
+
+
+def test_base_neuve_index_reduit_copies_au_coffre_trente_jo(
+    monkeypatch, tmp_path, mini_tarball, caplog
+):
+    """LE cas du serveur, qui ingère chaque nuit dans une base neuve : le
+    dépôt ne propose plus qu'une nocturne, mais la machine a gardé les 29
+    précédentes. La fenêtre est entière dès ce cycle. Sur le code d'avant,
+    un JO."""
+    _poser_coffre(monkeypatch, tmp_path, sauf=(NOCTURNE_19_08,))
+    with caplog.at_level("INFO"):
+        code, c = _jouer_main(monkeypatch, tmp_path, INDEX_UNE_NOCTURNE, {
+            NOCTURNE_19_08: mini_tarball})
+    assert code == 0
+    assert _jo_en_base(c) == [l[0] for l in _trente_jo()]
+    # 29 textes relus (un par extrait) + les 2 de la nocturne téléchargée.
+    assert c.execute("SELECT count(*) FROM jorf_textes").fetchone()[0] == 31
+    assert _note_s3(c) == (
+        "30 JO, du 14/07/2026 au 19/08/2026 ; le dépôt public de la DILA"
+        " propose 1 édition quotidienne du JO depuis son renouvellement du"
+        " 08/11/2026, les JO plus anciens viennent de ce qui a été conservé ici")
+    c.close()
+    avert = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert sum(
+        "29 livraison(s) absente(s) de l'index relue(s) depuis une copie"
+        " locale vérifiée (JORFSIMPLE_20260714-005537.tar.gz →"
+        " JORFSIMPLE_20260818-002359.tar.gz)" in m for m in avert) == 1
+    assert not any("RÉDUITE" in m for m in avert)
+
+
+def test_base_neuve_index_reduit_copies_restees_au_cache_trente_jo(
+    monkeypatch, tmp_path, mini_tarball
+):
+    """Même cas, les copies n'étant que dans `data/raw/jorf` (cache pas
+    encore purgé) : elles servent aussi, et entrent au coffre."""
+    cache = tmp_path / "raw" / "jorf"
+    _nocturnes_reelles(cache, sauf=(NOCTURNE_19_08,))
+    coffre = tmp_path / "coffre" / "S3-JORFSIMPLE"
+    monkeypatch.setattr(ingest_jorf, "dossier_cache", lambda: cache)
+    monkeypatch.setattr(ingest_jorf, "dossiers_coffre", lambda: [coffre])
+    code, c = _jouer_main(monkeypatch, tmp_path, INDEX_UNE_NOCTURNE, {
+        NOCTURNE_19_08: mini_tarball})
+    assert code == 0
+    assert _jo_en_base(c) == [l[0] for l in _trente_jo()]
+    c.close()
+    au_coffre = sorted(f.name for f in coffre.iterdir())
+    assert len([n for n in au_coffre if n.endswith(".tar.gz")]) == 30
+    assert len([n for n in au_coffre if n.endswith(".sha256")]) == 30
+    # Ce que le coffre a reçu se relit avec ses empreintes.
+    locales = copies_locales()
+    assert all(copie_verifiee(n, locales[n]) is not None for n in locales)
+
+
+def test_copie_alteree_tronquee_ou_sans_empreinte_n_est_pas_relue(
+    monkeypatch, tmp_path, mini_tarball, caplog
+):
+    """Intégrité : trois copies gâtées de trois façons. Aucune n'entre en
+    base, chacune est nommée, et la fenêtre se dit réduite à 27 JO."""
+    coffre = _poser_coffre(monkeypatch, tmp_path, sauf=(NOCTURNE_19_08,))
+    alteree = coffre / "JORFSIMPLE_20260714-005537.tar.gz"
+    octets = bytearray(alteree.read_bytes())
+    octets[-9] ^= 0xFF            # un octet du flux : l'empreinte ne tient plus
+    alteree.write_bytes(bytes(octets))
+    tronquee = coffre / "JORFSIMPLE_20260716-010042.tar.gz"
+    tronquee.write_bytes(tronquee.read_bytes()[:400])
+    _empreindre(tronquee)         # empreinte juste, archive illisible
+    (coffre / "JORFSIMPLE_20260717-003012.tar.gz.sha256").unlink()
+    code, c = _jouer_main(monkeypatch, tmp_path, INDEX_UNE_NOCTURNE, {
+        NOCTURNE_19_08: mini_tarball})
+    assert code == 0
+    assert _jo_en_base(c) == [l[0] for l in _trente_jo()][3:]
+    assert _note_s3(c).startswith(f"{MARQUE_FENETRE_REDUITE} : 27 JO sur les 30 visés")
+    c.close()
+    avert = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert sum("20260714-005537.tar.gz ne correspond plus à son empreinte" in m
+               for m in avert) == 1
+    assert sum("20260716-010042.tar.gz illisible ou tronquée" in m for m in avert) == 1
+    assert sum("20260717-003012.tar.gz sans empreinte lisible" in m for m in avert) == 1
+
+
+def test_un_nom_qui_n_est_pas_une_nocturne_n_est_jamais_relu(tmp_path):
+    """Nom : seules les nocturnes (avant 6 h) comptent, une par jour, et
+    rien au-delà de la profondeur de la fenêtre."""
+    noms = [
+        "JORFSIMPLE_20260818-002359.tar.gz",
+        "JORFSIMPLE_20260818-220005.tar.gz",     # soir
+        "JORFSIMPLE_20261001-105421.tar.gz",     # correctif de journée
+        "Freemium_jorf_simple_20261108-140000.tar.gz",
+        "JORFSIMPLE_20260818-002359.tar.gz.sha256",
+        "JORFSIMPLE_20260501-003000.tar.gz",     # 110 jours avant : trop ancien
+    ]
+    assert choisir_livraisons([NOCTURNE_19_08], noms, 30) == [
+        "JORFSIMPLE_20260818-002359.tar.gz", NOCTURNE_19_08]
+    # L'index prime à nom égal, et la fenêtre visée borne le compte.
+    assert choisir_livraisons([NOCTURNE_19_08], noms + [NOCTURNE_19_08], 1) == [
+        NOCTURNE_19_08]
+    assert choisir_livraisons([], [], 30) == []
+    # Pile à la borne de profondeur (60 jours avant le 19/08 : le 20/06).
+    assert choisir_livraisons(
+        [NOCTURNE_19_08], ["JORFSIMPLE_20260620-003000.tar.gz",
+                           "JORFSIMPLE_20260619-003000.tar.gz"], 30
+    ) == ["JORFSIMPLE_20260620-003000.tar.gz", NOCTURNE_19_08]
+
+
+def test_index_sans_nocturne_base_neuve_les_copies_font_le_cycle(
+    monkeypatch, tmp_path, caplog
+):
+    """Le 09/11 au matin sur le serveur : index sans nocturne ET base neuve.
+    Il n'y a pas de « cycle précédent » à reprendre ; les copies font la
+    fenêtre, datée du dernier JO réellement relu."""
+    _poser_coffre(monkeypatch, tmp_path)
+    code, c = _jouer_main(monkeypatch, tmp_path, INDEX_09_11, {})
+    assert code == 0
+    assert _jo_en_base(c) == [l[0] for l in _trente_jo()]
+    assert c.execute(
+        "SELECT date_donnees FROM meta_sources WHERE source_id = 'S3'"
+    ).fetchone()[0] == "2026-08-19"
+    assert "le dépôt public de la DILA ne propose aucune édition quotidienne du JO" in _note_s3(c)
+    c.close()
+    avert = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert sum("index DILA réduit à 0 livraison nocturne" in m
+               and "ingestion depuis les seules copies locales (30" in m
+               for m in avert) == 1
+
+
+def test_dila_injoignable_base_neuve_les_copies_font_le_cycle(monkeypatch, tmp_path):
+    """Même chose quand l'index ne répond pas : la note dit que le dépôt
+    n'a pas pu être lu."""
+    _poser_coffre(monkeypatch, tmp_path)
+    base = tmp_path / "neuve.db"
+    monkeypatch.setenv("FT_DB_PATH", str(base))
+
+    class _SessionCoupee:
+        def get(self, url, timeout=None):
+            raise requests.ConnectionError(RESET_DILA)
+
+    monkeypatch.setattr(
+        ingest_jorf, "session_http", lambda *a, **k: _SessionCoupee())
+    assert ingest_jorf.main([]) == 0
+    c = db.connexion(base)
+    assert _jo_en_base(c) == [l[0] for l in _trente_jo()]
+    assert _note_s3(c) == (
+        "30 JO, du 14/07/2026 au 19/08/2026 ; le dépôt public de la DILA"
+        " n'a pas pu être lu, les JO plus anciens viennent de ce qui a été"
+        " conservé ici")
+    c.close()
+
+
+def test_copies_presentes_mais_base_d_un_cycle_reussi_rien_n_est_ecrit(
+    monkeypatch, tmp_path
+):
+    """Les copies ne changent pas le secours d'une base qui porte déjà son
+    JORF : index sans nocturne, rien n'est écrit."""
+    _poser_coffre(monkeypatch, tmp_path)
+    base = _base_trente_jo(tmp_path)
+    avant = _instantane(base)
+    code, c = _jouer_main(monkeypatch, tmp_path, INDEX_09_11, {}, base=base)
+    c.close()
+    assert code == 0
+    assert _instantane(base) == avant
+
+
+def test_le_coffre_recoit_la_nocturne_du_cycle_et_perd_les_trop_anciennes(
+    monkeypatch, tmp_path, mini_tarball, caplog
+):
+    """Après un cycle : la nocturne téléchargée est au coffre avec son
+    empreinte, et une copie plus vieille que la profondeur de la fenêtre
+    (60 jours pour 30 JO) en sort. Un second cycle n'ajoute rien."""
+    coffre = tmp_path / "coffre" / "S3-JORFSIMPLE"
+    coffre.mkdir(parents=True)
+    vieille = coffre / "JORFSIMPLE_20260501-003000.tar.gz"
+    vieille.write_bytes(mini_tarball.read_bytes())
+    _empreindre(vieille)
+    limite = coffre / "JORFSIMPLE_20260620-003000.tar.gz"   # 60 jours pile
+    limite.write_bytes(mini_tarball.read_bytes())
+    _empreindre(limite)
+    monkeypatch.setattr(ingest_jorf, "dossiers_coffre", lambda: [coffre])
+    index = f'<a href="{NOCTURNE_19_08}">'
+    with caplog.at_level("INFO"):
+        code, c = _jouer_main(
+            monkeypatch, tmp_path, index, {NOCTURNE_19_08: mini_tarball})
+    c.close()
+    assert code == 0
+    assert sorted(f.name for f in coffre.iterdir()) == [
+        limite.name, limite.name + ".sha256",
+        NOCTURNE_19_08, NOCTURNE_19_08 + ".sha256"]
+    sha = hashlib.sha256(mini_tarball.read_bytes()).hexdigest()
+    assert (coffre / (NOCTURNE_19_08 + ".sha256")).read_text() == (
+        f"{sha}  {NOCTURNE_19_08}\n")
+    assert (coffre / NOCTURNE_19_08).stat().st_mode & 0o777 == 0o600
+    messages = [r.getMessage() for r in caplog.records]
+    assert sum("1 nocturne(s) ajoutée(s), 2 conservée(s), 1 purgée(s)" in m
+               for m in messages) == 1
+
+    caplog.clear()
+    with caplog.at_level("INFO"):
+        code, c = _jouer_main(
+            monkeypatch, tmp_path, index, {NOCTURNE_19_08: mini_tarball})
+    c.close()
+    assert code == 0
+    messages = [r.getMessage() for r in caplog.records]
+    assert sum("0 nocturne(s) ajoutée(s), 2 conservée(s), 0 purgée(s)" in m
+               for m in messages) == 1
+
+
+def test_sans_coffre_inscriptible_le_cycle_passe_et_le_dit(
+    monkeypatch, tmp_path, mini_tarball, caplog
+):
+    """Poste sans droits (l'état par défaut de ces tests) : sortie 0, et un
+    avertissement à chaque cycle — sans coffre, la fenêtre se réduira à la
+    prochaine régénération du stock."""
+    code, c = _jouer_main(
+        monkeypatch, tmp_path, f'<a href="{NOCTURNE_19_08}">',
+        {NOCTURNE_19_08: mini_tarball})
+    c.close()
+    assert code == 0
+    assert conserver_au_coffre([mini_tarball], 30) is None
+    avert = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert sum("aucun coffre inscriptible" in m for m in avert) == 2
+
+
+def test_le_coffre_refuse_de_vivre_dans_le_cache(monkeypatch, tmp_path, mini_tarball):
+    """Un coffre sous `data/raw` serait vidé par la purge de 23 h : refusé,
+    le suivant de la liste est pris."""
+    dans_le_cache = ingest_jorf.RAW_DIR / "jorf-coffre-interdit"
+    bon = tmp_path / "bon" / "S3-JORFSIMPLE"
+    monkeypatch.setattr(ingest_jorf, "dossiers_coffre", lambda: [dans_le_cache, bon])
+    assert conserver_au_coffre([mini_tarball], 30) == bon
+    assert not dans_le_cache.exists()
+    assert (bon / mini_tarball.name).is_file()
 
 
 # ---------------------------------------------------------------------------

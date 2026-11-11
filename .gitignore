@@ -9,6 +9,7 @@ __pycache__/
 venv/
 data/raw/
 data/tmp/
+data/amont/
 *.db-journal
 *.db-wal
 *.db-shm

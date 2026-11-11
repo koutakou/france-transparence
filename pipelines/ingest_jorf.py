@@ -75,20 +75,41 @@ nocturnes à zéro, puis à une de plus par JO. Trois conséquences :
 - ce qu'un cycle a archivé À TORT revient : avant de calculer la fenêtre,
   les textes de jorf_textes_archive dont le JO compte parmi les `--jours`
   derniers JO connus (table + archive) sont réintégrés, sans écraser un
-  texte déjà en table, et quittent l'archive. Compté à chaque cycle ;
-- une base neuve (CI, premier déploiement) n'a que ce que l'index liste :
-  la fenêtre est RÉDUITE et la note de meta_sources le dit, compteur et
-  date à l'appui. Le stock Freemium n'est PAS lu pour la compléter : plus
-  d'un Go à chaque base neuve pour une trentaine de JO, et son contenu n'a
-  jamais été ouvert ni mesuré ici.
+  texte déjà en table, et quittent l'archive. Compté à chaque cycle. Ne
+  joue que sur une base qui persiste d'un cycle à l'autre ;
+- une base NEUVE — et le serveur de production ingère dans une base neuve
+  à chaque cycle (docs/deploiement/RUNBOOK.md) — n'a que ce qu'elle peut
+  relire. Les nocturnes sont des fichiers que l'amont RETIRE : chaque
+  livraison téléchargée est donc copiée, avec son empreinte SHA-256, hors
+  de `data/raw` (que la purge de 23 h vide), dans un coffre local. Quand
+  l'index ne liste plus une livraison dont la fenêtre a besoin, elle est
+  relue depuis cette copie, vérifiée (nom, empreinte, archive lisible de
+  bout en bout). Une machine qui a ses copies retrouve ainsi ses 30 JO
+  dans une base neuve, y compris le jour où l'index n'a aucune nocturne
+  ou quand la DILA est injoignable ;
+- sans copie (CI, première installation) la fenêtre est RÉDUITE et la
+  note de meta_sources le dit, compteur et date à l'appui. Le stock
+  Freemium n'est PAS lu pour la compléter : plus d'un Go à chaque base
+  neuve pour une trentaine de JO, et son contenu n'a jamais été ouvert ni
+  mesuré ici.
+
+Coffre : `$FT_AMONT_ARCHIVE/S3-JORFSIMPLE` (défaut : le coffre de
+pipelines/archive_amont.py), sinon `data/amont/S3-JORFSIMPLE` dans l'arbre
+si le premier n'est pas inscriptible par l'utilisateur qui ingère. Mesuré
+sur les 30 nocturnes du 14/07 au 19/08/2026 : 4,7 Mo en tout, 392 Ko pour
+la plus lourde. Rétention : la profondeur de la fenêtre (60 jours pour 30
+JO), soit de l'ordre de 10 Mo.
 """
 
 from __future__ import annotations
 
 import argparse
+import gzip
+import os
 import re
 import sys
 import tarfile
+import zlib
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
@@ -96,9 +117,15 @@ from pathlib import Path
 
 import requests
 
-from pipelines import db
+from pipelines import archive_amont, db
 from pipelines.archive_fenetre import archiver_sortie_fenetre
-from pipelines.common import obtenir_logger, session_http, telecharger
+from pipelines.common import (
+    DATA_DIR,
+    RAW_DIR,
+    obtenir_logger,
+    session_http,
+    telecharger,
+)
 
 log = obtenir_logger("jorf")
 
@@ -162,6 +189,13 @@ ECART_NORMAL_ENTRE_JO = 3
 # MARQUES_FENETRE_SIGNALEE) : ne pas les reformuler d'un seul côté.
 MARQUE_FENETRE_REDUITE = "Fenêtre réduite"
 MARQUE_FENETRE_DISCONTINUE = "Fenêtre discontinue"
+
+# Nom complet d'une livraison, pour reconnaître une copie locale.
+RE_NOM_LIVRAISON = re.compile(r"JORFSIMPLE_(\d{8})-(\d{6})\.tar\.gz")
+
+# Sous-dossier des copies de nocturnes dans un coffre (même convention que
+# les identifiants de pipelines/archive_amont.py).
+COFFRE_JORF = "S3-JORFSIMPLE"
 
 # Les tarballs publiés sont immuables : présent en cache = jamais retéléchargé.
 CACHE_IMMUABLE_H = 24 * 365 * 100
@@ -314,6 +348,186 @@ def jour_de_livraison(nom_tarball: str) -> date:
     if not m:
         raise ValueError(f"nom de livraison illisible : {nom_tarball!r}")
     return datetime.strptime(m.group(1), "%Y%m%d").date()
+
+
+# ---------------------------------------------------------------------------
+# Copies locales des nocturnes : ce que l'amont retire, on le garde
+# ---------------------------------------------------------------------------
+
+
+def dossier_cache() -> Path:
+    """Là où `telecharger` pose les nocturnes : un CACHE, purgé à 23 h sur
+    le serveur. Une livraison retirée de l'index peut encore s'y trouver."""
+    return RAW_DIR / "jorf"
+
+
+def dossiers_coffre() -> list[Path]:
+    """Coffres possibles, par ordre de préférence. Le premier est celui de
+    archive_amont (volume data du serveur) ; il peut ne pas exister ou ne
+    pas être inscriptible par l'utilisateur qui ingère. Le second vit dans
+    l'arbre, hors de `data/raw` : il suffit que l'ingestion ait pu écrire
+    sa base pour qu'il soit utilisable."""
+    return [
+        Path(os.environ.get("FT_AMONT_ARCHIVE", str(archive_amont.DEST_DEFAUT)))
+        / COFFRE_JORF,
+        DATA_DIR / "amont" / COFFRE_JORF,
+    ]
+
+
+def _est_nocturne(nom: str) -> bool:
+    m = RE_NOM_LIVRAISON.fullmatch(nom)
+    return bool(m) and int(m.group(2)[:2]) < HEURE_MAX_NOCTURNE
+
+
+def copies_locales() -> dict[str, list[tuple[Path, bool]]]:
+    """Nocturnes présentes sur la machine : nom → [(chemin, vient d'un coffre)],
+    coffres d'abord. Rien n'est vérifié ici (voir `copie_verifiee`). Un
+    dossier absent ou illisible ne compte pas, sans bruit : c'est le cas
+    normal en CI."""
+    trouvees: dict[str, list[tuple[Path, bool]]] = {}
+    for dossier, coffre in [(d, True) for d in dossiers_coffre()] + [
+        (dossier_cache(), False)
+    ]:
+        try:
+            fichiers = sorted(f for f in dossier.iterdir() if f.is_file())
+        except OSError:
+            continue
+        for f in fichiers:
+            if _est_nocturne(f.name):
+                trouvees.setdefault(f.name, []).append((f, coffre))
+    return trouvees
+
+
+def _archive_lisible(chemin: Path) -> bool:
+    """Vrai si le tar.gz se lit de bout en bout : flux gzip complet (somme
+    de contrôle comprise) et membres énumérables. Un fichier tronqué ou
+    altéré ne passe pas."""
+    try:
+        with gzip.open(chemin, "rb") as flux:
+            while flux.read(1 << 20):
+                pass
+        with tarfile.open(chemin, "r:gz") as tar:
+            return any(m.isfile() for m in tar.getmembers())
+    except (OSError, EOFError, zlib.error, tarfile.TarError):
+        return False
+
+
+def copie_verifiee(nom: str, candidats: list[tuple[Path, bool]]) -> Path | None:
+    """Première copie locale de `nom` qui passe les contrôles, ou None.
+
+    Copie de coffre : son empreinte SHA-256, écrite à côté le jour de la
+    copie, doit correspondre. Copie de cache : pas d'empreinte (`telecharger`
+    écrit par renommage, un fichier présent est un téléchargement terminé).
+    Dans les deux cas l'archive doit se lire de bout en bout. Chaque refus
+    est nommé au journal : une copie écartée est un JO qui manque.
+    """
+    for chemin, coffre in candidats:
+        if chemin.name != nom:
+            continue
+        if coffre:
+            empreinte = chemin.with_name(chemin.name + ".sha256")
+            try:
+                attendue = empreinte.read_text(encoding="ascii").split()[0]
+            except (OSError, IndexError, UnicodeDecodeError):
+                log.warning("copie locale écartée : %s sans empreinte lisible", chemin)
+                continue
+            if archive_amont._sha256_fichier(chemin) != attendue:
+                log.warning(
+                    "copie locale écartée : %s ne correspond plus à son"
+                    " empreinte SHA-256", chemin)
+                continue
+        if not _archive_lisible(chemin):
+            log.warning("copie locale écartée : %s illisible ou tronquée", chemin)
+            continue
+        return chemin
+    return None
+
+
+def choisir_livraisons(
+    a_l_index: list[str], locales: list[str], jours: int
+) -> list[str]:
+    """Les `jours` dernières nocturnes connues, index et copies confondus,
+    une par jour (la plus précoce), ordre chronologique. Même borne de
+    profondeur que la fenêtre : une vieille copie restée dans un dossier
+    n'est pas relue pour être aussitôt purgée."""
+    par_jour: dict[date, str] = {}
+    for nom in [*a_l_index, *locales]:
+        if not _est_nocturne(nom):
+            continue
+        jour = jour_de_livraison(nom)
+        if jour not in par_jour or nom < par_jour[jour]:
+            par_jour[jour] = nom
+    if not par_jour:
+        return []
+    plancher = max(par_jour) - timedelta(days=jours * JOURS_CIVILS_MAX_PAR_JO)
+    return sorted(n for j, n in par_jour.items() if j >= plancher)[-jours:]
+
+
+def conserver_au_coffre(chemins: list[Path], jours: int) -> Path | None:
+    """Copie les nocturnes de ce cycle dans le premier coffre utilisable,
+    chacune avec son empreinte, puis retire du coffre ce qui est plus
+    ancien que la profondeur de la fenêtre. Retourne le coffre utilisé, ou
+    None si aucun n'est inscriptible (CI, poste sans droits) : l'ingestion
+    n'échoue pas pour autant, mais c'est dit à CHAQUE cycle — sans coffre,
+    la prochaine régénération du stock DILA réduira de nouveau la fenêtre.
+    """
+    coffre = None
+    for dossier in dossiers_coffre():
+        try:
+            archive_amont._hors_du_cache(dossier, RAW_DIR)
+            dossier.mkdir(parents=True, exist_ok=True, mode=0o700)
+            temoin = dossier / ".ecriture"
+            temoin.write_bytes(b"")
+            temoin.unlink()
+        except (OSError, ValueError):
+            continue
+        coffre = dossier
+        break
+    if coffre is None:
+        log.warning(
+            "aucun coffre inscriptible (%s) : les nocturnes de ce cycle ne"
+            " sont PAS conservées hors du cache",
+            ", ".join(str(d) for d in dossiers_coffre()),
+        )
+        return None
+
+    ajoutees = 0
+    for chemin in chemins:
+        cible = coffre / chemin.name
+        empreinte = coffre / (chemin.name + ".sha256")
+        if chemin.resolve() == cible.resolve():
+            continue
+        sha = archive_amont._sha256_fichier(chemin)
+        try:
+            deja = cible.is_file() and empreinte.read_text(
+                encoding="ascii").split()[0] == sha
+        except (OSError, IndexError, UnicodeDecodeError):
+            deja = False
+        if deja:
+            continue
+        archive_amont._ecrire_copie(chemin, cible, compresser=False)
+        archive_amont._ecrire_empreinte(empreinte, sha, chemin.name)
+        archive_amont._chmod_coffre(cible)
+        archive_amont._chmod_coffre(empreinte)
+        ajoutees += 1
+
+    gardees = [f.name for f in coffre.iterdir() if _est_nocturne(f.name)]
+    purgees = 0
+    if gardees:
+        plancher = max(jour_de_livraison(n) for n in gardees) - timedelta(
+            days=jours * JOURS_CIVILS_MAX_PAR_JO)
+        for nom in gardees:
+            if jour_de_livraison(nom) < plancher:
+                (coffre / nom).unlink(missing_ok=True)
+                (coffre / (nom + ".sha256")).unlink(missing_ok=True)
+                purgees += 1
+    log.info(
+        "coffre %s : %d nocturne(s) ajoutée(s), %d conservée(s), %d purgée(s)"
+        " (plus de %d jours)",
+        coffre, ajoutees, len(gardees) - purgees, purgees,
+        jours * JOURS_CIVILS_MAX_PAR_JO,
+    )
+    return coffre
 
 
 # ---------------------------------------------------------------------------
@@ -631,17 +845,22 @@ def ecarts_anormaux(dates_jo: list[str]) -> list[tuple[str, str, int]]:
     return trous
 
 
-def _editions(n: int) -> str:
-    return (
-        "1 édition quotidienne du JO" if n == 1
-        else f"{n} éditions quotidiennes du JO"
-    )
+def _editions(n: int | None) -> str:
+    """Ce que le dépôt de la DILA proposait, en mots de lecteur. `None` :
+    il n'a pas pu être lu ce jour-là."""
+    if n is None:
+        return "le dépôt public de la DILA n'a pas pu être lu"
+    if n == 0:
+        return "le dépôt public de la DILA ne propose aucune édition quotidienne du JO"
+    if n == 1:
+        return "le dépôt public de la DILA propose 1 édition quotidienne du JO"
+    return f"le dépôt public de la DILA propose {n} éditions quotidiennes du JO"
 
 
 def note_fenetre(
     dates_jo: list[str],
     jours: int,
-    nocturnes_index: int,
+    nocturnes_index: int | None,
     stock: str | None,
     constat: str,
 ) -> str:
@@ -656,8 +875,8 @@ def note_fenetre(
     anciens (absents, ou à l'archive) : seulement qu'ils ne sont pas affichés.
     """
     debut, fin = dates_jo[0], dates_jo[-1]
-    index_reduit = nocturnes_index < jours
-    etat_index = f"le dépôt public de la DILA propose {_editions(nocturnes_index)}"
+    index_reduit = nocturnes_index is None or nocturnes_index < jours
+    etat_index = _editions(nocturnes_index)
     if index_reduit and stock:
         etat_index += (
             " depuis son renouvellement du "
@@ -678,7 +897,7 @@ def note_fenetre(
         return f"{note} ; {dit_trous}" if trous else note
     note = f"{len(dates_jo)} JO, du {_fr(debut)} au {_fr(fin)} ; {etat_index}"
     if index_reduit:
-        note += ", les JO plus anciens viennent des ingestions précédentes"
+        note += ", les JO plus anciens viennent de ce qui a été conservé ici"
     if trous:
         return (
             f"{MARQUE_FENETRE_DISCONTINUE} : {dit_trous} (constat du"
@@ -732,6 +951,16 @@ def reconstruire_agregats(conn) -> None:
 # ---------------------------------------------------------------------------
 
 
+def cycle_precedent() -> tuple[int, str] | None:
+    """(textes, date du JO le plus récent) laissés en base par le dernier
+    cycle réussi, ou None (base neuve)."""
+    conn = db.connexion()
+    try:
+        return db.publication_precedente(conn, "jorf_textes", "S3")
+    finally:
+        conn.close()
+
+
 def secours_cycle_precedent(motif: str) -> int:
     """Rien de neuf à lire à la DILA (serveur injoignable, ou index sans
     aucune livraison nocturne) : reprendre le JORF du dernier cycle réussi.
@@ -739,11 +968,7 @@ def secours_cycle_precedent(motif: str) -> int:
     N'écrit rien (voir db.publication_precedente). Exit 0 si un cycle
     précédent a laissé des textes datés, exit 1 sinon (base neuve).
     """
-    conn = db.connexion()
-    try:
-        precedent = db.publication_precedente(conn, "jorf_textes", "S3")
-    finally:
-        conn.close()
+    precedent = cycle_precedent()
     if precedent is None:
         log.error(
             "%s et aucun JORF d'un cycle précédent à reprendre : échec", motif,
@@ -772,72 +997,125 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     session = session_http(total_retries=TENTATIVES_DILA, backoff=BACKOFF_DILA)
+    html: str | None = None
+    # Motif pour lequel l'amont ne donne rien d'utilisable ce cycle. Tant
+    # qu'il est None, on lit l'index et on télécharge.
+    panne: str | None = None
     try:
         log.info("index: %s", URL_JORFSIMPLE)
         r = session.get(URL_JORFSIMPLE, timeout=60)
         r.raise_for_status()
+        html = r.text
     except requests.RequestException as exc:
-        return secours_cycle_precedent(
-            f"DILA injoignable (index JORFSIMPLE : {exc})")
+        panne = f"DILA injoignable (index JORFSIMPLE : {exc})"
 
-    nocturnes = livraisons_nocturnes(r.text)
-    stock = stock_a_l_index(r.text)
-    if not nocturnes:
-        if not index_reconnu(r.text):
-            log.error(
-                "index JORFSIMPLE illisible : ni livraison ni stock reconnus"
-                " (format changé ?)")
-            return 1
-        # Cas du 09/11/2026 : stock régénéré la veille, première nocturne
-        # attendue le lendemain. Sortir en erreur gelait tout le cycle pour
-        # un index parfaitement lisible. Une livraison de journée listée
-        # seule peut être la nocturne en retard : elle est nommée ici aussi.
-        signaler_jours_sans_nocturne(r.text, date.min)
-        return secours_cycle_precedent(
-            "index DILA réduit à 0 livraison nocturne ("
-            f"{len(RE_LIVRAISON.findall(r.text))} livraison(s) d'une autre"
-            f" heure listée(s), stock Freemium : {stock or 'aucun'})"
-        )
-    selection = nocturnes[-args.jours:]
-    log.info(
-        "%d livraisons nocturnes à l'index, %d retenues (%s → %s)",
-        len(nocturnes), len(selection), selection[0], selection[-1],
-    )
-    # Journalisé à chaque cycle, cas normal compris : un index réduit ne
-    # casse rien, il doit donc se dire.
-    if len(nocturnes) < args.jours:
-        log.warning(
-            "index DILA réduit à %d livraison(s) nocturne(s) pour %d JO visés"
-            " (stock Freemium : %s) : la fenêtre ne tient que par les JO déjà"
-            " en base", len(nocturnes), args.jours, stock or "aucun",
-        )
-    else:
-        log.info(
-            "index DILA non réduit : %d livraisons nocturnes pour %d JO visés",
-            len(nocturnes), args.jours,
-        )
-    signaler_jours_sans_nocturne(r.text, jour_de_livraison(selection[0]))
+    nocturnes: list[str] = []
+    stock = None
+    if html is not None:
+        nocturnes = livraisons_nocturnes(html)
+        stock = stock_a_l_index(html)
+        if not nocturnes:
+            if not index_reconnu(html):
+                log.error(
+                    "index JORFSIMPLE illisible : ni livraison ni stock"
+                    " reconnus (format changé ?)")
+                return 1
+            # Cas du 09/11/2026 : stock régénéré la veille, première
+            # nocturne attendue le lendemain. Sortir en erreur gelait tout
+            # le cycle pour un index parfaitement lisible. Une livraison de
+            # journée listée seule peut être la nocturne en retard : elle
+            # est nommée ici aussi.
+            signaler_jours_sans_nocturne(html, date.min)
+            panne = (
+                "index DILA réduit à 0 livraison nocturne ("
+                f"{len(RE_LIVRAISON.findall(html))} livraison(s) d'une autre"
+                f" heure listée(s), stock Freemium : {stock or 'aucun'})"
+            )
+        # Journalisé à chaque cycle, cas normal compris : un index réduit
+        # ne casse rien, il doit donc se dire.
+        elif len(nocturnes) < args.jours:
+            log.warning(
+                "index DILA réduit à %d livraison(s) nocturne(s) pour %d JO"
+                " visés (stock Freemium : %s) : le reste de la fenêtre ne"
+                " peut venir que des copies locales ou de la base",
+                len(nocturnes), args.jours, stock or "aucun",
+            )
+        else:
+            log.info(
+                "index DILA non réduit : %d livraisons nocturnes pour %d JO visés",
+                len(nocturnes), args.jours,
+            )
 
     # Tout le réseau AVANT la première écriture : une coupure au 12e tarball
     # ne doit pas laisser en base 11 JO neufs sous la date de la veille.
-    chemins: list[tuple[str, Path]] = []
+    locales = copies_locales()
+    selection = choisir_livraisons(nocturnes, list(locales), args.jours)
+    chemins: dict[str, Path] = {}
+    if panne is None:
+        a_l_index = set(nocturnes)
+        retenues = [n for n in selection if n in a_l_index]
+        log.info(
+            "%d livraisons nocturnes à l'index, %d retenues (%s)",
+            len(nocturnes), len(retenues),
+            f"{retenues[0]} → {retenues[-1]}" if retenues else "aucune",
+        )
+        signaler_jours_sans_nocturne(html, jour_de_livraison(selection[0]))
+        for nom in retenues:
+            try:
+                chemins[nom] = telecharger(
+                    URL_JORFSIMPLE + nom,
+                    f"jorf/{nom}",
+                    max_age_heures=CACHE_IMMUABLE_H,  # tarballs immuables
+                    session=session,
+                )
+            except requests.RequestException as exc:
+                panne = f"DILA injoignable ({nom} : {exc})"
+                break
+
+    if panne is not None:
+        # Une base qui porte le JORF d'un cycle réussi : on n'y touche pas.
+        if cycle_precedent() is not None:
+            return secours_cycle_precedent(panne)
+        # Base neuve (le cas du serveur, chaque nuit) : il n'y a pas de
+        # « cycle précédent » à reprendre, mais il y a peut-être des copies.
+        # Ce qui vient d'être téléchargé avant la coupure en fait partie.
+        locales = copies_locales()
+        selection = choisir_livraisons([], list(locales), args.jours)
+        chemins = {}
+        if not selection:
+            return secours_cycle_precedent(panne)
+        log.warning(
+            "%s et base sans JORF d'un cycle précédent → ingestion depuis"
+            " les seules copies locales (%d livraison(s) candidate(s))",
+            panne, len(selection),
+        )
+
+    # Ce que l'index ne donne pas (ou plus) : relu depuis la copie locale.
+    relues: list[str] = []
     for nom in selection:
-        try:
-            chemins.append((nom, telecharger(
-                URL_JORFSIMPLE + nom,
-                f"jorf/{nom}",
-                max_age_heures=CACHE_IMMUABLE_H,  # tarballs immuables
-                session=session,
-            )))
-        except requests.RequestException as exc:
-            return secours_cycle_precedent(f"DILA injoignable ({nom} : {exc})")
+        if nom in chemins:
+            continue
+        chemin = copie_verifiee(nom, locales.get(nom, []))
+        if chemin is not None:
+            chemins[nom] = chemin
+            relues.append(nom)
+    if relues:
+        log.warning(
+            "%d livraison(s) absente(s) de l'index relue(s) depuis une copie"
+            " locale vérifiée (%s → %s)", len(relues), relues[0], relues[-1],
+        )
+    else:
+        log.info("livraisons absentes de l'index relues depuis une copie locale : 0")
+    if not chemins:
+        return secours_cycle_precedent(
+            panne or "aucune livraison lisible, ni à l'index ni en copie locale")
 
     conn = db.init_db()
     conn.executescript(_SCHEMA)
     conn.commit()
 
     total, toutes_dates = 0, []
-    for nom, chemin in chemins:
+    for nom, chemin in sorted(chemins.items()):
         try:
             n, dates_jo = ingerer_tarball(chemin, conn)
         except (tarfile.TarError, ET.ParseError, OSError) as exc:
@@ -917,13 +1195,21 @@ def main(argv: list[str] | None = None) -> int:
         date_donnees=date_donnees,
         lignes=lignes,
         notes=note_fenetre(
-            dates_fenetre, args.jours, len(nocturnes), stock, aujourd_hui),
+            dates_fenetre, args.jours,
+            len(nocturnes) if html is not None else None, stock, aujourd_hui),
     )
     log.info(
         "terminé: %d textes upsertés, %d en table, JO le plus récent: %s",
         total, lignes, date_donnees,
     )
     conn.close()
+    # Après la base, jamais avant : un coffre qui refuse l'écriture ne doit
+    # pas coûter le cycle. Ce qui vient d'être lu sera relu demain si la
+    # DILA le retire d'ici là.
+    try:
+        conserver_au_coffre(list(chemins.values()), args.jours)
+    except OSError as exc:
+        log.warning("coffre : copie interrompue (%s)", exc)
     return 0
 
 
