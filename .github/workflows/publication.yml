@@ -107,7 +107,10 @@ jobs:
       # Le schéma de data/france.db est produit par pipelines/*.py et par rien
       # d'autre : si l'un d'eux change, l'empreinte change, aucun cache ne
       # correspond, et le job retombe sur l'ingestion complète — ce que le
-      # `if:` de l'étape suivante prévoit déjà. Les tests sont volontairement
+      # `if:` de l'étape suivante prévoit déjà. `requirements.txt` entre dans
+      # l'empreinte depuis le 11/11/2026 : le CONTENU de la base dépend aussi
+      # des versions figées (DuckDB lit les Parquet et les CSV volumineux), et
+      # une montée de version doit rejouer l'ingestion. Les tests sont volontairement
       # hors de l'empreinte (pipelines/*.py, pas pipelines/**/*.py) : ils ne
       # produisent aucun schéma, et les inclure ferait rejouer 90 s d'ingestion
       # à chaque test ajouté.
@@ -121,7 +124,7 @@ jobs:
           # la plus récente PARMI CELLES DU MÊME SCHÉMA
           key: france-db-introuvable
           restore-keys: |
-            france-db-${{ hashFiles('pipelines/*.py') }}-
+            france-db-${{ hashFiles('pipelines/*.py', 'requirements.txt') }}-
 
       # INCONDITIONNEL depuis le 25/08/2026 : les tests tournent désormais à chaque
       # événement (voir l'étape « Tests pipelines »), y compris quand l'ingestion est
@@ -139,6 +142,48 @@ jobs:
         run: |
           make venv PYTHON=python3
           make ingest PYTHON=python3
+
+      # LA BASE EST MISE EN CACHE DÈS QUE L'INGESTION A RÉUSSI, avant les tests.
+      # Ces deux étapes suivaient les tests : un test en échec les sautait.
+      # Du 22/10 au 11/11/2026, pytest a échoué treize fois APRÈS une ingestion
+      # complète réussie, et aucune de ces treize bases n'a été gardée ; les
+      # caches antérieurs ont expiré (sept jours sans lecture) et l'API en
+      # comptait zéro le 11/11. Chaque poussée et chaque proposition de fusion
+      # refaisait alors l'ingestion complète et héritait des pannes amont du
+      # jour — y compris la proposition qui corrigeait le test.
+      #
+      # Ce que le cache est, et n'est pas : un raccourci de VALIDATION pour
+      # les poussées et les propositions de fusion (ce workflow ne publie
+      # rien, et le serveur ne lit jamais ce cache). Les tests valident le
+      # CODE, sur leurs propres bases jetables ; aucun ne lit cette base. Une
+      # base issue d'une ingestion réussie est donc aussi valide avant les
+      # tests qu'après. Et un run qui la restaure rejoue de toute façon les
+      # tests, le build et les contrôles de santé : elle ne rend rien vert.
+      #
+      # La garde est dans la CLÉ : la base n'est restaurée que par le même
+      # code de pipelines ET les mêmes dépendances (`requirements.txt`, figé).
+      # Sans ce second terme, une montée de DuckDB aurait été validée sur une
+      # base produite par l'ancienne version, sans jamais rejouer l'ingestion.
+      - name: Consolider la base (checkpoint WAL → fichier unique)
+        if: steps.ingestion.outcome == 'success'
+        run: |
+          python3 - <<'EOF'
+          import sqlite3
+          c = sqlite3.connect("data/france.db")
+          c.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+          c.execute("PRAGMA journal_mode=DELETE")
+          c.close()
+          EOF
+          ls -lh data/france.db
+
+      - name: Mettre la base en cache
+        if: steps.ingestion.outcome == 'success'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: data/france.db
+          # Même empreinte que le restore-keys ci-dessus : une base n'est
+          # réutilisable que par un code et des dépendances identiques.
+          key: france-db-${{ hashFiles('pipelines/*.py', 'requirements.txt') }}-${{ github.run_id }}
 
       # LE GARDE-FOU. Cette étape portait `if: steps.ingestion.outcome == 'success'`,
       # ce qui liait les tests au REMPLISSAGE DU CACHE et non au contenu proposé :
@@ -171,27 +216,6 @@ jobs:
       - name: Tests réseau (sources amont)
         if: steps.ingestion.outcome == 'success'
         run: make test PYTHON=python3 PYTEST_ARGS="-m reseau"
-
-      - name: Consolider la base (checkpoint WAL → fichier unique)
-        if: steps.ingestion.outcome == 'success'
-        run: |
-          python3 - <<'EOF'
-          import sqlite3
-          c = sqlite3.connect("data/france.db")
-          c.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-          c.execute("PRAGMA journal_mode=DELETE")
-          c.close()
-          EOF
-          ls -lh data/france.db
-
-      - name: Mettre la base en cache
-        if: steps.ingestion.outcome == 'success'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: data/france.db
-          # Même empreinte que le restore-keys ci-dessus : une base n'est
-          # réutilisable que par un code qui produit le même schéma.
-          key: france-db-${{ hashFiles('pipelines/*.py') }}-${{ github.run_id }}
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
