@@ -733,6 +733,71 @@ def test_lire_mandats_senat_leve_sans_table_elusen():
         p9.lire_mandats_senat(io.BytesIO(b"COPY sen (senmat) FROM stdin;\n\\.\n"))
 
 
+# export_sens servi vide (01, 05, 07 et 10/11/2026) : la veille, pas la mort
+# de l'étape. Le dump vide est figuré par un export_sens.sql sans aucune
+# ligne `elusen` — c'est exactement ce que lire_mandats_senat a constaté ces
+# jours-là (« table elusen absente ou vide »), le zip s'ouvrant normalement.
+
+
+def _vider_export_sens(tmp_path):
+    with zipfile.ZipFile(tmp_path / "export_sens.zip", "w") as z:
+        z.writestr("export_sens.sql", b"")
+
+
+def test_ingerer_senat_reprend_la_veille_quand_export_sens_est_vide(
+        tmp_path, monkeypatch, caplog):
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    _senat_jetable(tmp_path, monkeypatch)
+    p9.ingerer_senat(conn, session=None)          # cycle de la veille, complet
+    avant = {
+        "senateurs": conn.execute(
+            "SELECT * FROM senateurs ORDER BY matricule").fetchall(),
+        "elus": conn.execute(
+            "SELECT id, mandats FROM elus ORDER BY id").fetchall(),
+        "meta": conn.execute(
+            "SELECT * FROM meta_sources WHERE source_id = 'S6-ODSEN'").fetchone(),
+    }
+    assert len(avant["senateurs"]) == 2 and avant["meta"]["date_donnees"] == "2026-08-29"
+
+    _vider_export_sens(tmp_path)
+    # ODSEN_GENERAL, lui, annonce une date neuve : elle ne doit PAS passer.
+    monkeypatch.setattr(p9, "_date_last_modified", lambda *a, **k: "2026-11-10")
+    with caplog.at_level("WARNING"):
+        p9.ingerer_senat(conn, session=None)      # ne lève plus
+
+    apres = {
+        "senateurs": conn.execute(
+            "SELECT * FROM senateurs ORDER BY matricule").fetchall(),
+        "elus": conn.execute(
+            "SELECT id, mandats FROM elus ORDER BY id").fetchall(),
+        "meta": conn.execute(
+            "SELECT * FROM meta_sources WHERE source_id = 'S6-ODSEN'").fetchone(),
+    }
+    # RIEN n'est écrit : table, mandats et ligne meta (date de la donnée ET
+    # date d'ingestion) restent ceux du dernier cycle réussi.
+    assert [tuple(r) for r in apres["senateurs"]] == [tuple(r) for r in avant["senateurs"]]
+    assert [tuple(r) for r in apres["elus"]] == [tuple(r) for r in avant["elus"]]
+    assert tuple(apres["meta"]) == tuple(avant["meta"])
+    assert "secours" in caplog.text and "2 sénateurs, données du 2026-08-29" in caplog.text
+    conn.close()
+
+
+def test_ingerer_senat_sans_veille_echoue_toujours_sur_export_sens_vide(
+        tmp_path, monkeypatch):
+    """Base neuve (la CI) : rien d'honnête à servir, l'étape échoue."""
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    _senat_jetable(tmp_path, monkeypatch)
+    _vider_export_sens(tmp_path)
+    with pytest.raises(p9.ExportSensVide, match="aucun Sénat d'un cycle précédent"):
+        p9.ingerer_senat(conn, session=None)
+    assert conn.execute("SELECT count(*) FROM senateurs").fetchone()[0] == 0
+    assert conn.execute("SELECT count(*) FROM meta_sources"
+                        " WHERE source_id = 'S6-ODSEN'").fetchone()[0] == 0
+    conn.close()
+
+
 def test_ingerer_senat_ecrit_la_date_de_debut_du_mandat_en_cours(tmp_path,
                                                                 monkeypatch):
     """ODSEN_GENERAL de la fixture (19/08/2026) : 21071F et 14133K ACTIF.

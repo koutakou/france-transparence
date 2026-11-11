@@ -1350,6 +1350,18 @@ def ingerer_scrutins(conn, session: requests.Session) -> None:
              len(metas), dernier["numero"], dernier["date_scrutin"])
 
 
+class ExportSensVide(RuntimeError):
+    """Le dump export_sens ne porte aucune ligne `elusen`.
+
+    Panne amont RÉCURRENTE, pas une rupture de format : les 01, 05, 07 et
+    10/11/2026, data.senat.fr a servi aux cycles CI un export_sens.zip noté
+    « 0.0 Mo » au journal (8,1 à 8,2 Mo tous les autres jours depuis le
+    15/10), alors qu'ODSEN_GENERAL, le même jour, listait normalement ses
+    348 sénateurs en exercice ; au cycle suivant, le dump était revenu. Classe distincte pour que `ingerer_senat` puisse reprendre la
+    publication de la veille sur CE cas, et sur lui seul.
+    """
+
+
 def lire_mandats_senat(
     fp,
     codes_departement: dict[str, str] | None = None,
@@ -1398,7 +1410,7 @@ def lire_mandats_senat(
         debuts.setdefault(matricule, []).append(_date_copy(row.get("eludatdeb")))
         dpt_en_cours[matricule] = (row.get("dptnum") or "").strip() or None
     if not lues:
-        raise RuntimeError("export_sens : table elusen absente ou vide")
+        raise ExportSensVide("export_sens : table elusen absente ou vide")
     ambigus = {m for m, d in debuts.items() if len(d) > 1}
     fins = {m: f for m, (_d, f) in derniers_clos.items() if m not in debuts}
     if codes_departement is not None:
@@ -1482,6 +1494,33 @@ def clore_mandats_sortis(conn, *, cle: str, source: str, actifs: set[str],
     return closes, sans_date
 
 
+def secours_export_sens_vide(conn, motif: str) -> None:
+    """export_sens servi vide : reprendre le Sénat du dernier cycle réussi.
+
+    Même patron que `ingest_dole.secours_dila_injoignable` : RIEN n'est
+    écrit — ni `senateurs`, ni les mandats SENAT-P9 de `elus`, ni la ligne
+    S6-ODSEN de meta_sources. La table reste celle du cycle précédent, et la
+    ligne meta garde la date de la donnée et la date d'ingestion de ce cycle :
+    la fraîcheur affichée reste vraie, et le seuil finit par alerter si la
+    panne dure. ODSEN_GENERAL, lui, a pu être lu : on ne publie pas pour
+    autant une liste du jour sans les dates de mandat que porte `elusen` (les
+    effacer pour 348 sénateurs serait pire que de servir la veille).
+
+    Sans publication précédente (base neuve, donc la CI) : la panne reste une
+    panne, l'étape échoue comme avant.
+    """
+    precedent = db.publication_precedente(conn, "senateurs", "S6-ODSEN")
+    if precedent is None:
+        raise ExportSensVide(
+            f"{motif} — et aucun Sénat d'un cycle précédent à reprendre")
+    lignes, date_donnees = precedent
+    log.warning(
+        "Sénat : %s → secours : senateurs reprise telle que publiée par le"
+        " dernier cycle réussi (%d sénateurs, données du %s) ; rien n'est"
+        " écrit, meta_sources S6-ODSEN garde cette date", motif, lignes,
+        date_donnees)
+
+
 def ingerer_senat(conn, session: requests.Session) -> None:
     """Sénat ODSEN → senateurs (en exercice) + elus."""
     date_donnees = _date_last_modified(session, URL_ODSEN_GENERAL)
@@ -1505,11 +1544,16 @@ def ingerer_senat(conn, session: requests.Session) -> None:
              len(actifs), len(lignes))
 
     # Date de début du mandat en cours : table `elusen` du dump export_sens.
-    with zipfile.ZipFile(chemin_export_sens) as z, \
-            z.open("export_sens.sql") as fp:
-        codes_senat: dict[str, str] = {}
-        debuts_mandat, fins_mandat, lignes_elusen, ambigus = lire_mandats_senat(
-            fp, codes_senat)
+    try:
+        with zipfile.ZipFile(chemin_export_sens) as z, \
+                z.open("export_sens.sql") as fp:
+            codes_senat: dict[str, str] = {}
+            debuts_mandat, fins_mandat, lignes_elusen, ambigus = lire_mandats_senat(
+                fp, codes_senat)
+    except ExportSensVide as exc:
+        secours_export_sens_vide(
+            conn, f"{exc} ({chemin_export_sens.stat().st_size} octet(s) servis)")
+        return
 
     preserves_senateurs = preserves_elus = 0
     refus_senateurs = refus_elus = 0
