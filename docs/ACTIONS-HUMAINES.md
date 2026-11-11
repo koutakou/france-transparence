@@ -14,8 +14,8 @@
    grep -n 'make\|PYTHON\|venv' /usr/local/bin/ft-deploy
    ```
    Les versions figées ont des roues pour CPython 3.10 à 3.14 en Linux x86_64 (glibc 2.26 ou plus récente ; Ubuntu 22.04 a 2.35), vérifié sur PyPI le 11/11/2026, et la suite hors réseau passe sous Python 3.10 comme sous 3.14.
-2. **Ne monter DuckDB en 2.x que si cet interpréteur est en 3.11 ou plus.** DuckDB 2.0 n'a aucune roue pour Python 3.10. La CI joue Python 3.14 : une proposition Dependabot `duckdb==2.0.0` y passera au vert, puis échouera à l'installation sur un serveur en 3.10. Le code et les tests passent sous 1.5.6 et sous 2.0.0.
-3. **L'arrêt des publications depuis le 08/11 n'est très probablement pas dû à DuckDB 2.** `requirements.txt` n'avait pas changé depuis le 25/08 : `make` ne réinstallait donc rien. Et le serveur a publié du 22/10 au 08/11, alors que DuckDB 2.0 faisait échouer la suite de tests dès qu'il était installé. Sa cause reste à lire dans `/var/log/france-transparence/deploiement.log` et `journalctl -u ft-deploy`.
+2. **Ne monter DuckDB en 2.x que si cet interpréteur est en 3.11 ou plus.** DuckDB 2.0 n'a aucune roue pour Python 3.10. La CI joue Python 3.14 : une proposition Dependabot `duckdb==2.0.0` y passerait au vert, puis échouerait à l'installation sur un serveur en 3.10. `.github/dependabot.yml` ignore donc `duckdb>=2.0.0` : lever cet `ignore` une fois l'interpréteur relevé en 3.11 ou plus. Le code et les tests passent sous 1.5.6 et sous 2.0.0.
+3. **L'arrêt des publications depuis le 08/11 n'est très probablement pas dû à DuckDB 2.** `requirements.txt` n'avait pas changé depuis le commit initial du 20/08 (4b95cbc) : `make` ne réinstallait donc rien. Et le serveur a publié du 22/10 au 08/11, alors que DuckDB 2.0 faisait échouer la suite de tests dès qu'il était installé. Sa cause reste à lire dans `/var/log/france-transparence/deploiement.log` et `journalctl -u ft-deploy`.
 
 ## 15/10/2026 — À faire sur le serveur et sur GitHub
 
