@@ -31,8 +31,7 @@ import {
   type ComparaisonRompue,
 } from "@/lib/queries/budget-ruptures";
 import { AO_ACCUEIL_AFFICHEES } from "@/lib/echeances";
-import { formatDateFr } from "@/lib/format";
-import { editionsNonRelues, perimetreJo30j } from "@/lib/jorf-fenetre";
+import { editionsNonRelues, perimetreJo30jArrete } from "@/lib/jorf-fenetre";
 import { fenetreArreteeSql } from "@/lib/periodes";
 import { getIdsFichesStatiques } from "@/lib/queries/elus";
 
@@ -378,14 +377,13 @@ export function getDonneesAccueil(): DonneesAccueil | null {
     perimetreJo30j:
       finS3 === null
         ? "JORF Lois et décrets — date des données non publiée"
-        : `${perimetreJo30j(
+        : perimetreJo30jArrete(
             (
               db
                 .prepare(`SELECT DISTINCT date_publi FROM jorf_textes ORDER BY date_publi`)
                 .all() as { date_publi: string }[]
             ).map((l) => l.date_publi),
-            // Le même seuil que le compte ci-dessus : ]fin − 30 j ; fin].
-            (db.prepare(`SELECT date(?, '-30 days') AS seuil`).get(finS3) as { seuil: string }).seuil,
+            finS3,
             // Éditions que le pipeline n'a pas pu relire : nommées dans sa note.
             editionsNonRelues(
               (
@@ -394,7 +392,7 @@ export function getDonneesAccueil(): DonneesAccueil | null {
                   | undefined
               )?.notes,
             ),
-          )} — jusqu’au ${formatDateFr(finS3)} (JO le plus récent ingéré)`,
+          ),
   };
 
   /* --- Bandeau de couverture (counts réels, jamais figés) --- */

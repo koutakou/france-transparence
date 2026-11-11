@@ -168,6 +168,26 @@ export function perimetreJo30j(
 }
 
 /**
+ * Périmètre de la tuile d'accueil quand la fenêtre est ARRÊTÉE à `fin`, la
+ * date des données S3 (lib/periodes.ts, `fenetreArreteeSql`) : le compte
+ * prend ]fin − 30 j ; fin], soit, en jours civils, [fin − 29 j ; fin]. Le
+ * seuil passé à `perimetreJo30j` est donc ce premier jour INCLUS, fin − 29 j :
+ * lui passer fin − 30 j (borne exclusive du SQL) décalait d'un jour le bord
+ * de la fenêtre entre le compte et son libellé. La date de fin se dit entre
+ * parenthèses, pour ne jamais ajouter un second tiret au libellé.
+ */
+export function perimetreJo30jArrete(
+  dates: readonly string[],
+  fin: string,
+  manquantes: readonly string[] = [],
+): string {
+  const premierJour = new Date(Date.parse(`${fin.slice(0, 10)}T00:00:00Z`) - 29 * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  return `${perimetreJo30j(dates, premierJour, manquantes)} (jusqu’au ${fr(fin)}, JO le plus récent ingéré)`;
+}
+
+/**
  * Note datée du pipeline, à afficher TELLE QUELLE sous le compte de JO, ou
  * `null` quand elle ne signale rien.
  */
