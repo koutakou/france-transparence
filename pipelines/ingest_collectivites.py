@@ -754,12 +754,17 @@ def comptes_provisoires(exercice: int, jour_lecture: date) -> bool:
 
 
 def phrase_comptes_provisoires(
-    exercice: int, disponibilite: tuple[int, int] | None, jour_lecture: date
+    exercice: int, disponibilite: tuple[int, int] | None,
+    jour_lecture: date | None = None,
 ) -> str:
     """Début de la note S16, dérivé des données et du jour de lecture (aucun
     compte en dur). « provisoires » n'est écrit que tant que c'est certain :
     passé le 1er décembre N+1, la note date la lecture et rappelle le
-    calendrier de l'OFGL, sans qualifier la version lue."""
+    calendrier de l'OFGL, sans qualifier la version lue. Sans jour donné,
+    c'est le jour de l'ingestion : `executer` n'en passe aucun, de sorte que
+    rien ne peut y figer une date."""
+    if jour_lecture is None:
+        jour_lecture = date.today()
     if comptes_provisoires(exercice, jour_lecture):
         debut = f"Comptes {exercice} provisoires jusqu'à déc. {exercice + 1}"
     else:
@@ -1032,7 +1037,7 @@ def executer() -> None:
             date_donnees=f"{EXERCICE_COMPTES}-12-31",
             lignes=sum(comptes.values()),
             notes=(
-                f"{phrase_comptes_provisoires(EXERCICE_COMPTES, disponibilite, date.today())} ; "
+                f"{phrase_comptes_provisoires(EXERCICE_COMPTES, disponibilite)} ; "
                 f"dotations DGF jusqu'à l'exercice {ANNEE_DGF_DETAIL}. "
                 f"Séries communales {SERIE_DEBUT}-{EXERCICE_COMPTES} (top {TOP_COMMUNES}, "
                 f"budgets principaux) et médianes d'€/hab par strate démographique "
