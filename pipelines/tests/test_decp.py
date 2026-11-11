@@ -218,12 +218,15 @@ def test_normalisation_des_libelles_heterogenes():
     import duckdb
 
     cle = ingest_decp._SQL_CLE_LIBELLE.format(col="x")
-    n = duckdb.sql(
+    # `fetchall()` et non `fetchone()` : DuckDB 2.0 a retiré `fetchone()` des
+    # relations (`duckdb.sql`), qui ne gardent aucun résultat entre deux
+    # lectures. `fetchall()` existe sous 1.x comme sous 2.x.
+    lignes = duckdb.sql(
         f"""SELECT count(DISTINCT {cle}) FROM (VALUES
             ('Marché'), ('MARCHE'),
             ('Appel d''offres ouvert'), ('Appel d offres ouvert')) t(x)"""
-    ).fetchone()[0]
-    assert n == 2
+    ).fetchall()
+    assert lignes == [(2,)]
 
 
 def test_serie_mensuelle(resultat):
@@ -1068,7 +1071,10 @@ def _fixture_modifiee(chemin_sortie, dates_par_uid=None, categories_par_uid=None
     )
     ach_id = cas(acheteurs_id_par_uid, "acheteur_id", "VARCHAR")
 
-    duckdb.sql(
+    # `execute` et non `sql` : sous DuckDB 2.0, `sql()` sur une instruction
+    # qui ne lit rien rend une relation au lieu de None ; `execute` est la voie
+    # prévue pour COPY, sous 1.x comme sous 2.x.
+    duckdb.execute(
         f"""
         COPY (SELECT * REPLACE (
                   {notification} AS dateNotification,
