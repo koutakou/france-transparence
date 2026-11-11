@@ -136,6 +136,116 @@ def test_controler_serie_detecte_erreur_unite():
 
 
 # ---------------------------------------------------------------------------
+# P1 — rupture de périmètre d'une cellule de total (septembre 2026)
+# ---------------------------------------------------------------------------
+# Fixture : extrait RÉEL de l'export du 11/11/2026 (jeu modifié en amont le
+# 04/11/2026), les 26 lignes, colonnes 31/08/2025, 30/09/2025, 31/08/2026 et
+# 30/09/2026. Au 30/09/2026 la ligne « Total recettes nettes du budget
+# général » vaut 219 136 720 375,64 €, alors que fiscales + non fiscales =
+# 269 997 985 377,18 € — l'identité tient sur les 164 autres mois de la série.
+
+_RECETTES_NETTES = "recettes/budget-general/total-recettes-nettes-du-budget-general"
+
+
+def _serie_septembre_2026():
+    export, _ = _tableau("smb_export_2026_09_extrait.csv", "utf-8-sig")
+    hist, _ = _tableau("smb_2013_2023_extrait.csv", "utf-16")
+    return p1.construire_serie(export, hist)
+
+
+def test_detecter_ruptures_isole_la_seule_cellule_de_septembre_2026():
+    ruptures = p1.detecter_ruptures(_serie_septembre_2026())
+    # UNE rupture, pas « au moins une » : les 27 autres mois de l'extrait
+    # (24 de 2013/2023, 3 de 2025-2026) et les trois autres identités tiennent.
+    assert len(ruptures) == 1
+    r = ruptures[0]
+    assert (r["ligne_id"], r["date_fin_mois"]) == (_RECETTES_NETTES, "2026-09-30")
+    assert r["montant_publie"] == pytest.approx(219136720375.64, abs=0.01)
+    assert r["somme_composantes"] == pytest.approx(269997985377.18, abs=0.01)
+    assert r["identite"] == "recettes fiscales + non fiscales"
+    # La cellule est redonnée EXACTEMENT par une autre combinaison publiée :
+    # 250,47 + 19,53 − 55,86 (PSR) + 5,00 (fonds de concours) = 219,14 Md€.
+    assert r["definition_constatee"] == (
+        "recettes fiscales + non fiscales − prélèvements sur recettes "
+        "+ fonds de concours")
+
+
+def test_detecter_ruptures_ne_signale_rien_sur_l_export_d_aout_2026():
+    # Contre-épreuve : l'extrait du 19/08/2026 (01/2024 → 06/2026) est
+    # conforme partout — le contrôle ne crie pas au loup.
+    export, _ = _tableau("smb_export_extrait.csv", "utf-8-sig")
+    hist, _ = _tableau("smb_2013_2023_extrait.csv", "utf-16")
+    assert p1.detecter_ruptures(p1.construire_serie(export, hist)) == []
+
+
+def test_detecter_ruptures_ne_nomme_pas_une_definition_qui_ne_tient_pas():
+    serie = _serie_septembre_2026()
+    for e in serie:
+        if e["ligne_id"] == _RECETTES_NETTES and e["date_fin_mois"] == "2026-09-30":
+            e["montant_cumul"] += 1000.0  # plus aucune combinaison ne tombe juste
+    (r,) = p1.detecter_ruptures(serie)
+    assert r["definition_constatee"] is None
+
+
+def test_neutraliser_flux_a_travers_la_cellule_en_rupture():
+    serie = _serie_septembre_2026()
+    ruptures = p1.detecter_ruptures(serie)
+    par_cle = {(e["ligne_id"], e["date_fin_mois"]): e for e in serie}
+    sept26 = par_cle[(_RECETTES_NETTES, "2026-09-30")]
+    # Avant : cumul septembre − cumul août = −5,73 Md€ de recettes « du mois ».
+    assert sept26["montant_mois"] == pytest.approx(-5726389987.27, abs=0.01)
+    assert p1.neutraliser_flux(serie, ruptures) == 1
+    assert sept26["montant_mois"] is None
+    assert sept26["montant_cumul"] == pytest.approx(219136720375.64, abs=0.01)
+    # Le reste n'est pas touché : septembre 2025, et les composantes de 2026.
+    assert par_cle[(_RECETTES_NETTES, "2025-09-30")]["montant_mois"] is not None
+    fis = par_cle[("recettes/budget-general/total-recettes-fiscales", "2026-09-30")]
+    assert fis["montant_mois"] is not None
+
+
+def test_neutraliser_flux_suit_le_mois_precedent_et_l_annee_precedente():
+    # Rupture POSÉE à la main sur des cellules réelles, pour éprouver les deux
+    # autres chemins : le flux de septembre dépend du cumul d'août, et le flux
+    # N−1 de septembre 2026 est celui de septembre 2025.
+    serie = _serie_septembre_2026()
+    par_cle = {(e["ligne_id"], e["date_fin_mois"]): e for e in serie}
+    pose = [{"ligne_id": _RECETTES_NETTES, "annee": 2026, "mois": 8},
+            {"ligne_id": _RECETTES_NETTES, "annee": 2025, "mois": 9}]
+    sept26 = par_cle[(_RECETTES_NETTES, "2026-09-30")]
+    assert sept26["montant_mois"] is not None
+    assert sept26["montant_mois_n1"] is not None
+    p1.neutraliser_flux(serie, pose)
+    assert sept26["montant_mois"] is None      # via août 2026
+    assert sept26["montant_mois_n1"] is None   # via septembre 2025
+    assert par_cle[(_RECETTES_NETTES, "2025-09-30")]["montant_mois"] is None
+
+
+def test_main_ecrit_la_rupture_et_ne_publie_pas_le_flux(monkeypatch, tmp_path):
+    fixtures = {
+        "budget/smb_export.csv": FIXTURES / "smb_export_2026_09_extrait.csv",
+        "budget/smb_2013_2023.csv": FIXTURES / "smb_2013_2023_extrait.csv",
+    }
+    monkeypatch.setattr(p1, "telecharger", lambda url, dest, **_: fixtures[dest])
+    base = tmp_path / "budget.db"
+    monkeypatch.setenv("FT_DB_PATH", str(base))
+    assert p1.main() == 0
+    conn = sqlite3.connect(base)
+    ruptures = conn.execute(
+        "SELECT ligne_id, date_fin_mois, definition_constatee "
+        "FROM budget_mensuel_ruptures").fetchall()
+    assert ruptures == [(_RECETTES_NETTES, "2026-09-30",
+                         "recettes fiscales + non fiscales − prélèvements "
+                         "sur recettes + fonds de concours")]
+    cumul, flux = conn.execute(
+        "SELECT montant_cumul, montant_mois FROM budget_mensuel "
+        "WHERE ligne_id = ? AND date_fin_mois = '2026-09-30'",
+        (_RECETTES_NETTES,)).fetchone()
+    assert cumul == pytest.approx(219136720375.64, abs=0.01)  # jamais rectifié
+    assert flux is None
+    conn.close()
+
+
+# ---------------------------------------------------------------------------
 # P2 — briques pures
 # ---------------------------------------------------------------------------
 

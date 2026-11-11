@@ -27,6 +27,18 @@ Table créée (module UI « Dépenses de l'État » + compteur Accueil) :
     montant_cumul_n1 REAL  cumul au même mois de l'année précédente (NULL si absent)
     montant_mois_n1  REAL  flux du même mois de l'année précédente (NULL si absent)
   PK (ligne_id, date_fin_mois) ; index (annee, mois).
+- budget_mensuel_ruptures : une ligne par (total, mois) où l'identité
+  comptable que la série respecte partout ailleurs ne tient pas — la
+  cellule amont n'a pas le périmètre des autres mois :
+    ligne_id, date_fin_mois, annee, mois  la cellule de total concernée
+    montant_publie       REAL  valeur amont, telle quelle (= montant_cumul)
+    somme_composantes    REAL  somme des composantes de l'identité
+    identite             TEXT  identité attendue, en clair
+    definition_constatee TEXT  autre combinaison de lignes publiées qui
+                               redonne EXACTEMENT la cellule, sinon NULL
+  Rien n'y est corrigé : la valeur amont reste dans budget_mensuel. Les
+  pages ne calculent aucune variation à travers une cellule de cette
+  table, et le flux du mois (montant_mois) y est NULL.
 
 Affichages couverts : dernier mois connu (max date_fin_mois), cumul annuel
 (montant_cumul), variation vs même mois / même cumul N−1 (colonnes *_n1),
@@ -75,6 +87,60 @@ URL_HISTORIQUE = (
 LIGNE_TEMOIN = "Total dépenses nettes du budget général"
 TEMOIN_MIN, TEMOIN_MAX = 250e9, 800e9  # cumul de décembre, années 2013→
 NB_LIGNES_ATTENDU = 26
+
+# Identités comptables d'un total et de ses composantes (cumuls, euros).
+# Mesuré le 11/11/2026 sur la série servie (165 mois, 01/2013 → 09/2026) :
+# les quatre tiennent à moins d'un millième d'euro sur TOUS les mois, sauf
+# le total des recettes nettes du 30/09/2026 (écart −50,86 Md€). Ce mois-là,
+# la DGFiP publie fiscales + non fiscales − prélèvements sur recettes +
+# fonds de concours : le chiffre n'a plus la définition des 164 autres, et
+# une variation calculée à travers lui comparerait deux grandeurs
+# différentes. On ne corrige pas la cellule (donnée officielle) : on la
+# signale, on la compte, et on ne calcule rien à travers elle.
+_RECETTES_NETTES = "recettes/budget-general/total-recettes-nettes-du-budget-general"
+_FISCALES = "recettes/budget-general/total-recettes-fiscales"
+_NON_FISCALES = "recettes/budget-general/total-recettes-non-fiscales"
+_FONDS_CONCOURS = "recettes/budget-general/fonds-de-concours-et-attribution-de-produits"
+_TOTAL_PSR = "depenses/prelevements-sur-recettes/total-prelevements-sur-recettes"
+IDENTITES: dict[str, tuple[str, dict[str, int]]] = {
+    _RECETTES_NETTES: (
+        "recettes fiscales + non fiscales",
+        {_FISCALES: 1, _NON_FISCALES: 1},
+    ),
+    _FISCALES: (
+        "somme des cinq lignes d'impôts",
+        {f"recettes/budget-general/{s}": 1 for s in (
+            "impot-sur-le-revenu", "impot-sur-les-societes",
+            "taxe-interieure-de-consommation-sur-les-produits-energetiques",
+            "taxe-sur-la-valeur-ajoutee", "autres-recettes-fiscales")},
+    ),
+    "depenses/budget-general/total-depenses-nettes-du-budget-general": (
+        "somme des sept titres de dépenses",
+        {f"depenses/budget-general/{s}": 1 for s in (
+            "dotation-des-pouvoirs-publics", "depenses-de-personnel",
+            "depenses-de-fonctionnement", "charges-de-la-dette-de-l-etat",
+            "depenses-d-investissement", "depenses-d-intervention",
+            "depenses-d-operations-financieres")},
+    ),
+    _TOTAL_PSR: (
+        "PSR collectivités + PSR Union européenne",
+        {"depenses/prelevements-sur-recettes/psr-au-profit-des-collectivites-territoriales": 1,
+         "depenses/prelevements-sur-recettes/psr-au-profit-de-l-union-europeenne": 1},
+    ),
+}
+# Autres définitions qu'une cellule de total peut porter — constatées, pas
+# supposées : on ne les nomme que si elles redonnent la cellule exactement.
+DEFINITIONS_CONNUES: dict[str, tuple[tuple[str, dict[str, int]], ...]] = {
+    _RECETTES_NETTES: ((
+        "recettes fiscales + non fiscales − prélèvements sur recettes "
+        "+ fonds de concours",
+        {_FISCALES: 1, _NON_FISCALES: 1, _TOTAL_PSR: -1, _FONDS_CONCOURS: 1},
+    ),),
+}
+# Les cumuls sont publiés au centime ; l'écart mesuré sur les mois conformes
+# ne dépasse pas 0,0002 € (arrondi flottant). Un euro de tolérance ne laisse
+# passer aucun changement de périmètre (ils se comptent en milliards).
+TOLERANCE_IDENTITE_EUROS = 1.0
 
 _RE_COL_DATE = re.compile(r"^\s*(\d{1,2})[_/](\d{1,2})[_/](\d{4})\s*$")
 
@@ -235,6 +301,77 @@ def controler_serie(enregistrements: list[dict]) -> None:
             )
 
 
+def _combinaison(valeurs: dict[str, float], termes: dict[str, int]) -> float | None:
+    if any(l not in valeurs for l in termes):
+        return None
+    return sum(signe * valeurs[l] for l, signe in termes.items())
+
+
+def detecter_ruptures(enregistrements: list[dict]) -> list[dict]:
+    """Cellules de total dont l'identité comptable (IDENTITES) ne tient pas.
+
+    Pure, sans effet : renvoie une ligne par (total, mois) en écart, avec
+    l'identité attendue, la somme des composantes et, si une définition de
+    DEFINITIONS_CONNUES redonne la cellule à TOLERANCE_IDENTITE_EUROS près,
+    son libellé (sinon None). Un mois où une composante manque n'est pas
+    contrôlable : il n'est ni conforme ni en rupture, il est ignoré.
+    """
+    par_mois: dict[tuple[int, int], dict[str, float]] = {}
+    dates: dict[tuple[int, int], str] = {}
+    for e in enregistrements:
+        cle = (e["annee"], e["mois"])
+        par_mois.setdefault(cle, {})[e["ligne_id"]] = e["montant_cumul"]
+        dates[cle] = e["date_fin_mois"]
+    ruptures = []
+    for (annee, mois), valeurs in sorted(par_mois.items()):
+        for total, (libelle, termes) in IDENTITES.items():
+            somme = _combinaison(valeurs, termes)
+            if total not in valeurs or somme is None:
+                continue
+            publie = valeurs[total]
+            if abs(publie - somme) <= TOLERANCE_IDENTITE_EUROS:
+                continue
+            definition = None
+            for autre_libelle, autres_termes in DEFINITIONS_CONNUES.get(total, ()):
+                autre = _combinaison(valeurs, autres_termes)
+                if autre is not None and abs(publie - autre) <= TOLERANCE_IDENTITE_EUROS:
+                    definition = autre_libelle
+                    break
+            ruptures.append({
+                "ligne_id": total,
+                "date_fin_mois": dates[(annee, mois)],
+                "annee": annee,
+                "mois": mois,
+                "montant_publie": publie,
+                "somme_composantes": somme,
+                "identite": libelle,
+                "definition_constatee": definition,
+            })
+    return ruptures
+
+
+def neutraliser_flux(enregistrements: list[dict], ruptures: list[dict]) -> int:
+    """Met à NULL les flux mensuels calculés À TRAVERS une cellule en rupture.
+
+    montant_mois = cumul m − cumul m−1 : si l'un des deux n'a pas la
+    définition de l'autre, la différence n'est le flux de rien (septembre
+    2026 aurait donné −5,73 Md€ de recettes nettes « du mois »). Même règle
+    pour montant_mois_n1. Les cumuls, eux, restent tels que publiés.
+    Renvoie le nombre de valeurs neutralisées.
+    """
+    en_rupture = {(r["ligne_id"], r["annee"], r["mois"]) for r in ruptures}
+    n = 0
+    for e in enregistrements:
+        lid, a, m = e["ligne_id"], e["annee"], e["mois"]
+        for col, annee in (("montant_mois", a), ("montant_mois_n1", a - 1)):
+            touche = (lid, annee, m) in en_rupture or (
+                m > 1 and (lid, annee, m - 1) in en_rupture)
+            if touche and e[col] is not None:
+                e[col] = None
+                n += 1
+    return n
+
+
 # ---------------------------------------------------------------------------
 # Ingestion
 # ---------------------------------------------------------------------------
@@ -258,6 +395,17 @@ CREATE TABLE IF NOT EXISTS budget_mensuel (
 );
 CREATE INDEX IF NOT EXISTS idx_budget_mensuel_annee_mois
     ON budget_mensuel(annee, mois);
+CREATE TABLE IF NOT EXISTS budget_mensuel_ruptures (
+    ligne_id             TEXT    NOT NULL,
+    date_fin_mois        TEXT    NOT NULL,
+    annee                INTEGER NOT NULL,
+    mois                 INTEGER NOT NULL CHECK (mois BETWEEN 1 AND 12),
+    montant_publie       REAL    NOT NULL,
+    somme_composantes    REAL    NOT NULL,
+    identite             TEXT    NOT NULL,
+    definition_constatee TEXT,
+    PRIMARY KEY (ligne_id, date_fin_mois)
+);
 """
 
 
@@ -283,6 +431,24 @@ def main() -> int:
         enregistrements = construire_serie(tableau_export, tableau_hist)
         controler_serie(enregistrements)
         date_max = max(e["date_fin_mois"] for e in enregistrements)
+        # Journalisé à CHAQUE cycle, zéro compris : un contrôle muet au vert
+        # est indiscernable d'un contrôle débranché. Avertit, ne lève pas :
+        # la cellule est une donnée officielle, la série reste publiée.
+        ruptures = detecter_ruptures(enregistrements)
+        nb_flux = neutraliser_flux(enregistrements, ruptures)
+        nb_mois = len({e["date_fin_mois"] for e in enregistrements})
+        log.info("identités comptables : %d identités × %d mois contrôlés, "
+                 "%d rupture(s) de périmètre, %d flux mensuels neutralisés",
+                 len(IDENTITES), nb_mois, len(ruptures), nb_flux)
+        for r in ruptures:
+            log.warning(
+                "rupture de périmètre amont : %s au %s = %.2f € publié, "
+                "%s = %.2f € (écart %.2f €) ; définition constatée : %s — "
+                "aucune variation calculée à travers cette cellule",
+                r["ligne_id"], r["date_fin_mois"], r["montant_publie"],
+                r["identite"], r["somme_composantes"],
+                r["montant_publie"] - r["somme_composantes"],
+                r["definition_constatee"] or "non reconnue")
 
         conn = db.init_db()
         conn.executescript(_DDL)
@@ -299,6 +465,16 @@ def main() -> int:
                            :mois, :montant_cumul, :montant_mois,
                            :montant_cumul_n1, :montant_mois_n1)""",
                 enregistrements,
+            )
+            conn.execute("DELETE FROM budget_mensuel_ruptures")
+            conn.executemany(
+                """INSERT INTO budget_mensuel_ruptures
+                   (ligne_id, date_fin_mois, annee, mois, montant_publie,
+                    somme_composantes, identite, definition_constatee)
+                   VALUES (:ligne_id, :date_fin_mois, :annee, :mois,
+                           :montant_publie, :somme_composantes, :identite,
+                           :definition_constatee)""",
+                ruptures,
             )
         db.upsert_meta(
             conn,

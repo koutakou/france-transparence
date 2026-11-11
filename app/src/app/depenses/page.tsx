@@ -8,6 +8,7 @@ import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { KpiTile } from "@/components/ui/KpiTile";
+import { NoteRupturesPerimetre } from "@/components/ui/NoteRupturesPerimetre";
 import { LineChart } from "@/components/ui/LineChart";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { VueTableau } from "@/components/ui/VueTableau";
@@ -56,6 +57,7 @@ import {
   getSubventionsAssociations,
   perimetreSubventions,
 } from "@/lib/queries/depenses";
+import { bornePerimetreRompu } from "@/lib/queries/budget-ruptures";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
 // Rendu statique : la donnée ne change qu'à l'ingestion, le site est
@@ -166,18 +168,26 @@ export default async function PageDepenses() {
   const mentionProvisoire =
     kpis.dateFinMois.slice(5, 7) !== "12" ? "mois infra-annuels provisoires" : undefined;
   const vsN1 = `même période ${kpis.annee - 1}`;
-  const deltaDepenses = variationPct(kpis.depensesNettes, kpis.depensesNettesN1);
-  const deltaRecettes = variationPct(kpis.recettesNettes, kpis.recettesNettesN1);
+  // Cellule de total hors de son identité comptable (rupture de périmètre
+  // amont constatée par le pipeline) : servie telle que publiée, sans
+  // variation sur N−1, et la borne le dit au contact du chiffre.
+  const PERIMETRE_BG = "budget général, cumul depuis le 1er janvier";
+  const deltaDepenses = kpis.ruptureDepenses
+    ? null
+    : variationPct(kpis.depensesNettes, kpis.depensesNettesN1);
+  const deltaRecettes = kpis.ruptureRecettes
+    ? null
+    : variationPct(kpis.recettesNettes, kpis.recettesNettesN1);
   const deltaSolde = variationPct(kpis.solde, kpis.soldeN1);
 
   // ---- LineChart : cumuls mensuels (Md€) + lignes de la vue tableau jumelle
-  const seriesCumul = (serie ?? []).map((s) => ({
+  const seriesCumul = (serie?.annees ?? []).map((s) => ({
     nom: String(s.annee),
     valeurs: s.valeurs.map((v) => (v === null ? null : v / 1e9)),
   }));
   const colonnesMois: Colonne<Record<string, string | number | null>>[] = [
     { cle: "mois", entete: "Mois" },
-    ...(serie ?? []).map((s) => ({
+    ...(serie?.annees ?? []).map((s) => ({
       cle: `a${s.annee}`,
       entete: `Cumul ${s.annee} (Md€)`,
       type: "montant" as const,
@@ -186,7 +196,7 @@ export default async function PageDepenses() {
   ];
   const lignesMois: Record<string, string | number | null>[] = MOIS_LONGS.map((mois, i) => {
     const ligne: Record<string, string | number | null> = { mois };
-    for (const s of serie ?? []) {
+    for (const s of serie?.annees ?? []) {
       const v = s.valeurs[i];
       ligne[`a${s.annee}`] = v === null ? null : v / 1e9;
     }
@@ -230,7 +240,9 @@ export default async function PageDepenses() {
             label: `Dépenses nettes cumulées au ${formatDateFr(kpis.dateFinMois)}`,
             valeur: <MontantMd valeur={kpis.depensesNettes} />,
             montantVedette: true,
-            perimetre: "budget général, cumul depuis le 1er janvier",
+            perimetre: kpis.ruptureDepenses
+              ? `${PERIMETRE_BG} — ${bornePerimetreRompu(kpis.ruptureDepenses)}`
+              : PERIMETRE_BG,
             delta: deltaDepenses === null ? undefined : { valeur: deltaDepenses, vs: vsN1 },
           },
           ...(kpis.recettesNettes === null
@@ -239,7 +251,9 @@ export default async function PageDepenses() {
                 {
                   label: `Recettes nettes cumulées au ${formatDateFr(kpis.dateFinMois)}`,
                   valeur: <MontantMd valeur={kpis.recettesNettes} />,
-                  perimetre: "budget général, cumul depuis le 1er janvier",
+                  perimetre: kpis.ruptureRecettes
+                    ? `${PERIMETRE_BG} — ${bornePerimetreRompu(kpis.ruptureRecettes)}`
+                    : PERIMETRE_BG,
                   delta: deltaRecettes === null ? undefined : { valeur: deltaRecettes, vs: vsN1 },
                 },
               ]),
@@ -270,7 +284,7 @@ export default async function PageDepenses() {
       {/* Bande 2 — le 240 Md€ se décompose tout de suite (G3d), pas un poster. */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
       {/* Série mensuelle des cumuls, 3 années */}
-      {serie && serie.length > 0 && (
+      {serie && serie.annees.length > 0 && (
         <Card
           titre="Dépenses nettes cumulées par mois"
           sousTitre="Budget général — cumul depuis le 1er janvier, en Md€"
@@ -290,7 +304,7 @@ export default async function PageDepenses() {
             labels={MOIS_COURTS}
             series={seriesCumul}
             formatValeur={(v) => `${formatNombre(v, 1)}${ESPACE_FINE}Md€`}
-            ariaLabel={`Dépenses nettes cumulées du budget général par mois, ${(serie ?? [])
+            ariaLabel={`Dépenses nettes cumulées du budget général par mois, ${serie.annees
               .map((s) => s.annee)
               .join(" contre ")}`}
           />
@@ -301,6 +315,7 @@ export default async function PageDepenses() {
               cleLigne={(l) => String(l.mois)}
             />
           </VueTableau>
+          <NoteRupturesPerimetre omises={serie.omises} />
         </Card>
       )}
 
