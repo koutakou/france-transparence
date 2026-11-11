@@ -478,10 +478,15 @@ jobs:
         with:
           python-version: "3.10"
 
+      # La version est VÉRIFIÉE, dans l'interpréteur de l'image puis dans celui
+      # de la venv : si setup-python servait un autre Python, ce job passerait
+      # au vert sans rien prouver de 3.10.
       - name: Tests pipelines sous Python 3.10 (installation de requirements.txt comprise)
         run: |
-          python3 --version
+          set -eu
+          python3 -c 'import sys; print(sys.version); assert sys.version_info[:2] == (3, 10)'
           make venv PYTHON=python3
+          .venv/bin/python -c 'import sys; assert sys.version_info[:2] == (3, 10)'
           make test PYTHON=python3 PYTEST_ARGS="-m 'not reseau'"
 
   # L'ALERTE A UN DESTINATAIRE. Du 22/10 au 11/11/2026, vingt et un cycles
@@ -502,8 +507,11 @@ jobs:
   #
   # `always()` et non `failure()` : un job interrompu (délai dépassé) doit
   # alerter comme un job en échec.
+  #
+  # `veiller` est attendu lui aussi : une sentinelle qui tombe doit être dite
+  # comme le reste, sinon son silence passerait pour « rien à signaler ».
   alerter:
-    needs: [construire, tests-python-3-10]
+    needs: [construire, tests-python-3-10, veiller]
     # Un échec sur une proposition de fusion est déjà visible sur la
     # proposition elle-même : ouvrir une issue n'ajouterait que du bruit.
     if: always() && github.event_name != 'pull_request' && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled'))
@@ -607,9 +615,12 @@ jobs:
   # Seuls les cycles PLANIFIÉS font foi : ingestion complète dans une base
   # neuve, c'est la preuve la plus forte que la chaîne tient. Un push vert sur
   # base en cache ne prouve pas qu'une panne amont est passée.
+  #
+  # `veiller` doit être vert aussi : sinon `alerter` commenterait l'issue
+  # pendant que ce job la fermerait.
   suivre:
-    needs: [construire, tests-python-3-10]
-    if: github.event_name == 'schedule' && needs.construire.result == 'success' && needs.tests-python-3-10.result == 'success'
+    needs: [construire, tests-python-3-10, veiller]
+    if: github.event_name == 'schedule' && needs.construire.result == 'success' && needs.tests-python-3-10.result == 'success' && needs.veiller.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -639,7 +650,10 @@ jobs:
   #
   # Ce job tourne donc à CHAQUE cycle planifié, quel que soit le sort de
   # `construire` (`always()`). Il l'attend seulement pour lire le verdict des
-  # 301, quand il existe.
+  # 301, quand il existe. Ses deux étapes sont indépendantes l'une de
+  # l'autre (`if: always()` sur la seconde) : un appel `gh` refusé à l'étape
+  # des 301 ne doit pas faire sauter l'échéance du cron. Si l'une échoue, le
+  # job est rouge et `alerter` le dit.
   veiller:
     needs: construire
     if: always() && github.event_name == 'schedule'
@@ -711,6 +725,7 @@ jobs:
       # `repos/…/commits/` rendrait une LISTE — l'étape échouerait chaque nuit.
       # Sur `schedule`, GITHUB_REF est documenté comme la branche par défaut.
       - name: Échéance d'extinction du cron (60 jours sans activité)
+        if: always()
         env:
           BRANCHE: ${{ github.ref_name }}
         run: |

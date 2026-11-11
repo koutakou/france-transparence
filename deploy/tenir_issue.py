@@ -15,7 +15,12 @@ message le MENTIONNE. Trois règles tiennent le reste :
 - chaque message porte un MARQUEUR D'ÉTAT invisible (`<!-- etat: … -->`).
   Le message suivant lit le précédent : il peut dire « hier : … », et une
   issue de simple échéance ne se répète que si l'état change ou après
-  `relance_jours` — un message identique chaque matin cesse d'être lu ;
+  `relance_jours` — un message identique chaque matin cesse d'être lu.
+  Le dépôt est public : n'importe qui peut commenter une issue. Le
+  marqueur n'est donc lu que dans les messages écrits par `github-actions`
+  (AUTEURS_DE_CONFIANCE), et seulement s'il a la forme de ce que ce module
+  écrit ; sinon un tiers pourrait suspendre une relance, ou faire recopier
+  un lien ou une mention dans le message suivant ;
 - au-delà de sept jours, `relancer` ouvre une issue DISTINCTE, une par
   semaine : un nouveau fil ne se confond pas avec l'ancien dans une boîte
   de réception.
@@ -57,7 +62,23 @@ DESCRIPTION_LABEL_MAX = 100
 # distincte, puis une nouvelle par période de même longueur.
 RELANCE_DISTINCTE_JOURS = 7
 
-_MARQUEUR = re.compile(r"<!-- etat: ([^ ]*) -->")
+# La relance hebdomadaire tolère le retard du cron : GitHub déclenche les
+# cycles planifiés à des heures qui varient de plusieurs heures d'un jour à
+# l'autre. Sans cette marge, un cycle parti une heure plus tôt que celui de
+# la semaine précédente reporterait la relance au lendemain.
+TOLERANCE_RELANCE = timedelta(hours=12)
+
+# Seuls ces comptes écrivent des marqueurs d'état : le jeton automatique des
+# workflows signe `github-actions` dans les commentaires et
+# `app/github-actions` comme auteur d'issue. Ces deux noms sont réservés par
+# GitHub.
+AUTEURS_DE_CONFIANCE = frozenset({"github-actions", "app/github-actions"})
+
+# Ce qu'un état peut contenir : de quoi écrire un nom d'étape ou de cible,
+# rien de quoi écrire une mention, un lien ou du Markdown.
+_ETAT = r"[\w.()+',’→-]{1,120}"
+_HORS_ETAT = re.compile(r"[^\w.()+',’→-]+")
+_MARQUEUR = re.compile(rf"<!-- etat: ({_ETAT}) -->")
 
 
 def gh(*arguments: str) -> str:
@@ -87,9 +108,9 @@ def lire_date(texte: str) -> datetime:
 
 
 def normaliser_etat(etat: str) -> str:
-    """Un état tient en un mot (espaces → `_`) : il est relu dans un commentaire HTML."""
-    mot = re.sub(r"\s+", "_", etat.strip()).replace("--", "-").replace(">", "")
-    return mot[:120] or "inconnu"
+    """Un état tient en un mot (espaces → `_`), dans l'alphabet de `_ETAT`."""
+    mot = _HORS_ETAT.sub("-", re.sub(r"\s+", "_", etat.strip()))
+    return re.sub(r"-{2,}", "-", mot)[:120] or "inconnu"
 
 
 def duree(ouverture: datetime, maintenant: datetime) -> tuple[int, str]:
@@ -108,14 +129,20 @@ def issue_ouverte(depot: str, label: str) -> dict | None:
 
 
 def messages(depot: str, numero: int) -> list[dict]:
-    """Le corps de l'issue puis ses commentaires, dans l'ordre : date et état."""
+    """Le corps de l'issue puis ses commentaires, dans l'ordre : date et état.
+
+    L'état d'un message écrit par un autre compte que AUTEURS_DE_CONFIANCE
+    est None, quel que soit son contenu.
+    """
     issue = json.loads(gh(
         "issue", "view", str(numero), "--repo", depot,
-        "--json", "body,createdAt,comments",
+        "--json", "author,body,createdAt,comments",
     ))
     suite = []
     for message in [issue, *issue.get("comments", [])]:
-        trouve = _MARQUEUR.findall(message.get("body") or "")
+        auteur = (message.get("author") or {}).get("login")
+        trouve = (_MARQUEUR.findall(message.get("body") or "")
+                  if auteur in AUTEURS_DE_CONFIANCE else [])
         suite.append({
             "date": lire_date(message["createdAt"]),
             "etat": trouve[-1] if trouve else None,
@@ -141,8 +168,13 @@ def signaler(depot: str, proprietaire: str, label: str, titre: str, corps: str,
 
     `relance_jours` = 0 : un commentaire à chaque appel (panne : chaque jour
     apporte un fait). Sinon : un commentaire seulement si l'état a changé ou
-    si le dernier message marqué a au moins `relance_jours` jours. Le titre
-    est tenu à jour dans tous les cas : il se lit dans la liste des issues.
+    si le dernier message marqué a au moins `relance_jours` jours, à
+    TOLERANCE_RELANCE près. Le titre est tenu à jour dans tous les cas : il
+    se lit dans la liste des issues.
+
+    Gestes rendus : « ouverte », « commentée » (fait nouveau : état changé,
+    ou issue à commentaire quotidien), « relancée » (même état, rappel
+    périodique), « inchangée » (rien d'écrit).
     """
     maintenant = maintenant or datetime.now(timezone.utc)
     etat = normaliser_etat(etat)
@@ -195,16 +227,18 @@ def signaler(depot: str, proprietaire: str, label: str, titre: str, corps: str,
     if proprietaire not in [a["login"] for a in existante.get("assignees", [])]:
         _essayer("issue", "edit", str(numero), "--repo", depot,
                  "--add-assignee", proprietaire)
+    geste = "commentée"
     if relance_jours > 0 and precedent and precedent["etat"] == etat:
-        age = (maintenant - precedent["date"]).days
-        if age < relance_jours:
+        age = maintenant - precedent["date"]
+        if age < timedelta(days=relance_jours) - TOLERANCE_RELANCE:
             print(f"Issue #{numero} ({label}) : état inchangé depuis le "
                   f"{precedent['date']:%d/%m}, pas de nouveau commentaire avant "
                   f"{relance_jours} jours. Titre : {titre}")
             return numero, "inchangée"
+        geste = "relancée"
     gh("issue", "comment", str(numero), "--repo", depot, "--body", texte)
-    print(f"Issue #{numero} ({label}) commentée : {titre}")
-    return numero, "commentée"
+    print(f"Issue #{numero} ({label}) {geste} : {titre}")
+    return numero, geste
 
 
 def retablir(depot: str, label: str, message: str, titre: str = "",
@@ -234,7 +268,7 @@ def relancer(depot: str, proprietaire: str, label: str, label_relance: str,
 
     Condition : l'issue du label est ouverte depuis plus de
     RELANCE_DISTINCTE_JOURS jours, et aucune relance n'a été ouverte dans les
-    RELANCE_DISTINCTE_JOURS derniers jours (une alerte déjà ancienne quand ce
+    RELANCE_DISTINCTE_JOURS derniers jours, à TOLERANCE_RELANCE près (une alerte déjà ancienne quand ce
     code la rencontre reçoit donc UNE relance, pas une par semaine écoulée).
     La relance précédente est fermée : il n'en reste jamais qu'une ouverte.
     """
@@ -254,7 +288,8 @@ def relancer(depot: str, proprietaire: str, label: str, label_relance: str,
         "--state", "all", "--json", "number,createdAt,state", "--limit", "100",
     ))
     recente = [r for r in relances
-               if (maintenant - lire_date(r["createdAt"])).days < RELANCE_DISTINCTE_JOURS]
+               if maintenant - lire_date(r["createdAt"])
+               < timedelta(days=RELANCE_DISTINCTE_JOURS) - TOLERANCE_RELANCE]
     if recente:
         print(f"Relance : #{recente[0]['number']} a moins de "
               f"{RELANCE_DISTINCTE_JOURS} jours, rien à ouvrir.")

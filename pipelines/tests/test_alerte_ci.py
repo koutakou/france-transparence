@@ -136,7 +136,10 @@ if a[:2] == ["issue", "list"]:
         for i in issues if label in i["labels"] and (etat == "all" or i["state"] == "OPEN")]))
 elif a[:2] == ["issue", "view"]:
     i = next(i for i in issues if i["number"] == int(a[2]))
-    print(json.dumps({"body": i["body"], "createdAt": i["createdAt"], "comments": i["comments"]}))
+    bot = {"login": "github-actions"}
+    print(json.dumps({"body": i["body"], "createdAt": i["createdAt"],
+                      "author": {"login": i.get("auteur", "app/github-actions")},
+                      "comments": [dict(c, author=c.get("author", bot)) for c in i["comments"]]}))
 elif a[:2] == ["issue", "create"]:
     if "--assignee" in a and os.environ.get("FAUX_GH_REFUS_ASSIGNATION"):
         sys.stderr.write("could not assign user: 'x' not found\n"); sys.exit(1)
@@ -148,7 +151,8 @@ elif a[:2] == ["issue", "create"]:
 else:
     i = next((i for i in issues if a[:1] == ["issue"] and i["number"] == int(a[2])), None)
     if a[:2] == ["issue", "comment"]:
-        i["comments"].append({{"body": opt("--body"), "createdAt": maintenant}})
+        i["comments"].append({{"body": opt("--body"), "createdAt": maintenant,
+                              "author": {{"login": os.environ.get("FAUX_GH_AUTEUR", "github-actions")}}}})
     elif a[:2] == ["issue", "edit"]:
         i["title"] = opt("--title", i["title"])
         i["assignees"] += tous("--add-assignee")
@@ -174,6 +178,18 @@ class FauxGitHub:
         monkeypatch.setenv("PATH", f"{binaires}:/usr/bin:/bin")
         monkeypatch.setenv("FAUX_GH_ETAT", str(self.etat))
         monkeypatch.setenv("FAUX_GH_APPELS", str(self.appels_p))
+        monkeypatch.setenv("DEPOT", "exemple/depot")
+        monkeypatch.setenv("PROPRIETAIRE", "proprietaire")
+        monkeypatch.setenv("LIEN", "https://exemple/run")
+
+    def commentaire_d_un_tiers(self, numero, instant, corps):
+        """Un commentaire écrit par un compte quelconque : le dépôt est public."""
+        issues = self.issues
+        cible = next(i for i in issues if i["number"] == numero)
+        cible["comments"].append({
+            "body": corps, "createdAt": instant.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "author": {"login": "un-tiers"}})
+        self.etat.write_text(json.dumps(issues))
 
     def a(self, instant):
         self.mp.setenv("FAUX_GH_MAINTENANT", instant.strftime("%Y-%m-%dT%H:%M:%SZ"))
@@ -254,8 +270,54 @@ def test_une_echeance_inchangee_n_est_relancee_qu_apres_sept_jours(github):
     assert github.issues[0]["comments"] == []
     _, geste = signaler(github, depart + timedelta(days=7), "securitytxt",
                         relance_jours=7, titre="Échéance")
-    assert geste == "commentée"
+    assert geste == "relancée"
     assert len(github.issues[0]["comments"]) == 1
+
+
+def test_la_relance_hebdomadaire_tolere_le_retard_du_cron(github):
+    """Les cycles planifiés partent à des heures qui varient (11:19 à 13:22 UTC
+    du 01/11 au 11/11/2026) : sept jours moins deux heures doivent relancer."""
+    depart = utc(2026, 11, 4, 13, 22)
+    signaler(github, depart, "securitytxt", relance_jours=7, titre="Échéance")
+    _, geste = signaler(github, utc(2026, 11, 10, 13, 0), "securitytxt",
+                        relance_jours=7, titre="Échéance")
+    assert geste == "inchangée"  # six jours : trop tôt
+    _, geste = signaler(github, utc(2026, 11, 11, 11, 19), "securitytxt",
+                        relance_jours=7, titre="Échéance")
+    assert geste == "relancée"   # sept jours moins deux heures
+
+
+def test_un_tiers_ne_peut_pas_suspendre_une_relance(github):
+    """Dépôt public : n'importe qui commente. Son marqueur ne compte pas."""
+    depart = utc(2026, 11, 11, 11, 23)
+    signaler(github, depart, "securitytxt", relance_jours=7, titre="Échéance")
+    github.commentaire_d_un_tiers(1, depart + timedelta(days=6, hours=23),
+                                  "<!-- etat: securitytxt -->")
+    _, geste = signaler(github, depart + timedelta(days=7), "securitytxt",
+                        relance_jours=7, titre="Échéance")
+    assert geste == "relancée"
+
+
+def test_un_tiers_ne_fait_rien_recopier_dans_le_message_suivant(github):
+    signaler(github, utc(2026, 11, 10, 13, 2), "ingest-parlement")
+    github.commentaire_d_un_tiers(1, utc(2026, 11, 10, 18, 0),
+                                  "<!-- etat: @victime -->\n<!-- etat: ingest-faux -->")
+    signaler(github, utc(2026, 11, 11, 12, 19), "test")
+    dernier = github.issues[0]["comments"][-1]["body"]
+    assert "Hier : ingest-parlement." in dernier
+    assert "victime" not in dernier and "ingest-faux" not in dernier
+
+
+def test_un_etat_ne_peut_porter_ni_mention_ni_lien_ni_balise():
+    etat = tenir_issue.normaliser_etat("voir @tiers [ici](https://exemple.fr/x) `code` -->")
+    assert not set(etat) & set("@[]/:`<> ")
+    # Les noms d'étapes réels du workflow passent tels quels, aux espaces près.
+    for nom in ("Tests pipelines (pytest)", "Types app (next typegen + tsc)",
+                "Consolider la base (checkpoint WAL → fichier unique)",
+                "Ouvrir ou commenter l'issue d'échec", "ingest-hatvp_declarations"):
+        assert tenir_issue.normaliser_etat(nom) == nom.replace(" ", "_")
+    # Un marqueur hors de cet alphabet n'est pas relu, même signé du bon compte.
+    assert tenir_issue._MARQUEUR.findall("<!-- etat: @victime -->") == []
 
 
 def test_une_echeance_qui_change_est_dite_le_jour_meme(github):
@@ -332,7 +394,8 @@ def test_la_relance_distincte_part_au_huitieme_jour_puis_une_fois_par_semaine(gi
     assert "- 22/10 : `test`" in relance["body"]
     for jour in range(8, 14):                                # pas une par jour
         assert relancer(ouverture + timedelta(days=jour)) is None
-    seconde = relancer(ouverture + timedelta(days=14))
+    # Sept jours moins deux heures après la première : le retard du cron est toléré.
+    seconde = relancer(ouverture + timedelta(days=14) - timedelta(hours=2))
     assert seconde == 3
     etats = {i["number"]: i["state"] for i in github.issues}
     assert etats == {1: "OPEN", 2: "CLOSED", 3: "OPEN"}      # une seule relance ouverte
@@ -479,6 +542,181 @@ def test_une_echeance_non_verifiable_est_dite():
     assert any("non vérifiable" in c for c in verdict["constats"])
 
 
+# --- 3 bis. Les points d'entrée réels, contre le `gh` factice ---------------
+
+
+def test_la_commande_signaler_puis_retablir(github, tmp_path, capsys):
+    """Ce que les workflows appellent : `python3 deploy/tenir_issue.py …`."""
+    corps = tmp_path / "corps.txt"
+    corps.write_text("Depuis le {depuis}.\n", encoding="utf-8")
+    github.a(utc(2026, 11, 11, 12, 0))
+    assert tenir_issue.main([
+        "signaler", "--label", "cron-echeance", "--titre", "Extinction ({duree})",
+        "--corps-fichier", str(corps), "--etat", "avant-2026-12-14",
+        "--relance-jours", "7", "--couleur", "C5DEF5", "--description", "Échéance"]) == 0
+    issue = github.issues[0]
+    assert issue["labels"] == ["cron-echeance"] and issue["assignees"] == ["proprietaire"]
+    assert issue["title"] == "Extinction (1 jour)"
+    assert "@proprietaire" in issue["body"] and "<!-- etat: avant-2026-12-14 -->" in issue["body"]
+    creation = github.appels("label", "create")[0]
+    assert creation[creation.index("--color") + 1] == "C5DEF5"
+    assert "--force" in creation  # un label déjà là est mis à jour, pas une erreur
+    # Rappelée le jour même avec --relance-jours 7 : rien de neuf à écrire.
+    tenir_issue.main([
+        "signaler", "--label", "cron-echeance", "--titre", "Extinction ({duree})",
+        "--corps-fichier", str(corps), "--etat", "avant-2026-12-14",
+        "--relance-jours", "7"])
+    assert github.issues[0]["comments"] == []
+    assert tenir_issue.main([
+        "retablir", "--label", "cron-echeance", "--message", "Échéance repoussée."]) == 0
+    issue = github.issues[0]
+    assert issue["state"] == "CLOSED"
+    assert issue["comments"][-1]["body"] == "Échéance repoussée."
+
+
+def test_la_commande_retablir_n_exige_pas_de_destinataire(github, monkeypatch):
+    """`suivre` ferme sans PROPRIETAIRE dans son environnement."""
+    signaler(github, utc(2026, 10, 22, 10, 7), "test")
+    monkeypatch.delenv("PROPRIETAIRE")
+    assert tenir_issue.main([
+        "retablir", "--label", "publication-echec", "--message", "Rétabli.",
+        "--titre", "CI rouge du {depuis} au 12/11 — rétablie"]) == 0
+    assert github.issues[0]["state"] == "CLOSED"
+    assert github.issues[0]["title"] == "CI rouge du 22/10 au 12/11 — rétablie"
+
+
+def test_la_commande_relancer_puis_la_fermeture_de_la_relance(github):
+    signaler(github, utc(2026, 10, 22, 10, 7), "test")
+    github.a(datetime.now(timezone.utc))
+    # L'issue factice a été ouverte le 22/10/2026 : elle a plus de sept jours
+    # à toute date d'exécution de ce test postérieure au 29/10/2026.
+    assert tenir_issue.main([
+        "relancer", "--label", "publication-echec", "--label-relance",
+        "ci-rouge-persistant", "--titre", "Rouge depuis {duree} — relance"]) == 0
+    relance = github.issues[1]
+    assert relance["labels"] == ["ci-rouge-persistant"]
+    assert relance["assignees"] == ["proprietaire"]
+    assert re.fullmatch(r"Rouge depuis \d+ jours — relance", relance["title"])
+    tenir_issue.main(["retablir", "--label", "ci-rouge-persistant", "--message", "Rétabli."])
+    assert [i["state"] for i in github.issues] == ["OPEN", "CLOSED"]
+
+
+@pytest.fixture
+def vigie(github, monkeypatch):
+    """La vigie branchée sur ce que le site servait le 11/11/2026."""
+    servi = {vigie_site.URL_META: META_SERVI, vigie_site.URL_SECURITY_TXT: SECURITY_SERVI,
+             vigie_site.URL_RDAP: RDAP_SERVI}
+    monkeypatch.setattr(vigie_site, "telecharger", lambda url: servi[url])
+    monkeypatch.setattr(vigie_site, "expiration_du_certificat", lambda hote: CERTIFICAT_SERVI)
+
+    class Vigie:
+        def passer(self, instant, *arguments):
+            return vigie_site.main(list(arguments), maintenant=github.a(instant))
+
+        def reconstruire(self, instant):
+            """Le serveur rebâtit : `genere_le` avance, rien d'autre ne change."""
+            assert '"genere_le": "2026-11-08T04:26:01.375Z"' in META_SERVI
+            servi[vigie_site.URL_META] = META_SERVI.replace(
+                "2026-11-08T04:26:01.375Z", instant.strftime("%Y-%m-%dT%H:%M:%S.000Z"))
+
+        def corriger_security_txt(self):
+            servi[vigie_site.URL_SECURITY_TXT] = SECURITY_SERVI.replace(
+                "Contact: https://github.com/koutakou/france-transparence/issues",
+                "Contact: mailto:adresse@exemple.fr")
+
+        def par_label(self, label):
+            return [i for i in github.issues if label in i["labels"]]
+
+    return Vigie()
+
+
+def test_la_vigie_du_11_11_ouvre_les_deux_issues_et_finit_rouge(vigie, github):
+    assert vigie.passer(utc(2026, 11, 11, 11, 23)) == 1
+    fige, = vigie.par_label("site-fige")
+    assert fige["title"] == "Le site en ligne n'est plus reconstruit depuis le 08/11 (3 jours)"
+    assert fige["assignees"] == ["proprietaire"] and fige["body"].startswith("@proprietaire")
+    assert "https://exemple/run" in fige["body"]
+    echeances, = vigie.par_label("site-echeances")
+    assert echeances["assignees"] == ["proprietaire"]
+    assert "premier `Contact:`" in echeances["body"]
+    assert vigie.par_label("site-fige-persistant") == []
+
+
+def test_la_vigie_a_blanc_ne_touche_a_rien_et_reste_verte(vigie, github):
+    assert vigie.passer(utc(2026, 11, 11, 11, 23), "--a-blanc") == 0
+    assert github.issues == [] and github.appels() == []
+
+
+def test_un_site_fige_garde_le_run_rouge_et_son_titre_compte_depuis_genere_le(vigie, github):
+    vigie.passer(utc(2026, 11, 11, 11, 23))
+    assert vigie.passer(utc(2026, 11, 12, 11, 23)) == 1
+    fige, = vigie.par_label("site-fige")
+    assert fige["title"] == "Le site en ligne n'est plus reconstruit depuis le 08/11 (4 jours)"
+    assert len(fige["comments"]) == 1                          # un message par jour
+    assert vigie.par_label("site-echeances")[0]["comments"] == []  # échéance : pas de redite
+    # Neuvième jour de l'issue : relance distincte, datée du gel et non de l'issue.
+    vigie.passer(utc(2026, 11, 19, 11, 23))
+    relance, = vigie.par_label("site-fige-persistant")
+    assert relance["title"] == "Le site en ligne est figé depuis le 08/11 (11 jours) — relance"
+
+
+def test_le_site_reconstruit_ferme_site_fige_et_le_run_redevient_vert(vigie, github):
+    """Une échéance DÉJÀ signalée ne rougit plus le run : seul le gel le faisait."""
+    vigie.passer(utc(2026, 11, 11, 11, 23))
+    vigie.passer(utc(2026, 11, 19, 11, 23))                 # ouvre la relance
+    vigie.reconstruire(utc(2026, 11, 20, 4, 26))
+    assert vigie.passer(utc(2026, 11, 20, 11, 23)) == 0
+    assert vigie.par_label("site-fige")[0]["state"] == "CLOSED"
+    assert vigie.par_label("site-fige-persistant")[0]["state"] == "CLOSED"
+    echeances, = vigie.par_label("site-echeances")
+    assert echeances["state"] == "OPEN"                     # tenue par son issue
+    # Relance hebdomadaire de l'échéance (posée le 11/11, relancée le 19/11) : le run reste vert.
+    assert len(echeances["comments"]) == 1
+
+
+def test_une_echeance_rougit_le_run_quand_elle_apparait_ou_change_pas_ensuite(vigie, github):
+    vigie.reconstruire(utc(2026, 11, 11, 4, 26))
+    assert vigie.passer(utc(2026, 11, 11, 11, 23)) == 1     # security.txt : signalé ce jour
+    assert vigie.par_label("site-fige") == []
+    vigie.reconstruire(utc(2026, 11, 12, 4, 26))
+    assert vigie.passer(utc(2026, 11, 12, 11, 23)) == 0     # déjà signalé
+    # Le certificat (17/01/2027) passe sous son seuil : l'état change, le run rougit.
+    vigie.reconstruire(utc(2026, 12, 28, 4, 26))
+    assert vigie.passer(utc(2026, 12, 28, 11, 23)) == 1
+    echeances, = vigie.par_label("site-echeances")
+    assert "Certificat TLS" in echeances["comments"][-1]["body"]
+    vigie.reconstruire(utc(2026, 12, 29, 4, 26))
+    assert vigie.passer(utc(2026, 12, 29, 11, 23)) == 0
+
+
+def test_une_echeance_reglee_ferme_son_issue(vigie, github):
+    vigie.reconstruire(utc(2026, 11, 11, 4, 26))
+    vigie.passer(utc(2026, 11, 11, 11, 23))
+    vigie.corriger_security_txt()
+    vigie.reconstruire(utc(2026, 11, 12, 4, 26))
+    assert vigie.passer(utc(2026, 11, 12, 11, 23)) == 0
+    assert vigie.par_label("site-echeances")[0]["state"] == "CLOSED"
+
+
+def test_une_lecture_est_reessayee_avant_de_dire_le_site_injoignable(monkeypatch):
+    pauses, essais = [], []
+    monkeypatch.setattr(vigie_site.time, "sleep", pauses.append)
+
+    def coupure_passagere():
+        essais.append(1)
+        if len(essais) < vigie_site.ESSAIS:
+            raise OSError("Connection refused")
+        return "lu"
+    assert vigie_site._avec_essais(coupure_passagere, "site") == "lu"
+    assert pauses == list(vigie_site.PAUSES_ENTRE_ESSAIS_S)
+    assert sum(pauses) >= 180                               # plus de trois minutes
+
+    def panne():
+        raise OSError("Connection refused")
+    with pytest.raises(vigie_site.Illisible, match=f"après {vigie_site.ESSAIS} essais"):
+        vigie_site._avec_essais(panne, "site")
+
+
 # --- 4. Forme des workflows --------------------------------------------------
 
 
@@ -516,11 +754,81 @@ def test_les_sentinelles_ne_dependent_pas_du_succes_de_construire():
     assert "needs.construire.result == 'success'" not in condition
 
 
-def test_l_alerte_part_aussi_quand_construire_est_interrompu():
+def cle(job: str, nom: str) -> str:
+    """Valeur d'une clé de premier niveau d'un job (`if`, `needs`…)."""
+    return re.search(rf"(?m)^    {nom}: (.*)$", job).group(1)
+
+
+def etapes(job: str) -> dict[str, str]:
+    """Les étapes nommées d'un job, chacune avec son texte."""
+    morceaux = re.split(r"(?m)^      - name: (.*)\n", job.split("\n    steps:\n", 1)[1])
+    return dict(zip(morceaux[1::2], morceaux[2::2]))
+
+
+def test_l_alerte_part_aussi_quand_un_job_est_interrompu_et_attend_les_sentinelles():
     alerter = jobs(workflows()["publication.yml"])["alerter"]
-    condition = re.search(r"(?m)^    if: (.*)$", alerter).group(1)
-    assert "always()" in condition and "cancelled" in condition and "failure" in condition
-    assert "pull_request" in condition
+    assert cle(alerter, "needs") == "[construire, tests-python-3-10, veiller]"
+    assert cle(alerter, "if") == (
+        "always() && github.event_name != 'pull_request' && "
+        "(contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled'))")
+    appels = etapes(alerter)["Ouvrir ou commenter l'issue d'échec"]
+    assert "tenir_issue.py signaler --label publication-echec" in appels
+    assert "tenir_issue.py relancer --label publication-echec" in appels
+    assert "--label-relance ci-rouge-persistant" in appels
+
+
+def test_le_cycle_vert_ferme_l_issue_et_sa_relance_seulement_si_tout_est_vert():
+    suivre = jobs(workflows()["publication.yml"])["suivre"]
+    assert cle(suivre, "needs") == "[construire, tests-python-3-10, veiller]"
+    assert cle(suivre, "if") == (
+        "github.event_name == 'schedule' && needs.construire.result == 'success' && "
+        "needs.tests-python-3-10.result == 'success' && needs.veiller.result == 'success'")
+    fermetures = "".join(etapes(suivre).values())
+    assert "retablir --label publication-echec" in fermetures
+    assert "retablir --label ci-rouge-persistant" in fermetures
+
+
+def test_les_deux_sentinelles_sont_independantes_l_une_de_l_autre():
+    """Un `gh` refusé à l'étape des 301 ne doit pas faire sauter celle du cron."""
+    veiller = jobs(workflows()["publication.yml"])["veiller"]
+    assert cle(veiller, "needs") == "construire"
+    pas = etapes(veiller)
+    assert list(pas) == ["Tenir l'issue des redirections 301 d'élus",
+                         "Échéance d'extinction du cron (60 jours sans activité)"]
+    cron = pas["Échéance d'extinction du cron (60 jours sans activité)"]
+    assert cron.startswith("        if: always()\n")
+    assert "signaler --label cron-echeance" in cron
+    assert "retablir --label cron-echeance" in cron
+    assert 'if [ "$age" -lt 45 ]' in cron
+    for fichier in ("publication.yml", "vigie.yml"):
+        assert fichier in re.search(r"for fichier in (.*); do", cron).group(1)
+    r301 = pas["Tenir l'issue des redirections 301 d'élus"]
+    assert "signaler --label redirections-301" in r301
+    assert "retablir --label redirections-301" in r301
+
+
+def test_le_job_3_10_tourne_vraiment_sous_3_10_et_joue_pytest():
+    publication = jobs(workflows()["publication.yml"])
+    job = publication["tests-python-3-10"]
+    assert re.search(r'setup-python@[0-9a-f]{40} # v\S+\n        with:\n'
+                     r'          python-version: "3\.10"\n', job)
+    pas, = etapes(job).values()
+    verification = "assert sys.version_info[:2] == (3, 10)"
+    assert pas.count(verification) == 2          # l'image, puis la venv
+    assert pas.index(".venv/bin/python -c") < pas.index("make test PYTHON=python3")
+    assert "make test PYTHON=python3 PYTEST_ARGS=\"-m 'not reseau'\"" in pas
+    assert "if:" not in job and "continue-on-error" not in job
+    # `construire`, lui, reste sur l'interpréteur de référence.
+    assert 'python-version: "3.14"' in publication["construire"]
+
+
+def test_la_vigie_n_est_a_blanc_que_sur_une_proposition_de_fusion():
+    pas, = etapes(jobs(workflows()["vigie.yml"])["veiller"]).values()
+    assert re.search(
+        r'if \[ "\$EVENEMENT" = "pull_request" \]; then\n'
+        r'\s+python3 deploy/vigie_site\.py --a-blanc\n'
+        r'\s+else\n\s+python3 deploy/vigie_site\.py\n\s+fi', pas)
+    assert "EVENEMENT: ${{ github.event_name }}" in pas
 
 
 def test_la_base_est_mise_en_cache_avant_les_tests_et_sa_cle_porte_les_dependances():
