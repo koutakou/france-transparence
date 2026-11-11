@@ -6,8 +6,8 @@ import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { Money } from "@/components/ui/Money";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { ESPACE_FINE, formatDateFr, formatNombre, formatPct } from "@/lib/format";
+import { enTeteCategorie, formatDateSourceFr } from "@/lib/frais-entetes";
 import {
-  dateSourceCommune,
   getFraisData,
   getVerrousCada,
   grouperParCategorie,
@@ -17,9 +17,7 @@ import {
   PERIMETRE_LFI2026_AN,
   PERIMETRE_LFI2026_SENAT,
   PERIMETRE_REVERSEMENTS_AN,
-  periodeCommune,
   SENS_REFUS,
-  type TrainvieCategorie,
   type TrainvieFait,
   type VerrousCadaData,
 } from "@/lib/queries/frais";
@@ -70,31 +68,6 @@ function eurosExact(v: number): string {
   // formatNombre ne force pas les 2 décimales : `8239.1` → `8 239,1` → padder.
   if (/,\d$/.test(s)) s += "0";
   return s + ESPACE_FINE + "€";
-}
-
-const MOIS_LONGS = [
-  "janvier",
-  "février",
-  "mars",
-  "avril",
-  "mai",
-  "juin",
-  "juillet",
-  "août",
-  "septembre",
-  "octobre",
-  "novembre",
-  "décembre",
-];
-
-/** Dates sources à granularité variable : `2025` → `2025` ;
- *  `2026-01` → `janvier 2026` ; `2026-02-17` → `17/02/2026`.
- *  (formatDateFr inventerait un jour précis sur `2026-01`.) */
-function formatDateSourceFr(d: string): string {
-  if (/^\d{4}$/.test(d)) return d;
-  const m = /^(\d{4})-(\d{2})$/.exec(d);
-  if (m) return `${MOIS_LONGS[Number(m[2]) - 1]} ${m[1]}`;
-  return formatDateFr(d);
 }
 
 /**
@@ -398,70 +371,6 @@ function CarteDesVerrous({ data }: { data: VerrousCadaData }) {
   );
 }
 
-/** Titres et sous-titres des 7 catégories de faits. */
-/**
- * En-têtes des catégories. Un millésime n'y est jamais écrit : il se lit
- * dans les faits du groupe (`periode`, `date_source`), et disparaît quand
- * ils n'en partagent pas un seul.
- */
-type EnTeteCategorie = {
-  cle: TrainvieCategorie;
-  titre: string | ((faits: TrainvieFait[]) => string);
-  sousTitre: string | ((faits: TrainvieFait[]) => string);
-};
-
-const avecPeriode = (texte: string, faits: TrainvieFait[]) => {
-  const p = periodeCommune(faits);
-  return p ? `${texte} ${p}` : texte;
-};
-
-const CATEGORIES: EnTeteCategorie[] = [
-  {
-    cle: "indemnites_parlementaires",
-    titre: "Indemnités parlementaires",
-    sousTitre:
-      "Barèmes publiés par les assemblées. Bruts et nets y coexistent tels qu’ils sont publiés : chaque montant porte son assiette, ne les comparez pas entre eux.",
-  },
-  {
-    cle: "frais_mandat",
-    titre: "Frais de mandat — les enveloppes",
-    sousTitre:
-      "Avances et dotations forfaitaires : les barèmes sont publics, pas le détail des dépenses",
-  },
-  {
-    cle: "controles",
-    titre: "Contrôles des frais de mandat",
-    sousTitre:
-      "Agrégats anonymisés publiés par le déontologue de l’Assemblée nationale et le comité de déontologie du Sénat",
-  },
-  {
-    cle: "elysee",
-    titre: "Élysée",
-    sousTitre:
-      "Comptes de la présidence de la République audités par la Cour des comptes — un rapport par an",
-  },
-  {
-    cle: "institutions",
-    titre: (faits) => avecPeriode("Institutions — dotations", faits),
-    sousTitre: (faits) =>
-      avecPeriode("Mission « Pouvoirs publics » de la loi de finances initiale pour", faits),
-  },
-  {
-    cle: "cabinets",
-    titre: "Cabinets ministériels",
-    sousTitre: (faits) => {
-      const d = dateSourceCommune(faits);
-      return `Jaune budgétaire « Personnels affectés dans les cabinets ministériels »${d ? ` — situation au ${formatDateSourceFr(d)}` : ""}`;
-    },
-  },
-  {
-    cle: "elus_locaux",
-    titre: "Élus locaux — barèmes",
-    sousTitre: (faits) =>
-      `${avecPeriode("Indemnités maximales publiées par la DGCL, barème", faits)} — les montants réellement versés ne sont pas centralisés`,
-  },
-];
-
 /* ------------------------------------------------------------------ */
 /* Page                                                                 */
 /* ------------------------------------------------------------------ */
@@ -639,15 +548,9 @@ export default async function FraisPage() {
       </div>
       <div className="grid items-start gap-4 lg:grid-cols-2">
         {groupes.map((groupe) => {
-          const infos = CATEGORIES.find((c) => c.cle === groupe.categorie);
-          const texte = (v: EnTeteCategorie["titre"] | undefined) =>
-            typeof v === "function" ? v(groupe.faits) : v;
+          const entete = enTeteCategorie(groupe.categorie, groupe.faits);
           return (
-            <Card
-              key={groupe.categorie}
-              titre={texte(infos?.titre) ?? groupe.categorie}
-              sousTitre={texte(infos?.sousTitre)}
-            >
+            <Card key={groupe.categorie} titre={entete.titre} sousTitre={entete.sousTitre}>
               <ul className="flex flex-col">
                 {groupe.faits.map((fait, i) => (
                   <FaitRow key={fait.id} fait={fait} dernier={i === groupe.faits.length - 1} />
