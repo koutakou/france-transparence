@@ -6,7 +6,8 @@ import { LienOfficiel } from "@/components/ui/LienOfficiel";
 import { Money } from "@/components/ui/Money";
 import { formatNombre, formatPct } from "@/lib/format";
 import { urlSite } from "@/lib/basePath";
-import { AO_AFFICHEES, echeancesOuvertes } from "@/lib/echeances";
+import { AO_AFFICHEES, RESERVE_HEURES, echeancesOuvertes } from "@/lib/echeances";
+import { debutCompteEcheances, phraseEcheancesEpuisees } from "@/lib/phrases";
 import { useHorloge } from "@/lib/useHorloge";
 import { useTrancheEcheances } from "@/lib/useTrancheEcheances";
 import { majParamsUrl } from "@/lib/urlEtat";
@@ -276,14 +277,17 @@ export function AppelsOffres({ familles, vueToutes, aoEnCours, construitLe }: Ap
           cleLigne={(a) => a.idweb}
           vide={
             vue.lignes.length > 0
-              ? `Les échéances de la liste arrêtée à la construction du site (${formatDateHeureParis(new Date(construitLe).toISOString())}) sont toutes passées à cette heure ; la liste est reconstruite à chaque publication du site`
+              ? phraseEcheancesEpuisees(
+                  formatDateHeureParis(new Date(construitLe).toISOString()),
+                  RESERVE_HEURES,
+                )
               : "Aucun appel d’offres en cours pour ce filtre"
           }
         />
       </div>
       <p className="mt-3 text-xs leading-relaxed text-ink-muted" aria-live="polite">
-        {formatNombre(lignes.length)} échéances encore ouvertes, les plus proches, affichées
-        sur {formatNombre(vue.total)} appels d’offres en cours à la construction du site (
+        {debutCompteEcheances(lignes.length, formatNombre(lignes.length))}{" "}
+        {formatNombre(vue.total)} appels d’offres en cours à la construction du site (
         {formatDateHeureParis(new Date(construitLe).toISOString())}) pour{" "}
         {familleAffichee === "" ? "toutes les familles" : `la famille ${libelleFamille ?? familleAffichee}`}
         {pctSansMontant !== null && (
