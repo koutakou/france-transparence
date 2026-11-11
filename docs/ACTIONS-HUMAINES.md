@@ -1,6 +1,50 @@
 # ACTIONS HUMAINES — ce qui exige physiquement Mickael
 
-État au 20/08/2026, relu le 15/10/2026 (sections 1 et 2 mises à jour ce jour ; section datée du 15/10/2026 ajoutée en tête après l'audit du même jour). Les deux actions les plus attendues (domaine, e-mail de contact) sont **faites** : le site vit sur https://francetransparence.fr, servi par nginx depuis un serveur dédié, et les pages légales portent une adresse de contact dédiée. Ce fichier ne garde que ce qui reste ouvert.
+État au 20/08/2026, relu le 15/10/2026 (sections 1 et 2 mises à jour ce jour ; section datée du 15/10/2026 ajoutée après l'audit du même jour), puis le 11/11/2026 (récapitulatif « À faire en premier » et table des échéances datées en tête, sections datées du 11/11/2026 ajoutées par les correctifs du jour). Les deux actions les plus attendues (domaine, e-mail de contact) sont **faites** : le site vit sur https://francetransparence.fr, servi par nginx depuis un serveur dédié, et les pages légales portent une adresse de contact dédiée. Ce fichier ne garde que ce qui reste ouvert.
+
+## À faire en premier (11/11/2026)
+
+Ordre conseillé. Chaque point renvoie à la section qui en donne le détail et les commandes ; il ne les répète pas. Les correctifs fusionnés le 11/11 (JOURNAL.md, décisions 47-54) n'arriveront en ligne qu'au premier cycle `ft-deploy` qui aboutira.
+
+1. **Lire la cause de l'arrêt du 08/11, puis relancer `ft-deploy`.** Le site sert l'export du 08/11 04:26 UTC (#137). Lire `ft-etat`, puis les cycles des 09, 10 et 11/11 dans `/var/log/france-transparence/deploiement.log` et `journalctl -u ft-deploy` ([RUNBOOK § 3 et § 4](deploiement/RUNBOOK.md)). Pistes, non vérifiées : index JORF sans livraison nocturne le 09/11 (`return 1`), puis `export_sens` vide le 10/11. Avant de relancer, faire le relevé en lecture seule de la section « Journal officiel » (point 1), et ceux du point 2 ci-dessous. Relancer ensuite un `ft-deploy` complet, jamais `--sans-ingest` après un échec de pipeline (RUNBOOK § 4). Si la connexion SSH est refusée : des essais de connexion infructueux depuis le poste de travail, le 11/11, ont pu déclencher un bannissement temporaire de son adresse, si un filtre de ce type est posé sur le serveur. Attendre son expiration, ou passer par la console de l'hébergeur.
+2. **Relever l'interpréteur de la venv, et la base dont part `ft-deploy`.** Section « Venv du serveur », point 1 ; section « `ft-deploy` ingère-t-il dans une base neuve… », point 1. De la seconde dépend l'effet réel des secours `jorf`, `dole` et ODSEN.
+3. **S'abonner au dépôt et vérifier qu'une alerte arrive.** Watch → Custom → Issues, puis vérifier qu'un courriel ou une notification est arrivé pour #137, qui vous est assignée : section « Alertes », points 1 et 2.
+4. **`security.txt` et redirections d'élus.** Retirer le fichier posé à la main, que la vigie signale (#138) : section du 15/10/2026, Serveur, point 2. Puis rejouer `poser-301-d22.sh`, même section, point 1 : le 11/11, les 8 anciennes fiches `PA*` de `deploy/redirections-elus.tsv` répondaient toujours 404. Jamais pendant qu'un `ft-deploy` tourne.
+5. **Reporter les cinq seuils recalibrés dans `fraicheur.conf`** : section « Seuils de fraîcheur ».
+6. **Rendre le check `tests-python-3-10` requis sur `main`** : section « Alertes », point 3. Il était vert sur `main` le 11/11 (run 43069222642).
+7. **Signaler à la DGFiP la cellule « Total recettes nettes du budget général » au 30/09/2026** du jeu `situations-mensuelles-budgetaires-series-longues` (data.economie.gouv.fr). Elle vaut fiscales + non fiscales − prélèvements sur recettes + fonds de concours (250,47 + 19,53 − 55,86 + 5,00 = 219,14 Md€), quand les 164 autres mois valent fiscales + non fiscales. La donnée n'est pas rectifiée ici (JOURNAL.md, décision 52).
+8. **Valider les décisions éditoriales prises au plus prudent le 11/11** :
+   - PR #139 :
+     - l'exemple « Lozère 13 % / Mende » est retiré de /collectivites ;
+     - « Renouvellement du Sénat le 27/09/2026 » est retiré de /elus et des fiches ;
+     - après le 1er décembre N+1, les comptes locaux ne sont plus dits « provisoires », sans être dits « définitifs » ;
+     - /frais : « annexé au PLF 2026 » est retiré, et « DGCL au 01/01/2026 » devient « DGCL, barème 2026 » ;
+     - gel électoral avant la présidentielle de 2027, à outiller dans `ft-deploy` ou à réécrire ([exigences-publiques.md § 5](deploiement/exigences-publiques.md)) ;
+   - PR #141 : titre d'accueil ramené à 70 caractères, « France Transparence — argent public et vie politique, données ouvertes » ;
+   - PR #142 :
+     - « l'Élysée ne publie pas lui-même de page budget à jour » est retiré, faute d'avoir été revérifié ;
+     - le mois de septembre 2026 est retiré de la courbe des cumuls de recettes et de son tableau, et nommé dessous.
+
+   Les décisions éditoriales du 15/10 restent ouvertes (section du 15/10/2026, « Décisions éditoriales »).
+9. **Trancher les propositions Dependabot #133 (TypeScript 7) et #134 (`@types/node` 26)** : montées majeures dont le check est rouge, ouvertes le 01/11. Les adapter, les fermer, ou les ignorer dans `.github/dependabot.yml`.
+
+Ensuite, les autres gestes de la section du 15/10/2026. Aucun de ceux qui se voient de l'extérieur n'était fait le 11/11 (relevé du site : 301, `security.txt`, `no-cache`, `.org`, brotli, 403 bruts, IPv6) ; les autres ne se vérifient que sur le serveur. En particulier : la conservation réelle des journaux face à `/donnees-personnelles` (Serveur, point 8, « à trancher en priorité »), `npm test` et la garde de poids dans `ft-deploy` (point 3), `no-cache` sur les fragments d'appels d'offres (point 4), et la sortie de l'alerte du serveur (section « Alertes », point 4).
+
+### Échéances datées
+
+Relevées le 11/11/2026 (`openssl s_client`, `whois`, calendriers amont). Une échéance sans surveillance ne se voit qu'à la panne.
+
+| Date | Échéance | Ce qui la surveille | Geste |
+|---|---|---|---|
+| vers le 18/12/2026, expiration le 17/01/2027 | Renouvellement du certificat TLS de `francetransparence.fr` (Let's Encrypt, `notAfter` 17/01/2027 05:27 UTC) | vigie, issue `site-echeances` à moins de 21 jours | si l'issue s'ouvre, vérifier le renouvellement certbot et son hook `ft-nginx-reload` ([RUNBOOK § 8](deploiement/RUNBOOK.md)) |
+| 01/01/2027 | Barème DGCL des indemnités 2027 ; /frais lit des constantes 2026 (S31, millésime figé) | rien | relire /frais et ses constantes |
+| février-mars 2027 | Décret annuel d'aide publique aux partis ; comptes des partis, exercice 2025 ; LFI 2027 (mission Pouvoirs publics) | S37 et S25 ne passent « à surveiller » qu'au printemps 2027 ; un exercice paru et non ingéré est dit dans la note S25 | ajouter le décret et l'exercice à `ingest_financement.py` |
+| avril 2027 | Fin du support standard d'Ubuntu 22.04 sur le serveur ; provenance de `python3.14` non documentée | rien | Ubuntu Pro ou migration vers 24.04, après avoir versionné les scripts `ft-*` qu'une réinstallation effacerait |
+| printemps 2027 | Présidentielle : gel électoral non outillé, liste fermée de scrutins | rien | décision du point 8 ci-dessus, avant le dépôt des candidatures |
+| 20/08/2027 | Nom de domaine `francetransparence.org` | rien (la vigie ne lit que le `.fr`) | le renouveler, ou le laisser expirer s'il ne sert à rien (section du 15/10/2026, Serveur, point 5) |
+| 19/08/2029 | Nom de domaine `francetransparence.fr` (enregistré pour trois ans) | vigie, issue `site-echeances` à moins de 60 jours | le renouveler |
+| non connue d'ici | Abonnement au serveur dédié (Scaleway) | rien | relever la date dans le compte client et poser un rappel |
+| 60 jours après le dernier commit sur `main` | Désactivation des workflows planifiés par GitHub | job `veiller`, issue `cron-echeance` à partir du 45e jour | un commit sur `main`, ou `gh workflow enable` (section 2 de « Ce qui reste ouvert ») |
 
 ## 11/11/2026 — Venv du serveur : dépendances figées
 
@@ -197,9 +241,9 @@ Le site n'est plus sur GitHub Pages : la question de la bande passante Pages (~1
 
 Deux échéances peuvent éteindre le site sans prévenir, et aucune ne se règle depuis le dépôt :
 
-- le **nom de domaine** `francetransparence.fr` (renouvellement annuel chez le registrar) ;
+- le **nom de domaine** `francetransparence.fr` (enregistré jusqu'au 19/08/2029, relevé `whois` du 11/11/2026 ; et non « renouvellement annuel », comme ce fichier l'écrivait jusque-là) ;
 - l'**abonnement au serveur dédié** (facturation Scaleway).
 
-Le certificat TLS, lui, se renouvelle automatiquement. Poser un rappel calendaire sur ces deux échéances coûte cinq minutes et évite la panne la plus bête possible.
+Le certificat TLS, lui, se renouvelle automatiquement. Poser un rappel calendaire sur ces deux échéances coûte cinq minutes et évite la panne la plus bête possible. Les dates connues sont dans la table « Échéances datées », en tête de ce fichier.
 
 Une troisième échéance n'éteint pas le site mais sa seule sentinelle indépendante : **GitHub désactive les workflows planifiés d'un dépôt public après 60 jours sans activité**. Faute de commit sur `main`, la validation CI quotidienne (`publication.yml`) cesserait de tourner, sans qu'aucune issue ne s'ouvre — un run qui n'a pas lieu n'échoue pas. Toute fusion sur `main` repousse l'échéance. Si GitHub l'a déjà désactivée : `gh workflow enable publication.yml --repo koutakou/france-transparence`, ou le bouton « Enable workflow » de l'onglet Actions.
