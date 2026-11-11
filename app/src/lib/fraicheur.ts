@@ -208,12 +208,14 @@ const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // Annuelle IRCOM (DGFiP). date_donnees = 31/12 de l'année des
   // REVENUS (2024 → 2024-12-31), jamais last_update data.gouv.
   // Calendrier amont (created_at des ressources, relevé le 11/11/2026) :
-  // revenus 2021 le 08/06/2023, 2022 le 10/06/2024, 2023 le 09/04/2025,
-  // 2024 le 07/04/2026. L'édition précédente a alors 828 à 892 jours :
-  // 650/750 la disait « à surveiller » dès octobre et « en retard » en
-  // janvier, l'amont étant à l'heure. 900 couvre la parution la plus
-  // tardive observée (juin N+2) ; 960 ≈ mi-août N+2.
-  S47: { unite: "jc", retard: 900, alerte: 960 },
+  // revenus 2020 le 21/06/2022, 2021 le 08/06/2023, 2022 le 10/06/2024,
+  // 2023 le 09/04/2025, 2024 le 07/04/2026 (les millésimes antérieurs ont
+  // tous été re-versés le 27/12/2021 : leur date est perdue). L'édition
+  // précédente a alors 828 à 903 jours : 650/750 la disait « à surveiller »
+  // dès octobre et « en retard » en janvier, l'amont étant à l'heure. 910
+  // couvre la parution la plus tardive observée (21/06, 903 j) ; 970 ≈ fin
+  // août N+2.
+  S47: { unite: "jc", retard: 910, alerte: 970 },
   // Annuelle REI (DGFiP). date_donnees = 31/12 de l'année
   // d'IMPOSITION (2025 → 2025-12-31), jamais last_update data.gouv ni
   // last-modified du zip. Calendrier amont relevé le 11/11/2026 : REI 2023
