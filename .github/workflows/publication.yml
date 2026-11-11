@@ -456,6 +456,29 @@ jobs:
           [ -z "$malformees" ] || detail="$detail Ligne(s) sans deuxième colonne :$malformees."
           if [ -n "$detail" ]; then verdict oui "${detail# }"; else verdict non "$n ligne(s), aucune anomalie"; fi
 
+  # Le serveur de production n'est pas tenu de tourner sous le Python de
+  # `construire` (3.14) : sa venv peut dater d'Ubuntu 22.04, donc de 3.10.
+  # `requirements.txt` est figé pour s'installer sous les deux. Sans ce job,
+  # une montée de version qui abandonne 3.10 (DuckDB 2.0 n'a aucune roue
+  # cp310) serait verte ici et échouerait à l'installation sur le serveur.
+  # Volontairement léger : ni ingestion ni réseau amont, la même recette
+  # `make test` que `construire`, sous l'autre interpréteur.
+  tests-python-3-10:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.10"
+
+      - name: Tests pipelines sous Python 3.10 (installation de requirements.txt comprise)
+        run: |
+          python3 --version
+          make venv PYTHON=python3
+          make test PYTHON=python3 PYTEST_ARGS="-m 'not reseau'"
+
   alerter:
     needs: construire
     # Un échec sur une proposition de fusion est déjà visible sur la
