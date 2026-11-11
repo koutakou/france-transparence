@@ -27,12 +27,24 @@ export function phraseEcheancesEpuisees(construction: string, heures: number): s
 }
 
 /**
- * Début du compteur de /marches : « 20 échéances encore ouvertes, les plus
- * proches, affichées sur », accordé, et sans « 0 échéances » quand la liste
- * livrée est épuisée. `nombre` est le compte déjà formaté.
+ * Début du compteur de /marches, jusqu'à « à la construction du site » :
+ * « 20 échéances encore ouvertes, les plus proches, affichées sur 7 551
+ * appels d'offres en cours à la construction du site », accordé, sans
+ * « 0 échéances » quand la liste livrée est épuisée, et sans « sur 0 appels
+ * d'offres » quand le filtre n'en compte aucun. Les nombres sont déjà formatés.
  */
-export function debutCompteEcheances(n: number, nombre: string): string {
-  if (n === 0) return "Aucune échéance encore ouverte dans la liste livrée avec la page, sur";
-  if (n === 1) return `${nombre} échéance encore ouverte, la plus proche, affichée sur`;
-  return `${nombre} échéances encore ouvertes, les plus proches, affichées sur`;
+export function compteEcheances(
+  n: number,
+  nombre: string,
+  total: number,
+  nombreTotal: string,
+): string {
+  if (total === 0) return "Aucun appel d’offres en cours à la construction du site";
+  const enCours =
+    total === 1
+      ? `${nombreTotal} appel d’offres en cours à la construction du site`
+      : `${nombreTotal} appels d’offres en cours à la construction du site`;
+  if (n === 0) return `Aucune échéance encore ouverte dans la liste livrée avec la page, sur ${enCours}`;
+  if (n === 1) return `${nombre} échéance encore ouverte, la plus proche, affichée sur ${enCours}`;
+  return `${nombre} échéances encore ouvertes, les plus proches, affichées sur ${enCours}`;
 }
