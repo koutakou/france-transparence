@@ -188,6 +188,36 @@ def test_ingestion_idempotente(conn):
     assert doublons == 0
 
 
+def test_comptes_elysee_2025_repris_du_rapport_s2026_0961(conn):
+    """Le rapport de la Cour des comptes sur l'exercice 2025 est paru le
+    17/09/2026 (S2026-0961). Le site a continué deux mois de dire qu'il ne
+    l'était pas. Montants verrouillés à l'euro sur l'annexe n° 1 du PDF
+    (p. 75 et 78), l'activité présidentielle tel que la Cour l'arrondit (p. 17).
+    """
+    attendu = {
+        "elysee-charges-2025": 125257724.2,
+        "elysee-excedent-2025": 5129203.8,
+        "elysee-dotation-2025": 122563852.0,
+        "elysee-activite-presidentielle-2025": 23900000.0,
+    }
+    lignes = {
+        r["id"]: r
+        for r in conn.execute(
+            "SELECT * FROM trainvie_faits WHERE periode = '2025' AND categorie = 'elysee'")
+    }
+    assert set(lignes) == set(attendu)
+    for fait_id, valeur in attendu.items():
+        f = lignes[fait_id]
+        assert f["valeur"] == pytest.approx(valeur, abs=0.01), fait_id
+        assert f["date_source"] == "2026-09-17", fait_id
+        assert f["source_url"].endswith("20260917_S2026-0961-Presidence-Republique.pdf")
+        assert "p. " in f["notes"], fait_id  # page citée dans le fait même
+    # Plus aucune opacité ne prétend le rapport non paru.
+    for o in conn.execute("SELECT * FROM trainvie_opacites"):
+        texte = f"{o['sujet']} {o['ce_qui_manque']}".lower()
+        assert "pas paru" not in texte and "non paru" not in texte, o["id"]
+
+
 def test_meta_source_s31(conn):
     meta = conn.execute(
         "SELECT * FROM meta_sources WHERE source_id = ?", (SOURCE_ID,)
@@ -198,10 +228,11 @@ def test_meta_source_s31(conn):
         "+ (SELECT count(*) FROM trainvie_opacites) AS n"
     ).fetchone()["n"]
     assert meta["lignes"] == nb
-    # Calculée, plus écrite en dur : le document le plus récent est le refus
-    # écrit des deux chambres du 11/06/2026 (opacité « justificatifs »), et
-    # non le rapport du déontologue du 13/05/2026 que la constante annonçait.
-    assert meta["date_donnees"] == "2026-06-11"
+    # Calculée, plus écrite en dur : le document le plus récent est le rapport
+    # de la Cour des comptes sur l'exercice 2025 de l'Élysée, publié le
+    # 17/09/2026 (avant lui : le refus écrit des deux chambres du 11/06/2026).
+    assert meta["date_donnees"] == "2026-09-17"
+    assert meta["url"].endswith("exercice-2025")
     assert meta["date_ingestion"]
 
 
@@ -301,7 +332,7 @@ URLS_SENTINELLES = (
     "https://www.senat.fr/connaitre-le-senat/role-et-fonctionnement/"
     "les-frais-de-mandat.html",
     "https://www.ccomptes.fr/fr/publications/les-comptes-et-la-gestion-des-services-"
-    "de-la-presidence-de-la-republique-exercice-2024",
+    "de-la-presidence-de-la-republique-exercice-2025",
 )
 
 
