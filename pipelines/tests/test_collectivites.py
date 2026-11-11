@@ -405,6 +405,20 @@ def test_note_s16_ne_dit_plus_provisoires_passe_le_calendrier_de_l_ofgl():
     assert "(97 communes sans comptes publiés" in janvier
 
 
+def test_note_s16_lit_le_jour_de_l_ingestion(monkeypatch):
+    """Sans jour donné (l'appel de `executer`), la phrase lit le jour même :
+    joué comme le 01/01/2027, elle ne dit plus « provisoires ». Tue la
+    mutation qui fige une date à la place de date.today()."""
+    class Le1erJanvier2027(date):
+        @classmethod
+        def today(cls):
+            return cls(2027, 1, 1)
+
+    monkeypatch.setattr(p11, "date", Le1erJanvier2027)
+    phrase = p11.phrase_comptes_provisoires(2025, None)
+    assert phrase.startswith("Comptes 2025 lus le 01/01/2027, sans distinction ici")
+
+
 def test_note_s16_disponibilite_illisible_ne_devient_pas_zero():
     phrase = p11.phrase_comptes_provisoires(2025, None, LU_LE)
     assert phrase.endswith("(nombre de communes sans comptes publiés : non disponible)")

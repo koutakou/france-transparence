@@ -1245,6 +1245,35 @@ def test_publication_borne_haute_suit_le_jour_de_l_ingestion(tmp_path):
         duck.close()
 
 
+def test_main_borne_haute_lit_le_jour_de_l_ingestion(tmp_path, monkeypatch):
+    """`main` joué comme le 01/06/2031, hors ligne : la borne haute suit le
+    jour de l'ingestion jusque dans la table servie. Tue la mutation qui fige
+    une date à la place de date.today() dans `main`."""
+    class Le1erJuin2031(date):
+        @classmethod
+        def today(cls):
+            return cls(2031, 6, 1)
+
+    chemin = _fixture_modifiee(
+        tmp_path / "decp_main_borne.parquet",
+        {UID_GEANT: ("2031-03-03", "2031-03-10")},
+    )
+    monkeypatch.setattr(ingest_decp, "date", Le1erJuin2031)
+    monkeypatch.setattr(ingest_decp, "telecharger", lambda *a, **kw: chemin)
+    monkeypatch.setattr(ingest_decp, "MIN_LIGNES_PARQUET", 1)
+    monkeypatch.setattr(ingest_decp, "MAX_RETARD_JOURS", 10_000)
+    monkeypatch.setenv("FT_DB_PATH", str(tmp_path / "decp_main.db"))
+    assert ingest_decp.main() == 0
+    conn = db.connexion(tmp_path / "decp_main.db")
+    try:
+        q = conn.execute("SELECT * FROM decp_publication_qualite").fetchone()
+    finally:
+        conn.close()
+    # La fixture compte 0 marché hors bornes : le marché de mars 2031 est
+    # retenu (une borne figée au 11/11/2026 ou à 2030 l'écarterait).
+    assert q["nb_dates_hors_bornes"] == 0
+
+
 def test_publication_le_delai_legal_se_compte_en_mois_et_non_en_jours(tmp_path):
     """« 2 mois » et « 60 jours » ne désignent pas le même délai.
 

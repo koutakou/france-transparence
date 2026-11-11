@@ -14,7 +14,7 @@ import { SeriesCommunes } from "@/components/client/SeriesCommunes";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { TableTronquee } from "@/components/client/TableTronquee";
 import { VueTableau } from "@/components/ui/VueTableau";
-import { comptesProvisoires } from "@/lib/comptes-locaux";
+import { textesComptesLocaux } from "@/lib/comptes-locaux";
 import { ESPACE_FINE, formatDateFr, formatEuros, formatNombre } from "@/lib/format";
 import {
   getConseilsDepartementaux,
@@ -160,13 +160,13 @@ export default async function PageCollectivites() {
   // « provisoire » seulement tant que c'est certain (lib/comptes-locaux.ts) :
   // comptes lus avant le 1er décembre N+1. Ensuite, la page date la lecture
   // et ne qualifie plus la version — ni provisoire, ni définitive.
-  const provisoires = comptesProvisoires(exerciceComptes, meta.date_ingestion);
-  const luLe = formatDateFr(meta.date_ingestion);
-  const mentionComptes = provisoires
-    ? `comptes ${exerciceComptes} provisoires`
-    : `comptes ${exerciceComptes} lus le ${luLe}`;
-  const qualifComptes = provisoires ? " (provisoire)" : "";
-  const perimetreComptes = `budgets principaux${provisoires ? ", comptes provisoires" : ""} — communes ayant rendu leurs comptes, via agrégats départementaux, hors budgets annexes`;
+  const {
+    luLe,
+    mention: mentionComptes,
+    qualif: qualifComptes,
+    perimetre: perimetreComptes,
+    suiteEntete,
+  } = textesComptesLocaux(exerciceComptes, meta.date_ingestion, formatDateFr);
 
   // Carte €/hab : valeurs présentes + bornes réelles (min Orne / max Paris).
   const valeursCarte: Record<string, number> = {};
@@ -337,9 +337,7 @@ export default async function PageCollectivites() {
           <p className="mt-2 text-sm text-ink-secondary">
             Comptes {exerciceComptes} des collectivités (OFGL / DGFiP), budgets
             principaux, lus le {luLe}
-            {provisoires
-              ? ` : provisoires jusqu’à l’intégration des balances définitives de la DGFiP, fin décembre ${exerciceComptes + 1} (calendrier de l’OFGL)`
-              : ` ; l’OFGL intègre fin décembre ${exerciceComptes + 1} les balances définitives de la DGFiP, et ce site ne distingue pas les deux versions`}
+            {suiteEntete}
             . DGF jusqu&apos;à l&apos;exercice {exerciceDgf ?? "—"}.
           </p>
         </div>
