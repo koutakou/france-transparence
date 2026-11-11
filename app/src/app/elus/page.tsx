@@ -328,11 +328,7 @@ export default async function PageElus() {
       <div id="senateurs" className="scroll-mt-32">
         <Card
           titre="Sénat"
-          sousTitre={
-            stats
-              ? `${formatNombre(stats.senateurs.nb)} sièges · renouvellement du Sénat le 27/09/2026`
-              : "Renouvellement du Sénat le 27/09/2026"
-          }
+          sousTitre={stats ? `${formatNombre(stats.senateurs.nb)} sièges` : undefined}
           droite={<Badge source={sources["S6-ODSEN"]} />}
         >
           <BarList
