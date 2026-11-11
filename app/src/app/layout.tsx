@@ -128,16 +128,17 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* scroll-mt-32 : header sticky ~118–121 px. Sans ça, le skip-link
             depuis le milieu de page pose #contenu sous le chrome (mesuré :
             mainTop=0, headerBottom=118). */}
-        {/* Bandeau « page construite il y a N jours » (lib/lecture.ts) :
-            masqué dans le HTML, affiché par son script en ligne au-delà de
-            SEUIL_SITE_FIGE_HEURES. Rendu en HTML brut parce que React
-            n'hydrate pas l'intérieur d'un `dangerouslySetInnerHTML` : le
-            script peut l'écrire avant l'hydratation sans qu'elle l'efface. */}
-        <div
-          className="mx-auto w-full max-w-7xl px-5"
-          dangerouslySetInnerHTML={{ __html: htmlBandeauSiteFige(construitLe) }}
-        />
-        <main id="contenu" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 scroll-mt-32 px-5 py-6">{children}</main>
+        <main id="contenu" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 scroll-mt-32 px-5 py-6">
+          {/* Bandeau « page construite il y a N jours » (lib/lecture.ts) :
+              masqué dans le HTML, affiché par son script en ligne au-delà de
+              SEUIL_SITE_FIGE_HEURES. Dans <main>, en tête : dans un repère,
+              et atteint par le lien d'évitement. Rendu en HTML brut parce
+              que React n'hydrate pas l'intérieur d'un
+              `dangerouslySetInnerHTML` : le script peut l'écrire avant
+              l'hydratation sans qu'elle l'efface. */}
+          <div dangerouslySetInnerHTML={{ __html: htmlBandeauSiteFige(construitLe) }} />
+          {children}
+        </main>
         <footer className="border-t border-card-border">
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-1.5 px-5 py-4 text-xs leading-relaxed text-ink-muted">
             {/* Licence : « pour la plupart », pas toutes. S3 (JORF « Lois
