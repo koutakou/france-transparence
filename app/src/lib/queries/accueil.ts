@@ -26,6 +26,7 @@ import path from "node:path";
 import type { FeatureCollection, Geometry } from "geojson";
 import { getDb, type MetaSource } from "@/lib/db";
 import { AO_ACCUEIL_AFFICHEES } from "@/lib/echeances";
+import { perimetreJo30j } from "@/lib/jorf-fenetre";
 import { getIdsFichesStatiques } from "@/lib/queries/elus";
 
 /* ------------------------------------------------------------------ */
@@ -102,10 +103,10 @@ export type KpisAccueil = {
   marches30j: number;
   aoEnCours: number;
   textesJo30j: number;
-  /** Premier JO en base (ISO) quand la fenêtre JORF en base ne remonte PAS
-   *  à 30 jours — base neuve devant un index DILA réduit. `null` sinon :
-   *  la tuile « 30 j » ne doit pas borner à 30 jours ce qui en couvre trois. */
-  joEnBaseDepuis: string | null;
+  /** Périmètre de la tuile « Textes au JO (30 j) », calculé sur les dates
+   *  des JO en base : « 30 derniers jours » seulement si la base les porte
+   *  sans intervalle (lib/jorf-fenetre.ts, perimetreJo30j). */
+  perimetreJo30j: string;
 };
 
 export type CompteursSuivi = {
@@ -351,15 +352,15 @@ export function getDonneesAccueil(): DonneesAccueil | null {
         )
         .get() as { n: number }
     ).n,
-    joEnBaseDepuis: (
-      db
-        .prepare(
-          `SELECT CASE WHEN MIN(date_publi) > date('now', '-30 days')
-                       THEN MIN(date_publi) END AS depuis
-             FROM jorf_textes`,
-        )
-        .get() as { depuis: string | null }
-    ).depuis,
+    perimetreJo30j: perimetreJo30j(
+      (
+        db
+          .prepare(`SELECT DISTINCT date_publi FROM jorf_textes ORDER BY date_publi`)
+          .all() as { date_publi: string }[]
+      ).map((l) => l.date_publi),
+      // Le même seuil que le compte ci-dessus, lu au même endroit.
+      (db.prepare(`SELECT date('now', '-30 days') AS seuil`).get() as { seuil: string }).seuil,
+    ),
   };
 
   /* --- Bandeau de couverture (counts réels, jamais figés) --- */

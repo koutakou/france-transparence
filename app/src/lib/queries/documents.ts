@@ -11,6 +11,7 @@
  * natures ARRETE 1475, DECRET 534 ; 369 textes sans ministère (13,3 %).
  */
 import { getDb, type MetaSource } from "@/lib/db";
+import { mentionFenetreJo } from "@/lib/jorf-fenetre";
 
 /** Chiffres de cadrage de la fenêtre des 30 derniers JO. */
 export interface JorfKpis {
@@ -20,6 +21,9 @@ export interface JorfKpis {
   nominationsFenetre: number;
   /** Nombre de JO parus dans la fenêtre (30). */
   nbJours: number;
+  /** Dates ISO des JO de la fenêtre, croissantes : de quoi dire, à chaque
+   *  libellé, si la série est continue (lib/jorf-fenetre.ts). */
+  datesJo: string[];
   /** Date du dernier JO paru (ISO, `2026-08-19`). */
   dernierJo: string;
   /** Premier JO de la fenêtre (ISO, `2026-07-14`). */
@@ -109,25 +113,6 @@ export function getMetaJorf(): MetaSource | null {
 }
 
 /**
- * Débuts de la note S3 quand la fenêtre n'est pas ce que son nom promet :
- * moins de JO que visé (base neuve devant un index DILA réduit après la
- * régénération du stock), ou un intervalle sans JO en base. Écrits par
- * `pipelines/ingest_jorf.py` (MARQUE_FENETRE_REDUITE,
- * MARQUE_FENETRE_DISCONTINUE) : ne pas les reformuler d'un seul côté.
- */
-const MARQUES_FENETRE_SIGNALEE = ["Fenêtre réduite", "Fenêtre discontinue"];
-
-/**
- * Note datée du pipeline, à afficher TELLE QUELLE au contact du compte de
- * JO, ou `null` quand la fenêtre est pleine et continue.
- */
-export function noteFenetreSignalee(meta: MetaSource | null): string | null {
-  const note = meta?.notes?.trim();
-  if (!note) return null;
-  return MARQUES_FENETRE_SIGNALEE.some((m) => note.startsWith(m)) ? note : null;
-}
-
-/**
  * KPI de cadrage. Testé le 19/08/2026 : 2778 textes, 1065 nominations,
  * 30 JO du 2026-07-14 au 2026-08-19 ; dernier JO 83 textes / 41 nominations ;
  * 369 textes sans ministère.
@@ -168,10 +153,17 @@ export function getJorfKpis(): JorfKpis | null {
     )
     .get(fenetre.dernierJo) as { textesJour: number; nominationsJour: number };
 
+  const datesJo = (
+    db
+      .prepare(`SELECT DISTINCT date_publi FROM jorf_textes ORDER BY date_publi`)
+      .all() as { date_publi: string }[]
+  ).map((l) => l.date_publi);
+
   return {
     textesFenetre: fenetre.textesFenetre,
     nominationsFenetre: fenetre.nominationsFenetre,
     nbJours: fenetre.nbJours,
+    datesJo,
     dernierJo: fenetre.dernierJo,
     premierJo: fenetre.premierJo,
     textesJour: jour.textesJour,
@@ -182,12 +174,13 @@ export function getJorfKpis(): JorfKpis | null {
 
 /**
  * Périmètre de la tuile « Textes publiés » : fenêtre JORF, pas le fonds DOLE.
- * `nbJours` vient de la base, jamais une constante.
+ * La mention de fenêtre vient des dates lues en base, jamais d'une constante,
+ * et nomme un intervalle sans JO s'il y en a un.
  */
-export function perimetreTextesFenetre(nbJours: number): string {
+export function perimetreTextesFenetre(datesJo: readonly string[]): string {
   return [
     "JORF « Lois et décrets »",
-    `${nbJours} derniers JO parus`,
+    mentionFenetreJo(datesJo),
     "ce n’est pas le fonds DOLE",
   ].join(" · ");
 }
@@ -196,10 +189,10 @@ export function perimetreTextesFenetre(nbJours: number): string {
  * Périmètre de la tuile « Dont nominations » : même fenêtre, textes marqués
  * nomination — ce n'est pas une biographie.
  */
-export function perimetreNominationsFenetre(nbJours: number): string {
+export function perimetreNominationsFenetre(datesJo: readonly string[]): string {
   return [
     "même fenêtre",
-    `${nbJours} derniers JO parus`,
+    mentionFenetreJo(datesJo),
     "textes marqués nomination",
     "ce n’est pas une biographie",
   ].join(" · ");
@@ -219,13 +212,6 @@ export function perimetreTextesJour(): string {
  */
 export function perimetreNominationsJour(): string {
   return "un seul JO paru — textes marqués nomination — pas la fenêtre entière";
-}
-
-/**
- * Mention de fraîcheur S3 : la date n'est pas un stock, c'est une fenêtre.
- */
-export function mentionFenetreJo(nbJours: number): string {
-  return `${nbJours} derniers JO parus`;
 }
 
 /**
