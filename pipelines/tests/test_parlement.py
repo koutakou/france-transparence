@@ -798,6 +798,77 @@ def test_ingerer_senat_sans_veille_echoue_toujours_sur_export_sens_vide(
     conn.close()
 
 
+def _veille(tmp_path, monkeypatch):
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    conn.executescript(p9._SCHEMA_P9)
+    _senat_jetable(tmp_path, monkeypatch)
+    p9.ingerer_senat(conn, session=None)          # cycle de la veille, complet
+    return conn
+
+
+def _dump_sans_elusen(tmp_path):
+    """Extrait réel du dump, bloc `elusen` retiré : seule la table `dpt` reste."""
+    sql = (FIXTURES / "export_sens_elusen_extrait.sql").read_bytes()
+    sans = sql[:sql.index(b"COPY elusen")]
+    _zip_export_sens(tmp_path, sans)
+    return len(sans)
+
+
+def test_ingerer_senat_rend_secours_au_bilan(tmp_path, monkeypatch):
+    conn = _veille(tmp_path, monkeypatch)
+    _vider_export_sens(tmp_path)
+    assert p9.ingerer_senat(conn, session=None) == p9.SECOURS
+    conn.close()
+
+
+def test_un_dump_complet_sans_elusen_est_une_rupture_de_format(tmp_path, monkeypatch):
+    """Ne secourir que le dump vide ou tronqué. Un dump de taille normale qui
+    ne porte plus `elusen`, c'est le format qui a changé : la veille n'est
+    PAS resservie, l'étape échoue. Seuil abaissé sous la taille de l'extrait
+    (le vrai dump pèse 60 Mo) pour jouer le cas sur une fixture réelle."""
+    conn = _veille(tmp_path, monkeypatch)
+    taille = _dump_sans_elusen(tmp_path)
+    monkeypatch.setattr(p9, "TAILLE_MIN_DUMP_EXPORT_SENS", taille)
+    with pytest.raises(RuntimeError, match="rupture de format"):
+        p9.ingerer_senat(conn, session=None)
+    # Contre-épreuve : le même dump, sous le seuil, est un dump tronqué.
+    monkeypatch.setattr(p9, "TAILLE_MIN_DUMP_EXPORT_SENS", taille + 1)
+    assert p9.ingerer_senat(conn, session=None) == p9.SECOURS
+    conn.close()
+
+
+@pytest.mark.parametrize("jours, secouru", [(2.9, True), (3.1, False)])
+def test_le_secours_senat_est_borne_a_trois_jours(tmp_path, monkeypatch,
+                                                  jours, secouru):
+    from datetime import datetime, timedelta, timezone
+    conn = _veille(tmp_path, monkeypatch)
+    il_y_a = (datetime.now(timezone.utc) - timedelta(days=jours)).isoformat(
+        timespec="seconds")
+    conn.execute("UPDATE meta_sources SET date_ingestion = ?"
+                 " WHERE source_id = 'S6-ODSEN'", (il_y_a,))
+    conn.commit()
+    _vider_export_sens(tmp_path)
+    if secouru:
+        assert p9.ingerer_senat(conn, session=None) == p9.SECOURS
+    else:
+        with pytest.raises(p9.ExportSensVide, match="plus de 3 jours"):
+            p9.ingerer_senat(conn, session=None)
+    conn.close()
+
+
+def test_bilan_p9_ne_dit_pas_sans_echec_quand_une_source_est_secourue(
+        tmp_path, monkeypatch, caplog):
+    monkeypatch.setenv("FT_DB_PATH", str(tmp_path / "t.db"))
+    for nom in ("ingerer_amo10", "ingerer_scrutins", "ingerer_dosleg", "ingerer_datan"):
+        monkeypatch.setattr(p9, nom, lambda conn, session: None)
+    monkeypatch.setattr(p9, "ingerer_senat", lambda conn, session: p9.SECOURS)
+    with caplog.at_level("INFO"):
+        assert p9.main() == 0                      # le cycle continue
+    assert "sans échec" not in caplog.text
+    assert "4/5 sources ingérées, 1 reprise(s) du dernier cycle réussi" in caplog.text
+    assert "Sénat ODSEN (sénateurs)" in caplog.text
+
+
 def test_ingerer_senat_ecrit_la_date_de_debut_du_mandat_en_cours(tmp_path,
                                                                 monkeypatch):
     """ODSEN_GENERAL de la fixture (19/08/2026) : 21071F et 14133K ACTIF.
