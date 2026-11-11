@@ -4,7 +4,10 @@ Sources (docs/SOURCES.md ; docs/recherche/04-elus-integrite.md §5, §5 bis, §6
 - S25 — CNCCFP, comptes des partis et groupements politiques, exercices 2021-2024.
   CSV UTF-8 BOM, séparateur ';', décimale à virgule, « - » = absence de valeur,
   166 colonnes homogènes ; l'exercice N est publié début N+2 (2024 paru le
-  10/02/2026 — dernier possible). URLs static.data.gouv.fr horodatées →
+  10/02/2026). Le dernier exercice publié est relu dans les ressources du
+  jeu à chaque passage (`dernier_exercice_publie`) : la note S25 le date, et
+  un exercice paru que EXERCICES ne vise pas est signalé dans la note et
+  dans le journal. URLs static.data.gouv.fr horodatées →
   re-résolues via l'API data.gouv à chaque passage (SOURCES.md §0.3).
   Piège constaté le 19/08/2026 : le fichier « exercice 2021 » contient une
   ligne datée 2022 (code 671, S.I.E.L.), en DOUBLON du fichier 2022 avec des
@@ -101,7 +104,7 @@ import io
 import re
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from pipelines import db
@@ -610,16 +613,65 @@ def _verifier_colonnes(entete: list[str], attendues: dict[int, str], contexte: s
 # ---------------------------------------------------------------------------
 
 
+# Titre d'une ressource TABULAIRE de comptes d'un exercice, tel que la CNCCFP
+# les nomme depuis 2008 (relevé le 11/11/2026 : « comptes_partis_exercice_2024.csv »,
+# « comptes-partis-exercice-2020.xlsx », « Comptes partis exercice 2017 »).
+_RE_EXERCICE_PUBLIE = re.compile(r"exercice[\s_-]*(\d{4})", re.IGNORECASE)
+_FORMATS_TABULAIRES = {"csv", "xlsx", "xls", "ods"}
+
+
+def dernier_exercice_publie(resources: list[dict]) -> tuple[int, str | None] | None:
+    """(exercice, date de mise en ligne ISO) du dernier exercice dont le jeu
+    data.gouv porte un fichier de comptes, quel que soit son format ; None si
+    aucun titre n'est reconnu. Relu à chaque ingestion : c'est ce qui permet à
+    la note S25 de dire « le plus récent publié » sans l'écrire en dur, et de
+    signaler un exercice paru que EXERCICES ne vise pas encore."""
+    meilleur: tuple[int, str | None] | None = None
+    for res in resources:
+        if (res.get("format") or "").lower() not in _FORMATS_TABULAIRES:
+            continue
+        m = _RE_EXERCICE_PUBLIE.search(res.get("title") or "")
+        if not m:
+            continue
+        exercice = int(m.group(1))
+        if meilleur is None or exercice > meilleur[0]:
+            meilleur = (exercice, (res.get("created_at") or "")[:10] or None)
+    return meilleur
+
+
+def phrase_exercices_partis(
+    exercices: tuple[int, ...], publie: tuple[int, str | None] | None, jour: date
+) -> str:
+    """Début de la note S25 : ce qui est ingéré, et ce que la CNCCFP a publié
+    d'après le jeu relu ce jour-là — jamais une affirmation figée."""
+    dernier = max(exercices)
+    debut = f"Exercices {min(exercices)}-{dernier} ; "
+    if publie is None:
+        return debut + ("dernier exercice publié par la CNCCFP : non lisible "
+                        f"dans le jeu data.gouv le {jour:%d/%m/%Y}")
+    exercice, paru = publie
+    paru_le = f" le {date.fromisoformat(paru):%d/%m/%Y}" if paru else ""
+    if exercice <= dernier:
+        return debut + (f"l'exercice {dernier} (dépôt N+1, publication N+2) "
+                        f"est paru{paru_le if exercice == dernier else ''} et "
+                        f"restait le plus récent publié au {jour:%d/%m/%Y}")
+    return debut + (f"l'exercice {exercice}, publié par la CNCCFP{paru_le}, "
+                    f"n'est pas ingéré à ce jour ({jour:%d/%m/%Y})")
+
+
 def resoudre_ressources(session) -> dict:
     """Interroge l'API data.gouv et retourne les URLs réelles des fichiers.
 
-    Retour : {'partis': {exercice: url}, 'avis_2024': url|None, 'campagnes': url}.
+    Retour : {'partis': {exercice: url}, 'avis_2024': url|None, 'campagnes': url,
+    'dernier_publie': (exercice, date ISO)|None}.
     Lève RuntimeError si une ressource attendue manque (échec franc).
     """
-    ressources: dict = {"partis": {}, "avis_2024": None, "campagnes": None}
+    ressources: dict = {"partis": {}, "avis_2024": None, "campagnes": None,
+                        "dernier_publie": None}
 
     r = session.get(API_DATASET.format(slug=SLUG_PARTIS), timeout=60)
     r.raise_for_status()
+    ressources["dernier_publie"] = dernier_exercice_publie(r.json().get("resources", []))
     for res in r.json().get("resources", []):
         titre = (res.get("title") or "").lower()
         fmt = (res.get("format") or "").lower()
@@ -1417,6 +1469,15 @@ def main() -> int:
         creer_vues(conn)
         nb_alertes = calculer_alertes(conn, ressources["avis_2024"])
 
+        # Journalisé à CHAQUE cycle, à jour comme en retard : un exercice paru
+        # que EXERCICES ne vise pas ne doit pas passer en silence.
+        publie = ressources.get("dernier_publie")
+        if publie is not None and publie[0] > max(EXERCICES):
+            log.warning("S25 : exercice %d publié par la CNCCFP (%s), non ingéré "
+                        "(EXERCICES s'arrête à %d)", publie[0], publie[1], max(EXERCICES))
+        else:
+            log.info("S25 : dernier exercice publié %s, ingéré jusqu'à %d",
+                     publie, max(EXERCICES))
         db.upsert_meta(
             conn,
             source_id="S25",
@@ -1424,11 +1485,10 @@ def main() -> int:
             url=URL_DATASET_PARTIS,
             licence="Licence Ouverte",
             frequence="annuelle",
-            date_donnees="2024-12-31",
+            date_donnees=f"{max(EXERCICES)}-12-31",
             lignes=nb_comptes,
-            notes="Exercices 2021-2024 ; l'exercice 2024 (dernier possible, "
-                  "dépôt N+1, publication N+2) est paru le 10/02/2026 et reste "
-                  "le plus récent publié. 2 lignes en XPF et 1 sans "
+            notes=phrase_exercices_partis(EXERCICES, publie, date.today())
+                  + ". 2 lignes en XPF et 1 sans "
                   "unité (2023) exclues des agrégats en euros.",
             commit=False,
         )

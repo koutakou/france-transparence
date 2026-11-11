@@ -133,6 +133,11 @@ const INTERDITS = [
     "la période des séries communales se lit en base",
   ],
   [
+    "app/financement/page.tsx",
+    /celle\s+du décret en vigueur/,
+    "le décret le plus récent est celui qui est ingéré, nommé, pas « celui en vigueur »",
+  ],
+  [
     "app/depenses/page.tsx",
     /formatValeur=\{\(v\) => formatEuros\(v, "Md"\)\}/,
     "un montant en Md€ s'arrondit à une décimale fixe, comme sur l'accueil",

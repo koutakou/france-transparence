@@ -360,13 +360,17 @@ export default async function FinancementPage() {
           <p>
             Comptes des partis et comptes de campagne publiés par la
             Commission nationale des comptes de campagne et des
-            financements politiques (CNCCFP). L’aide publique est celle
-            du décret en vigueur.
+            financements politiques (CNCCFP). L’enveloppe nationale d’aide
+            publique est celle des décrets annuels ingérés
+            {decretRecent
+              ? ` ; le plus récent : ${decretRecent.reference.charAt(0).toLowerCase()}${decretRecent.reference.slice(1)}`
+              : ""}
+            .
           </p>
         }
         limites={
           <p>
-            Les comptes non encore publiés par la Commission n’y figurent
+            Les comptes que la Commission n’a pas publiés n’y figurent
             pas. Cette page ne produit aucun classement d’opinion, aucune
             intention de vote, aucune mesure de notoriété. Elle ne publie
             aucune nuance politique.
