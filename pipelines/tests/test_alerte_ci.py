@@ -275,6 +275,31 @@ def test_un_refus_d_assignation_n_empeche_pas_l_alerte(github, monkeypatch):
     assert issue["body"].startswith("@proprietaire\n")  # la mention, elle, reste
 
 
+def test_une_description_de_label_trop_longue_est_refusee_avant_github(github):
+    """Essai réel du 11/11/2026 : 101 caractères, HTTP 422, issue née sans label."""
+    with pytest.raises(ValueError, match="101 caractères"):
+        tenir_issue.signaler(
+            "exemple/depot", "proprietaire", "site-echeances", "Titre", "Corps", "etat",
+            description="Certificat, nom de domaine ou security.txt du site en ligne : "
+                        "échéance proche ou fichier non conforme",
+            maintenant=github.a(utc(2026, 11, 11)))
+    assert github.issues == []
+
+
+def test_les_descriptions_de_labels_ecrites_dans_le_depot_tiennent_en_cent_caracteres():
+    sources = list(workflows().values()) + [
+        (RACINE / "deploy" / f).read_text(encoding="utf-8")
+        for f in ("vigie_site.py", "tenir_issue.py")]
+    # Chaînes Python adjacentes recollées, puis toute `description` littérale.
+    trouvees = []
+    for texte in sources:
+        recolle = re.sub(r'"\s*\n\s*"', "", texte)
+        trouvees += re.findall(r'(?:--description[", ]+|description=)"([^"]+)"', recolle)
+    assert len(trouvees) >= 6, trouvees
+    for description in trouvees:
+        assert len(description) <= tenir_issue.DESCRIPTION_LABEL_MAX, description
+
+
 def test_le_retablissement_ferme_et_date_l_episode_dans_le_titre(github):
     signaler(github, utc(2026, 10, 22, 10, 7), "test")
     fermees = tenir_issue.retablir(
