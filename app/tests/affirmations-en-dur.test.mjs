@@ -158,6 +158,31 @@ const INTERDITS = [
     "la dernière tranche ne porte que les lignes affichables pendant son heure",
   ],
   [
+    "app/financement/page.tsx",
+    /Commission n’a pas publiés n’y figurent|non encore publiés par la Commission/,
+    "un exercice paru mais non ingéré manque aussi : la notice dit les exercices repris",
+  ],
+  [
+    "app/collectivites/page.tsx",
+    /comptes \$\{exerciceComptes\} provisoires|const provisoires = /,
+    "le statut des comptes se dit par textesComptesLocaux (lib/comptes-locaux.ts), une seule règle",
+  ],
+  [
+    "lib/frais-entetes.ts",
+    /dotations (de )?2026|pour 2026|au PLF 2026|au 01\/01\/2026/,
+    "le millésime d'un en-tête de catégorie se lit dans les faits du groupe",
+  ],
+  [
+    "components/client/AppelsOffres.tsx",
+    /échéances encore ouvertes, les plus proches, affichées|liste arrêtée à la construction du site/,
+    "le compteur et la liste épuisée passent par lib/phrases.ts (ni « 0 échéances », ni « sur 0 »)",
+  ],
+  [
+    "components/client/AoProchesCloture.tsx",
+    /liste arrêtée le/,
+    "la liste épuisée dit ce que la page a reçu (phraseEcheancesEpuisees)",
+  ],
+  [
     "app/depenses/page.tsx",
     /formatValeur=\{\(v\) => formatEuros\(v, "Md"\)\}/,
     "un montant en Md€ s'arrondit à une décimale fixe, comme sur l'accueil",

@@ -7,7 +7,7 @@ import { Money } from "@/components/ui/Money";
 import { formatNombre, formatPct } from "@/lib/format";
 import { urlSite } from "@/lib/basePath";
 import { AO_AFFICHEES, RESERVE_HEURES, echeancesOuvertes } from "@/lib/echeances";
-import { debutCompteEcheances, phraseEcheancesEpuisees } from "@/lib/phrases";
+import { compteEcheances, phraseEcheancesEpuisees } from "@/lib/phrases";
 import { useHorloge } from "@/lib/useHorloge";
 import { useTrancheEcheances } from "@/lib/useTrancheEcheances";
 import { majParamsUrl } from "@/lib/urlEtat";
@@ -286,8 +286,13 @@ export function AppelsOffres({ familles, vueToutes, aoEnCours, construitLe }: Ap
         />
       </div>
       <p className="mt-3 text-xs leading-relaxed text-ink-muted" aria-live="polite">
-        {debutCompteEcheances(lignes.length, formatNombre(lignes.length))}{" "}
-        {formatNombre(vue.total)} appels d’offres en cours à la construction du site (
+        {compteEcheances(
+          lignes.length,
+          formatNombre(lignes.length),
+          vue.total,
+          formatNombre(vue.total),
+        )}{" "}
+        (
         {formatDateHeureParis(new Date(construitLe).toISOString())}) pour{" "}
         {familleAffichee === "" ? "toutes les familles" : `la famille ${libelleFamille ?? familleAffichee}`}
         {pctSansMontant !== null && (

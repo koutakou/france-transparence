@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  debutCompteEcheances,
+  compteEcheances,
   phraseEcheancesEpuisees,
   phraseMarchesSansMontant,
 } from "../src/lib/phrases.ts";
@@ -24,13 +24,27 @@ test("singulier et pluriel accordés", () => {
 // que 48 heures.
 test("liste livrée épuisée : jamais « 0 échéances », jamais « aucun appel d’offres ouvert »", () => {
   assert.equal(
-    debutCompteEcheances(0, "0"),
-    "Aucune échéance encore ouverte dans la liste livrée avec la page, sur",
+    compteEcheances(0, "0", 7551, "7 551"),
+    "Aucune échéance encore ouverte dans la liste livrée avec la page, sur 7 551 appels d’offres en cours à la construction du site",
   );
-  assert.equal(debutCompteEcheances(1, "1"), "1 échéance encore ouverte, la plus proche, affichée sur");
-  assert.match(debutCompteEcheances(20, "20"), /^20 échéances encore ouvertes, les plus proches, affichées sur$/);
+  assert.equal(
+    compteEcheances(1, "1", 7551, "7 551"),
+    "1 échéance encore ouverte, la plus proche, affichée sur 7 551 appels d’offres en cours à la construction du site",
+  );
+  assert.equal(
+    compteEcheances(20, "20", 7551, "7 551"),
+    "20 échéances encore ouvertes, les plus proches, affichées sur 7 551 appels d’offres en cours à la construction du site",
+  );
   const p = phraseEcheancesEpuisees("08/11/2026 à 05h26", 48);
   assert.match(p, /arrêtées à sa construction \(08\/11\/2026 à 05h26\) pour les 48 heures suivantes/);
   assert.match(p, /les appels d’offres qui clôturent plus tard n’y figurent pas/);
   assert.doesNotMatch(p, /aucun appel d’offres/i);
+});
+
+test("filtre sans aucun appel d’offres : ni « Aucune échéance… sur 0 », ni « 1 appels »", () => {
+  assert.equal(compteEcheances(0, "0", 0, "0"), "Aucun appel d’offres en cours à la construction du site");
+  assert.equal(
+    compteEcheances(1, "1", 1, "1"),
+    "1 échéance encore ouverte, la plus proche, affichée sur 1 appel d’offres en cours à la construction du site",
+  );
 });
