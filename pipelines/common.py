@@ -150,6 +150,7 @@ def telecharger_ressource(
     max_age_heures: float | None,
     session: requests.Session | None = None,
     timeout: int = 300,
+    si_date_inconnue: str = "telecharger",
 ) -> Path:
     """`telecharger` avec un cache qui ne survit pas à une nouvelle version.
 
@@ -166,7 +167,12 @@ def telecharger_ressource(
     le `last_modified` data.gouv). Une ressource modifiée après la copie
     — nouveau lot, nouveau millésime, fichier corrigé — est re-téléchargée,
     quel que soit l'âge du cache. Une date absente ou illisible ne prouve
-    pas que le cache est à jour : re-téléchargement aussi.
+    pas que le cache est à jour : re-téléchargement aussi, par défaut — et
+    un AVERTISSEMENT, car c'est l'amont qui a changé de forme. Pour un
+    fichier lourd (`si_date_inconnue="cache"`, le stock Sirene de ~700 Mo),
+    re-télécharger à chaque cycle tant que l'API ne date plus sa ressource
+    pèserait sur l'amont sans rien prouver : le TTL `max_age_heures` reste
+    alors seul juge, comme avant ce contrôle.
 
     POURQUOI garder le nom fixe plutôt que d'en dériver un de l'URL : il est
     référencé hors du code — `archive_amont.py` copie `cada/cada-consolide.csv`,
@@ -181,11 +187,19 @@ def telecharger_ressource(
         modif = _instant_utc(modifiee_le)
         copie = datetime.fromtimestamp(chemin.stat().st_mtime, timezone.utc)
         if modif is None:
-            log.info(
-                "cache ignoré : %s — date de modification amont inconnue (%r)",
-                chemin.name, modifiee_le,
-            )
-            max_age_heures = None
+            if si_date_inconnue == "cache":
+                log.warning(
+                    "date de modification amont inconnue pour %s (%r) : la "
+                    "parution d'une nouvelle version ne peut pas être vue, "
+                    "le cache n'est jugé que sur son âge",
+                    chemin.name, modifiee_le,
+                )
+            else:
+                log.warning(
+                    "cache ignoré : %s — date de modification amont inconnue (%r)",
+                    chemin.name, modifiee_le,
+                )
+                max_age_heures = None
         elif modif > copie:
             log.info(
                 "cache périmé : %s — ressource modifiée le %s, copie locale du %s",

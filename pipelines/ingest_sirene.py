@@ -469,10 +469,13 @@ def executer(chemin_db: str | Path | None = None,
             log.info("ressource : %s (%s, %s o)", ressource["titre"],
                      ressource["derniere_modification"], ressource["octets"])
             # `max_age_heures=None` force le téléchargement (comme `telecharger`).
+            # Date amont illisible : avertissement, et le TTL décide — pas
+            # 700 Mo re-téléchargés à chaque cycle.
             chemin_parquet = telecharger_ressource(
                 ressource["url"], FICHIER_RAW,
                 ressource["derniere_modification"],
                 max_age_heures=max_age_heures, session=session,
+                si_date_inconnue="cache",
             )
 
         lignes, stats = transformer(chemin_parquet, sirens)
