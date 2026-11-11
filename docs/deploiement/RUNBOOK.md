@@ -9,10 +9,10 @@ Décision d'hébergement et alternatives : [DECISION.md](DECISION.md). Ce qui ex
 |---|---|---|
 | Où | Le **serveur dédié** (scripts `ft-*`, minuteries systemd) | **GitHub Actions** (`.github/workflows/publication.yml`) |
 | Quand | Tous les jours ~**05:17 Paris** | Cron **04:45 UTC**, plus chaque push et chaque proposition de fusion sur `main` |
-| Effet d'un échec | L'ancienne version reste servie, une alerte part | Une issue `publication-echec` s'ouvre (ou est commentée) ; **le site n'est pas concerné** |
+| Effet d'un échec | L'ancienne version reste servie, une alerte part | Une issue `publication-echec` s'ouvre (ou est commentée), assignée au propriétaire du dépôt, avec l'étape et la cible tombées ; **le site n'est pas concerné** |
 | Effet d'un succès | Le site public change | Rien n'est mis en ligne ; un cycle **planifié** vert ferme l'issue `publication-echec` ouverte. La page de redirection de l'ancienne adresse part par `pages-redirection.yml`, seulement quand elle change |
 
-Un run CI rouge n'est **jamais** une panne du site ; un site figé n'est **jamais** visible dans GitHub Actions. Ne cherchez pas la cause de l'un dans les journaux de l'autre.
+Un run CI rouge n'est **jamais** une panne du site, et la validation ne voit **jamais** un site figé. Ne cherchez pas la cause de l'un dans les journaux de l'autre. Le site figé a sa propre sentinelle, extérieure au serveur : le workflow `vigie.yml` et son issue `site-fige` (§ 7).
 
 ## 1. Architecture d'exploitation
 
@@ -50,6 +50,8 @@ Propriétés à connaître :
 | Runs de validation CI | https://github.com/koutakou/france-transparence/actions/workflows/publication.yml |
 | Issues d'échec CI | https://github.com/koutakou/france-transparence/issues?q=label%3Apublication-echec |
 | Issues des 301 d'élus et de l'échéance du cron | https://github.com/koutakou/france-transparence/issues?q=label%3Aredirections-301%2Clabel%3Acron-echeance |
+| Runs de la vigie du site | https://github.com/koutakou/france-transparence/actions/workflows/vigie.yml |
+| Issues de la vigie (site figé, échéances) | https://github.com/koutakou/france-transparence/issues?q=label%3Asite-fige%2Clabel%3Asite-echeances |
 
 Deux accès distincts, à ne pas confondre :
 
@@ -141,7 +143,7 @@ Quatre familles de panne :
    Conduite : reproduire en local (`make build-static`), corriger, fusionner ; si le coupable est un commit récent, `ft-rollback` remet immédiatement le site d'avant pendant que la correction se prépare.
 4. **Problème machine ou réseau** (disque plein, inodes, nginx tombé, certificat) — `ft-sonde` le voit dans les 5 minutes et alerte ; `ft-etat` le résume.
 
-**Un échec de la CI GitHub Actions ne relève d'aucune de ces familles** : il ouvre ou commente une issue `publication-echec` et signale un problème de code ou de source amont — que le serveur a pu rencontrer le matin même (le vérifier avec `ft-etat`) et qu'il rencontrera au cycle suivant s'il n'est pas corrigé. Le site en ligne, lui, n'en dépend pas. L'issue se ferme d'elle-même au premier cycle planifié vert.
+**Un échec de la CI GitHub Actions ne relève d'aucune de ces familles** : il ouvre ou commente une issue `publication-echec` — dont le titre et le commentaire du jour nomment l'étape, la cible `make` et les lignes d'erreur — et signale un problème de code ou de source amont — que le serveur a pu rencontrer le matin même (le vérifier avec `ft-etat`) et qu'il rencontrera au cycle suivant s'il n'est pas corrigé. Le site en ligne, lui, n'en dépend pas. L'issue se ferme d'elle-même au premier cycle planifié vert.
 
 ## 5. Rollback
 
@@ -190,14 +192,22 @@ Idempotent (chaque étape teste avant d'agir) : génère la clé SSH `~/.ssh/id_
 - **Fraîcheur réelle des sources** : `ft-fraicheur` compare, pour chacune des 44 sources, la date de la donnée la plus récente en base (`meta_sources.date_donnees`) à un seuil calibré par source. C'est le complément indispensable de la sonde : le site peut être fraîchement régénéré chaque nuit alors qu'une source amont a cessé de publier depuis des semaines.
 - **Alertes** : `ft-alerte` est le point d'extension unique — il écrit **toujours** dans le journal systemd en priorité `err` (`journalctl -t ft-alerte -p err`), puis pousse vers un webhook si l'un est configuré. Un échec du webhook n'est jamais remonté à l'appelant : le journal reste le canal de dernier recours.
 - **Moniteur public de fraîcheur** : la page `/donnees` affiche la date réelle de chaque source — le healthcheck lisible par n'importe qui, sans accès au serveur.
-- **CI** : un run rouge sur `publication.yml` ouvre une issue `publication-echec`, qu'un cycle planifié vert referme. Les cycles planifiés tiennent aussi une issue `redirections-301` (une 301 d'élu mène à un 404 ou masque une fiche servie) et une issue `cron-echeance` (quinze jours avant que GitHub ne désactive le cron, faute de commit sur `main` depuis 60 jours). Activer les notifications GitHub sur le dépôt (Watch → Custom → Issues) pour être prévenu.
-- **Le trou de couverture, à connaître** : la sonde interroge le site **depuis la machine elle-même**. Une panne de DNS, de routage ou de datacenter la laisse parfaitement satisfaite. Seule une supervision externe comble ce trou.
+- **CI** (`publication.yml`) : un run rouge hors proposition de fusion ouvre ou commente une issue `publication-echec`, qu'un cycle planifié vert referme.
+  - *Destinataire* : toute issue d'alerte est **assignée au propriétaire du dépôt** et chacun de ses messages le **mentionne** (`deploy/tenir_issue.py`). Sans abonnement, sans assignation et sans mention, GitHub ne notifie personne : du 22/10 au 11/11/2026, vingt commentaires sont restés sans lecteur. L'abonnement au dépôt (Watch → Custom → Issues) reste recommandé : c'est un second canal, et le seul qui ne dépende pas de ce code.
+  - *Lecture* : le titre est tenu à jour — « CI rouge depuis le JJ/MM (N jours) — aujourd'hui : `ingest-<source>` » ou le nom de l'étape — et le commentaire du jour donne le job, l'étape, la cible `make`, la première et la dernière ligne d'erreur (`deploy/diagnostic_ci.py`), et la cause du run rouge précédent : une panne qui dure se distingue d'une suite de pannes différentes.
+  - *Relance* : un commentaire par run rouge ; au-delà de sept jours, une issue distincte `ci-rouge-persistant`, une par semaine, la nouvelle fermant l'ancienne.
+  - *Sentinelles* (job `veiller`, à **chaque** cycle planifié, vert ou rouge) : une issue `redirections-301` (une 301 d'élu mène à un 404 ou masque une fiche servie) et une issue `cron-echeance` (à partir de quinze jours avant que GitHub ne désactive les workflows planifiés, faute de commit sur `main` depuis 60 jours). À partir du même seuil, le job réactive les deux workflows planifiés par l'API ; l'effet de cet appel sur l'échéance n'est pas documenté par GitHub, l'issue reste donc le signal. Ces deux issues ne sont relancées qu'une fois par semaine tant que leur constat ne change pas.
+- **Vigie externe du site** (`vigie.yml`, une fois par jour à 11:23 UTC, soit après le cycle du serveur été comme hiver) : elle lit le site **depuis l'extérieur** et tient deux issues assignées, qui se ferment d'elles-mêmes.
+  - `site-fige` : `/api/meta.json` porte un `genere_le` de plus de 30 h, ou le site ne répond pas. Un commentaire par jour, relance distincte `site-fige-persistant` au-delà de sept jours. Conduite : `ft-etat` puis `deploiement.log` (§ 4).
+  - `site-echeances` : certificat TLS à moins de 21 jours de son expiration, nom de domaine à moins de 60 jours (lu au RDAP du registre), `security.txt` dont le premier `Contact:` n'est pas une adresse de courriel ou qui expire dans moins de 30 jours. Relance hebdomadaire.
+  - Seuils et raisons : `deploy/vigie_site.py`. Quatre lectures quotidiennes de ressources publiques, aucun visiteur observé.
+- **Le trou de couverture, à connaître** : la sonde interroge le site **depuis la machine elle-même**. Une panne de DNS, de routage ou de datacenter la laisse parfaitement satisfaite. La vigie externe ci-dessus comble ce trou une fois par jour, pas toutes les cinq minutes ; et elle partage GitHub avec la validation : si GitHub est en panne, ou les workflows planifiés désactivés, plus rien ne regarde le site du dehors. Une alerte émise par le serveur vers une boîte réellement lue reste nécessaire (`ft-alerte`, [../ACTIONS-HUMAINES.md](../ACTIONS-HUMAINES.md)).
 
 ## 8. Sécurité
 
 - **En-têtes HTTP servis par nginx** — c'est ce que l'hébergement précédent ne permettait pas : `Strict-Transport-Security`, `Content-Security-Policy` (en en-tête, donc `frame-ancestors` réellement appliqué), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`. Redirection 301 HTTP→HTTPS, certificat renouvelé automatiquement (certbot, hook passant par `ft-nginx-reload` — sinon un certificat renouvelé pourrait n'être jamais pris en compte).
 - **Aucun process applicatif exposé** : pas de Node en production, pas de base accessible depuis le réseau, pas de formulaire. La surface d'attaque du site se réduit à nginx servant des fichiers.
-- **Dépôt public sans secret** — la règle à maintenir : aucun token, aucune clé, aucun `.env` commité. Les secrets d'exploitation vivent sur le serveur en `0600` (`/etc/france-transparence/`) et n'ont pas à être recopiés dans un document, un journal ou un ticket. La CI, elle, fonctionne avec le `GITHUB_TOKEN` automatique : lecture seule du dépôt pour le job qui exécute les pipelines et `npm ci`, `issues: write` pour les seuls jobs d'alerte, droits Pages pour le seul `pages-redirection.yml` — déclarés job par job.
+- **Dépôt public sans secret** — la règle à maintenir : aucun token, aucune clé, aucun `.env` commité. Les secrets d'exploitation vivent sur le serveur en `0600` (`/etc/france-transparence/`) et n'ont pas à être recopiés dans un document, un journal ou un ticket. La CI, elle, fonctionne avec le `GITHUB_TOKEN` automatique : lecture seule du dépôt pour les jobs qui exécutent les pipelines, les tests et `npm ci`, `issues: write` pour les seuls jobs d'alerte et la vigie (plus `actions: read` pour lire le journal du job tombé, et `actions: write` pour le seul job qui réactive les workflows planifiés), droits Pages pour le seul `pages-redirection.yml` — déclarés job par job.
 - **Clé SSH de déploiement** `~/.ssh/id_ed25519_ft_deploy` : dédiée, sans passphrase — si la machine de travail est perdue ou compromise, révoquer la clé sur https://github.com/settings/keys. Le site continue de se publier tout seul : le serveur tire le dépôt, il ne dépend pas de cette clé.
 - **Sauvegardes chiffrées hors-site** en clé publique `age` : la clé de déchiffrement ne vit jamais sur le serveur.
 - **Aucune donnée visiteur collectée** : site 100 % statique, zéro cookie, zéro traceur, aucun compte, aucun formulaire. Les journaux nginx contiennent des adresses IP — donnée personnelle — traitées et documentées comme telles dans les pages légales du site.

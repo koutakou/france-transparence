@@ -1,0 +1,75 @@
+2026-11-08T11:31:01.2950541Z ##[group]Run make venv PYTHON=python3
+2026-11-08T11:31:01.2951758Z [36;1mmake venv PYTHON=python3[0m
+2026-11-08T11:31:01.2952855Z [36;1mmake ingest PYTHON=python3[0m
+2026-11-08T11:31:01.3055392Z shell: /usr/bin/bash -e {0}
+2026-11-08T11:31:01.3056448Z env:
+2026-11-08T11:31:01.3058158Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T11:31:01.3059884Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T11:31:01.3062339Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T11:34:29.9485735Z .venv/bin/python -m pipelines.ingest_integrite
+2026-11-08T11:34:30.1038879Z 2026-11-08 11:34:30 INFO    [pipelines] téléchargement: https://www.hatvp.fr/livraison/opendata/liste.csv
+2026-11-08T11:34:32.5227424Z 2026-11-08 11:34:32 INFO    [pipelines] écrit: /home/runner/work/france-transparence/france-transparence/data/raw/integrite/liste.csv (3.2 Mo)
+2026-11-08T11:34:42.5030803Z .venv/bin/python -m pipelines.ingest_hatvp_declarations
+2026-11-08T11:34:42.6362517Z 2026-11-08 11:34:42 INFO    [pipelines] téléchargement: https://www.hatvp.fr/livraison/merge/declarations.xml
+2026-11-08T11:35:05.6189606Z 2026-11-08 11:35:05 ERROR   [ingest_hatvp_declarations] P15 en échec. La base n'est PAS modifiée : les six contrôles posés avant l'écriture lèvent sans rien toucher, l'écriture elle-même est atomique, et le contrôle de sortie est annulé avec elle. Le cycle précédent reste servi, avec la mémoire des deux contrôles inter-cycles
+2026-11-08T11:35:05.6191929Z Traceback (most recent call last):
+2026-11-08T11:35:05.6201482Z   File "/home/runner/work/france-transparence/france-transparence/.venv/lib/python3.14/site-packages/urllib3/response.py", line 929, in _error_catcher
+2026-11-08T11:35:05.6202197Z     yield
+2026-11-08T11:35:05.6202839Z   File "/home/runner/work/france-transparence/france-transparence/.venv/lib/python3.14/site-packages/urllib3/response.py", line 1046, in _raw_read
+2026-11-08T11:35:05.6203563Z     data = self._fp_read(amt, read1=read1) if not fp_closed else b""
+2026-11-08T11:35:05.6203915Z            ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+2026-11-08T11:35:05.6204585Z   File "/home/runner/work/france-transparence/france-transparence/.venv/lib/python3.14/site-packages/urllib3/response.py", line 1029, in _fp_read
+2026-11-08T11:35:05.6205308Z     return self._fp.read(amt) if amt is not None else self._fp.read()
+2026-11-08T11:35:05.6205661Z            ~~~~~~~~~~~~~^^^^^
+2026-11-08T11:35:05.6206141Z   File "/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/http/client.py", line 494, in read
+2026-11-08T11:35:05.6206621Z     s = self.fp.read(amt)
+2026-11-08T11:35:05.6207386Z   File "/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/socket.py", line 729, in readinto
+2026-11-08T11:35:05.6207853Z     return self._sock.recv_into(b)
+2026-11-08T11:35:05.6208104Z            ~~~~~~~~~~~~~~~~~~~~^^^
+2026-11-08T11:35:05.6208538Z   File "/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/ssl.py", line 1315, in recv_into
+2026-11-08T11:35:05.6209003Z     return self.read(nbytes, buffer)
+2026-11-08T11:35:05.6209256Z            ~~~~~~~~~^^^^^^^^^^^^^^^^
+2026-11-08T11:35:05.6209673Z   File "/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/ssl.py", line 1149, in read
+2026-11-08T11:35:05.6210121Z     return self._sslobj.read(len, buffer)
+2026-11-08T11:35:05.6210386Z            ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+2026-11-08T11:35:05.6210704Z ConnectionResetError: [Errno 104] Connection reset by peer
+2026-11-08T11:35:05.6210954Z 
+2026-11-08T11:35:05.6211136Z The above exception was the direct cause of the following exception:
+2026-11-08T11:35:05.6211419Z 
+2026-11-08T11:35:05.6211525Z Traceback (most recent call last):
+2026-11-08T11:35:05.6212158Z   File "/home/runner/work/france-transparence/france-transparence/.venv/lib/python3.14/site-packages/requests/models.py", line 937, in generate
+2026-11-08T11:35:05.6212853Z     yield from self.raw.stream(chunk_size, decode_content=True)
+2026-11-08T11:35:05.6213601Z   File "/home/runner/work/france-transparence/france-transparence/.venv/lib/python3.14/site-packages/urllib3/response.py", line 1291, in stream
+2026-11-08T11:35:05.6214277Z     data = self.read(amt=amt, decode_content=decode_content)
+2026-11-08T11:35:05.6214973Z   File "/home/runner/work/france-transparence/france-transparence/.venv/lib/python3.14/site-packages/urllib3/response.py", line 1134, in read
+2026-11-08T11:35:05.6215600Z     data = self._raw_read(amt)
+2026-11-08T11:35:05.6216488Z   File "/home/runner/work/france-transparence/france-transparence/.venv/lib/python3.14/site-packages/urllib3/response.py", line 1045, in _raw_read
+2026-11-08T11:35:05.6217945Z     with self._error_catcher():
+2026-11-08T11:35:05.6218412Z          ~~~~~~~~~~~~~~~~~~~^^
+2026-11-08T11:35:05.6219289Z   File "/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/contextlib.py", line 162, in __exit__
+2026-11-08T11:35:05.6219858Z     self.gen.throw(value)
+2026-11-08T11:35:05.6220085Z     ~~~~~~~~~~~~~~^^^^^^^
+2026-11-08T11:35:05.6220725Z   File "/home/runner/work/france-transparence/france-transparence/.venv/lib/python3.14/site-packages/urllib3/response.py", line 952, in _error_catcher
+2026-11-08T11:35:05.6221493Z     raise ProtocolError(f"Connection broken: {e!r}", e) from e
+2026-11-08T11:35:05.6222261Z urllib3.exceptions.ProtocolError: ("Connection broken: ConnectionResetError(104, 'Connection reset by peer')", ConnectionResetError(104, 'Connection reset by peer'))
+2026-11-08T11:35:05.6222873Z 
+2026-11-08T11:35:05.6223072Z During handling of the above exception, another exception occurred:
+2026-11-08T11:35:05.6223342Z 
+2026-11-08T11:35:05.6223669Z Traceback (most recent call last):
+2026-11-08T11:35:05.6224285Z   File "/home/runner/work/france-transparence/france-transparence/pipelines/ingest_hatvp_declarations.py", line 1516, in main
+2026-11-08T11:35:05.6224851Z     executer()
+2026-11-08T11:35:05.6225041Z     ~~~~~~~~^^
+2026-11-08T11:35:05.6225562Z   File "/home/runner/work/france-transparence/france-transparence/pipelines/ingest_hatvp_declarations.py", line 1343, in executer
+2026-11-08T11:35:05.6226241Z     chemin = telecharger(URL_DECLARATIONS, REP_RAW / "declarations.xml",
+2026-11-08T11:35:05.6226663Z                          max_age_heures=max_age_heures, session=session)
+2026-11-08T11:35:05.6227533Z   File "/home/runner/work/france-transparence/france-transparence/pipelines/common.py", line 120, in telecharger
+2026-11-08T11:35:05.6228093Z     for chunk in r.iter_content(chunk_size=1 << 20):
+2026-11-08T11:35:05.6228408Z                  ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+2026-11-08T11:35:05.6229055Z   File "/home/runner/work/france-transparence/france-transparence/.venv/lib/python3.14/site-packages/requests/models.py", line 939, in generate
+2026-11-08T11:35:05.6229728Z     raise ChunkedEncodingError(e)
+2026-11-08T11:35:05.6230451Z requests.exceptions.ChunkedEncodingError: ("Connection broken: ConnectionResetError(104, 'Connection reset by peer')", ConnectionResetError(104, 'Connection reset by peer'))
+2026-11-08T11:35:05.6448126Z make: *** [Makefile:105: ingest-hatvp_declarations] Error 1
+2026-11-08T11:35:05.6465644Z ##[error]Process completed with exit code 2.
+2026-11-08T11:35:05.6668924Z Post job cleanup.
+2026-11-08T11:35:05.7617833Z [command]/usr/bin/git version
+2026-11-08T11:35:05.7667361Z git version 2.56.0

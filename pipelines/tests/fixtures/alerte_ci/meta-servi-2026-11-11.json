@@ -1,0 +1,31 @@
+{
+ "meta": {
+  "description": "Catalogue des sources ingérées par France Transparence (table meta_sources) — la licence et la date des données de chaque source figurent dans sa ligne. Snapshot statique régénéré à chaque build.",
+  "total_sources": 44,
+  "derniere_ingestion": "2026-11-08T04:25:16+00:00",
+  "licence_agregats": "Licence Ouverte 2.0 (agrégats France Transparence)",
+  "regle_fraicheur": "âge = aujourd'hui − date_donnees, comparé à DEUX seuils calibrés source par source (et non à une période déduite de la fréquence déclarée) : « a_jour » sous le seuil de retard, « a_surveiller » entre les deux seuils, « en_retard » au-delà du seuil d'alerte, « attente_edition » quand le dépassement excède à son tour la largeur de la bande de surveillance, « non_calibre » si la source n'a pas de ligne au référentiel. Chaque ligne porte ses propres seuils (seuilRetardJours, seuilAlerteJours) et l'unité dans laquelle l'âge est compté (unite : « jc » jours calendaires, « jo » jours ouvrés — jours fériés français exclus, comme le moniteur du serveur). « attente_edition » décrit la SOURCE et non le site : à la date de génération, aucune édition plus récente n'a été publiée en amont.",
+  "genere_le": "2026-11-08T04:26:01.375Z"
+ },
+ "donnees": [
+  {
+   "source_id": "S1",
+   "nom": "DECP consolidées au format tabulaire (marchés publics)",
+   "url": "https://www.data.gouv.fr/datasets/donnees-essentielles-de-la-commande-publique-consolidees-format-tabulaire",
+   "licence": "Licence Ouverte 2.0",
+   "frequence": "quotidienne",
+   "date_donnees": "2026-11-06",
+   "date_ingestion": "2026-11-08T04:19:34+00:00",
+   "lignes": 502822,
+   "notes": "consolidation communautaire decp-processing (Colin Maudry), à créditer ; la date retenue est celle de la notification initiale du marché — min(dateNotification) sur toutes ses lignes, avenants compris — et non celle du dernier avenant ; les fenêtres portent sur elle, les montants et titulaires sur la version courante ; les classements titulaires et acheteurs sont regroupés par ENTREPRISE (SIREN), les identifiants non conformes en étant écartés et comptés à part ; fenêtres : détail 24 mois, agrégats 12 mois, série 36 mois ; agrégats écrêtés à 100000000 € (9790 marchés suspects marqués) ; montants d'accords-cadres = maximums ; latence légale de publication jusqu'à 2 mois ; 3377690 lignes au parquet",
+   "fraicheur": {
+    "niveau": "a_jour",
+    "ageJours": 0,
+    "unite": "jo",
+    "seuilRetardJours": 7,
+    "seuilAlerteJours": 20,
+    "editionFigee": false
+   }
+  }
+ ]
+}

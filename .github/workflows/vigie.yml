@@ -1,0 +1,94 @@
+# Vigie externe du site en ligne — https://francetransparence.fr/
+#
+# POURQUOI UN WORKFLOW À PART. publication.yml valide le code et les sources
+# amont ; il ne dit RIEN du site servi, que le serveur construit et bascule
+# seul. Le 11/11/2026, le site servait un export du 08/11 — trois cycles de
+# reconstruction manqués — et rien ne l'avait signalé à personne : la sonde du
+# serveur vit sur la machine qu'elle sonde, et ses alertes n'en sortent pas.
+# Cette vigie regarde le site DU DEHORS, une fois par jour, et tient deux
+# issues assignées au propriétaire du dépôt :
+#
+#   - `site-fige`      : /api/meta.json porte un `genere_le` de plus de 30 h,
+#                        ou le site ne répond pas ;
+#   - `site-echeances` : certificat TLS à moins de 21 jours, nom de domaine à
+#                        moins de 60 jours (RDAP du registre), security.txt
+#                        non conforme ou à moins de 30 jours de son expiration.
+#
+# Chacune se ferme d'elle-même quand le constat disparaît. Les contrôles, les
+# seuils et leurs raisons sont dans deploy/vigie_site.py ; la tenue des issues
+# (assignation, mention, relance) dans deploy/tenir_issue.py.
+#
+# L'HEURE. Le serveur reconstruit à 05:17, heure de Paris : 03:17 UTC l'été,
+# 04:17 UTC l'hiver, et l'export est daté une dizaine de minutes plus tard
+# (04:26 UTC le 08/11/2026). Le seuil étant de 30 h, un cycle manqué n'est vu
+# LE JOUR MÊME que si la vigie passe plus de six heures après l'heure normale
+# de génération : après 10:30 UTC l'hiver, 09:30 l'été. D'où 11:23 UTC, près
+# d'une heure de marge l'hiver, deux l'été. GitHub retarde les déclenchements
+# planifiés (jusqu'à plusieurs heures, voir publication.yml) : un retard ne
+# crée pas de fausse alerte, l'export du jour n'atteint 30 h que le lendemain
+# vers 10:30 UTC. La minute 23 évite l'engorgement des heures rondes.
+# Un test (pipelines/tests/test_alerte_ci.py) tient ensemble l'heure et le seuil.
+#
+# CE QU'ELLE COÛTE AU SITE : quatre lectures par jour de ressources publiques
+# et statiques (deux fichiers du site, une poignée de main TLS, une réponse du
+# registre). Aucun visiteur n'est observé : ce n'est pas un traceur.
+#
+# SA LIMITE : elle partage GitHub avec publication.yml, et s'éteindrait avec
+# elle après 60 jours sans activité sur le dépôt (publication.yml, job
+# `veiller`, prévient et réactive). Elle ne remplace pas une alerte émise par
+# le serveur lui-même (docs/ACTIONS-HUMAINES.md).
+
+name: vigie
+
+on:
+  schedule:
+    - cron: "23 11 * * *"
+  workflow_dispatch:
+  # Une proposition de fusion qui touche à la vigie la joue À BLANC : mêmes
+  # lectures réelles, aucune issue touchée, et un site figé ne la rend pas
+  # rouge — on y vérifie que la vigie fonctionne, pas que le site va bien.
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/vigie.yml"
+      - "deploy/vigie_site.py"
+      - "deploy/tenir_issue.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vigie-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  veiller:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      # Action épinglée par SHA complet de commit, version en commentaire ;
+      # dependabot (.github/dependabot.yml) la tient à jour. Aucune autre
+      # dépendance : le python3 de l'image et sa bibliothèque standard.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Le job finit ROUGE quand une anomalie est relevée (hors proposition de
+      # fusion) : l'issue est le canal, le run rouge en est un second pour qui
+      # reçoit les courriels d'échec d'Actions.
+      - name: Regarder le site du dehors et tenir les issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPOT: ${{ github.repository }}
+          PROPRIETAIRE: ${{ github.repository_owner }}
+          LIEN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EVENEMENT: ${{ github.event_name }}
+        run: |
+          set -eu
+          python3 --version
+          if [ "$EVENEMENT" = "pull_request" ]; then
+            python3 deploy/vigie_site.py --a-blanc
+          else
+            python3 deploy/vigie_site.py
+          fi

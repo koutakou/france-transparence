@@ -1,0 +1,72 @@
+2026-11-09T13:22:10.7961635Z ##[group]Run make venv PYTHON=python3
+2026-11-09T13:22:10.7962266Z [36;1mmake venv PYTHON=python3[0m
+2026-11-09T13:22:10.7962816Z [36;1mmake ingest PYTHON=python3[0m
+2026-11-09T13:22:10.7995783Z shell: /usr/bin/bash -e {0}
+2026-11-09T13:22:10.7996745Z env:
+2026-11-09T13:22:10.7997719Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-09T13:22:10.7999327Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-09T13:22:10.8000665Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-09T13:22:40.9187574Z .venv/bin/python -m pipelines.ingest_budget_structure
+2026-11-09T13:22:41.0531259Z 2026-11-09 13:22:41 INFO    [pipelines] téléchargement: https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/plf-2026-budget-vert/exports/csv
+2026-11-09T13:22:47.1367211Z 2026-11-09 13:22:47 INFO    [pipelines] écrit: /home/runner/work/france-transparence/france-transparence/data/raw/budget/plf2026_budget_vert.csv (0.5 Mo)
+2026-11-09T13:23:36.8367898Z .venv/bin/python -m pipelines.ingest_decp
+2026-11-09T13:23:36.9588892Z 2026-11-09 13:23:36 INFO    [pipelines] téléchargement: https://www.data.gouv.fr/api/1/datasets/r/11cea8e8-df3e-4ed1-932b-781e2635e432
+2026-11-09T13:28:42.9004252Z 2026-11-09 13:28:42 ERROR   [ingest_decp] échec avant écriture — base intacte
+2026-11-09T13:28:42.9005406Z Traceback (most recent call last):
+2026-11-09T13:28:42.9012767Z   File "/home/runner/work/france-transparence/france-transparence/.venv/lib/python3.14/site-packages/urllib3/response.py", line 929, in _error_catcher
+2026-11-09T13:28:42.9013201Z     yield
+2026-11-09T13:28:42.9013556Z   File "/home/runner/work/france-transparence/france-transparence/.venv/lib/python3.14/site-packages/urllib3/response.py", line 1046, in _raw_read
+2026-11-09T13:28:42.9013954Z     data = self._fp_read(amt, read1=read1) if not fp_closed else b""
+2026-11-09T13:28:42.9014153Z            ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+2026-11-09T13:28:42.9014512Z   File "/home/runner/work/france-transparence/france-transparence/.venv/lib/python3.14/site-packages/urllib3/response.py", line 1029, in _fp_read
+2026-11-09T13:28:42.9015416Z     return self._fp.read(amt) if amt is not None else self._fp.read()
+2026-11-09T13:28:42.9015640Z            ~~~~~~~~~~~~~^^^^^
+2026-11-09T13:28:42.9015883Z   File "/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/http/client.py", line 494, in read
+2026-11-09T13:28:42.9016133Z     s = self.fp.read(amt)
+2026-11-09T13:28:42.9016365Z   File "/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/socket.py", line 729, in readinto
+2026-11-09T13:28:42.9016617Z     return self._sock.recv_into(b)
+2026-11-09T13:28:42.9016760Z            ~~~~~~~~~~~~~~~~~~~~^^^
+2026-11-09T13:28:42.9017000Z   File "/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/ssl.py", line 1315, in recv_into
+2026-11-09T13:28:42.9017244Z     return self.read(nbytes, buffer)
+2026-11-09T13:28:42.9017389Z            ~~~~~~~~~^^^^^^^^^^^^^^^^
+2026-11-09T13:28:42.9017616Z   File "/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/ssl.py", line 1149, in read
+2026-11-09T13:28:42.9017861Z     return self._sslobj.read(len, buffer)
+2026-11-09T13:28:42.9018014Z            ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+2026-11-09T13:28:42.9018284Z TimeoutError: The read operation timed out
+2026-11-09T13:28:42.9018390Z 
+2026-11-09T13:28:42.9018495Z The above exception was the direct cause of the following exception:
+2026-11-09T13:28:42.9018648Z 
+2026-11-09T13:28:42.9018711Z Traceback (most recent call last):
+2026-11-09T13:28:42.9019049Z   File "/home/runner/work/france-transparence/france-transparence/.venv/lib/python3.14/site-packages/requests/models.py", line 937, in generate
+2026-11-09T13:28:42.9019417Z     yield from self.raw.stream(chunk_size, decode_content=True)
+2026-11-09T13:28:42.9019807Z   File "/home/runner/work/france-transparence/france-transparence/.venv/lib/python3.14/site-packages/urllib3/response.py", line 1291, in stream
+2026-11-09T13:28:42.9020162Z     data = self.read(amt=amt, decode_content=decode_content)
+2026-11-09T13:28:42.9020555Z   File "/home/runner/work/france-transparence/france-transparence/.venv/lib/python3.14/site-packages/urllib3/response.py", line 1134, in read
+2026-11-09T13:28:42.9020889Z     data = self._raw_read(amt)
+2026-11-09T13:28:42.9021221Z   File "/home/runner/work/france-transparence/france-transparence/.venv/lib/python3.14/site-packages/urllib3/response.py", line 1045, in _raw_read
+2026-11-09T13:28:42.9021564Z     with self._error_catcher():
+2026-11-09T13:28:42.9021700Z          ~~~~~~~~~~~~~~~~~~~^^
+2026-11-09T13:28:42.9021940Z   File "/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/contextlib.py", line 162, in __exit__
+2026-11-09T13:28:42.9022187Z     self.gen.throw(value)
+2026-11-09T13:28:42.9022316Z     ~~~~~~~~~~~~~~^^^^^^^
+2026-11-09T13:28:42.9022642Z   File "/home/runner/work/france-transparence/france-transparence/.venv/lib/python3.14/site-packages/urllib3/response.py", line 934, in _error_catcher
+2026-11-09T13:28:42.9023092Z     raise ReadTimeoutError(self._pool, None, "Read timed out.") from e  # type: ignore[arg-type]
+2026-11-09T13:28:42.9023352Z     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-11-09T13:28:42.9023661Z urllib3.exceptions.ReadTimeoutError: HTTPSConnectionPool(host='static.data.gouv.fr', port=443): Read timed out.
+2026-11-09T13:28:42.9023895Z 
+2026-11-09T13:28:42.9023999Z During handling of the above exception, another exception occurred:
+2026-11-09T13:28:42.9024150Z 
+2026-11-09T13:28:42.9024208Z Traceback (most recent call last):
+2026-11-09T13:28:42.9024499Z   File "/home/runner/work/france-transparence/france-transparence/pipelines/ingest_decp.py", line 1593, in main
+2026-11-09T13:28:42.9024841Z     parquet = telecharger(URL_PARQUET, FICHIER_RAW, max_age_heures=CACHE_HEURES)
+2026-11-09T13:28:42.9025192Z   File "/home/runner/work/france-transparence/france-transparence/pipelines/common.py", line 120, in telecharger
+2026-11-09T13:28:42.9025671Z     for chunk in r.iter_content(chunk_size=1 << 20):
+2026-11-09T13:28:42.9025846Z                  ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+2026-11-09T13:28:42.9026291Z   File "/home/runner/work/france-transparence/france-transparence/.venv/lib/python3.14/site-packages/requests/models.py", line 943, in generate
+2026-11-09T13:28:42.9026628Z     raise ConnectionError(e)
+2026-11-09T13:28:42.9026902Z requests.exceptions.ConnectionError: HTTPSConnectionPool(host='static.data.gouv.fr', port=443): Read timed out.
+2026-11-09T13:28:42.9261531Z make: *** [Makefile:105: ingest-decp] Error 1
+2026-11-09T13:28:42.9275598Z ##[error]Process completed with exit code 2.
+2026-11-09T13:28:42.9397555Z Post job cleanup.
+2026-11-09T13:28:42.9991105Z [command]/usr/bin/git version
+2026-11-09T13:28:43.0028244Z git version 2.56.0

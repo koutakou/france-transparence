@@ -1,0 +1,42 @@
+2026-11-10T12:58:43.5190003Z ##[group]Run make venv PYTHON=python3
+2026-11-10T12:58:43.5190698Z [36;1mmake venv PYTHON=python3[0m
+2026-11-10T12:58:43.5191297Z [36;1mmake ingest PYTHON=python3[0m
+2026-11-10T12:58:43.5387247Z shell: /usr/bin/bash -e {0}
+2026-11-10T12:58:43.5387834Z env:
+2026-11-10T12:58:43.5388473Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-10T12:58:43.5389452Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-10T12:58:43.5390411Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-10T13:01:00.8112448Z .venv/bin/python -m pipelines.ingest_jorf
+2026-11-10T13:01:00.9642421Z 2026-11-10 13:01:00 INFO    [jorf] index: https://echanges.dila.gouv.fr/OPENDATA/JORFSIMPLE/
+2026-11-10T13:01:01.8382867Z 2026-11-10 13:01:01 INFO    [jorf] 1 livraisons nocturnes à l'index, 1 retenues (JORFSIMPLE_20261110-002231.tar.gz → JORFSIMPLE_20261110-002231.tar.gz)
+2026-11-10T13:01:02.0215863Z .venv/bin/python -m pipelines.ingest_parlement
+2026-11-10T13:01:02.8913401Z 2026-11-10 13:01:02 INFO    [pipelines] téléchargement: https://data.assemblee-nationale.fr/static/openData/repository/17/amo/deputes_actifs_mandats_actifs_organes/AMO10_deputes_actifs_mandats_actifs_organes.json.zip
+2026-11-10T13:01:03.5624481Z 2026-11-10 13:01:03 INFO    [pipelines] écrit: /home/runner/work/france-transparence/france-transparence/data/raw/parlement/AMO10_deputes_actifs_mandats_actifs_organes.json.zip (4.7 Mo)
+2026-11-10T13:01:03.6275681Z 2026-11-10 13:01:03 INFO    [parlement] AMO10 : 574 députés actifs
+2026-11-10T13:01:03.6803384Z 2026-11-10 13:01:03 INFO    [pipelines] téléchargement: https://data.assemblee-nationale.fr/static/openData/repository/17/amo/deputes_senateurs_ministres_legislature/AMO20_dep_sen_min_tous_mandats_et_organes.json.zip
+2026-11-10T13:01:03.7662973Z 2026-11-10 13:01:03 INFO    [pipelines] écrit: /home/runner/work/france-transparence/france-transparence/data/raw/parlement/AMO20_dep_sen_min_tous_mandats_et_organes.json.zip (2.6 Mo)
+2026-11-10T13:01:03.8734881Z 2026-11-10 13:01:03 INFO    [parlement] AMO10 : 0 mandat(s) AN-P9 de sortants clos à leur date de fin publiée (AMO20, 81 députés de la législature sans mandat en cours) ; 0 fiche(s) de sortant sans date de fin publiée, laissée(s) telle(s) quelle(s)
+2026-11-10T13:01:03.8736245Z 2026-11-10 13:01:03 INFO    [parlement] AMO10 : 574 députés, 12 groupes écrits ; état civil : 0 champ(s) préservé(s) sur deputes, 0 sur elus ; 0 fiche(s) deputes et 0 fiche(s) elus non écrite(s) faute de patronyme
+2026-11-10T13:01:03.8757121Z 2026-11-10 13:01:03 INFO    [pipelines] téléchargement: https://data.assemblee-nationale.fr/static/openData/repository/17/loi/scrutins/Scrutins.json.zip
+2026-11-10T13:01:04.0609907Z 2026-11-10 13:01:04 INFO    [pipelines] écrit: /home/runner/work/france-transparence/france-transparence/data/raw/parlement/Scrutins.json.zip (28.9 Mo)
+2026-11-10T13:01:06.6699297Z 2026-11-10 13:01:06 INFO    [parlement] participation 12 mois : 574 députés, 6116 scrutins en fenêtre
+2026-11-10T13:01:06.6699734Z 2026-11-10 13:01:06 INFO    [parlement] scrutins : 9793 en méta, dernier n° 9793 du 2026-11-09
+2026-11-10T13:01:07.6810199Z 2026-11-10 13:01:07 INFO    [pipelines] téléchargement: https://data.senat.fr/data/senateurs/ODSEN_GENERAL.csv
+2026-11-10T13:01:08.5851357Z 2026-11-10 13:01:08 INFO    [pipelines] écrit: /home/runner/work/france-transparence/france-transparence/data/raw/parlement/ODSEN_GENERAL.csv (0.4 Mo)
+2026-11-10T13:01:08.5851976Z 2026-11-10 13:01:08 INFO    [pipelines] téléchargement: https://data.senat.fr/data/senateurs/export_sens.zip
+2026-11-10T13:01:08.7024435Z 2026-11-10 13:01:08 INFO    [pipelines] écrit: /home/runner/work/france-transparence/france-transparence/data/raw/parlement/export_sens.zip (0.0 Mo)
+2026-11-10T13:01:08.7192124Z 2026-11-10 13:01:08 INFO    [parlement] ODSEN : 348 sénateurs en exercice (2012 lignes au total)
+2026-11-10T13:01:08.7194165Z 2026-11-10 13:01:08 ERROR   [parlement] ÉCHEC Sénat ODSEN (sénateurs) : export_sens : table elusen absente ou vide
+2026-11-10T13:01:08.7207080Z 2026-11-10 13:01:08 INFO    [pipelines] téléchargement: https://data.senat.fr/data/dosleg/dosleg.zip
+2026-11-10T13:01:23.1681857Z 2026-11-10 13:01:23 INFO    [pipelines] écrit: /home/runner/work/france-transparence/france-transparence/data/raw/parlement/dosleg.zip (15.4 Mo)
+2026-11-10T13:01:42.9013199Z 2026-11-10 13:01:42 WARNING [parlement] senateurs vide : agrégats de participation Sénat non calculés
+2026-11-10T13:01:42.9017807Z 2026-11-10 13:01:42 INFO    [parlement] Dosleg : 4828 scrutins, 704 titre(s) réparé(s) (contrôles C1 cp1252), dernier session 2026 n° 64 du 2026-11-09
+2026-11-10T13:01:43.4175826Z 2026-11-10 13:01:43 INFO    [pipelines] téléchargement: https://static.data.gouv.fr/resources/deputes-actifs-de-lassemblee-nationale-informations-et-statistiques/20261028-081237/deputes-active.csv
+2026-11-10T13:01:44.0213558Z 2026-11-10 13:01:44 INFO    [pipelines] écrit: /home/runner/work/france-transparence/france-transparence/data/raw/parlement/datan_deputes-active.csv (0.1 Mo)
+2026-11-10T13:01:44.0270059Z 2026-11-10 13:01:44 INFO    [parlement] Datan : 573/574 scores appariés (dateMaj 2026-10-28)
+2026-11-10T13:01:44.0273873Z 2026-11-10 13:01:44 ERROR   [parlement] bilan P9 : 1/5 sources en échec (42 s) : Sénat ODSEN (sénateurs) → export_sens : table elusen absente ou vide
+2026-11-10T13:01:44.0602682Z make: *** [Makefile:105: ingest-parlement] Error 1
+2026-11-10T13:01:44.0616521Z ##[error]Process completed with exit code 2.
+2026-11-10T13:01:44.0746358Z Post job cleanup.
+2026-11-10T13:01:44.1367871Z [command]/usr/bin/git version
+2026-11-10T13:01:44.1410571Z git version 2.56.0

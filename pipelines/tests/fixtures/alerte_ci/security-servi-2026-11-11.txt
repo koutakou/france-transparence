@@ -1,0 +1,6 @@
+# Signalement de vulnérabilité — francetransparence.fr
+Contact: https://github.com/koutakou/france-transparence/issues
+Expires: 2027-08-19T22:03:40Z
+Preferred-Languages: fr, en
+Canonical: https://francetransparence.fr/.well-known/security.txt
+Policy: https://github.com/koutakou/france-transparence

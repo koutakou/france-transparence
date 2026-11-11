@@ -16,7 +16,7 @@
 # 04:45 UTC tombe déjà après `ft-deploy` (05:17 Paris = 03:17 UTC l'été,
 # 04:17 l'hiver), et GitHub retarde les déclenchements planifiés sans borne :
 # sur les 30 derniers runs planifiés au 15/10/2026, départs réels entre 09:25
-# et 12:26 UTC. Une panne amont est donc vue ici LE JOUR MÊME, APRÈS le
+# et 12:26 UTC ; du 01/11 au 11/11/2026, entre 11:19 et 13:22 UTC. Une panne amont est donc vue ici LE JOUR MÊME, APRÈS le
 # passage du serveur, et AVANT son cycle du lendemain — c'est là que le
 # correctif doit tomber.
 #
@@ -30,8 +30,12 @@
 #   - déclenchement manuel (workflow_dispatch), ingestion forçable.
 #
 # Toute étape en échec hors proposition de fusion ouvre (ou commente) une
-# issue « publication-echec » ; le premier cycle planifié vert suivant la ferme
-# (job `suivre`). Le site en ligne, lui, ne dépend pas de ce workflow.
+# issue « publication-echec », ASSIGNÉE au propriétaire du dépôt et qui le
+# mentionne, avec l'étape, la cible et les lignes d'erreur du jour (job
+# `alerter`) ; le premier cycle planifié vert suivant la ferme (job `suivre`).
+# Les sentinelles (301 d'élus, extinction du cron) tournent à chaque cycle
+# planifié, vert ou rouge (job `veiller`). Le site en ligne, lui, ne dépend pas
+# de ce workflow : c'est vigie.yml qui le regarde.
 
 name: publication
 
@@ -53,8 +57,9 @@ on:
 
 # Droits minimaux, job par job. `construire` exécute du code tiers (scripts
 # d'installation npm, téléchargements des pipelines) : il ne reçoit que la
-# lecture du dépôt. Seuls `alerter` et `suivre`, qui n'exécutent que `gh`,
-# écrivent des issues.
+# lecture du dépôt, comme `tests-python-3-10`. Seuls `alerter`, `suivre` et
+# `veiller`, qui n'exécutent que `gh` et les scripts de deploy/ (bibliothèque
+# standard seule), écrivent des issues.
 permissions:
   contents: read
 
@@ -76,7 +81,7 @@ jobs:
     # les 30 derniers au 15/10/2026) : un amont qui pend ne bloque plus le
     # runner deux heures et demie.
     timeout-minutes: 45
-    # Ce que `suivre` lit pour tenir l'issue des 301 d'élus (voir l'étape
+    # Ce que `veiller` lit pour tenir l'issue des 301 d'élus (voir l'étape
     # « Cohérence des redirections 301 »).
     outputs:
       r301_anomalies: ${{ steps.r301.outputs.anomalies }}
@@ -376,7 +381,7 @@ jobs:
       # deux 301 menaient à un 404 en production (renouvellement sénatorial du
       # 27/09), et personne ne l'a lu — un `::warning::` n'apparaît que dans le
       # résumé d'un run vert. L'étape publie donc son verdict en sortie, et le
-      # job `suivre` en tient une issue `redirections-301` sur les cycles
+      # job `veiller` en tient une issue `redirections-301` sur les cycles
       # planifiés : ouverte (ou commentée) tant qu'une anomalie demeure, fermée
       # au premier cycle propre.
       #
@@ -399,7 +404,7 @@ jobs:
         id: r301
         run: |
           set -u
-          # Verdict publié pour le job `suivre`, posé AVANT toute sortie
+          # Verdict publié pour le job `veiller`, posé AVANT toute sortie
           # anticipée : une table illisible est une anomalie, pas un silence.
           verdict() {
             echo "anomalies=$1" >> "$GITHUB_OUTPUT"
@@ -479,45 +484,120 @@ jobs:
           make venv PYTHON=python3
           make test PYTHON=python3 PYTEST_ARGS="-m 'not reseau'"
 
+  # L'ALERTE A UN DESTINATAIRE. Du 22/10 au 11/11/2026, vingt et un cycles
+  # planifiés ont échoué et l'issue #126 a reçu vingt commentaires : personne
+  # ne les a vus. Le dépôt n'avait aucun abonné, l'issue personne d'assigné,
+  # les commentaires aucune mention — GitHub ne notifie alors personne.
+  # L'issue est désormais ASSIGNÉE au propriétaire du dépôt et chaque
+  # commentaire le MENTIONNE (deploy/tenir_issue.py).
+  #
+  # ELLE DIT CE QUI EST TOMBÉ. Huit de ces vingt et un runs étaient tombés
+  # pour une autre raison que les treize autres (cinq pipelines, quatre
+  # serveurs amont) sous vingt commentaires identiques. Le commentaire nomme
+  # le job, l'étape, la cible `make` et la première et la dernière ligne
+  # d'erreur (deploy/diagnostic_ci.py, sur le journal du job) ; le titre est
+  # tenu à jour : « CI rouge depuis le 22/10 (21 jours) — aujourd'hui :
+  # ingest-parlement ». Au-delà de sept jours, une issue de relance distincte
+  # s'ouvre, une par semaine.
+  #
+  # `always()` et non `failure()` : un job interrompu (délai dépassé) doit
+  # alerter comme un job en échec.
   alerter:
-    needs: construire
+    needs: [construire, tests-python-3-10]
     # Un échec sur une proposition de fusion est déjà visible sur la
     # proposition elle-même : ouvrir une issue n'ajouterait que du bruit.
-    if: failure() && github.event_name != 'pull_request'
+    if: always() && github.event_name != 'pull_request' && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled'))
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
+      contents: read
       issues: write
+      # Lecture du journal du job tombé, pour le diagnostic.
+      actions: read
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       # Le texte disait jusqu'au 15/10/2026 « Le site en ligne reste celui du
       # dernier déploiement réussi » : vrai au temps de GitHub Pages, faux
       # depuis le 20/08 — ce run ne déploie rien, et son échec ne dit RIEN de
       # l'état du site. La tentative figure dans le corps : un run relancé
       # commentait deux fois sous le même identifiant (run 37196390136, 04/10).
+      #
+      # Le diagnostic ne doit JAMAIS empêcher l'alerte : chacun de ses gestes
+      # a son repli, et un champ non trouvé est écrit comme tel.
       - name: Ouvrir ou commenter l'issue d'échec
         env:
           GH_TOKEN: ${{ github.token }}
           DEPOT: ${{ github.repository }}
+          PROPRIETAIRE: ${{ github.repository_owner }}
           EVENEMENT: ${{ github.event_name }}
           REFERENCE: ${{ github.ref_name }}
+          RUN: ${{ github.run_id }}
+          TENTATIVE: ${{ github.run_attempt }}
         run: |
           set -eu
-          lien="${{ github.server_url }}/$DEPOT/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
-          corps="Le run [${{ github.run_id }}, tentative ${{ github.run_attempt }}]($lien) du $(date -u +%F) a échoué (événement : $EVENEMENT, référence : $REFERENCE).
+          lien="$GITHUB_SERVER_URL/$DEPOT/actions/runs/$RUN/attempts/$TENTATIVE"
 
-          Ce workflow VALIDE le code et les sources amont ; il ne publie pas le site. francetransparence.fr est construit et basculé par ft-deploy sur le serveur, indépendamment : ce run rouge ne dit rien de l'état du site en ligne. Une panne amont vue ici a pu aussi arrêter le cycle du serveur (le vérifier avec ft-etat) ; un défaut de code est à corriger avant le cycle suivant. Voir docs/deploiement/RUNBOOK.md.
+          # Job et étape tombés, lus dans l'API : quatre lignes (identifiant,
+          # job, conclusion, étape), vides si l'API ne répond pas.
+          gh api "repos/$DEPOT/actions/runs/$RUN/attempts/$TENTATIVE/jobs" --jq '
+            [.jobs[] | select(.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out")][0]
+            | [(.id // ""), (.name // ""), (.conclusion // ""),
+               ([(.steps // [])[] | select(.conclusion != null and .conclusion != "success" and .conclusion != "skipped")][0].name // "")]
+            | .[]' > tombe.txt || : > tombe.txt
+          mapfile -t tombe < tombe.txt
+          job_id="${tombe[0]:-}"; job="${tombe[1]:-}"; conclusion="${tombe[2]:-}"; etape="${tombe[3]:-}"
 
-          Cette issue se ferme d'elle-même au premier cycle planifié vert."
-          titre="Échec de la validation CI — le site en ligne n'est pas concerné"
-          existante=$(gh issue list --repo "$DEPOT" --label publication-echec --state open --json number --jq '.[0].number // empty')
-          if [ -n "$existante" ]; then
-            gh issue comment "$existante" --repo "$DEPOT" --body "$corps"
-          else
-            gh label create publication-echec --repo "$DEPOT" --color D93F0B \
-              --description "La validation CI a échoué — le site en ligne n'est pas concerné" 2>/dev/null || true
-            gh issue create --repo "$DEPOT" --title "$titre" --label publication-echec --body "$corps" \
-              || gh issue create --repo "$DEPOT" --title "$titre" --body "$corps"
+          # `curl` et non `gh api` : le journal porte des séquences
+          # d'échappement de terminal, que `gh` refuse de restituer.
+          : > journal.txt
+          if [ -n "$job_id" ]; then
+            curl -fsSL --max-time 120 -H "Authorization: Bearer $GH_TOKEN" \
+              "$GITHUB_API_URL/repos/$DEPOT/actions/jobs/$job_id/logs" -o journal.txt \
+              || echo "::warning::Journal du job $job_id illisible : diagnostic réduit au nom de l'étape"
           fi
+          python3 deploy/diagnostic_ci.py journal.txt > diagnostic.json || echo '{}' > diagnostic.json
+          cible=$(jq -r '.cible // ""' diagnostic.json)
+          premiere=$(jq -r '.premiere // ""' diagnostic.json)
+          derniere=$(jq -r '.derniere // ""' diagnostic.json)
+
+          # Ce qui nomme la panne du jour, dans le titre et dans le marqueur
+          # d'état : la cible d'ingestion si c'en est une, sinon l'étape.
+          case "$cible" in
+            ingest-*) motif="$cible" ;;
+            *) motif="${etape:-${job:-cause non relevée}}" ;;
+          esac
+          echo "Tombé : job=${job:-?} (${conclusion:-?}) étape=${etape:-?} cible=${cible:-aucune} — motif : $motif"
+
+          {
+            echo "**CI rouge depuis le {depuis} ({duree}).** Le run [$RUN, tentative $TENTATIVE]($lien) du $(date -u +%d/%m/%Y) a échoué (événement : $EVENEMENT, référence : $REFERENCE)."
+            echo
+            echo "- Job : \`${job:-non relevé}\` (${conclusion:-conclusion non relevée})"
+            echo "- Étape tombée : \`${etape:-non relevée}\`"
+            echo "- Cible \`make\` : \`${cible:-aucune}\`"
+            echo "- Run rouge précédent : \`{precedent}\`"
+            echo
+            if [ -n "$premiere" ]; then
+              echo "Première ligne d'erreur :"
+              printf '%s\n' "\`\`\`" "$premiere" "\`\`\`"
+              echo "Dernière ligne d'erreur :"
+              printf '%s\n' "\`\`\`" "$derniere" "\`\`\`"
+            else
+              echo "Aucune ligne d'erreur relevée dans le journal (job interrompu, ou journal illisible) : lire le run."
+            fi
+            echo
+            echo "Ce workflow VALIDE le code et les sources amont ; il ne publie pas le site. francetransparence.fr est construit et basculé par ft-deploy sur le serveur, indépendamment : ce run rouge ne dit rien de l'état du site en ligne (c'est l'issue \`site-fige\` de la vigie qui le dit). Une panne amont vue ici a pu aussi arrêter le cycle du serveur (le vérifier avec ft-etat) ; un défaut de code est à corriger avant le cycle suivant. Voir docs/deploiement/RUNBOOK.md."
+            echo
+            echo "Cette issue se ferme d'elle-même au premier cycle planifié vert."
+          } > corps.md
+
+          python3 deploy/tenir_issue.py signaler --label publication-echec \
+            --titre "CI rouge depuis le {depuis} ({duree}) — aujourd'hui : $motif" \
+            --corps-fichier corps.md --etat "$motif" --couleur D93F0B \
+            --description "La validation CI a échoué — le site en ligne n'est pas concerné"
+          python3 deploy/tenir_issue.py relancer --label publication-echec \
+            --label-relance ci-rouge-persistant \
+            --titre "La validation CI est rouge depuis {duree} — relance"
 
   # Le pendant de `alerter`, qui manquait : rien ne fermait jamais l'issue
   # d'échec. #105, ouverte le 12/09/2026 sur un run depuis relancé et conclu
@@ -528,67 +608,101 @@ jobs:
   # neuve, c'est la preuve la plus forte que la chaîne tient. Un push vert sur
   # base en cache ne prouve pas qu'une panne amont est passée.
   suivre:
-    needs: construire
-    if: github.event_name == 'schedule' && needs.construire.result == 'success'
+    needs: [construire, tests-python-3-10]
+    if: github.event_name == 'schedule' && needs.construire.result == 'success' && needs.tests-python-3-10.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
+      contents: read
       issues: write
     env:
       GH_TOKEN: ${{ github.token }}
       DEPOT: ${{ github.repository }}
       LIEN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       - name: Fermer l'issue d'échec de validation (cycle planifié vert)
         run: |
           set -eu
-          ouvertes=$(gh issue list --repo "$DEPOT" --label publication-echec --state open --json number --jq '.[].number')
-          if [ -z "$ouvertes" ]; then
-            echo "Aucune issue publication-echec ouverte."
-          fi
-          for n in $ouvertes; do
-            gh issue close "$n" --repo "$DEPOT" --reason completed \
-              --comment "Rétabli : le cycle planifié [${{ github.run_id }}]($LIEN) du $(date -u +%F) est vert (ingestion complète, tests, build, contrôles de santé)."
-            echo "Issue #$n fermée."
-          done
+          message="Rétabli : le cycle planifié [${{ github.run_id }}]($LIEN) du $(date -u +%F) est vert (ingestion complète, tests, build, contrôles de santé)."
+          python3 deploy/tenir_issue.py retablir --label publication-echec \
+            --message "$message" --titre "CI rouge du {depuis} au $(date -u +%d/%m) — rétablie"
+          python3 deploy/tenir_issue.py retablir --label ci-rouge-persistant --message "$message"
+
+  # LES SENTINELLES NE DÉPENDENT PAS DE CE QU'ELLES SURVEILLENT. L'issue des
+  # 301 d'élus et l'avertissement d'extinction du cron vivaient dans `suivre`,
+  # qui ne tourne que sur cycle VERT : du 22/10 au 11/11/2026, vingt et un
+  # runs rouges, vingt et un `suivre → skipped`. L'avertissement d'extinction
+  # (dû le 29/11, pour une extinction vers le 14/12) ne serait jamais parti,
+  # et le cron éteint aurait fait taire jusqu'à l'issue d'échec.
+  #
+  # Ce job tourne donc à CHAQUE cycle planifié, quel que soit le sort de
+  # `construire` (`always()`). Il l'attend seulement pour lire le verdict des
+  # 301, quand il existe.
+  veiller:
+    needs: construire
+    if: always() && github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      # Réactivation préventive des workflows planifiés (dernière étape).
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DEPOT: ${{ github.repository }}
+      PROPRIETAIRE: ${{ github.repository_owner }}
+      LIEN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Tenue de l'issue des 301 d'élus à partir du verdict de `construire`.
       # Toujours une ligne au journal, anomalie ou non : un contrôle muet au
-      # vert est indiscernable d'un contrôle débranché.
+      # vert est indiscernable d'un contrôle débranché. Si `construire` est
+      # tombé avant le contrôle, il n'y a pas de verdict : c'est dit, et
+      # l'issue reste dans l'état où elle était.
       - name: Tenir l'issue des redirections 301 d'élus
         env:
           ANOMALIES: ${{ needs.construire.outputs.r301_anomalies }}
           DETAIL: ${{ needs.construire.outputs.r301_detail }}
+          RESULTAT: ${{ needs.construire.result }}
         run: |
           set -eu
-          echo "Verdict 301 : anomalies=${ANOMALIES:-absent} — ${DETAIL:-aucun détail}"
-          existante=$(gh issue list --repo "$DEPOT" --label redirections-301 --state open --json number --jq '.[0].number // empty')
+          echo "Verdict 301 : anomalies=${ANOMALIES:-absent} — ${DETAIL:-aucun détail} (construire : $RESULTAT)"
           if [ "${ANOMALIES:-}" = "oui" ]; then
-            corps="Cycle planifié [${{ github.run_id }}]($LIEN) du $(date -u +%F) : $DETAIL
-
-          La table deploy/redirections-elus.tsv est la source de vérité du snippet nginx des 301 d'élus. Procédure : docs/REDIRECTIONS-ELUS.md (corriger la table par une proposition de fusion, puis, après le déploiement, rejouer /root/poser-301-d22.sh sur le serveur). Cette issue se ferme d'elle-même au premier cycle planifié sans anomalie."
-            if [ -n "$existante" ]; then
-              gh issue comment "$existante" --repo "$DEPOT" --body "$corps"
-            else
-              gh label create redirections-301 --repo "$DEPOT" --color FBCA04 \
-                --description "Une redirection 301 d'élu mène à un 404 ou masque une fiche servie" 2>/dev/null || true
-              gh issue create --repo "$DEPOT" --title "Redirections 301 d'élus : la table ne correspond plus aux fiches servies" \
-                --label redirections-301 --body "$corps"
-            fi
-          elif [ "${ANOMALIES:-}" = "non" ] && [ -n "$existante" ]; then
-            gh issue close "$existante" --repo "$DEPOT" --reason completed \
-              --comment "Rétabli : le cycle planifié [${{ github.run_id }}]($LIEN) du $(date -u +%F) ne relève plus d'anomalie ($DETAIL). Le snippet nginx du serveur, hors dépôt, se vérifie par ft-controle-301."
-          elif [ -z "${ANOMALIES:-}" ]; then
-            echo "::warning::Le contrôle des 301 n'a publié aucun verdict : l'issue redirections-301 n'est pas tenue ce jour."
+            {
+              echo "Cycle planifié [${{ github.run_id }}]($LIEN) du $(date -u +%F) : $DETAIL"
+              echo
+              echo "La table deploy/redirections-elus.tsv est la source de vérité du snippet nginx des 301 d'élus. Procédure : docs/REDIRECTIONS-ELUS.md (corriger la table par une proposition de fusion, puis, après le déploiement, rejouer /root/poser-301-d22.sh sur le serveur). Cette issue est relancée une fois par semaine tant que le constat ne change pas, et se ferme d'elle-même au premier cycle planifié sans anomalie."
+            } > corps.md
+            python3 deploy/tenir_issue.py signaler --label redirections-301 \
+              --titre "Redirections 301 d'élus : la table ne correspond plus aux fiches servies" \
+              --corps-fichier corps.md --etat "$(printf '%s' "$DETAIL" | sha256sum | cut -c1-16)" \
+              --relance-jours 7 --couleur FBCA04 \
+              --description "Une redirection 301 d'élu mène à un 404 ou masque une fiche servie"
+          elif [ "${ANOMALIES:-}" = "non" ]; then
+            python3 deploy/tenir_issue.py retablir --label redirections-301 \
+              --message "Rétabli : le cycle planifié [${{ github.run_id }}]($LIEN) du $(date -u +%F) ne relève plus d'anomalie ($DETAIL). Le snippet nginx du serveur, hors dépôt, se vérifie par ft-controle-301."
+          else
+            echo "::warning::Le contrôle des 301 n'a publié aucun verdict (construire : $RESULTAT) : l'issue redirections-301 n'est pas tenue ce jour."
           fi
 
       # GitHub DÉSACTIVE les workflows planifiés d'un dépôt public après 60 jours
       # sans activité, sans qu'aucune issue ne s'ouvre : un run qui n'a pas lieu
-      # n'échoue pas. Cette CI étant la seule sentinelle indépendante du
-      # serveur, son extinction serait silencieuse. Mesure retenue, la plus
-      # simple et sans activité factice (aucun commit automatique) : prévenir
-      # quinze jours avant, par une issue, à partir de la date du dernier commit
-      # de main — la référence la plus prudente de ce qui compte comme activité.
+      # n'échoue pas. Cette CI et la vigie étant les seules sentinelles
+      # indépendantes du serveur, leur extinction serait silencieuse.
+      #
+      # Deux mesures, sans activité factice (aucun commit automatique) :
+      #   1. PRÉVENIR quinze jours avant, par une issue assignée, à partir de
+      #      la date du dernier commit de main — la référence la plus prudente
+      #      de ce qui compte comme activité ;
+      #   2. RÉACTIVER les deux workflows planifiés par l'API à partir du même
+      #      seuil (`PUT …/actions/workflows/<fichier>/enable`). L'usage veut
+      #      que cet appel remette le compteur à zéro ; GITHUB NE LE DOCUMENTE
+      #      PAS. C'est donc un filet, pas une garantie : l'avertissement
+      #      reste, et il dit si le cron a survécu à l'échéance.
       #
       # La branche vient de `github.ref_name`, pas de
       # `github.event.repository.default_branch` : un événement `schedule` n'a
@@ -605,20 +719,39 @@ jobs:
           age=$(( ( $(date -u +%s) - $(date -u -d "$dernier" +%s) ) / 86400 ))
           echeance=$(date -u -d "$dernier + 60 days" +%F)
           echo "Dernier commit sur $BRANCHE : $dernier, il y a $age jour(s) ; extinction du cron vers le $echeance sans nouvelle activité."
-          existante=$(gh issue list --repo "$DEPOT" --label cron-echeance --state open --json number --jq '.[0].number // empty')
-          if [ "$age" -ge 45 ]; then
-            corps="Le dernier commit sur $BRANCHE date du $dernier ($age jours). GitHub désactive les workflows planifiés d'un dépôt public après 60 jours sans activité : la validation quotidienne s'éteindra vers le $echeance, en silence.
-
-          Toute fusion sur $BRANCHE repousse l'échéance. Si GitHub l'a déjà désactivée : gh workflow enable publication.yml --repo $DEPOT. Cette issue se ferme d'elle-même quand l'échéance s'éloigne."
-            if [ -n "$existante" ]; then
-              gh issue comment "$existante" --repo "$DEPOT" --body "$corps"
-            else
-              gh label create cron-echeance --repo "$DEPOT" --color C5DEF5 \
-                --description "Le cron de validation CI approche de son extinction automatique" 2>/dev/null || true
-              gh issue create --repo "$DEPOT" --title "La validation CI quotidienne s'éteindra vers le $echeance faute d'activité" \
-                --label cron-echeance --body "$corps"
-            fi
-          elif [ -n "$existante" ]; then
-            gh issue close "$existante" --repo "$DEPOT" --reason completed \
-              --comment "Échéance repoussée : dernier commit sur $BRANCHE il y a $age jour(s), extinction vers le $echeance."
+          if [ "$age" -lt 45 ]; then
+            echo "Réactivation préventive : non jouée avant le 45e jour."
+            python3 deploy/tenir_issue.py retablir --label cron-echeance \
+              --message "Échéance repoussée : dernier commit sur $BRANCHE il y a $age jour(s), extinction vers le $echeance."
+            exit 0
           fi
+          reactivation=
+          for fichier in publication.yml vigie.yml; do
+            if gh api -X PUT "repos/$DEPOT/actions/workflows/$fichier/enable" >/dev/null; then
+              echo "Réactivation préventive de $fichier : acceptée par l'API."
+              reactivation="$reactivation $fichier : acceptée ;"
+            else
+              echo "::warning::Réactivation préventive de $fichier refusée par l'API"
+              reactivation="$reactivation $fichier : REFUSÉE ;"
+            fi
+          done
+          if [ "$age" -lt 60 ]; then
+            etat="avant-$echeance"
+            titre="La validation CI et la vigie s'éteindront vers le $echeance faute d'activité"
+            constat="GitHub désactive les workflows planifiés d'un dépôt public après 60 jours sans activité : la validation quotidienne et la vigie du site s'éteindraient vers le $echeance, en silence."
+          else
+            etat="apres-$echeance"
+            titre="Aucune activité depuis $age jours : la validation CI et la vigie ne tiennent que par réactivation"
+            constat="L'échéance des 60 jours ($echeance) est passée et ce cycle planifié a pourtant tourné : la réactivation préventive tient, ou GitHub compte une autre activité que les commits de $BRANCHE. Rien ne garantit que cela dure."
+          fi
+          {
+            echo "Le dernier commit sur $BRANCHE date du $dernier ($age jours). $constat"
+            echo
+            echo "Réactivation préventive jouée à ce cycle (effet non documenté par GitHub) :$reactivation"
+            echo
+            echo "Toute fusion sur $BRANCHE repousse l'échéance pour de bon. Si GitHub a désactivé les workflows : gh workflow enable publication.yml --repo $DEPOT, puis de même pour vigie.yml. Cette issue est relancée une fois par semaine, et se ferme d'elle-même quand l'échéance s'éloigne."
+          } > corps.md
+          python3 deploy/tenir_issue.py signaler --label cron-echeance \
+            --titre "$titre" \
+            --corps-fichier corps.md --etat "$etat" --relance-jours 7 --couleur C5DEF5 \
+            --description "Les workflows planifiés approchent de leur extinction automatique"
