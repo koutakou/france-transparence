@@ -41,7 +41,12 @@ updates:
     commit-message:
       prefix: "Dépendances app"
 
-  # Pipelines Python (requirements.txt, bornes basses `>=`).
+  # Pipelines Python (requirements.txt, versions FIGÉES `==`, transitives
+  # comprises). C'est la seule voie par laquelle une version publiée en amont
+  # entre dans la chaîne : avec des bornes basses, DuckDB 2.0 s'est installé
+  # de lui-même et a fait échouer tous les cycles à partir du 22/10/2026.
+  # ⚠ DuckDB 2.x exige Python >= 3.11 : la CI (3.14) ne voit pas un échec
+  # d'installation sur la venv du serveur (docs/ACTIONS-HUMAINES.md).
   - package-ecosystem: pip
     directory: /
     schedule:
