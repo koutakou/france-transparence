@@ -109,6 +109,25 @@ export function getMetaJorf(): MetaSource | null {
 }
 
 /**
+ * Débuts de la note S3 quand la fenêtre n'est pas ce que son nom promet :
+ * moins de JO que visé (base neuve devant un index DILA réduit après la
+ * régénération du stock), ou un intervalle sans JO en base. Écrits par
+ * `pipelines/ingest_jorf.py` (MARQUE_FENETRE_REDUITE,
+ * MARQUE_FENETRE_DISCONTINUE) : ne pas les reformuler d'un seul côté.
+ */
+const MARQUES_FENETRE_SIGNALEE = ["Fenêtre réduite", "Fenêtre discontinue"];
+
+/**
+ * Note datée du pipeline, à afficher TELLE QUELLE au contact du compte de
+ * JO, ou `null` quand la fenêtre est pleine et continue.
+ */
+export function noteFenetreSignalee(meta: MetaSource | null): string | null {
+  const note = meta?.notes?.trim();
+  if (!note) return null;
+  return MARQUES_FENETRE_SIGNALEE.some((m) => note.startsWith(m)) ? note : null;
+}
+
+/**
  * KPI de cadrage. Testé le 19/08/2026 : 2778 textes, 1065 nominations,
  * 30 JO du 2026-07-14 au 2026-08-19 ; dernier JO 83 textes / 41 nominations ;
  * 369 textes sans ministère.

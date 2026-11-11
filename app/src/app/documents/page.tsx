@@ -29,6 +29,7 @@ import {
   getFluxTextes,
   getJorfKpis,
   getMetaJorf,
+  noteFenetreSignalee,
   getNominationsParMinistere,
   getParutionsParJour,
   getRepartitionNatures,
@@ -140,6 +141,9 @@ export default async function DocumentsPage() {
     );
   }
 
+  // Fenêtre réduite ou discontinue : la note datée du pipeline, telle quelle.
+  const noteFenetre = noteFenetreSignalee(meta);
+
   const naturesFiltre = natures.flatMap((n) => (n.nature ? [{ code: n.nature, nb: n.nb }] : []));
 
   // Première page du flux complet, rendue dans le HTML statique — filtres
@@ -210,6 +214,9 @@ export default async function DocumentsPage() {
             {formatDateFr(kpis.premierJo)} au {formatDateFr(kpis.dernierJo)}.
             Chaque texte renvoie vers Légifrance.
           </p>
+          {noteFenetre ? (
+            <p className="mt-2 text-sm text-ink-secondary">{noteFenetre}.</p>
+          ) : null}
         </div>
         {meta && (
           <FreshnessBadge
