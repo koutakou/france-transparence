@@ -406,7 +406,9 @@ FAITS: list[dict] = [
          notes="Rapport, p. 17 : montant arrondi par la Cour (24 M€ en 2024 sur le même "
                "périmètre). Réceptions comprises : ce n'est pas le seul coût des "
                "déplacements. 31 déplacements en Europe et 24 hors d'Europe ou "
-               "outre-mer, contre 25 et 16 en 2024."),
+               "outre-mer. Ce décompte par zone est celui de ce rapport ; il ne se "
+               "compare pas à celui du rapport sur 2024 (34 internationaux, 3 "
+               "outre-mer), qui ne découpe pas les zones de la même façon."),
     dict(id="elysee-dotation-2024", categorie="elysee",
          libelle="Dotation de l'État à la présidence de la République (LFI 2024)",
          valeur=122563852.0, unite="euros", periode="2024",
