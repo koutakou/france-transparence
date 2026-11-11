@@ -250,7 +250,8 @@ def verdict_echeances(maintenant: datetime, lire=telecharger,
         trouves = anomalies_security_txt(lire(URL_SECURITY_TXT), maintenant)
     except Illisible as erreur:
         trouves = [f"security.txt : non vérifiable — {erreur}"]
-    print("security.txt servi : " + ("conforme." if not trouves else "; ".join(trouves)))
+    print("Fichier servi — " + ("security.txt : conforme." if not trouves
+                                 else "; ".join(trouves)))
     if trouves:
         constats.extend(trouves)
         cles.append("securitytxt")
@@ -318,8 +319,8 @@ def main(argv: list[str] | None = None) -> int:
             CORPS_ECHEANCES.format(
                 lien=lien, liste="\n".join(f"- {c}" for c in echeances["constats"])),
             echeances["etat"], relance_jours=7, couleur="FBCA04",
-            description="Certificat, nom de domaine ou security.txt du site en "
-                        "ligne : échéance proche ou fichier non conforme",
+            description="Site en ligne : certificat, nom de domaine ou "
+                        "security.txt à échéance proche ou non conforme",
         )
     else:
         tenir_issue.retablir(

@@ -46,6 +46,13 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+# GitHub refuse (HTTP 422) une description de label de plus de 100
+# caractères. Le premier essai réel de la vigie, le 11/11/2026, en portait
+# 101 : le label n'a pas été créé, et l'issue est née sans label ni personne
+# assignée — donc introuvable au passage suivant, qui en aurait ouvert une
+# autre chaque jour.
+DESCRIPTION_LABEL_MAX = 100
+
 # Au-delà de cette durée, un constat qui dure reçoit une issue de relance
 # distincte, puis une nouvelle par période de même longueur.
 RELANCE_DISTINCTE_JOURS = 7
@@ -150,13 +157,18 @@ def signaler(depot: str, proprietaire: str, label: str, titre: str, corps: str,
              + f"\n\n<!-- etat: {etat} -->")
 
     if not existante:
+        if len(description) > DESCRIPTION_LABEL_MAX:
+            raise ValueError(
+                f"description du label {label} : {len(description)} caractères, "
+                f"GitHub en accepte {DESCRIPTION_LABEL_MAX}")
         _essayer("label", "create", label, "--repo", depot, "--color", couleur,
                  "--description", description, "--force")
         base = ["issue", "create", "--repo", depot, "--title", titre, "--body", texte]
-        # Du plus complet au plus nu : une issue sans label ni personne
-        # assignée vaut mieux que pas d'issue (la mention reste dans le corps).
+        # Du plus complet au plus nu : une issue incomplète vaut mieux que pas
+        # d'issue (la mention reste dans le corps). Mais sans son label, le
+        # passage suivant ne la retrouvera pas : c'est dit en avertissement.
         for supplement in (["--label", label, "--assignee", proprietaire],
-                           ["--label", label], []):
+                           ["--label", label], ["--assignee", proprietaire], []):
             try:
                 url = gh(*base, *supplement).strip()
                 break
@@ -166,7 +178,15 @@ def signaler(depot: str, proprietaire: str, label: str, titre: str, corps: str,
         else:
             raise SystemExit("impossible d'ouvrir l'issue d'alerte")
         numero = int(url.rstrip("/").rsplit("/", 1)[-1])
-        print(f"Issue #{numero} ouverte ({label}), assignée à {proprietaire} : {titre}")
+        manques = [nom for nom, option in (("label", "--label"), ("assignation", "--assignee"))
+                   if option not in supplement]
+        if manques:
+            print(f"::warning::Issue #{numero} ouverte SANS {' ni '.join(manques)} "
+                  f"({label}) : à compléter à la main, sinon elle ne sera pas "
+                  "retrouvée au prochain passage")
+        print(f"Issue #{numero} ouverte ({label}"
+              + (f", assignée à {proprietaire}" if "--assignee" in supplement else "")
+              + f") : {titre}")
         return numero, "ouverte"
 
     numero = existante["number"]
