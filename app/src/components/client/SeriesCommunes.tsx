@@ -20,7 +20,7 @@ import type {
  * Grandes communes — sélection d'une commune CÔTÉ CLIENT, sur le modèle de
  * SeriesCollectivites (régions/départements) : le tableau des 200 communes
  * est rendu dans le HTML statique ; au premier clic, le fragment
- * /data/collectivites/series-communes.json (séries 2018-2025 + médianes de
+ * /data/collectivites/series-communes.json (séries annuelles + médianes de
  * strate, pré-générées) est chargé une fois, puis tout est instantané.
  * L'URL `?commune=<code INSEE>` est restaurée au montage.
  *
@@ -62,6 +62,8 @@ export interface SeriesCommunesProps {
   lignes: LigneGrandeCommune[];
   /** max-height CSS du tableau une fois tout affiché. */
   hauteurMax?: string;
+  /** Période des séries (« 2018-2025 »), lue en base par la page ; `null` si inconnue. */
+  periodeSeries?: string | null;
 }
 
 let seriesPromesse: Promise<SeriesCommunesData | null> | null = null;
@@ -212,7 +214,7 @@ function BlocSerieCommune({
 /** Lignes rendues avant « Tout afficher » (le reste voyage déjà en props). */
 const PREMIER_ECRAN = 20;
 
-export function SeriesCommunes({ lignes, hauteurMax }: SeriesCommunesProps) {
+export function SeriesCommunes({ lignes, hauteurMax, periodeSeries = null }: SeriesCommunesProps) {
   // Sélection : état initial restauré d'une URL partagée `?commune=…`
   // (validée), surchargé par tout clic (y compris le retour).
   const urlInitiale = new URLSearchParams(useUrlInitiale());
@@ -336,9 +338,9 @@ export function SeriesCommunes({ lignes, hauteurMax }: SeriesCommunesProps) {
         </p>
       )}
       <p className="mt-2 text-[11px] text-ink-muted">
-        Sélectionner une commune pour afficher son évolution 2018-2025 (fonctionnement et
-        investissement séparés, en €/habitant), comparée uniquement à la médiane de sa
-        strate démographique.
+        Sélectionner une commune pour afficher son évolution
+        {periodeSeries ? ` ${periodeSeries}` : ""} (fonctionnement et investissement séparés,
+        en €/habitant), comparée uniquement à la médiane de sa strate démographique.
       </p>
     </div>
   );

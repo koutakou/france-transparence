@@ -64,9 +64,12 @@ Tables produites (SQLite, possédées par ce pipeline, delete+insert idempotent)
 Module UI : « Finances locales » (carte départementale, fiches région/
 département avec séries par grande catégorie, grandes communes avec séries
 2018-2025 comparées à la médiane de leur strate, dotations DGF) + carte de
-l'Accueil. Fraîcheur affichable : « Comptes N provisoires jusqu'en décembre
-N+1 » (le nombre de communes sans comptes est relu à chaque cycle dans le jeu
-OFGL « Disponibilité des comptes des communes », DATASET_DISPONIBILITE) · « Dotations de l'État : exercice N ».
+l'Accueil. Fraîcheur affichable : « Comptes N provisoires » tant que la
+lecture précède le 1er décembre N+1 (`comptes_provisoires`), « Comptes N lus
+le JJ/MM/AAAA » ensuite, sans jamais les dire définitifs ; le nombre de
+communes sans comptes est relu à chaque cycle dans le jeu OFGL
+« Disponibilité des comptes des communes » (DATASET_DISPONIBILITE)
+· « Dotations de l'État : exercice N ».
 
 Exécution : `python -m pipelines.ingest_collectivites` (FT_DB_PATH pour une
 base jetable). Idempotent ; échec → exit 1 sans données partielles commitées.
@@ -75,6 +78,7 @@ base jetable). Idempotent ; échec → exit 1 sans données partielles commitée
 from __future__ import annotations
 
 import sys
+from datetime import date
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -94,6 +98,16 @@ EXERCICE_COMPTES = 2025
 SERIE_DEBUT = 2018
 DGF_ANNEES = list(range(2018, 2027))  # 2018 → 2026 inclus
 ANNEE_DGF_DETAIL = 2026
+
+# Calendrier de l'OFGL (description du jeu ofgl-base-communes, relue le
+# 11/11/2026) : les comptes N sont chargés en juillet N+1 sur les balances
+# provisoires de la DGFiP, et les communes manquantes « seront intégrées fin
+# décembre, avec la publication par la DGFiP des balances comptables
+# définitives ». Avant le 1er décembre N+1, des comptes lus sont donc
+# provisoires ; à partir de là, ce pipeline ne sait pas si l'OFGL a déjà
+# intégré les balances définitives, et il ne dit plus « provisoires » sans
+# dire pour autant « définitifs ». Même règle côté app (lib/comptes-locaux.ts).
+MOIS_FIN_PROVISOIRE = 12  # 1er décembre de N+1
 
 TOP_COMMUNES = 200
 # Jeu OFGL qui dit, commune par commune, si les comptes d'un exercice sont
@@ -733,9 +747,26 @@ def _nombre(n: int) -> str:
     return f"{n:_d}".replace("_", "\u202f")
 
 
-def phrase_comptes_provisoires(exercice: int, disponibilite: tuple[int, int] | None) -> str:
-    """Début de la note S16, dérivé des données (aucun compte en dur)."""
-    debut = f"Comptes {exercice} provisoires jusqu'à déc. {exercice + 1}"
+def comptes_provisoires(exercice: int, jour_lecture: date) -> bool:
+    """Des comptes de l'exercice lus ce jour-là sont-ils certainement
+    provisoires ? Vrai avant le 1er décembre N+1 (calendrier de l'OFGL)."""
+    return jour_lecture < date(exercice + 1, MOIS_FIN_PROVISOIRE, 1)
+
+
+def phrase_comptes_provisoires(
+    exercice: int, disponibilite: tuple[int, int] | None, jour_lecture: date
+) -> str:
+    """Début de la note S16, dérivé des données et du jour de lecture (aucun
+    compte en dur). « provisoires » n'est écrit que tant que c'est certain :
+    passé le 1er décembre N+1, la note date la lecture et rappelle le
+    calendrier de l'OFGL, sans qualifier la version lue."""
+    if comptes_provisoires(exercice, jour_lecture):
+        debut = f"Comptes {exercice} provisoires jusqu'à déc. {exercice + 1}"
+    else:
+        debut = (f"Comptes {exercice} lus le {jour_lecture:%d/%m/%Y}, sans "
+                 f"distinction ici entre version provisoire et définitive "
+                 f"(l'OFGL intègre fin déc. {exercice + 1} les balances "
+                 f"définitives de la DGFiP)")
     if disponibilite is None:
         return f"{debut} (nombre de communes sans comptes publiés : non disponible)"
     sans, avec = disponibilite
@@ -1001,7 +1032,7 @@ def executer() -> None:
             date_donnees=f"{EXERCICE_COMPTES}-12-31",
             lignes=sum(comptes.values()),
             notes=(
-                f"{phrase_comptes_provisoires(EXERCICE_COMPTES, disponibilite)} ; "
+                f"{phrase_comptes_provisoires(EXERCICE_COMPTES, disponibilite, date.today())} ; "
                 f"dotations DGF jusqu'à l'exercice {ANNEE_DGF_DETAIL}. "
                 f"Séries communales {SERIE_DEBUT}-{EXERCICE_COMPTES} (top {TOP_COMMUNES}, "
                 f"budgets principaux) et médianes d'€/hab par strate démographique "

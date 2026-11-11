@@ -296,6 +296,22 @@ export function getGrandesCommunes(): GrandeCommune[] | null {
   return db.prepare(sql).all() as GrandeCommune[];
 }
 
+/**
+ * Premier et dernier exercice des séries communales (sélection « au clic »),
+ * lus en base plutôt qu'écrits dans le texte. `null` si la table est vide.
+ */
+export function getPeriodeSeriesCommunes(): { debut: number; fin: number } | null {
+  const db = getDb();
+  if (!db) return null;
+  const p = db
+    .prepare(
+      `SELECT MIN(exercice) AS debut, MAX(exercice) AS fin
+       FROM collectivites_communes_series`,
+    )
+    .get() as { debut: number | null; fin: number | null };
+  return p.debut !== null && p.fin !== null ? { debut: p.debut, fin: p.fin } : null;
+}
+
 /* ------------------------------------------------------------------ */
 /* Dotations DGF 2026 (communes ≥ 20 000 hab, départements)            */
 /* ------------------------------------------------------------------ */
