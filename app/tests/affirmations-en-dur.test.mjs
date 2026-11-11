@@ -148,6 +148,11 @@ const INTERDITS = [
     "le décret le plus récent est celui qui est ingéré, nommé, pas « celui en vigueur »",
   ],
   [
+    "app/frais/page.tsx",
+    /dotations 2026|pour 2026"|au PLF 2026|DGCL au 01\/01\/2026/,
+    "le millésime d'un en-tête de catégorie se lit dans les faits du groupe",
+  ],
+  [
     "app/depenses/page.tsx",
     /formatValeur=\{\(v\) => formatEuros\(v, "Md"\)\}/,
     "un montant en Md€ s'arrondit à une décimale fixe, comme sur l'accueil",

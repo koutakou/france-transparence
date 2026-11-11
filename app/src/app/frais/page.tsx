@@ -7,6 +7,7 @@ import { Money } from "@/components/ui/Money";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { ESPACE_FINE, formatDateFr, formatNombre, formatPct } from "@/lib/format";
 import {
+  dateSourceCommune,
   getFraisData,
   getVerrousCada,
   grouperParCategorie,
@@ -16,6 +17,7 @@ import {
   PERIMETRE_LFI2026_AN,
   PERIMETRE_LFI2026_SENAT,
   PERIMETRE_REVERSEMENTS_AN,
+  periodeCommune,
   SENS_REFUS,
   type TrainvieCategorie,
   type TrainvieFait,
@@ -397,7 +399,23 @@ function CarteDesVerrous({ data }: { data: VerrousCadaData }) {
 }
 
 /** Titres et sous-titres des 7 catégories de faits. */
-const CATEGORIES: { cle: TrainvieCategorie; titre: string; sousTitre: string }[] = [
+/**
+ * En-têtes des catégories. Un millésime n'y est jamais écrit : il se lit
+ * dans les faits du groupe (`periode`, `date_source`), et disparaît quand
+ * ils n'en partagent pas un seul.
+ */
+type EnTeteCategorie = {
+  cle: TrainvieCategorie;
+  titre: string | ((faits: TrainvieFait[]) => string);
+  sousTitre: string | ((faits: TrainvieFait[]) => string);
+};
+
+const avecPeriode = (texte: string, faits: TrainvieFait[]) => {
+  const p = periodeCommune(faits);
+  return p ? `${texte} ${p}` : texte;
+};
+
+const CATEGORIES: EnTeteCategorie[] = [
   {
     cle: "indemnites_parlementaires",
     titre: "Indemnités parlementaires",
@@ -424,19 +442,23 @@ const CATEGORIES: { cle: TrainvieCategorie; titre: string; sousTitre: string }[]
   },
   {
     cle: "institutions",
-    titre: "Institutions — dotations 2026",
-    sousTitre: "Mission « Pouvoirs publics » de la loi de finances initiale pour 2026",
+    titre: (faits) => avecPeriode("Institutions — dotations", faits),
+    sousTitre: (faits) =>
+      avecPeriode("Mission « Pouvoirs publics » de la loi de finances initiale pour", faits),
   },
   {
     cle: "cabinets",
     titre: "Cabinets ministériels",
-    sousTitre: "Jaune budgétaire annexé au PLF 2026 — situation au 01/07/2025",
+    sousTitre: (faits) => {
+      const d = dateSourceCommune(faits);
+      return `Jaune budgétaire « Personnels affectés dans les cabinets ministériels »${d ? ` — situation au ${formatDateSourceFr(d)}` : ""}`;
+    },
   },
   {
     cle: "elus_locaux",
     titre: "Élus locaux — barèmes",
-    sousTitre:
-      "Indemnités maximales publiées par la DGCL au 01/01/2026 — les montants réellement versés ne sont pas centralisés",
+    sousTitre: (faits) =>
+      `${avecPeriode("Indemnités maximales publiées par la DGCL, barème", faits)} — les montants réellement versés ne sont pas centralisés`,
   },
 ];
 
@@ -618,11 +640,13 @@ export default async function FraisPage() {
       <div className="grid items-start gap-4 lg:grid-cols-2">
         {groupes.map((groupe) => {
           const infos = CATEGORIES.find((c) => c.cle === groupe.categorie);
+          const texte = (v: EnTeteCategorie["titre"] | undefined) =>
+            typeof v === "function" ? v(groupe.faits) : v;
           return (
             <Card
               key={groupe.categorie}
-              titre={infos?.titre ?? groupe.categorie}
-              sousTitre={infos?.sousTitre}
+              titre={texte(infos?.titre) ?? groupe.categorie}
+              sousTitre={texte(infos?.sousTitre)}
             >
               <ul className="flex flex-col">
                 {groupe.faits.map((fait, i) => (
