@@ -82,7 +82,11 @@ def test_toute_dependance_transitive_installee_est_figee():
     figes = {canonicalize_name(e.name) for e in EXIGENCES}
     manquantes = set()
     for exigence in applicables(EXIGENCES):
-        for brute in metadata.requires(exigence.name) or []:
+        try:
+            requises = metadata.requires(exigence.name) or []
+        except metadata.PackageNotFoundError:
+            continue  # paquet absent : c'est le test de la venv qui le signale
+        for brute in requises:
             dependance = Requirement(brute)
             # Les dépendances d'une option (`extra == "socks"`) ne sont pas
             # installées : le marqueur est évalué sans option.
