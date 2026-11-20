@@ -558,7 +558,9 @@ def test_la_commande_signaler_puis_retablir(github, tmp_path, capsys):
     """Ce que les workflows appellent : `python3 deploy/tenir_issue.py …`."""
     corps = tmp_path / "corps.txt"
     corps.write_text("Depuis le {depuis}.\n", encoding="utf-8")
-    github.a(utc(2026, 11, 11, 12, 0))
+    # `main` ne reçoit pas d'instant : il lit l'heure réelle. Le faux `gh` doit
+    # dater l'issue à la même heure, sinon le test casse sept jours après la date figée.
+    github.a(datetime.now(timezone.utc))
     assert tenir_issue.main([
         "signaler", "--label", "cron-echeance", "--titre", "Extinction ({duree})",
         "--corps-fichier", str(corps), "--etat", "avant-2026-12-14",
