@@ -51,6 +51,10 @@ test("F3 : « Base du refus » seulement quand un refus daté est cité", () => 
   );
   assert.equal(libelleCadre("Choix de publication du Sénat : agrégats seuls."), "Cadre");
   assert.equal(libelleCadre("Refus écrit de l'institution du 11/06/2026."), "Base du refus");
+  // Mêmes cas que test_libelle_cadre_meme_regle_que_l_ecran (pipeline) :
+  // une date dans une autre phrase, ou un refus nié, ne font pas un refus daté.
+  assert.equal(libelleCadre("Refus. Rapport du 17/09/2026"), "Cadre");
+  assert.equal(libelleCadre("aucun refus, calendrier du 17/09/2026"), "Cadre");
   const page = lire("app/frais/page.tsx");
   assert.doesNotMatch(page, /Base du refus/);
   assert.match(page, /libelleCadre\(o\.base_du_refus\)/);
@@ -58,11 +62,15 @@ test("F3 : « Base du refus » seulement quand un refus daté est cité", () => 
 
 test("R3 : /frais ne cite que des producteurs officiels", () => {
   for (const url of [
-    "https://www.senat.fr/reglement/reglement142.html",
+    "https://www.conseil-etat.fr/fr/arianeweb/CE/decision/2019-06-27/427725",
     "https://www.assemblee-nationale.fr/dyn/15/questions/QANR5L15QE30813",
     "https://www.conseil-etat.fr/fr/arianeweb/CE/decision/2023-02-08/452521",
     "https://www.ccomptes.fr/fr/publications/x",
     "https://www.collectivites-locales.gouv.fr/files/x.pdf",
+    "https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000033218936",
+    "https://www.hatvp.fr/x",
+    "https://www.cada.fr/x",
+    "https://www.vie-publique.fr/x",
   ]) {
     assert.equal(sourceOfficielle(url), true, url);
   }
@@ -83,6 +91,14 @@ test("R3 : /frais ne cite que des producteurs officiels", () => {
   // Les refus du 11/06/2026 n'ont pas de source officielle : retirés.
   for (const f of ["app/frais/page.tsx", "app/comprendre/page.tsx", "app/donnees/page.tsx"]) {
     assert.doesNotMatch(aplati(f), /11 juin 2026|11\/06\/2026|CE mars 2025/, f);
+  }
+  // « Ni communicables » citait l'ordonnance 58-1100, qui ne le dit pas : la
+  // source qui le juge est le Conseil d'État, 27/06/2019, n° 427725.
+  for (const f of ["app/frais/page.tsx", "app/comprendre/page.tsx"]) {
+    const s = aplati(f);
+    assert.doesNotMatch(s, /ni publié(e)?s ni communicables/, f);
+    assert.doesNotMatch(s, /refus d’accès aux justificatifs/, f);
+    assert.match(s, /27&nbsp;juin 2019/, f);
   }
 });
 
@@ -149,19 +165,35 @@ test("Promesse : sources publiques officielles, plus des consolidations crédit�
     "app/donnees/page.tsx",
     "app/comprendre/page.tsx",
     "app/mentions-legales/page.tsx",
+    "app/elus/page.tsx",
+    "app/elus/[id]/page.tsx",
     "lib/seo.ts",
   ]) {
     assert.ok(aplati(f).includes(PROMESSE), f);
   }
+  // Texte alternatif de l'image de partage : il décrit l'image, qui porte
+  // la même promesse (public/og.svg, source de public/og.png).
+  const alt = aplati("lib/seo.ts").match(/alt: "([^"]*)"/)[1];
+  assert.ok(alt.includes(PROMESSE), alt);
+  const svg = readFileSync(new URL("../public/og.svg", import.meta.url), "utf8").replace(/\s+/g, " ");
+  assert.ok(svg.includes("Sources publiques officielles, plus quelques consolidations reconnues et créditées"), "og.svg");
+  assert.match(svg, /francetransparence\.fr/);
+  assert.doesNotMatch(svg, /koutakou\.github\.io|données publiques officielles/i);
   const ANCIENNES = [
     /seules sources publiques officielles/,
     /exclusivement de publications officielles/,
     /uniquement à partir de données publiques officielles/,
     /données publiques réelles uniquement/,
   ];
+  // Promesse tronquée dans un texte servi (texte alternatif, /elus, fiches
+  // d'élu) : « à partir des données (publiques) officielles », sans les
+  // consolidations. Tout src/, lib/ compris, hors commentaires.
+  const TRONQUEE = /(à partir|issues?|proviennent) (des|de) données (publiques )?officielles/i;
   for (const f of fichiers(SRC)) {
-    const s = readFileSync(f, "utf8").replace(/\s+/g, " ");
+    const brut = readFileSync(f, "utf8");
+    const s = brut.replace(/\s+/g, " ");
     for (const motif of ANCIENNES) assert.doesNotMatch(s, motif, path.relative(SRC, f));
+    assert.doesNotMatch(sansCommentaires(brut).replace(/\s+/g, " "), TRONQUEE, path.relative(SRC, f));
   }
   const readme = readFileSync(new URL("../../README.md", import.meta.url), "utf8");
   assert.ok(readme.includes(PROMESSE), "README");
@@ -171,10 +203,11 @@ test("Promesse : sources publiques officielles, plus des consolidations crédit�
 test("/donnees : S1, S7 (Datan) et S31 portent leur étiquette", () => {
   assert.equal(natureSource("S1").etiquette, "Consolidation reconnue, non officielle");
   assert.equal(natureSource("S7-DATAN").etiquette, "Consolidation reconnue, non officielle");
-  assert.equal(natureSource("S31").etiquette, "Officielle, sans licence ouverte");
+  assert.equal(natureSource("S31").etiquette, "Officielle, recopiée à la main");
   assert.equal(natureSource("S10"), null);
   assert.match(natureSource("S1").detail, /Colin Maudry/);
   assert.match(natureSource("S7-DATAN").detail, /Datan/);
-  assert.match(natureSource("S31").detail, /recopiées/);
+  assert.match(natureSource("S31").detail, /recopiés à la main de documents officiels \(textes de loi, rapports, PDF publics\)/);
+  assert.match(natureSource("S31").detail, /sans jeu de données ouvert lisible par machine/);
   assert.match(lire("app/donnees/page.tsx"), /natureSource\(s\.source_id\)/);
 });

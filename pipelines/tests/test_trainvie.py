@@ -9,6 +9,8 @@ Garanties éprouvées ici :
 - test réseau (marqueur `reseau`) : 3 URLs sources officielles répondent.
 """
 
+import re
+
 import pytest
 import requests
 
@@ -160,7 +162,8 @@ def test_chaque_opacite_est_documentee(conn):
 # d'opinion, Next INpact et un cabinet d'avocats.
 DOMAINES_OFFICIELS = (
     "assemblee-nationale.fr", "senat.fr", "ccomptes.fr", "conseil-etat.fr",
-    "conseil-constitutionnel.fr", "elysee.fr", "gouv.fr",
+    "conseil-constitutionnel.fr", "elysee.fr", "gouv.fr", "hatvp.fr", "cada.fr",
+    "vie-publique.fr",
 )
 
 
@@ -178,16 +181,64 @@ def test_toutes_les_sources_sont_officielles():
     assert not _officiel("https://faux-senat.fr/x")
 
 
+# Refus daté : le mot « refus », non nié, suivi d'une date dans la même
+# phrase. Même règle que `libelleCadre` (app/src/lib/frais-textes.ts), avec
+# les mêmes cas de test des deux côtés.
+REFUS_DATE = re.compile(
+    r"(?<!aucun )(?<!sans )(?<!pas de )\brefus[^.]{0,120}?\d{2}/\d{2}/\d{4}", re.I)
+
+
+def libelle_cadre(texte: str) -> str:
+    return "Base du refus" if REFUS_DATE.search(texte) else "Cadre"
+
+
+@pytest.mark.parametrize("texte, attendu", [
+    ("Calendrier de publication de la Cour des comptes, aucune obligation de délai.",
+     "Cadre"),
+    ("Choix de publication du Sénat : agrégats seuls.", "Cadre"),
+    ("Refus écrit de l'institution du 11/06/2026.", "Base du refus"),
+    ("Refus. Rapport du 17/09/2026", "Cadre"),
+    ("aucun refus, calendrier du 17/09/2026", "Cadre"),
+])
+def test_libelle_cadre_meme_regle_que_l_ecran(texte, attendu):
+    assert libelle_cadre(texte) == attendu
+
+
 def test_le_mot_refus_seulement_avec_un_refus_date():
     """« Base du refus » s'affichait sur des cas où personne n'a rien refusé
     (calendrier de la Cour des comptes, choix du Sénat). Le texte d'une
     opacité ne parle de refus que s'il cite un refus daté."""
-    import re
     for o in OPACITES:
         texte = o["base_du_refus"] + " " + o["ce_qui_manque"]
         for m in re.finditer(r"refus", texte, re.I):
-            voisinage = texte[m.start():m.start() + 120]
-            assert re.search(r"\d{2}/\d{2}/\d{4}", voisinage), (o["id"], voisinage)
+            assert REFUS_DATE.match(texte, m.start()), (o["id"], texte[m.start():][:120])
+
+
+def _opacite(id_: str) -> dict:
+    return next(o for o in OPACITES if o["id"] == id_)
+
+
+def test_non_communicable_source_par_le_conseil_d_etat():
+    """« Ni communicable » citait l'ordonnance 58-1100, qui ne le dit pas.
+    Le Conseil d'État (27/06/2019, n° 427725) juge que les relevés du compte
+    de frais de mandat d'un député ne sont pas des documents administratifs."""
+    o = _opacite("justificatifs-parlementaires")
+    assert o["source_url"].endswith("/2019-06-27/427725")
+    assert "27/06/2019" in o["base_du_refus"]
+    assert "communicable" not in o["ce_qui_manque"]
+
+
+def test_frais_representation_limites_a_la_reponse_justice():
+    """La QE 30813 a été posée au ministère de la Justice : sa réponse vaut
+    pour cette dotation, elle dit aussi les travaux de traçabilité de 2021, et
+    le CRPA (art. L300-2) s'applique aux ministères."""
+    o = _opacite("frais-representation-ministres")
+    texte = o["ce_qui_manque"] + " " + o["base_du_refus"]
+    assert "ministère de la Justice" in o["base_du_refus"]
+    assert "ne sont connues que" not in texte
+    assert "en 2021 pour mieux tracer ces dépenses" in o["base_du_refus"]
+    assert "Les ministères sont soumis au code des relations entre le public" in texte
+    assert "L300-2" in o["base_du_refus"] and "L300-2" in o["source_nom"]
 
 
 def test_opacites_couvrent_les_manques_du_rapport(conn):
