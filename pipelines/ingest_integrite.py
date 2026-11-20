@@ -91,8 +91,10 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 from pipelines import db
-from pipelines.common import RAW_DIR, obtenir_logger, session_http, telecharger
-from pipelines.ingest_hatvp_declarations import composantes_identite, dates_voisines
+from pipelines.common import RACINE, RAW_DIR, obtenir_logger, session_http, telecharger
+from pipelines.ingest_hatvp_declarations import (charger_liste_blanche,
+                                                 composantes_identite,
+                                                 ecritures_incluses)
 
 log = obtenir_logger("ingest_integrite")
 
@@ -600,15 +602,16 @@ def _composantes(s: str | None) -> frozenset[str]:
     return frozenset(c.casefold() for c in composantes_identite(s))
 
 
-def _dates_voisines(a: str | None, b: str | None) -> bool:
-    """Même ANNÉE, au plus une composante de date divergente — celle de P15.
+# Liste blanche des rattrapages relus à la main (décision du propriétaire du
+# 20/11/2026 : zéro fusion fausse). Clé : l'identifiant `rne-*` que la
+# personne RNE recevrait (`_identifiant_rne`), cible : la fiche AN ou Sénat.
+# Voir `_rattraper` pour ce qui y entre et pourquoi.
+CHEMIN_RATTRAPAGES_VERIFIES = RACINE / "deploy" / "rattrapages-elus.tsv"
 
-    Alias explicite : la primitive est `dates_voisines` de P15, à l'identique
-    (deux sources officielles se contredisent d'un chiffre sur l'état civil —
-    mesuré ici : Karl Olive, 1969-09-29 au RNE contre 1969-03-29 à l'AN ;
-    Stéphanie Galzy, le 21 contre le 20). Rien à dupliquer.
-    """
-    return dates_voisines(a, b)
+
+def _identifiant_rne(cle: tuple[str, str, str]) -> str:
+    """Identifiant `rne-*` d'une personne RNE : haché de sa clé d'état civil."""
+    return "rne-" + hashlib.sha1("|".join(cle).encode()).hexdigest()[:16]
 
 
 def _dep_rne(r: dict) -> str:
@@ -956,9 +959,18 @@ def _rattraper(p: dict, index_nom: dict, garde: set) -> dict | None:
          qu'elles). Le problème est de ne pas créer un `rne-*` en double d'une
          fiche existante ; élargir aux 35 093 lignes d'élus locaux ferait
          fusionner des homonymes que rien ne distingue plus ;
-      2. il faut au moins une composante de NOM **et** une de PRÉNOM en
-         commun, l'année de naissance identique, et au plus une composante de
-         date qui diverge ;
+      2. depuis le 20/11/2026 (audit C1, décision du propriétaire : zéro
+         fusion fausse) : la date de naissance EXACTE, et le nom comme le
+         prénom en relation d'inclusion (`ecritures_incluses`). L'ancienne
+         règle cumulait trois tolérances (un mot de nom commun, un mot de
+         prénom commun, une composante de date différente) et laissait
+         fusionner deux personnes : RNE « Jean-Paul » né 9 jours après une
+         fiche « Jean-Luc » de même nom, ou deux jumeaux « Jean-Marc » et
+         « Jean-Luc ». Les cas justes que la règle stricte perd (la faute de
+         frappe, les deux dates qui divergent d'un chiffre) ne passent plus
+         que par la liste blanche relue `CHEMIN_RATTRAPAGES_VERIFIES`, avec
+         la preuve de chaque ligne. Un rattrapage que la règle fait et que la
+         liste ne porte pas est signalé au journal et compté (`upsert_elus`).
       3. **un seul candidat**, sinon on renonce. Deux candidats, c'est une
          homonymie, et attribuer la déclaration d'intérêts d'une personne à
          une autre serait la faute la plus grave possible ici.
@@ -978,6 +990,14 @@ def _rattraper(p: dict, index_nom: dict, garde: set) -> dict | None:
     contre-épreuve : le doublon réinséré avec un rowid inférieur redonne 17.
     **16 est correct et stable.** Ne pas « corriger » ce nombre vers 17 sans
     avoir rejoué la mesure : c'est l'état de `elus` qui le fixe, pas ce texte.
+
+    Re-mesuré le 20/11/2026 par rejeu en lecture seule sur la base servie et
+    le RNE relivré le jour même : toujours 16, mais pas les mêmes. MAINGAULT et
+    PONCET sont sortis (fin de mandat au Sénat), VERMOREL-MARQUES est entré
+    (le RNE porte désormais le nom composé, l'AN « Vermorel »). Sous la règle
+    stricte, 13 tiennent seuls et 3 ne tiennent que par la liste blanche
+    (OLIVE et GALZY, une composante de date, REID ABERLOT, faute de frappe),
+    tous au même siège des deux côtés.
 
     La liste des 17 identifiants est dans `deploy/redirections-elus.tsv` : le
     lot se MESURE, il ne se recopie pas d'une séance à l'autre — il dépend de
@@ -1001,20 +1021,23 @@ def _rattraper(p: dict, index_nom: dict, garde: set) -> dict | None:
     appariées est le comportement correct : il vaut mieux deux fiches qu'une
     fusion fausse.
     """
-    annee = (p["date_naissance"] or "")[:4]
-    if not annee:
+    naissance = (p["date_naissance"] or "").strip()
+    if len(naissance) != 10:
         return None
     composantes_prenom = _composantes(p["prenom"])
     if not composantes_prenom:
         return None
     candidats: dict[str, dict] = {}
     for c in _composantes(p["nom"]):
-        for e in index_nom.get((annee, c), ()):
+        for e in index_nom.get((naissance[:4], c), ()):
             if e["id"] in candidats or e["id"] in garde:
                 continue
-            if not _dates_voisines(p["date_naissance"], e["date_naissance"]):
+            if (e["date_naissance"] or "").strip() != naissance:
                 continue
             if not (composantes_prenom & _composantes(e["prenom"])):
+                continue
+            if not (ecritures_incluses(p["nom"], e["nom"])
+                    and ecritures_incluses(p["prenom"], e["prenom"])):
                 continue
             candidats[e["id"]] = e
     if len(candidats) != 1:                # garde-fou n° 3 : homonymie
@@ -1086,8 +1109,14 @@ REQUETE_ETAT_CIVIL = ("SELECT id, nom, prenom, date_naissance, sexe, profession,
                       " mandats FROM elus")
 
 
-def upsert_elus(conn, personnes: dict[tuple, dict]) -> tuple[int, int, int]:
+def upsert_elus(conn, personnes: dict[tuple, dict],
+                liste_blanche: dict[str, str] | None = None) -> tuple[int, int, int]:
     """UPSERT prudent par (nom, prénom, date de naissance) normalisés.
+
+    `liste_blanche` : {identifiant `rne-*` : fiche AN/Sénat}, rattrapages relus
+    à la main. Par défaut, `CHEMIN_RATTRAPAGES_VERIFIES`. Elle est consultée
+    avant `_rattraper`, et seulement pour une cible qui est bien une fiche
+    AN/Sénat que la clé exacte n'atteint pas déjà.
 
     Ne touche jamais uid_an / matricule_senat ; ne remplit sexe et profession
     que s'ils sont NULL ; remplace uniquement les mandats "source": "RNE" du
@@ -1109,9 +1138,13 @@ def upsert_elus(conn, personnes: dict[tuple, dict]) -> tuple[int, int, int]:
     l'autre, contrairement à celle de l'intégration continue qui naît neuve à
     chaque passage : c'est là, et là seulement, que les doublons persistent.
     """
+    if liste_blanche is None:
+        liste_blanche = charger_liste_blanche(CHEMIN_RATTRAPAGES_VERIFIES)
     existants: dict[tuple, dict] = {}
     index_nom: dict[tuple, list] = defaultdict(list)
-    cibles: set[str] = set()   # fiches AN/Sénat indexées, dénominateur du garde-fou
+    # Fiches AN/Sénat indexées : dénominateur du garde-fou de volume, et seules
+    # cibles admises pour la liste blanche.
+    cibles: dict[str, dict] = {}
     for r in conn.execute(REQUETE_ETAT_CIVIL):
         e = dict(r)
         cle = (normaliser_texte(e["nom"]), normaliser_texte(e["prenom"]),
@@ -1120,11 +1153,13 @@ def upsert_elus(conn, personnes: dict[tuple, dict]) -> tuple[int, int, int]:
         if not e["id"].startswith("rne-"):     # garde-fou n° 1 : cibles AN/Sénat
             annee = (e["date_naissance"] or "")[:4]
             if annee:
-                cibles.add(e["id"])
+                cibles[e["id"]] = e
                 for c in _composantes(e["nom"]):
                     index_nom[(annee, c)].append(e)
 
     inseres = maj = rattrapes = 0
+    par_liste = 0
+    hors_liste: list[str] = []      # rattrapages de la règle, absents de la liste
     supprimes: list[str] = []
     # Garde-fou n° 4 : une fiche AN/Sénat que la CLÉ EXACTE atteint déjà n'est
     # pas rattrapable. Le seul `pris.add()` de la boucle n'interdit qu'un DOUBLE
@@ -1147,7 +1182,16 @@ def upsert_elus(conn, personnes: dict[tuple, dict]) -> tuple[int, int, int]:
         # le correctif cesserait de créer des doublons sans jamais effacer ceux
         # que la base servie porte déjà, et le site ne bougerait pas.
         if e is None or e["id"].startswith("rne-"):
-            cible = _rattraper(p, index_nom, pris)
+            ident_rne = _identifiant_rne(cle)
+            verifiee = liste_blanche.get(ident_rne)
+            if verifiee in cibles and verifiee not in pris:
+                cible = cibles[verifiee]
+                par_liste += 1
+            else:
+                cible = _rattraper(p, index_nom, pris)
+                if cible is not None:
+                    hors_liste.append(f"{ident_rne} -> {cible['id']}"
+                                      f" ({p['nom']} {p['prenom']})")
             if cible is not None:
                 pris.add(cible["id"])
                 rattrapes += 1
@@ -1167,13 +1211,21 @@ def upsert_elus(conn, personnes: dict[tuple, dict]) -> tuple[int, int, int]:
                 (p["sexe"], p["profession"], json.dumps(mandats, ensure_ascii=False), e["id"]))
             maj += 1
         else:
-            ident = "rne-" + hashlib.sha1("|".join(cle).encode()).hexdigest()[:16]
+            ident = _identifiant_rne(cle)
             conn.execute(
                 "INSERT INTO elus (id, nom, prenom, sexe, date_naissance, profession,"
                 " mandats) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (ident, p["nom"], p["prenom"], p["sexe"], p["date_naissance"],
                  p["profession"], json.dumps(p["mandats"], ensure_ascii=False)))
             inseres += 1
+    log.info("rattrapage : %d par la liste blanche %s, %d par la règle stricte"
+             " hors de la liste", par_liste, CHEMIN_RATTRAPAGES_VERIFIES.name,
+             len(hors_liste))
+    if hors_liste:
+        log.warning("rattrapage : %d rattachement(s) nouveau(x) du repli, absent(s)"
+                    " de la liste blanche %s, à relire puis à y inscrire avec leur"
+                    " preuve : %s", len(hors_liste),
+                    CHEMIN_RATTRAPAGES_VERIFIES.name, " | ".join(hors_liste))
     _controler_volume_supprimees(supprimes, len(cibles))
     return inseres, maj, rattrapes
 

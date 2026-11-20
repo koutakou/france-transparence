@@ -1,0 +1,41 @@
+# Rattrapages de fiches d'élus relus à la main : liste blanche du repli de
+# `upsert_elus` (pipelines/ingest_integrite.py, fonction `_rattraper`).
+#
+# Décision du propriétaire du 20/11/2026 (audit des données, constat C1) :
+# zéro fusion fausse. Le repli n'accepte plus qu'une date de naissance
+# exacte, avec un nom et un prénom dont l'une des écritures contient tous les
+# mots de l'autre. Une personne RNE dont l'identifiant `rne-*` figure ici est
+# rattachée à la fiche de la deuxième colonne, même hors de cette règle, si
+# cette fiche existe et si la clé exacte ne l'atteint pas déjà.
+#
+# Un rattrapage que la règle fait et qui ne figure pas ici est signalé dans
+# le journal du cycle (« rattachement(s) nouveau(x) du repli ») et compté.
+# Le relire, puis l'inscrire ici avec sa preuve.
+#
+# Mesuré le 20/11/2026 par rejeu en lecture seule sur la base servie et le
+# RNE relivré le jour même : 16 rattrapages, tous au même siège des deux
+# côtés. 13 passent la règle stricte, 3 ne passent que par cette liste
+# (GALZY et OLIVE, une composante de date, REID ABERLOT, faute de frappe).
+#
+# L'identifiant `rne-*` est le haché de l'état civil RNE (nom, prénom, date)
+# que `upsert_elus` donnerait à la fiche en double : aucune date de naissance
+# n'est écrite en clair ici. Format : quatre champs séparés par des
+# tabulations, tous obligatoires.
+#
+# id rne	id fiche	personne	preuve
+rne-9b0690c3380e2630	PA793214	ABADIE Audrey (RNE), fiche Abadie-Amiel Audrey	Nom inclus dans l'autre écriture, même prénom, date de naissance identique, même siège : RNE député 09 2e circonscription, fiche député Ariège 2e circonscription. Relu le 26/08/2026 (redirections-elus.tsv).
+rne-458f0cdc332b255b	PA267042	FAVENNEC Yannick (RNE), fiche Favennec-Bécot Yannick	Nom inclus dans l'autre écriture, même prénom, date de naissance identique, même siège : RNE député 53 3e circonscription, fiche député Mayenne 3e circonscription. Relu le 26/08/2026 (redirections-elus.tsv).
+rne-9886da25564e5760	PA841595	FOUCHER CHAZÉ Cendrine (RNE), fiche Chazé Cendrine	Nom inclus dans l'autre écriture, même prénom, date de naissance identique, même siège : RNE député 61 3e circonscription, fiche député Orne 3e circonscription. Relu le 26/08/2026 (redirections-elus.tsv).
+rne-001f81fcd1e5f7ae	PA793892	GALZY Stéphanie (RNE), fiche Galzy Stéphanie	Même nom, même prénom, une composante de la date de naissance diverge entre les deux sources, même siège : RNE député 34 5e circonscription, fiche député Hérault 5e circonscription. Relu le 26/08/2026 (redirections-elus.tsv).
+rne-344b467349a63d9f	SEN-21514M	GUERIN Marie-Pierre (RNE), fiche Bessin-Guérin Marie-Pierre	Nom inclus dans l'autre écriture, même prénom, date de naissance identique, même siège : RNE sénateur 44, fiche sénateur Loire-Atlantique. Relu le 26/08/2026 (redirections-elus.tsv).
+rne-7415021cf72db2bc	PA795998	KBIDI Emeline (RNE), fiche K/Bidi Émeline	Même nom à la ponctuation près, même prénom, date de naissance identique, même siège : RNE député 974 4e circonscription, fiche député Réunion 4e circonscription. Relu le 26/08/2026 (redirections-elus.tsv).
+rne-478a9583c84cffd5	PA795636	LUCAS Benjamin (RNE), fiche Lucas-Lundy Benjamin	Nom inclus dans l'autre écriture, même prénom, date de naissance identique, même siège : RNE député 78 8e circonscription, fiche député Yvelines 8e circonscription. Relu le 26/08/2026 (redirections-elus.tsv).
+rne-1eaf3d01f1714dfa	PA793342	MARTIN Alexandra (RNE), fiche Martin (Alpes-Maritimes) Alexandra	Même nom, même prénom, date de naissance identique, même siège : RNE député 06 8e circonscription, fiche député Alpes-Maritimes 8e circonscription. Relu le 26/08/2026 (redirections-elus.tsv).
+rne-3fa9b246552bf43e	PA793944	MARTIN Alexandra (RNE), fiche Martin (Gironde) Alexandra	Même nom, même prénom, date de naissance identique, même siège : RNE député 33 1re circonscription, fiche député Gironde 1re circonscription. Relu le 26/08/2026 (redirections-elus.tsv).
+rne-f89dcf3be79d64be	PA795722	OLIVE Karl (RNE), fiche Olive Karl	Même nom, même prénom, une composante de la date de naissance diverge entre les deux sources, même siège : RNE député 78 12e circonscription, fiche député Yvelines 12e circonscription. Relu le 26/08/2026 (redirections-elus.tsv).
+rne-42e2d99995af2dd2	PA795240	REID ABERLOT Mereana (RNE), fiche Reid Arbelot Mereana	Faute de frappe sur le nom, même prénom, date de naissance identique, même siège : RNE député outre-mer 3e circonscription, fiche député Polynésie Française 3e circonscription. Relu le 26/08/2026 (redirections-elus.tsv).
+rne-41ab8e76d2734fcb	PA841377	REY Emeline (RNE), fiche Rey-Rinchet Emeline	Nom inclus dans l'autre écriture, même prénom, date de naissance identique, même siège : RNE député 47 3e circonscription, fiche député Lot-et-Garonne 3e circonscription. Relu le 26/08/2026 (redirections-elus.tsv).
+rne-ba7be78a29b1e987	PA840657	VAGINAY Sophie (RNE), fiche Ricourt Vaginay Sophie	Nom inclus dans l'autre écriture, même prénom, date de naissance identique, même siège : RNE député 04 2e circonscription, fiche député Alpes-de-Haute-Provence 2e circonscription. Relu le 26/08/2026 (redirections-elus.tsv).
+rne-65c90e263c881a9d	PA794118	VERMOREL-MARQUES Antoine (RNE), fiche Vermorel Antoine	Nom inclus dans l'autre écriture, même prénom, date de naissance identique, même siège : RNE député 42 5e circonscription, fiche député Loire 5e circonscription. Apparu au RNE relivré le 20/11/2026, relu le 20/11/2026.
+rne-5ecb0e21f6eac401	PA841575	VOS Frédéric (RNE), fiche Vos Frédéric-Pierre	Même nom, prénom inclus dans l'autre écriture, date de naissance identique, même siège : RNE député 60 5e circonscription, fiche député Oise 5e circonscription. Relu le 26/08/2026 (redirections-elus.tsv).
+rne-1b9578695735474d	SEN-21030V	XOWIE Robert (RNE), fiche Xowie Robert Wienie	Même nom, prénom inclus dans l'autre écriture, date de naissance identique, même siège : RNE sénateur outre-mer, fiche sénateur Nouvelle-Calédonie. Relu le 26/08/2026 (redirections-elus.tsv).
