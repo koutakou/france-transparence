@@ -80,6 +80,30 @@ def session_http(total_retries: int = 3, backoff: float = 1.0) -> requests.Sessi
     return s
 
 
+# Reprises du téléchargement ENTIER. Les retries de `session_http` (urllib3)
+# ne couvrent que l'établissement de la connexion et les statuts 429/5xx : une
+# coupure PENDANT la lecture du flux n'est jamais rejouée, et une indisponibilité
+# de plus de quelques secondes épuise leur backoff. Une seule source tombée
+# suffit à faire échouer tout le cycle. Mesuré en CI : AN Scrutins coupé à
+# 3 Mo sur 30 (IncompleteRead) le 18/11/2026, Sirene « Connection reset by
+# peer » le 15/11/2026, data.gouv.fr en 503 le 16/11/2026.
+# Seules ces pannes de transport sont reprises : un 404 ou un 403 reste un
+# échec immédiat, c'est un changement amont qu'il faut voir.
+PAUSES_REPRISE_S = (30, 120)
+_ERREURS_TRANSPORT = (
+    requests.exceptions.ChunkedEncodingError,
+    requests.exceptions.ConnectionError,
+    requests.exceptions.Timeout,
+)
+
+
+def _reprenable(erreur: Exception) -> bool:
+    if isinstance(erreur, requests.exceptions.HTTPError):
+        statut = erreur.response.status_code if erreur.response is not None else 0
+        return statut == 429 or statut >= 500
+    return isinstance(erreur, _ERREURS_TRANSPORT)
+
+
 def telecharger(
     url: str,
     dest: str | Path,
@@ -112,18 +136,28 @@ def telecharger(
     s = session or session_http()
     log.info("téléchargement: %s", url)
     tmp = dest.with_suffix(dest.suffix + ".part")
-    try:
-        with s.get(url, stream=True, timeout=timeout, allow_redirects=True) as r:
-            r.raise_for_status()
-            octets = 0
-            with open(tmp, "wb") as f:
-                for chunk in r.iter_content(chunk_size=1 << 20):
-                    if chunk:
-                        f.write(chunk)
-                        octets += len(chunk)
-        tmp.replace(dest)
-    finally:
-        tmp.unlink(missing_ok=True)
+    pauses = list(PAUSES_REPRISE_S)
+    while True:
+        try:
+            with s.get(url, stream=True, timeout=timeout, allow_redirects=True) as r:
+                r.raise_for_status()
+                octets = 0
+                with open(tmp, "wb") as f:
+                    for chunk in r.iter_content(chunk_size=1 << 20):
+                        if chunk:
+                            f.write(chunk)
+                            octets += len(chunk)
+            tmp.replace(dest)
+            break
+        except Exception as erreur:
+            if not pauses or not _reprenable(erreur):
+                raise
+            pause = pauses.pop(0)
+            log.warning("téléchargement interrompu (%s), reprise dans %d s : %s",
+                        type(erreur).__name__, pause, url)
+            time.sleep(pause)
+        finally:
+            tmp.unlink(missing_ok=True)
     log.info("écrit: %s (%.1f Mo)", dest, octets / 1_048_576)
     return dest
 
