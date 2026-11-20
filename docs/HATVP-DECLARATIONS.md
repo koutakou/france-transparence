@@ -205,6 +205,20 @@ repli d'orthographe (§ 4.1) a rattaché 71 déclarations de plus : mesuré le
 non appariées ci-dessous (96 / 8 / 48 / 7) est celui du 20/08 et n'a **pas** été
 re-mesuré : il décrit un état où le repli n'existait pas.
 
+**Repli resserré le 20/11/2026 (audit des données, constat C1).** Le repli
+cumulait trois tolérances (un mot de nom commun, un mot de prénom commun, une
+composante de date différente) et pouvait rattacher la déclaration d'une
+personne à la fiche d'une autre. Il exige désormais la date de naissance
+exacte, et un nom comme un prénom dont l'une des écritures contient tous les
+mots de l'autre (`ecritures_incluses`). Les cas justes qu'il perd entrent dans
+la liste blanche relue `deploy/rattachements-souples.tsv`, avec leur preuve.
+Un rattachement du repli absent de cette liste est signalé au journal du cycle
+et compté. Mesuré le 20/11/2026 sur la base servie : 1 866 déclarations
+rattachées, dont 62 par le repli pour 30 déclarants. La règle stricte seule en
+garde 58, la liste blanche reprend les 4 autres (2 déclarants), aucun
+rattachement nouveau. Même règle pour les fiches d'élus de P7, liste blanche
+`deploy/rattrapages-elus.tsv`.
+
 **Pourquoi la date de naissance est indispensable.** Sans elle, la clé
 nom + prénom gagnerait **8 fiches** (+0,8 point) et rouvrirait l'homonymie :
 **588 couples nom + prénom** sont partagés par au moins deux personnes dans

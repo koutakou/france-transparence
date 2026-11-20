@@ -108,6 +108,7 @@ cycle précédent). Après examen, une telle perte s'acquitte uuid par uuid :
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import sqlite3
@@ -121,7 +122,8 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 from pipelines import db
-from pipelines.common import RAW_DIR, assainir_texte, obtenir_logger, session_http, telecharger
+from pipelines.common import (RACINE, RAW_DIR, assainir_texte, obtenir_logger,
+                              session_http, telecharger)
 
 log = obtenir_logger("ingest_hatvp_declarations")
 
@@ -482,23 +484,79 @@ def composantes_identite(valeur: str | None) -> frozenset[str]:
     return frozenset(m for m in mots if len(m) > _LONGUEUR_PARTICULE) | {recolle}
 
 
-def dates_voisines(a: str | None, b: str | None) -> bool:
-    """Même ANNÉE, et au plus une des trois composantes qui diverge.
+def _mots_identite(valeur: str | None) -> list[str]:
+    """Mots d'un nom ou d'un prénom, dans l'ordre, particules comprises."""
+    return _NON_ALPHANUM.sub(
+        " ", normaliser_identite(_PARENTHESES.sub(" ", valeur or ""))).split()
 
-    Deux sources officielles se contredisent parfois d'un chiffre sur l'état
-    civil d'une même personne — mesuré entre `declarations.xml` et l'AN :
-    Gisèle Lelouis, 1952-05-10 contre 1952-03-10 ; Nicolas Metzdorf,
-    1988-02-20 contre 1988-05-20 ; Daniel Chasseing, 1945-04-19 contre
-    1945-04-10. L'année reste EXIGÉE : c'est elle qui empêche la tolérance de
-    dégénérer en appariement par le seul patronyme.
+
+def ecritures_incluses(a: str | None, b: str | None) -> bool:
+    """Vrai si l'une des deux écritures contient TOUS les mots de l'autre.
+
+    POURQUOI L'INCLUSION ET PAS UN MOT COMMUN (audit du 20/11/2026, constat
+    C1). Un seul mot commun laissait passer deux personnes distinctes :
+    « Jean-Paul » et « Jean-Luc » partagent « JEAN », et deux jumeaux
+    « Jean-Marc » et « Jean-Luc » MARTIN nés le même jour passaient le repli.
+    L'inclusion garde les écritures divergentes réellement mesurées : le nom
+    composé tronqué d'un seul côté (« FAVENNEC » dans « Favennec-Bécot »,
+    « CORBIERE » dans « Corbière Naminzo »), le prénom tronqué (« Max » dans
+    « MAX FRANCOIS »), les prénoms dans un autre ordre (« Carlos Martens » et
+    « MARTENS CARLOS »), la ponctuation interne (« K/Bidi » et « KBIDI », par
+    la forme recollée), le suffixe de l'Assemblée (« Martin (Gironde) »).
+
+    Elle refuse ce que seul un humain peut trancher : une faute de frappe
+    (« REID ABERLOT » et « Reid Arbelot ») ou un diminutif (« Marie-Do » et
+    « MARIE DOMINIQUE »). Ces cas-là passent par la liste blanche relue.
     """
-    a, b = (a or "").strip(), (b or "").strip()
-    if len(a) != 10 or len(b) != 10:
+    ma, mb = _mots_identite(a), _mots_identite(b)
+    if not ma or not mb:
         return False
-    pa, pb = a.split("-"), b.split("-")
-    if len(pa) != 3 or len(pb) != 3 or pa[0] != pb[0]:
-        return False
-    return sum(1 for x, y in zip(pa, pb) if x != y) <= 1
+    if "".join(ma) == "".join(mb):
+        return True
+    sa, sb = set(ma), set(mb)
+    return sa <= sb or sb <= sa
+
+
+# Liste blanche des rattachements par repli relus à la main (décision du
+# propriétaire du 20/11/2026 : zéro fusion fausse). Le repli n'accepte plus
+# qu'une date de naissance EXACTE. Un cas juste qu'il perdrait (date qui
+# diverge d'un chiffre entre deux sources, diminutif) n'est rattaché que s'il
+# figure ici, avec sa preuve. Un rattachement que le repli fait et qui n'y
+# figure pas est signalé au journal du cycle et compté, pour être relu.
+CHEMIN_RATTACHEMENTS_VERIFIES = RACINE / "deploy" / "rattachements-souples.tsv"
+
+
+def cle_declarant(nom: str | None, prenom: str | None, naissance: str | None) -> str:
+    """Clé hachée de l'état civil d'un déclarant, tel que `lire_identite` le rend.
+
+    Hachée pour que la liste blanche versionnée ne porte aucune date de
+    naissance en clair. Même construction que les identifiants `rne-*` de P7.
+    """
+    brut = "|".join((nom or "", prenom or "", (naissance or "").strip()))
+    return "hatvp-" + hashlib.sha1(brut.encode()).hexdigest()[:16]
+
+
+def charger_liste_blanche(chemin: str | Path) -> dict[str, str]:
+    """{clé: identifiant de fiche} d'une liste blanche TSV relue à la main.
+
+    Format : `clé`, `identifiant de fiche`, `personne`, `preuve`, séparés par
+    des tabulations, lignes « # » ignorées. Une ligne sans preuve ou une clé
+    en double fait échouer le chargement : une liste blanche dont on ne sait
+    pas ce qu'elle prouve ne doit rien rattacher.
+    """
+    liste: dict[str, str] = {}
+    with open(chemin, encoding="utf-8") as f:
+        for numero, ligne in enumerate(f, 1):
+            if not ligne.strip() or ligne.startswith("#"):
+                continue
+            champs = [c.strip() for c in ligne.rstrip("\n").split("\t")]
+            if len(champs) != 4 or not all(champs):
+                raise ValueError(f"{chemin}, ligne {numero} : quatre champs non vides "
+                                 f"attendus (clé, fiche, personne, preuve)")
+            if champs[0] in liste:
+                raise ValueError(f"{chemin}, ligne {numero} : clé {champs[0]} en double")
+            liste[champs[0]] = champs[1]
+    return liste
 
 
 _RE_DATE_FR = re.compile(r"(\d{2})/(\d{2})/(\d{4})")
@@ -772,8 +830,14 @@ def construire_index_souple(conn) -> dict[tuple[str, str], list[dict]]:
     Trois garde-fous, sans lesquels le remède serait pire que le mal :
       1. l'index ne contient que les élus AYANT une fiche, comme la clé
          exacte — le vivier reste celui des personnes que le site publie ;
-      2. il faut une composante de NOM **et** une de PRÉNOM en commun,
-         l'année identique, et au plus une composante de date divergente ;
+      2. depuis le 20/11/2026 (audit C1, décision du propriétaire) : la date
+         de naissance EXACTE, et le nom comme le prénom en relation
+         d'inclusion (`ecritures_incluses`). Les trois cas de date divergente
+         ci-dessus et le diminutif « Marie-Do » ne passent plus que par la
+         liste blanche relue (`CHEMIN_RATTACHEMENTS_VERIFIES`). Mesuré le
+         20/11/2026 sur la base servie : 62 déclarations par repli pour 30
+         personnes, dont 4 (2 personnes) que la règle stricte perd et que la
+         liste blanche reprend, et aucun rattachement nouveau.
       3. **un seul candidat**, sinon on renonce. Deux candidats, c'est une
          homonymie, et la trancher au hasard serait la faute la plus grave
          que ce pipeline puisse commettre.
@@ -811,16 +875,26 @@ def construire_index_souple(conn) -> dict[tuple[str, str], list[dict]]:
         if len(naissance) != 10 or r["id"] in vus:
             continue
         vus.add(r["id"])
-        fiche = {"id": r["id"], "naissance": naissance,
-                 "prenom": composantes_identite(r["prenom"])}
+        fiche = fiche_souple(r["id"], r["nom"], r["prenom"], naissance)
         for composante in composantes_identite(r["nom"]):
             index[(naissance[:4], composante)].append(fiche)
     return index
 
 
+def fiche_souple(ident: str, nom: str | None, prenom: str | None,
+                 naissance: str) -> dict:
+    """L'entrée d'une fiche dans l'index souple. Seule fabrique, tests compris."""
+    return {"id": ident, "naissance": naissance, "nom": nom or "",
+            "prenom_ecrit": prenom or "", "prenom": composantes_identite(prenom)}
+
+
 def apparier_souple(index_souple: dict, nom: str | None, prenom: str | None,
                     naissance: str | None) -> str | None:
-    """Un identifiant d'élu, ou None si aucun candidat — ou plus d'un."""
+    """Un identifiant d'élu, ou None si aucun candidat, ou plus d'un.
+
+    Date de naissance EXACTE, nom et prénom en relation d'inclusion : voir le
+    garde-fou n° 2 de `construire_index_souple`.
+    """
     naissance = (naissance or "").strip()
     if len(naissance) != 10:
         return None
@@ -832,9 +906,12 @@ def apparier_souple(index_souple: dict, nom: str | None, prenom: str | None,
         for fiche in index_souple.get((naissance[:4], composante), ()):
             if fiche["id"] in candidats:
                 continue
-            if not dates_voisines(naissance, fiche["naissance"]):
+            if fiche["naissance"] != naissance:
                 continue
             if not (composantes_prenom & fiche["prenom"]):
+                continue
+            if not (ecritures_incluses(nom, fiche["nom"])
+                    and ecritures_incluses(prenom, fiche["prenom_ecrit"])):
                 continue
             candidats[fiche["id"]] = fiche
     if len(candidats) != 1:            # garde-fou n° 3 : homonymie non tranchée
@@ -848,7 +925,8 @@ def apparier_souple(index_souple: dict, nom: str | None, prenom: str | None,
 
 
 def parcourir(chemin: str | Path, index_elus: dict[tuple[str, str, str], str],
-              index_souple: dict | None = None) -> dict:
+              index_souple: dict | None = None,
+              liste_blanche: dict[str, str] | None = None) -> dict:
     """Lit declarations.xml EN FLUX et retourne les lignes prêtes à écrire.
 
     POURQUOI iterparse et pas ET.parse : le fichier pèse 88,8 Mo et grossit
@@ -878,6 +956,8 @@ def parcourir(chemin: str | Path, index_elus: dict[tuple[str, str, str], str],
     # au fichier de 88,8 Mo. Toutes ces valeurs sont mesurées le 26/08/2026.
     uuids_vus: set[str] = set()
     stats: Counter = Counter()
+    # Rattachements du repli absents de la liste blanche : à relire.
+    hors_liste: list[tuple[str, str, str, str, str]] = []
 
     for evenement, element in contexte:
         if evenement != "end" or element.tag != "declaration":
@@ -896,12 +976,22 @@ def parcourir(chemin: str | Path, index_elus: dict[tuple[str, str, str], str],
         if not naissance:
             stats["sans_date_naissance"] += 1
         elu_id = index_elus.get((nom, prenom, naissance or ""))
+        if elu_id is None and liste_blanche:
+            # Rattachement relu à la main, avec sa preuve : il passe avant la
+            # règle du repli, qu'il complète sans jamais primer la clé exacte.
+            elu_id = liste_blanche.get(cle_declarant(nom, prenom, naissance))
+            if elu_id is not None:
+                stats["rattachees_par_repli"] += 1
+                stats["rattachees_par_liste_blanche"] += 1
         if elu_id is None and index_souple is not None:
             # Repli : les deux sources n'écrivent pas l'état civil pareil.
             # Voir construire_index_souple pour le pourquoi et les garde-fous.
             elu_id = apparier_souple(index_souple, nom, prenom, naissance)
             if elu_id is not None:
                 stats["rattachees_par_repli"] += 1
+                stats["rattachees_par_repli_hors_liste"] += 1
+                hors_liste.append((cle_declarant(nom, prenom, naissance), elu_id,
+                                   nom, prenom, extrait["entete"]["uuid"]))
         if elu_id is None:
             stats["non_apparie"] += 1
             element.clear()
@@ -931,7 +1021,7 @@ def parcourir(chemin: str | Path, index_elus: dict[tuple[str, str, str], str],
     stats["lignes"] = len(lignes)
     stats["elus_apparies"] = len({e["elu_id"] for e in entetes})
     return {"entetes": entetes, "rubriques": rubriques, "lignes": lignes,
-            "uuids_vus": uuids_vus, "stats": stats}
+            "uuids_vus": uuids_vus, "stats": stats, "hors_liste": hors_liste}
 
 
 # ---------------------------------------------------------------------------
@@ -1376,11 +1466,25 @@ def executer(chemin_db=None, max_age_heures: float | None = 6.0) -> dict:
                 f"appariement impossible : {len(index_elus)} élus avec fiche et date "
                 "de naissance (≥ 500 attendus) — P7/P9 ont-ils tourné ? Abandon")
         index_souple = construire_index_souple(conn)
+        # Une entrée de la liste blanche dont la fiche n'existe plus ne
+        # rattache rien : la cible doit porter une fiche publiée.
+        vivier = elus_avec_fiche(conn)
+        liste_blanche = {cle: elu for cle, elu in
+                         charger_liste_blanche(CHEMIN_RATTACHEMENTS_VERIFIES).items()
+                         if elu in vivier}
         # Lu AVANT `ecrire()`, seul endroit du fichier qui DROPpe les tables.
         precedents = rattachements_precedents(conn)
         lignes_avant = lignes_par_rubrique_precedentes(conn)
-        donnees = parcourir(chemin, index_elus, index_souple)
+        donnees = parcourir(chemin, index_elus, index_souple, liste_blanche)
         stats = donnees["stats"]
+        hors_liste = donnees.get("hors_liste", [])
+        if hors_liste:
+            log.warning(
+                "repli : %d déclaration(s) rattachée(s) hors de la liste blanche %s,"
+                " à relire puis à y inscrire avec leur preuve : %s",
+                len(hors_liste), CHEMIN_RATTACHEMENTS_VERIFIES.name,
+                " | ".join(f"{cle} -> {elu} ({nom} {prenom}, {uuid})"
+                           for cle, elu, nom, prenom, uuid in hors_liste))
 
         # Garde-fous de plausibilité : mieux vaut ne rien écrire qu'écrire une
         # base amputée qui ferait dire au site « aucun intérêt déclaré ».
@@ -1529,12 +1633,15 @@ def executer(chemin_db=None, max_age_heures: float | None = 6.0) -> dict:
         log.info(
             "P15 terminé : %d déclarations lues, %d refusées par type, %d blocs "
             "patrimoniaux refusés par balise ; %d rattachées à %d élus (%.1f %%), "
-            "dont %d par le repli d'orthographe ; %d lignes, %d montants, "
+            "dont %d par le repli d'orthographe (%d par la liste blanche, %d hors "
+            "liste à relire) ; %d lignes, %d montants, "
             "%d rubriques « néant » ; %d perte(s) de rattachement acquittée(s), "
             "%d détachement(s) d'élus sans fiche",
             stats["declarations_lues"], stats["refus_type_declaration"],
             stats["refus_balise_patrimoine"], stats["rattachees"],
             stats["elus_apparies"], taux, stats["rattachees_par_repli"],
+            stats["rattachees_par_liste_blanche"],
+            stats["rattachees_par_repli_hors_liste"],
             stats["lignes"], stats["montants"], stats["rubriques_neant"],
             stats["pertes_acquittees"], stats["pertes_hors_fiche"])
         stats["date_donnees"] = date_donnees
