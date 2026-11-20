@@ -1723,8 +1723,12 @@ export default function PageComprendre() {
             Les indemnités, dotations et avances des responsables publics
             ont des barèmes publiés. Les comptes de l’Élysée sont audités
             par la Cour des comptes. Les justificatifs de frais des
-            parlementaires ne sont ni publiés ni communicables (ordonnance
-            n°&nbsp;58-1100 du 17 novembre 1958). Voir{" "}
+            parlementaires ne sont pas publiés. Les documents des
+            assemblées relèvent de l’ordonnance n°&nbsp;58-1100 du
+            17&nbsp;novembre 1958, et non du droit d’accès aux documents
+            administratifs. Le Conseil d’État l’a jugé le 27&nbsp;juin 2019
+            pour les relevés du compte de frais de mandat d’un député
+            (n°&nbsp;427725). Voir{" "}
             <LienPage href="/frais/">Frais</LienPage>.
           </p>
           <p>
@@ -1732,9 +1736,10 @@ export default function PageComprendre() {
             Les comptes de l’Élysée viennent des rapports de la Cour des
             comptes. Les dotations de la mission «&nbsp;Pouvoirs
             publics&nbsp;» viennent du rapport du Sénat sur la LFI. Les
-            barèmes d’indemnités viennent des textes publiés. Les refus
-            d’accès aux justificatifs de frais parlementaires sont des
-            décisions écrites de l’Assemblée et du Sénat.
+            barèmes d’indemnités viennent des textes publiés. Le cadre
+            d’accès aux justificatifs de frais parlementaires vient de
+            l’ordonnance n°&nbsp;58-1100 et de la décision du Conseil d’État
+            du 27&nbsp;juin 2019.
           </p>
           <p>
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
