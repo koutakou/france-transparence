@@ -2,7 +2,7 @@
  * Requêtes SQL du module « Frais & train de vie » — deux sources :
  * S31, corpus officiel « train de vie » (faits sourcés et opacités
  * documentées, docs/NOTES-FRONT.md §« Frais & train de vie ») ; S38, avis
- * et conseils de la CADA en agrégats, qui alimentent la carte des verrous.
+ * et conseils de la CADA en agrégats, qui alimentent les avis de la CADA par administration.
  *
  * Fichier PROPRE à ce module (jamais partagé avec un autre module).
  * Chaque requête a été rejouée telle quelle le 19/08/2026 via
@@ -12,6 +12,7 @@
  * lfi2026-an 607647569 €, lfi2026-senat 353470900 €.
  */
 import { getDb, type MetaSource } from "@/lib/db";
+import { sourceOfficielle } from "@/lib/frais-textes";
 
 /** Catégories de `trainvie_faits` (contrainte CHECK du schéma). */
 export type TrainvieCategorie =
@@ -246,10 +247,19 @@ export function getFraisData(): FraisData | null {
     )
     .all() as TrainvieOpacite[];
 
+  // Seules les affirmations rattachées à un document officiel sont servies
+  // (décision du propriétaire du 20/11/2026) : une base construite avant la
+  // réingestion de S31 porte encore trois sources de presse ou d'avocats.
   return {
     meta,
-    faits: trierParOrdre(faits, ORDRE_CATEGORIES.flatMap((c) => ORDRE_FAITS[c])),
-    opacites: trierParOrdre(opacites, ORDRE_OPACITES),
+    faits: trierParOrdre(
+      faits.filter((f) => sourceOfficielle(f.source_url)),
+      ORDRE_CATEGORIES.flatMap((c) => ORDRE_FAITS[c]),
+    ),
+    opacites: trierParOrdre(
+      opacites.filter((o) => sourceOfficielle(o.source_url)),
+      ORDRE_OPACITES,
+    ),
   };
 }
 
@@ -264,12 +274,12 @@ export function grouperParCategorie(
 }
 
 /* ------------------------------------------------------------------ */
-/* Carte des verrous — source S38 (avis et conseils de la CADA)        */
+/* Avis de la CADA par administration, source S38 (avis et conseils de la CADA)        */
 /* ------------------------------------------------------------------ */
 
 /**
  * Le complément factuel de la « boîte noire » : la boîte noire dit ce que
- * la loi ne publie pas, la carte des verrous dit ce que l'administration
+ * la loi ne publie pas, les avis de la CADA par administration dit ce que l'administration
  * refuse de communiquer quand on le lui demande, et sur quel fondement la
  * CADA lui donne — ou non — raison.
  *
@@ -304,7 +314,7 @@ export interface CadaCategorie {
   defavorable: number;
 }
 
-export interface VerrousCadaData {
+export interface AvisCadaData {
   meta: MetaSource;
   /** Dossiers de type « Avis » (le refus opposé à un demandeur). */
   avis: number;
@@ -320,12 +330,12 @@ export interface VerrousCadaData {
 }
 
 /**
- * Charge la carte des verrous en une passe (5 requêtes, toutes agrégées).
+ * Charge les avis de la CADA par administration en une passe (5 requêtes, toutes agrégées).
  *
  * @returns `null` si la base ou la source S38 manquent — la page se replie
  *          alors silencieusement sur le reste du module.
  */
-export function getVerrousCada(): VerrousCadaData | null {
+export function getAvisCada(): AvisCadaData | null {
   const db = getDb();
   if (!db) return null;
 

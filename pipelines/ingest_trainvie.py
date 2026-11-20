@@ -127,18 +127,17 @@ URL_DGCL_ETAT_RECAP = (
     "fiche_pratique_%C3%A9tat_r%C3%A9capitulatif_annuel_des_indemnit%C3%A9s_"
     "per%C3%A7ues_par_les_%C3%A9lus.pdf"
 )
-URL_REFUS_2026 = (
-    "https://www.lecourrierdesstrateges.fr/notes-de-frais-des-parlementaires-"
-    "lassemblee-et-le-senat-opposent-le-secret/"
+# Sources des opacités : uniquement des producteurs officiels (décision du
+# propriétaire du 20/11/2026). Les trois sources de presse ou de cabinet
+# d'avocats d'avant (Le Courrier des Stratèges, Next INpact, Seban &
+# Associés) sont remplacées par le texte officiel, ou le fait est retiré
+# faute de texte officiel (refus AN/Sénat du 11/06/2026, arrêt « CE mars
+# 2025 » sans référence publiée).
+URL_ORD_58_1100 = "https://www.senat.fr/reglement/reglement142.html"
+URL_QE_30813_FRAIS_REPRESENTATION = (
+    "https://www.assemblee-nationale.fr/dyn/15/questions/QANR5L15QE30813"
 )
-URL_NEXT_FRAIS_REPRESENTATION = (
-    "https://next.ink/6725/108060-frais-representation-ministres-demandes-cada-"
-    "pour-plus-transparence/"
-)
-URL_SEBAN_CE_2023 = (
-    "https://www.seban-associes.avocat.fr/les-notes-de-frais-des-elus-locaux-"
-    "et-agents-publics-sont-des-documents-administratifs-communicables/"
-)
+URL_CE_2023_452521 = "https://www.conseil-etat.fr/fr/arianeweb/CE/decision/2023-02-08/452521"
 URL_DATAGOUV_FRAIS_MANDAT = "https://www.data.gouv.fr/api/1/datasets/?q=frais%20de%20mandat"
 
 SRC_AN_SITUATION = (
@@ -601,15 +600,14 @@ OPACITES: list[dict] = [
          ce_qui_manque="Aucun justificatif, aucune note de frais, aucun relevé individuel "
                        "de député ou de sénateur n'est publié ni communicable ; la recherche "
                        "« frais de mandat » sur l'API data.gouv.fr renvoie 0 dataset "
-                       "(vérifié les 19/08/2026).",
-         base_du_refus="Ordonnance n° 58-1100 du 17/11/1958 (autonomie des assemblées, hors "
-                       "CADA/CRPA), confirmée par le Conseil d'État en mars 2025 ; refus écrits "
-                       "des deux chambres du 11/06/2026 à Transparence Citoyenne — l'AN invoque "
-                       "le secret professionnel du déontologue, le Sénat la confidentialité "
-                       "prévue par son Règlement.",
-         source_nom="Refus AN/Sénat du 11/06/2026 (Le Courrier des Stratèges) ; "
-                    "ord. 58-1100 ; CE mars 2025",
-         source_url=URL_REFUS_2026, date="2026-06-11"),
+                       "(vérifié le 19/08/2026).",
+         base_du_refus="Autonomie des assemblées : leurs documents relèvent de l'ordonnance "
+                       "n° 58-1100 du 17/11/1958, et non du droit d'accès aux documents "
+                       "administratifs (CADA). Aucun texte n'oblige à publier les "
+                       "justificatifs.",
+         source_nom="Ordonnance n° 58-1100 du 17/11/1958 relative au fonctionnement des "
+                    "assemblées parlementaires (texte publié par le Sénat)",
+         source_url=URL_ORD_58_1100, date="1958-11-17"),
     dict(id="indemnites-parlementaires-versees",
          sujet="Indemnités parlementaires réellement versées",
          ce_qui_manque="Aucun fichier open data des indemnités réellement versées par "
@@ -621,17 +619,17 @@ OPACITES: list[dict] = [
          source_url=URL_AN_SITUATION, date="2026-01"),
     dict(id="frais-representation-ministres",
          sujet="Frais de représentation des ministres",
-         ce_qui_manque="Enveloppes annuelles connues uniquement par questions écrites et par "
-                       "la presse (150 000 € ministre, 120 000 € ministre délégué, 100 000 € "
-                       "secrétaire d'État) ; aucun texte réglementaire publié ne les fixe, "
-                       "aucune publication de leur usage.",
-         base_du_refus="Aucun texte publié (recommandation d'un décret par l'Observatoire de "
-                       "l'éthique publique jamais suivie) ; réponse officielle : Chorus ne "
-                       "permet pas d'extraire le détail ; demandes CADA 2018-2019 restées "
-                       "largement sans effet, alors que les ministères sont soumis au CRPA.",
-         source_nom="Next INpact, « Frais de représentation des ministres : des demandes CADA "
-                    "pour plus de transparence » (23/07/2019)",
-         source_url=URL_NEXT_FRAIS_REPRESENTATION, date="2019-07-23"),
+         ce_qui_manque="Les enveloppes annuelles ne sont connues que par les réponses du "
+                       "Gouvernement aux questions écrites (150 000 € pour un ministre, "
+                       "120 000 € pour un ministre placé auprès d'un ministre, 100 000 € pour "
+                       "un secrétaire d'État) ; leur usage n'est pas publié.",
+         base_du_refus="Réponse du Gouvernement publiée au JO du 23/11/2021 : aucun document "
+                       "n'établit le détail de l'utilisation de la dotation, et le logiciel "
+                       "Chorus ne permet pas de l'obtenir par un traitement automatisé "
+                       "d'usage courant.",
+         source_nom="Assemblée nationale, question écrite n° 30813 (15e législature) et "
+                    "sa réponse",
+         source_url=URL_QE_30813_FRAIS_REPRESENTATION, date="2021-11-23"),
     dict(id="remunerations-cabinets",
          sujet="Rémunérations détaillées des cabinets ministériels",
          ce_qui_manque="Les tableaux de rémunérations brutes annuelles par cabinet ont disparu "
@@ -663,10 +661,10 @@ OPACITES: list[dict] = [
          base_du_refus="A contrario : le Conseil d'État a jugé le 08/02/2023 (notes de frais "
                        "de la maire de Paris) que notes de frais et reçus de déplacement, "
                        "restauration et représentation sont des documents administratifs "
-                       "communicables à toute personne — le Parlement est donc l'exception, "
+                       "communicables à toute personne. Le Parlement est donc l'exception, "
                        "pas la règle.",
-         source_nom="CE, 8 février 2023 (analyse Seban & Associés)",
-         source_url=URL_SEBAN_CE_2023, date="2023-02-08"),
+         source_nom="Conseil d'État, 8 février 2023, Ville de Paris, n° 452521",
+         source_url=URL_CE_2023_452521, date="2023-02-08"),
     dict(id="reversements-senat",
          sujet="Montants des reversements exigés des sénateurs",
          ce_qui_manque="Le Sénat ne publie aucun montant de reversement à l'issue de ses "
