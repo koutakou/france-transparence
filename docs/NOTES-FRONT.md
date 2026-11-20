@@ -44,7 +44,8 @@ Condensé des avertissements « pour le front » remontés par chaque pipeline a
 - 577 députés, sénateurs = table `senateurs` du jour (pas le JSON type=senateur), ~36 000 élus au total (maires, présidents CD/CR/EPCI ; conseillers municipaux = agrégats `rne_cm_agregats` seulement). Fiches `SEN-*` générées depuis `senateurs`.
 - Scores : taux de participation calculé (12 mois) ET scores Datan sur l'AN — **les deux étiquetés avec leur méthode** ; créditer datan.fr ; Braun-Pivet 0,63 % = normal (préside). Sénat : un seul taux, calculé ici (votes exprimés, pas une présence ; Datan ne publie pas le Sénat).
 - `deputes.url_hatvp` fourni par l'AN ; `elus.hatvp_flag`/`hatvp_url` posés par le pipeline intégrité.
-- Alertes A1 : `A1_hatvp_non_deposee` = 4 cas nominatifs (constats natifs HATVP) ; `A1_hatvp_retard_presume` = agrégats NON nominatifs, libellé « présumé » + réserve (RNE trimestriel). Ne jamais nominaliser les présumés.
+- Alertes A1 : `A1_hatvp_non_deposee` = cas nominatifs (constats natifs HATVP) ; `A1_hatvp_en_cours_delai_ecoule` (remplace `A1_hatvp_retard_presume` depuis le 20/11/2026) = agrégats NON nominatifs des dossiers « En cours » plus de 2 mois après l'entrée en fonction, jamais sous 3 personnes, sans le mot « retard ». Ne jamais nominaliser ces comptes.
+- Alertes A5 : `financement_campagne_rejetee` ne nomme que les élus qui ont une fiche, avec la réserve « décision non définitive » ; plus de `financement_campagne_reformee`. L'accueil ne montre que `TYPES_ALERTES_ACCUEIL` (liste blanche, aucun nom de personne).
 - Renouvellement du Sénat le 27/09/2026 → à mentionner sur le module Sénat.
 
 ## Lobbying (S4)

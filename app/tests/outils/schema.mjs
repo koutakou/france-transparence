@@ -101,7 +101,7 @@ export const SCHEMA = {
     base_legale TEXT,
     source_url  TEXT,
     date_calcul TEXT NOT NULL
-)`,
+, date_fait TEXT)`,
   decp_marches: `CREATE TABLE decp_marches (
     uid                       TEXT PRIMARY KEY,
     id                        TEXT,

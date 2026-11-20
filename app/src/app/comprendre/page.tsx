@@ -867,6 +867,21 @@ export default function PageComprendre() {
               publiée, mais aucune variation n’est calculée à travers
               elle et elle n’est pas tracée avec les autres mois.
             </li>
+            <li>
+              <strong className="font-medium text-ink">
+                20 novembre 2026 : noms et comptes dans les alertes.
+              </strong>{" "}
+              Les comptes de campagne approuvés après réformation ne sont
+              plus des alertes et sont comptés sans nom. Un compte rejeté
+              ne porte un nom que si la personne a une fiche d’élu, avec la
+              réserve «&nbsp;décision non définitive&nbsp;: le juge de
+              l’élection statue&nbsp;». L’ancien «&nbsp;retard HATVP
+              présumé&nbsp;» devient un compte des déclarations au statut
+              «&nbsp;En cours&nbsp;» plus de 2&nbsp;mois après l’entrée en
+              fonction, délai légal compté en mois et non en 60&nbsp;jours,
+              jamais publié pour moins de 3&nbsp;personnes. L’accueil ne
+              montre plus aucun nom de personne.
+            </li>
           </ul>
         </div>
       </Card>
@@ -1818,16 +1833,24 @@ export default function PageComprendre() {
             Une alerte de ce site reprend un constat déjà formulé par une
             autorité, ou un signal d’attention tiré des sources, avec sa
             règle de calcul et sa base légale. Ce n’est pas un jugement du
-            site. Les constats officiels de la HATVP, les décisions de la
-            CNCCFP et les défauts AGORA portent un nom ; les retards HATVP
-            «&nbsp;présumés&nbsp;» sont des agrégats, jamais un nom. Voir{" "}
+            site. Les constats officiels de la HATVP et les défauts AGORA
+            portent un nom. Un compte de campagne rejeté par la CNCCFP ne
+            porte un nom que si la personne a une fiche d’élu, avec la
+            réserve «&nbsp;décision non définitive&nbsp;: le juge de
+            l’élection statue&nbsp;». Les comptes approuvés après
+            réformation et les autres rejets sont comptés sans nom sur{" "}
+            <LienPage href="/financement/">Financement</LienPage>. Les
+            déclarations HATVP au statut «&nbsp;En cours&nbsp;» plus de
+            2&nbsp;mois après l’entrée en fonction sont des comptes, jamais
+            un nom ni un groupe de moins de 3&nbsp;personnes. Le site ne
+            connaît pas la définition officielle de ce statut. Voir{" "}
             <LienPage href="/alertes/">Alertes</LienPage>.
           </p>
           <p>
             <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
             Chaque alerte cite sa source, sa règle de calcul et sa base
             légale. Les constats nominatifs viennent de la HATVP, de la
-            CNCCFP et d’AGORA. Les autres signaux sont calculés ici à
+            CNCCFP (pour les seuls élus) et d’AGORA. Les autres signaux sont calculés ici à
             partir des mêmes publications que le reste du site, jamais d’une
             source inédite.
           </p>

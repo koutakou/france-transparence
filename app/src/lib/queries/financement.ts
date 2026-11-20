@@ -347,8 +347,10 @@ export function getDonneesFinancement(): DonneesFinancement | null {
       .get() as { nb: number }
   ).nb;
 
-  // Les 85 alertes de rejet partagent une même règle et base légale
-  // (vérifié : COUNT(DISTINCT regle) = COUNT(DISTINCT base_legale) = 1).
+  // Alertes de rejet NOMINATIVES : depuis le 20/11/2026, seulement les élus
+  // qui ont une fiche (le compte de tous les rejets vient de
+  // v_campagnes_2024_par_decision). Une même règle et base légale pour
+  // toutes. Aucune ligne : nb = 0 et les autres champs NULL.
   const alertesRejets = db
     .prepare(
       `SELECT COUNT(*) AS nb,

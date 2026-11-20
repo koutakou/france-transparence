@@ -6,9 +6,13 @@
  * Rappels docs/NOTES-FRONT.md § Alertes :
  * - TOUJOURS afficher règle + base légale (dépliable AlertItem) ;
  * - gravités en base : haute / moyenne / info ;
- * - les retards HATVP « présumés » sont des agrégats NON nominatifs — les
- *   lignes de la base portent déjà leurs réserves, on les affiche telles
- *   quelles, on ne nominalise jamais.
+ * - les dossiers HATVP « En cours » sont des agrégats NON nominatifs, jamais
+ *   sous 3 personnes : les lignes de la base portent déjà leurs réserves, on
+ *   les affiche telles quelles, on ne nominalise jamais ;
+ * - un rejet de compte de campagne ne nomme qu'un élu qui a une fiche, avec
+ *   la réserve « décision non définitive » (décision du 20/11/2026) ;
+ * - `date_calcul` est l'instant du cycle, `date_fait` la date du fait selon
+ *   la source (NULL quand la source ne la donne pas).
  *
  * Toutes les requêtes renvoient `null` si la base n'existe pas encore
  * (getDb() null → la page affiche un état honnête « lancer make ingest »).
@@ -40,13 +44,13 @@ export const PERIMETRE_ALERTES_TOTAL =
 export const PERIMETRE_GRAVITE_HAUTE =
   "classification de ce site, constats officiels repris — pas une infraction constatée ici";
 
-/** Un agrégat présumé n’est pas un nom — le gros du stock est nominatif. */
+/** Déclarations de lobbying incomplètes (personnes morales). */
 export const PERIMETRE_GRAVITE_MOYENNE =
-  "classification de ce site — un retard HATVP présumé n’est pas un nom";
+  "classification de ce site, déclarations de lobbying incomplètes publiées par la HATVP";
 
-/** Mixte : ratios calculés ici + un avis CNCCFP (PDF). */
+/** Mixte : ratios et comptes calculés ici + un avis CNCCFP (PDF). */
 export const PERIMETRE_GRAVITE_INFO =
-  "classification de ce site — ratios calculés ici, et un avis CNCCFP publié seulement en PDF";
+  "classification de ce site, ratios et comptes calculés ici, et un avis CNCCFP publié seulement en PDF";
 
 /** Gravités réellement présentes en base (du plus grave au moins grave). */
 export const GRAVITES_ALERTE = ["haute", "moyenne", "info"] as const;
@@ -63,6 +67,8 @@ export type Alerte = {
   base_legale: string | null;
   source_url: string | null;
   date_calcul: string;
+  /** Date du fait selon la source, NULL quand la source ne la donne pas. */
+  date_fait: string | null;
 };
 
 /** Pagination de la liste (consigne : 50 alertes par page). */
@@ -137,7 +143,8 @@ export function getAlertesToutes(): Alerte[] | null {
   if (!db) return null;
   return db
     .prepare(
-      `SELECT id, type, gravite, titre, detail, regle, base_legale, source_url, date_calcul
+      `SELECT id, type, gravite, titre, detail, regle, base_legale, source_url, date_calcul,
+              date_fait
        FROM alertes
        ORDER BY CASE gravite WHEN 'haute' THEN 0 WHEN 'moyenne' THEN 1 ELSE 2 END,
                 date_calcul DESC, id`,
@@ -175,7 +182,8 @@ export function getAlertesExport(): AlertesExport | null {
     .all() as TypeAlerteExport[];
   const alertes = db
     .prepare(
-      `SELECT id, type, gravite, titre, detail, regle, base_legale, source_url, date_calcul
+      `SELECT id, type, gravite, titre, detail, regle, base_legale, source_url, date_calcul,
+              date_fait
        FROM alertes
        ORDER BY CASE gravite WHEN 'haute' THEN 0 WHEN 'moyenne' THEN 1 ELSE 2 END,
                 date_calcul DESC, id`,
@@ -230,7 +238,8 @@ export function getAlertesPage(filtres: FiltresAlertes = {}): PageAlertes | null
   const page = Math.min(Math.max(filtres.page ?? 1, 1), pages);
   const alertes = db
     .prepare(
-      `SELECT id, type, gravite, titre, detail, regle, base_legale, source_url, date_calcul
+      `SELECT id, type, gravite, titre, detail, regle, base_legale, source_url, date_calcul,
+              date_fait
        FROM alertes ${where}
        ORDER BY CASE gravite WHEN 'haute' THEN 0 WHEN 'moyenne' THEN 1 ELSE 2 END,
                 date_calcul DESC, id

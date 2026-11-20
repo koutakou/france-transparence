@@ -36,11 +36,10 @@ const GRAVITE_UI: Record<GraviteAlerte, { statut: Gravite; libelle: string }> = 
 /** Libellés courts des types d'alerte présents en base (fallback : le code). */
 const LIBELLES_TYPE: Record<string, string> = {
   A1_hatvp_non_deposee: "HATVP — non-déposée (constat officiel)",
-  A1_hatvp_retard_presume: "HATVP — retard présumé (agrégat)",
+  A1_hatvp_en_cours_delai_ecoule: "HATVP, statut « En cours » après 2 mois (agrégat)",
   lobbying_defaut_declaration: "Lobbying — défaut de déclaration",
   lobbying_declaration_incomplete: "Lobbying — déclaration incomplète",
-  financement_campagne_reformee: "Campagne 2024 — compte réformé",
-  financement_campagne_rejetee: "Campagne 2024 — compte rejeté",
+  financement_campagne_rejetee: "Campagne 2024, compte d'élu rejeté (non définitif)",
   financement_parti_dependance_aide: "Parti — dépendance à l'aide publique",
   financement_parti_prive_aide: "Partis privés d'aide (avis CNCCFP)",
 };

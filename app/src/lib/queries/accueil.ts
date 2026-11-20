@@ -191,6 +191,50 @@ export function getAoClotureTriees(): AoProcheCloture[] | null {
   return db.prepare(SQL_AO_CLOTURE).all() as AoProcheCloture[];
 }
 
+/**
+ * Types d'alerte que l'accueil peut montrer : agrégats sans nom et personnes
+ * morales SEULEMENT. Liste blanche et non liste noire : un type nominatif
+ * ajouté demain par un pipeline reste hors de l'accueil tant qu'on ne l'y
+ * inscrit pas. Décision du propriétaire du 20/11/2026 : aucun nom de candidat
+ * sur l'accueil. Le 20/11, l'accueil en nommait trois (deux rejets, une
+ * réformation), choisis par l'ordre des identifiants. Les alertes nominatives
+ * (`A1_hatvp_non_deposee`, `financement_campagne_rejetee`) restent sur
+ * /alertes, avec leurs réserves.
+ */
+export const TYPES_ALERTES_ACCUEIL = [
+  "A1_hatvp_en_cours_delai_ecoule",
+  "lobbying_defaut_declaration",
+  "lobbying_declaration_incomplete",
+  "financement_parti_dependance_aide",
+  "financement_parti_prive_aide",
+] as const;
+
+/**
+ * Alertes de l'accueil : les 4 plus récentes EN MÉLANGEANT les gravités
+ * (les dernières par date seule seraient 4 alertes identiques du même lot de
+ * calcul : on prend la plus récente de chaque gravité + la 2e « haute »,
+ * ordonnées par gravité décroissante), parmi TYPES_ALERTES_ACCUEIL seulement.
+ */
+export const SQL_ALERTES_ACCUEIL = `SELECT id, type, gravite, titre, detail, regle,
+              base_legale AS baseLegale,
+              source_url AS sourceUrl,
+              date_calcul AS dateCalcul
+         FROM (
+           SELECT a.*, ROW_NUMBER() OVER (
+                    PARTITION BY gravite
+                    ORDER BY date_calcul DESC, id
+                  ) AS rn
+             FROM alertes a
+            WHERE a.type IN (${TYPES_ALERTES_ACCUEIL.map(() => "?").join(", ")})
+         )
+        WHERE rn = 1 OR (gravite = 'haute' AND rn = 2)
+        ORDER BY CASE gravite
+                   WHEN 'haute' THEN 0
+                   WHEN 'moyenne' THEN 1
+                   ELSE 2
+                 END, rn
+        LIMIT 4`;
+
 export type AlerteAccueil = {
   id: string;
   type: string;
@@ -508,32 +552,9 @@ export function getDonneesAccueil(): DonneesAccueil | null {
     )
     .all() as AoProcheCloture[];
 
-  /* --- Alertes : les 4 plus récentes EN MÉLANGEANT les gravités
-         (les dernières par date seule seraient 4 alertes identiques du même
-         lot de calcul : on prend la plus récente de chaque gravité + la
-         2e « haute », ordonnées par gravité décroissante). --- */
   const alertes = db
-    .prepare(
-      `SELECT id, type, gravite, titre, detail, regle,
-              base_legale AS baseLegale,
-              source_url AS sourceUrl,
-              date_calcul AS dateCalcul
-         FROM (
-           SELECT a.*, ROW_NUMBER() OVER (
-                    PARTITION BY gravite
-                    ORDER BY date_calcul DESC, id
-                  ) AS rn
-             FROM alertes a
-         )
-        WHERE rn = 1 OR (gravite = 'haute' AND rn = 2)
-        ORDER BY CASE gravite
-                   WHEN 'haute' THEN 0
-                   WHEN 'moyenne' THEN 1
-                   ELSE 2
-                 END, rn
-        LIMIT 4`,
-    )
-    .all() as AlerteAccueil[];
+    .prepare(SQL_ALERTES_ACCUEIL)
+    .all(...TYPES_ALERTES_ACCUEIL) as AlerteAccueil[];
 
   /* --- Fraîcheur des sources de la page --- */
   const lignesSources = db
