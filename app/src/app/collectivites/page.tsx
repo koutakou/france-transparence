@@ -511,7 +511,7 @@ export default async function PageCollectivites() {
       <VueTableau resume="Top et flop 10 par habitant">
         <div className="flex flex-col gap-5 sm:flex-row sm:gap-8">
           <div className="min-w-0 flex-1">
-            <SousTitreBloc>Top 10 — les plus dépensiers par habitant</SousTitreBloc>
+            <SousTitreBloc>Top 10 des dépenses par habitant les plus élevées</SousTitreBloc>
             <TableCompacte
               colonnes={colonnesTopFlopDep}
               lignes={top10Dep}

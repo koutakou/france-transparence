@@ -43,7 +43,7 @@ import {
 } from "@/lib/queries/marches";
 import { moisClos, premierMoisIncomplet } from "@/lib/periodes";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
-import { phraseMarchesSansMontant } from "@/lib/phrases";
+import { perimetreMontantNotifie, phraseMarchesSansMontant } from "@/lib/phrases";
 import { sansChamp } from "@/lib/champs";
 
 /**
@@ -458,8 +458,9 @@ export default async function PageMarches() {
             valeur: kpis.montant12m !== null ? <Money valeur={kpis.montant12m} /> : "—",
             montantVedette: true,
             tendance: tendanceMontant,
-            perimetre:
-              "notification initiale, 12 derniers mois, plafond 100 M€ par marché ; courbe : mois civils clos",
+            perimetre: perimetreMontantNotifie(
+              partSuspecte !== null ? formatPct(partSuspecte, 0) : null,
+            ),
           },
           {
             label: "Marchés notifiés (30 jours)",
@@ -596,7 +597,10 @@ export default async function PageMarches() {
           restent exclus des sommes — aucune valeur n’est inventée.
         </p>
         {qm && totalQm !== null && (
-          <div className="max-w-3xl rounded-xl border border-card-border bg-card p-4">
+          <div
+            id="ce-que-vaut-ce-total"
+            className="max-w-3xl scroll-mt-32 rounded-xl border border-card-border bg-card p-4"
+          >
             <h2 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
               Ce que vaut ce total
             </h2>
@@ -624,7 +628,7 @@ export default async function PageMarches() {
                 <strong className="font-medium text-ink">
                   {formatNombre(qm.nb_suspects)} marchés
                 </strong>{" "}
-                portent le drapeau « montant suspect » (anomalie signalée à la
+                portent le drapeau « montant signalé » (anomalie signalée à la
                 source, ou montant au-delà du plafond) et apportent{" "}
                 {qm.montant_suspects !== null ? formatEuros(qm.montant_suspects) : "—"}
                 {partSuspecte !== null && <>, soit {formatPct(partSuspecte)} du total</>}.
@@ -691,7 +695,7 @@ export default async function PageMarches() {
                   : "—"}
                 . À lire comme une{" "}
                 <strong className="font-medium text-ink">borne basse</strong>, et
-                non comme le montant réel : le drapeau « suspect » n’a pas été
+                non comme le montant réel : le drapeau « montant signalé » n’a pas été
                 vérifié marché par marché, il écarte donc aussi des montants
                 exacts
                 {ds !== null && (
@@ -957,7 +961,7 @@ export default async function PageMarches() {
       {/* ---------------------------------------------------------- */}
       <Card
         titre="Principaux acheteurs et titulaires"
-        sousTitre="12 derniers mois (notification initiale), par entreprise (SIREN) — classement par montant notifié écrêté, hors montants suspects (affichés à part)"
+        sousTitre="12 derniers mois (notification initiale), par entreprise (SIREN) — classement par montant notifié écrêté, hors montants signalés (affichés à part)"
         droite={badgeS1}
       >
         {/* grid-cols-1 explicite : piste minmax(0,1fr) — sans elle, la piste
@@ -1065,15 +1069,15 @@ export default async function PageMarches() {
           </p>
           <p className="mt-2 text-xs leading-relaxed text-ink-secondary">
             Le rang se fixe sur les seuls montants{" "}
-            <strong className="font-medium text-ink">non suspects</strong>. Un
-            marché porte le drapeau «&nbsp;suspect&nbsp;» quand la source
+            <strong className="font-medium text-ink">non signalés</strong>. Un
+            marché porte le drapeau «&nbsp;montant signalé&nbsp;» quand la source
             elle-même classe son montant en anomalie, ou quand il dépasse
             100&nbsp;M€ : ces montants restent affichés, dans la colonne
-            «&nbsp;Montants suspects&nbsp;», suivis de leur nombre de marchés
+            «&nbsp;Montants signalés&nbsp;», suivis de leur nombre de marchés
             entre parenthèses, mais
             ne font monter personne dans le classement. Une entreprise dont
-            tous les montants de la période sont suspects n’y est donc pas
-            rangée ; ses marchés figurent dans le total suspect de la page.
+            tous les montants de la période sont signalés n’y est donc pas
+            rangée ; ses marchés figurent dans le total signalé de la page.
           </p>
           {qt && (
             <p className="mt-2 text-xs leading-relaxed text-ink-secondary">
@@ -1148,7 +1152,7 @@ export default async function PageMarches() {
         <TableDerniersMarches lignes={sansChamp(donnees.derniersMarches, "rang")} />
         <p className="mt-3 text-xs leading-relaxed text-ink-muted">
           Montants retenus tels que déclarés (non écrêtés dans ce détail) ;
-          « max » signale un accord-cadre (montant = maximum) ; « suspect » =
+          « max » signale un accord-cadre (montant = maximum) ; « signalé » =
           anomalie signalée à la source ou montant &gt; 100&nbsp;M€, écrêté
           des agrégats.
         </p>

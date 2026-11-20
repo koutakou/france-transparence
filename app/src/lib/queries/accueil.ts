@@ -126,6 +126,13 @@ export type CompteursSuivi = {
   elusAvecFiche: number;
 };
 
+/**
+ * Libellés de `budget_vert.mission` qui ne sont pas des missions mais des
+ * prélèvements sur recettes (base de production du 20/11/2026) : écartés du
+ * « Top 5 missions ».
+ */
+export const PRELEVEMENTS_SUR_RECETTES = ["PSRCT", "PSRUE"] as const;
+
 export type MinistereCp = {
   ministere: string;
   cp: number; // € (CP bruts PLF 2025)
@@ -140,8 +147,8 @@ export type DernierMarche = {
   /** `montant_retenu`, la MÊME colonne que le flux de /marches — NULL =
    *  non publié. */
   montant: number | null;
-  /** `montant_suspect` (0/1) : étiqueté à l'écran comme sur /marches. */
-  suspect: number;
+  /** `montant_suspect` (0/1) : étiqueté « signalé » à l'écran, comme sur /marches. */
+  signale: number;
 };
 
 export type TexteJo = {
@@ -294,11 +301,16 @@ export function getDonneesAccueil(): DonneesAccueil | null {
     : [];
 
   /* --- Top 5 missions PLF 2026 (crédits budgétaires, CP) --- */
+  const SQL_HORS_PRELEVEMENTS = `mission NOT IN (${PRELEVEMENTS_SUR_RECETTES.map((m) => `'${m}'`).join(", ")})`;
+  // Les prélèvements sur recettes (« PSRCT » au profit des collectivités,
+  // « PSRUE » au profit de l'Union européenne) ne sont pas des missions :
+  // le bloc « Top 5 missions » affichait « PSRCT 49,5 Md€ », sigle nu.
   const missionsPlf2026 = db
     .prepare(
       `SELECT mission, SUM(plf_2026_cp) AS cp
          FROM budget_vert
         WHERE type_depense = 'Crédits budgétaires' AND plf_2026_cp IS NOT NULL
+          AND ${SQL_HORS_PRELEVEMENTS}
         GROUP BY mission
         ORDER BY cp DESC
         LIMIT 5`,
@@ -464,7 +476,7 @@ export function getDonneesAccueil(): DonneesAccueil | null {
               acheteur_nom AS acheteur,
               objet,
               montant_retenu AS montant,
-              montant_suspect AS suspect
+              montant_suspect AS signale
          FROM decp_derniers_marches
         ORDER BY rang
         LIMIT 7`,

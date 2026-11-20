@@ -72,7 +72,11 @@
   /* Sémantique deltas & montants — lire IMPÉRATIVEMENT DATAVIZ §3.5 */
   --delta-bon:     #0ca30c;   /* évolution POSITIVE (jugement explicite) */
   --delta-mauvais: #f26b6b;   /* évolution NÉGATIVE (jugement explicite) — 5,7:1 */
-  --montant:       #f26b6b;   /* montants vedettes : KPI, héros, totaux */
+  /* Montants vedettes (KPI, héros, totaux) : couleur NEUTRE. Ils prenaient le
+     rouge de --delta-mauvais, qui se lisait comme un jugement. Le rouge est
+     réservé aux écarts mesurés par rapport à une règle (décision du
+     propriétaire du 20/11/2026). */
+  --montant:       var(--ink-primary);
 
   /* Typographie */
   --font-ui: system-ui, -apple-system, "Segoe UI", sans-serif; /* partout, héros compris */

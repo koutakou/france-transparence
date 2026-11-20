@@ -70,14 +70,14 @@ export const COLONNES_MONTANT_TOP: Colonne<
 >[] = [
   {
     cle: "montant_hors_suspects",
-    entete: "Montant hors suspects",
+    entete: "Montant hors montants signalés",
     type: "montant",
     rendu: (a) =>
       a.montant_hors_suspects === null ? "—" : <Money valeur={a.montant_hors_suspects} />,
   },
   {
     cle: "montant_suspects",
-    entete: "Montants suspects",
+    entete: "Montants signalés",
     type: "montant",
     rendu: (a) =>
       a.nb_marches_suspects === 0 ? (
@@ -93,19 +93,19 @@ export const COLONNES_MONTANT_TOP: Colonne<
   },
 ];
 
-/** Étiquette « suspect » : icône statut + libellé (jamais la couleur seule). */
+/** Étiquette « signalé » : icône statut + libellé (jamais la couleur seule). */
 export function EtiquetteSuspect() {
   return (
     <span
       className="inline-flex items-center gap-1 text-[11px] text-ink-muted"
-      title="Montant classé suspect : anomalie signalée à la source, ou montant supérieur à 100 M€ (écrêté dans les agrégats)."
+      title="Montant signalé, à vérifier : anomalie signalée à la source, ou montant supérieur à 100 M€ (écrêté dans les agrégats)."
     >
       <svg width="10" height="10" viewBox="0 0 14 14" aria-hidden="true" style={{ color: "var(--status-warning)" }}>
         <path d="M7 1.5L13 12H1z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
         <path d="M7 5.4v3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
         <circle cx="7" cy="10.2" r="0.9" fill="currentColor" />
       </svg>
-      suspect
+      signalé
     </span>
   );
 }

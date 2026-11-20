@@ -48,3 +48,18 @@ export function compteEcheances(
   if (n === 1) return `${nombre} échéance encore ouverte, la plus proche, affichée sur ${enCours}`;
   return `${nombre} échéances encore ouvertes, les plus proches, affichées sur ${enCours}`;
 }
+
+/**
+ * Périmètre de la tuile « Montant notifié (12 mois, écrêté) » de /marches.
+ * La tuile ne disait ni que les accords-cadres y sont comptés à leur montant
+ * maximum, ni qu'une part du total porte le drapeau « montant signalé » :
+ * ces deux réserves n'étaient lues que plus bas, ou sur l'accueil.
+ * `partSignalee` : part du total en %, déjà formatée, ou `null`.
+ */
+export function perimetreMontantNotifie(partSignalee: string | null): string {
+  const part =
+    partSignalee !== null
+      ? `${partSignalee} du montant porte le drapeau « montant signalé »`
+      : "une part du montant porte le drapeau « montant signalé »";
+  return `notification initiale, 12 derniers mois, plafond 100 M€ par marché, accords-cadres comptés à leur montant maximum. ${part}, voir « Ce que vaut ce total » plus bas. Courbe : mois civils clos`;
+}
