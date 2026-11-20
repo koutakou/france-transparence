@@ -29,7 +29,7 @@ export async function GET() {
   return NextResponse.json({
     meta: {
       description:
-        "Alertes calculées à l'ingestion des données publiques — chaque alerte cite sa règle et sa base légale ; les retards HATVP « présumés » sont des agrégats non nominatifs. Snapshot statique complet régénéré à chaque build.",
+        "Alertes calculées à l'ingestion des données publiques. Chaque alerte cite sa règle et sa base légale. date_calcul est l'instant du calcul, date_fait la date du fait selon la source (null quand la source ne la donne pas). Les comptes de campagne rejetés ne nomment que les élus qui ont une fiche, avec la réserve « décision non définitive : le juge de l'élection statue ». Les comptes approuvés après réformation et les autres rejets ne sont pas dans cet export : ils sont comptés sans nom sur /financement. Les déclarations HATVP au statut « En cours » plus de 2 mois après l'entrée en fonction sont des agrégats non nominatifs, jamais sous 3 personnes. Snapshot statique complet régénéré à chaque build.",
       dernier_calcul: stats.derniereDateCalcul,
       total: alertes.length,
       licence_agregats: "Licence Ouverte 2.0 (agrégats France Transparence)",

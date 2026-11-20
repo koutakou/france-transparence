@@ -190,12 +190,14 @@
 > publication. Le schéma qui fait foi reste celui de la base elle-même :
 > `sqlite3 -readonly data/france.db ".schema"`.
 >
-> **La base servie est une base migrée.** Trois colonnes y ont été posées par `ALTER TABLE` plutôt
-> que par le `CREATE TABLE` du pipeline : `elus.hatvp_url`, `campagnes_2024.marqueur_etoile` et
+> **La base servie est une base migrée.** Quatre colonnes y ont été posées par `ALTER TABLE` plutôt
+> que par le `CREATE TABLE` du pipeline : `elus.hatvp_url`, `campagnes_2024.marqueur_etoile`,
+> `alertes.date_fait` (posée par `db.assurer_date_fait_alertes`, date du fait selon la source, NULL
+> quand la source ne la donne pas, distincte de `date_calcul`, instant du cycle) et
 > `trainvie_faits.assiette`. Elles se reconnaissent au fragment `, colonne …);` détaché en fin de
 > DDL, elles arrivent en **dernière position** de la table — ce qui suffit à décaler un
 > `SELECT *` — et elles ne portent **pas** les contraintes du schéma de création, SQLite ne sachant
-> pas attacher un `CHECK` à une colonne ajoutée après coup. Pour ces trois tables, le DDL ci-dessous
+> pas attacher un `CHECK` à une colonne ajoutée après coup. Pour ces quatre tables, le DDL ci-dessous
 > reproduit l'état de la base servie et non celui d'une base neuve : sur une base fraîchement créée,
 > ces trois colonnes sont à leur place nominale et `trainvie_faits.assiette` y porte son `CHECK`.
 > À l'inverse, une table **créée** par un `CREATE TABLE` — `decp_titulaires_qualite` et son
@@ -846,7 +848,7 @@ CREATE TABLE alertes (
     base_legale TEXT,
     source_url  TEXT,
     date_calcul TEXT NOT NULL
-);
+, date_fait TEXT);
 CREATE INDEX idx_alertes_type ON alertes(type);
 CREATE TABLE hatvp_declarations (
     id                 INTEGER PRIMARY KEY,

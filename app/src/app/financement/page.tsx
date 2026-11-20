@@ -56,6 +56,14 @@ const BALISAGE = jsonLdPage({
 });
 
 /** Gravité base (`haute`/`moyenne`/`info`) → gravité visuelle + libellé affiché. */
+/** Règle de l'agrégat des rejets (compte sans nom, toutes personnes). */
+const REGLE_AGREGAT_REJETS =
+  "Comptes dont la décision CNCCFP est « rejeté » (code R) dans le fichier des comptes de campagne des législatives 2024, comptés sans nom. Un rejet saisit le juge de l'élection, qui peut ne pas suivre la commission.";
+
+/** Repli si aucune alerte de rejet n'est en base (aucun élu concerné). */
+const BASE_LEGALE_REJETS =
+  "Code électoral, art. L.52-15 (contrôle des comptes de campagne par la CNCCFP, qui saisit le juge de l'élection en cas de rejet) et LO 136-1 (le Conseil constitutionnel statue pour les députés).";
+
 function graviteUi(g: string): { gravite: Gravite; libelle: string } {
   if (g === "haute") return { gravite: "serieux", libelle: "Gravité haute" };
   if (g === "moyenne") return { gravite: "attention", libelle: "Gravité moyenne" };
@@ -699,13 +707,16 @@ export default async function FinancementPage() {
         }
       >
         <div className="flex flex-col gap-3">
+          {/* Agrégat SANS NOM de tous les rejets (v_campagnes_2024_par_decision).
+              Depuis le 20/11/2026, la table `alertes` ne nomme plus que les élus
+              qui ont une fiche : son compte n'est plus celui des rejets. */}
           <AlertItem
-            gravite={graviteUi(alertesRejets.gravite).gravite}
-            graviteLibelle={graviteUi(alertesRejets.gravite).libelle}
-            titre={`${formatNombre(alertesRejets.nb)} comptes de campagne rejetés par la CNCCFP (législatives 2024)`}
-            detail={`${formatNombre(alertesRejets.nb)} comptes rejetés sur ${formatNombre(comptesDeposes)} comptes déposés (${formatPct(campagnes.taux_rejet_comptes_deposes * 100, 2)}).${familleRejete ? ` Dépenses retenues de ces comptes : ${formatNombre(familleRejete.depenses_retenues)} € ; remboursement de l'État : ${formatNombre(familleRejete.remboursement_etat)} €.` : ""}`}
-            regle={alertesRejets.regle ?? undefined}
-            baseLegale={alertesRejets.base_legale ?? undefined}
+            gravite={graviteUi("haute").gravite}
+            graviteLibelle={graviteUi("haute").libelle}
+            titre={`${formatNombre(familleRejete?.nb ?? 0)} comptes de campagne rejetés par la CNCCFP (législatives 2024)`}
+            detail={`${formatNombre(familleRejete?.nb ?? 0)} comptes rejetés sur ${formatNombre(comptesDeposes)} comptes déposés (${formatPct(campagnes.taux_rejet_comptes_deposes * 100, 2)}).${familleRejete ? ` Dépenses retenues de ces comptes : ${formatNombre(familleRejete.depenses_retenues)} € ; remboursement de l'État : ${formatNombre(familleRejete.remboursement_etat)} €.` : ""} Décision non définitive : le juge de l’élection statue. Le site ne nomme que les élus qui ont une fiche, sur la page Alertes (${formatNombre(alertesRejets.nb)} au total).`}
+            regle={REGLE_AGREGAT_REJETS}
+            baseLegale={alertesRejets.base_legale ?? BASE_LEGALE_REJETS}
             source={{
               libelle: "CNCCFP — data.gouv.fr",
               url: alertesRejets.source_url ?? undefined,

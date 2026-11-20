@@ -184,7 +184,7 @@ const EXPORTS: ExportJson[] = [
     motsCles: ["intégrité publique", "HATVP", "lobbying", "financement politique", "France"],
     chemin: "/api/alertes.json",
     description:
-      "Toutes les alertes calculées à l'ingestion (dump complet), chacune avec sa règle, sa base légale et son URL source.",
+      "Toutes les alertes calculées à l'ingestion (dump complet), chacune avec sa règle, sa base légale, son URL source, sa date de calcul (date_calcul) et la date du fait selon la source (date_fait, vide quand la source ne la donne pas). Aucun candidat n'y est nommé hors des élus qui ont une fiche : les comptes de campagne approuvés après réformation et les autres rejets sont comptés sans nom sur la page Financement.",
   },
   {
     cle: "elus",
