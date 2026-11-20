@@ -67,7 +67,7 @@ URL_EXPORT = (
     "https://data.drees.solidarites-sante.gouv.fr/api/explore/v2.1"
     "/catalog/datasets/305_les-comptes-de-la-protection-sociale/exports/json"
 )
-LICENCE = "Licence Ouverte 2.0 (Etalab)"
+LICENCE = "Licence Ouverte 2.0"
 FREQUENCE = "annuelle"
 CACHE_HEURES = 7 * 24
 FICHIER_RAW = "drees/305_les-comptes-de-la-protection-sociale.json"

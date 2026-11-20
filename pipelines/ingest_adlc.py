@@ -75,7 +75,7 @@ SOURCE_ID = "S52"
 NOM_SOURCE = (
     "Sanctions financières de l'Autorité de la concurrence (2009+)"
 )
-LICENCE = "Licence Ouverte 2.0 (Etalab)"
+LICENCE = "Licence Ouverte 2.0"
 FREQUENCE = "mensuelle"
 
 URL_DATASET_SANCTIONS = (

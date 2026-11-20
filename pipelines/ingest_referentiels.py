@@ -918,7 +918,7 @@ def main() -> int:
             db.upsert_meta(
                 conn, "S27-france-geojson",
                 "Fond de carte départements (france-geojson + DROM Etalab 2025)",
-                URL_FRANCE_GEOJSON_DEPARTEMENTS, "Licence Ouverte (IGN/Etalab)",
+                URL_FRANCE_GEOJSON_DEPARTEMENTS, "Licence Ouverte (version non précisée par le producteur)",
                 "statique",
                 date_donnees="2025-01-01", lignes=len(geojson["features"]),
                 notes="Métropole : france-geojson simplifié (millésime 2018,"
@@ -944,7 +944,7 @@ def main() -> int:
             db.upsert_meta(
                 conn, "S35-reforga-admin-etat",
                 meta_s35["nom"], meta_s35["url"],
-                "Licence Ouverte (fr-lo)", "quotidienne",
+                "Licence Ouverte (version non précisée par le producteur)", "quotidienne",
                 date_donnees=date_reforga,
                 lignes=len(ministeres) + len(institutions),
                 notes=meta_s35["notes"],

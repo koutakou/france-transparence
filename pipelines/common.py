@@ -37,6 +37,30 @@ RAW_DIR = DATA_DIR / "raw"
 USER_AGENT = "FranceTransparence/1.0 (projet open data personnel)"
 
 # ---------------------------------------------------------------------------
+# Licences : un libellé publié par licence (meta_sources.licence)
+# ---------------------------------------------------------------------------
+# Audit du 20/11/2026 (C6) : /api/meta.json portait 12 écritures pour les deux
+# Licences Ouvertes (« etalab-2.0 », « Licence Ouverte v2.0 », « (lov2) »,
+# « (fr-lo) », « (AN) »…). Les licences déclarées concordaient avec les
+# sources, seule l'écriture variait. Chaque pipeline écrit désormais l'un des
+# libellés ci-dessous, et rien d'autre (tests/test_meta_sources_regles.py).
+# Version 2.0 : seulement quand le producteur l'affiche (data.gouv « lov2 »,
+# SPDX « etalab-2.0 », mention « 2.0 » sur la page). Sinon (data.gouv
+# « fr-lo », mention « Licence Ouverte » seule), la version n'est pas
+# inventée.
+LICENCE_OUVERTE_2 = "Licence Ouverte 2.0"
+LICENCE_OUVERTE_SANS_VERSION = "Licence Ouverte (version non précisée par le producteur)"
+LICENCES_CANONIQUES = frozenset({
+    LICENCE_OUVERTE_2,
+    LICENCE_OUVERTE_SANS_VERSION,
+    "Open data DILA (mention DILA)",
+    "Texte officiel (JORF)",
+    "Publications officielles (hors open data)",
+    "Décision 2011/833/UE (réutilisation des documents de la Commission)",
+    "Décision 2011/833/UE (réutilisation des données statistiques Eurostat)",
+})
+
+# ---------------------------------------------------------------------------
 # Log
 # ---------------------------------------------------------------------------
 

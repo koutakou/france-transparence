@@ -142,7 +142,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <footer className="border-t border-card-border">
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-1.5 px-5 py-4 text-xs leading-relaxed text-ink-muted">
             {/* Licence : « pour la plupart », pas toutes. S3 (JORF « Lois
-                et décrets ») est en Licence Ouverte (fr-lo) : ce n'est PAS
+                et décrets ») est en Licence Ouverte (identifiant data.gouv fr-lo) : ce n'est PAS
                 un régime JO distinct. Le reliquat qui rangeait « texte
                 publié au JORF » parmi les exceptions confondait S3 avec
                 S37 (décret d'aide publique, libellé « Texte officiel

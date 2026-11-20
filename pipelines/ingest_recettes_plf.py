@@ -66,7 +66,7 @@ URL_EXPORT = (
     "https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/"
     "plf25-recettes-du-budget-general/exports/csv"
 )
-LICENCE = "Licence Ouverte 2.0 (Etalab)"
+LICENCE = "Licence Ouverte 2.0"
 FREQUENCE = "annuelle"
 CACHE_HEURES = 7 * 24
 FICHIER_RAW = "budget/plf25_recettes_bg.csv"

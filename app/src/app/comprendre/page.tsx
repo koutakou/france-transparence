@@ -1368,7 +1368,7 @@ export default function PageComprendre() {
             2025&nbsp;» (identifiant 8988845, paru le 29 mai 2026). Tableaux
             3.201 (S13), 3.202 (S1311), 3.203 (État, S13111), 3.205
             (S1313) et 3.212 (S1314). Cube homologue Melodi&nbsp;:
-            DD_CNA_APU. Réutilisation&nbsp;: Licence Ouverte 2.0 (Etalab).
+            DD_CNA_APU. Réutilisation&nbsp;: Licence Ouverte 2.0.
             Le millésime est l’année des comptes, pas la date de
             modification Melodi.
           </p>
@@ -1414,7 +1414,7 @@ export default function PageComprendre() {
             INSEE, comptes nationaux annuels base 2020, Insee Résultats
             «&nbsp;Dépenses et recettes des administrations publiques en
             2025&nbsp;» (identifiant 8988845). Tableau 3.204 (S13112).
-            Réutilisation&nbsp;: Licence Ouverte 2.0 (Etalab). Le
+            Réutilisation&nbsp;: Licence Ouverte 2.0. Le
             millésime est l’année des comptes, pas la date de
             modification Melodi, pas la date de parution.
           </p>
@@ -1454,7 +1454,7 @@ export default function PageComprendre() {
             INSEE, comptes nationaux annuels base 2020, tableau 3.216
             de l’Insee Résultats 8988845 (paru le 29 mai 2026). Cube
             homologue Melodi&nbsp;: DD_CNA_APU. Réutilisation&nbsp;:
-            Licence Ouverte 2.0 (Etalab). Le millésime est l’année des
+            Licence Ouverte 2.0. Le millésime est l’année des
             comptes, pas <code>modified</code> Melodi.
           </p>
           <p>
@@ -1645,7 +1645,7 @@ export default function PageComprendre() {
               limpot-sur-le-revenu-par-collectivite-territoriale-ircom
             </code>
             {" "}
-            sur data.gouv.fr. Licence Ouverte / Open Licence.{" "}
+            sur data.gouv.fr. Licence Ouverte (version non précisée par le producteur).{" "}
             {anneeRevenusIrcom
               ? `Millésime servi : revenus ${anneeRevenusIrcom}, déclarés en ${anneeRevenusIrcom + 1} (campagne IRCOM ${anneeRevenusIrcom + 1}).`
               : "Millésime servi : l’année des revenus que donne la date des données sur la page Recettes."}
@@ -1724,7 +1724,7 @@ export default function PageComprendre() {
           <p>
             <strong className="font-medium text-ink">D&apos;où ça vient.</strong>{" "}
             DGFiP / DESF, jeu data.gouv du REI, zip du millésime courant.
-            Licence Ouverte / Open Licence version 2.0. Une cellule vide
+            Licence Ouverte 2.0. Une cellule vide
             est un secret statistique (BOI-DJC-CADA-20), pas un zéro. Le
             produit IFER régional est répliqué sur chaque commune de la
             région : le site en prend une valeur par région.

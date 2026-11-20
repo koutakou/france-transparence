@@ -224,7 +224,7 @@ def test_meta_source(base):
     meta = conn.execute(
         "SELECT * FROM meta_sources WHERE source_id = 'S4'").fetchone()
     assert meta["frequence"] == "quotidienne"
-    assert meta["licence"] == "Licence Ouverte Etalab"
+    assert meta["licence"] == "Licence Ouverte (version non précisée par le producteur)"
     # date de la donnée la plus récente DE LA FIXTURE (jamais la date du fichier)
     assert meta["date_donnees"] == "2026-04-08"
     assert meta["lignes"] == 5

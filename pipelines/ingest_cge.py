@@ -68,7 +68,7 @@ URL_API_DATASET = (
     "https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/"
     "balances_des_comptes_etat"
 )
-LICENCE = "Licence Ouverte 2.0 (Etalab)"
+LICENCE = "Licence Ouverte 2.0"
 FREQUENCE = "annuelle"
 FICHIER_META = "cge/balances_des_comptes_etat.json"
 FICHIER_XLSX = "cge/bilan_cdr_solde.xlsx"
