@@ -44,6 +44,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import re
 import sys
 import unicodedata
 import zipfile
@@ -72,15 +73,23 @@ URL_GEO_COMMUNES = (
 URL_INSEE_POPULATIONS = (
     "https://www.insee.fr/fr/statistiques/fichier/8680726/ensemble.zip"
 )
+# Millésime des populations de référence servies par URL_INSEE_POPULATIONS,
+# en vigueur au 1er janvier de l'année N + 3 (décret n° 2025-1362 pour 2023).
+# geo.api.gouv.fr est une API vivante : `controler_millesime_geo` vérifie à
+# chaque cycle qu'elle sert bien ce millésime, sinon la date et la note de
+# S27-geo-api deviendraient fausses sans erreur.
+MILLESIME_POPULATIONS = 2023
+EN_VIGUEUR_POPULATIONS = f"{MILLESIME_POPULATIONS + 3}-01-01"
 URL_FRANCE_GEOJSON_DEPARTEMENTS = (
     "https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/"
     "departements-version-simplifiee.geojson"
 )
 # Le fichier simplifié ne couvre que la métropole (96 features) : les 5 DROM
 # proviennent des contours Etalab millésimés 2025 (Licence Ouverte, 09 §2.2).
+MILLESIME_CONTOURS = 2025
 URL_ETALAB_DEPARTEMENTS_100M = (
-    "https://etalab-datasets.geo.data.gouv.fr/contours-administratifs/2025/"
-    "geojson/departements-100m.geojson"
+    "https://etalab-datasets.geo.data.gouv.fr/contours-administratifs/"
+    f"{MILLESIME_CONTOURS}/geojson/departements-100m.geojson"
 )
 URL_ANNUAIRE_RECORDS = (
     "https://api-lannuaire.service-public.fr/api/explore/v2.1/catalog/"
@@ -303,6 +312,36 @@ def charger_populations_departements(chemin_zip: Path) -> dict[str, int]:
     return pops
 
 
+def controler_millesime_geo(communes: list[dict],
+                            pops_insee: dict[str, int]) -> int:
+    """Vérifie que geo.api sert les populations du millésime
+    MILLESIME_POPULATIONS, sinon lève. Retourne le nombre de départements
+    comparés.
+
+    La somme des populations communales de geo.api doit égaler, département
+    par département, la PMUN du fichier INSEE de ce millésime. Mesuré le
+    20/11/2026 : 100 départements sur 100 égaux. Le jour où l'API servira le
+    millésime suivant, la date et la note publiées pour S27-geo-api seraient
+    fausses sans erreur : le cycle s'arrête, et il faut alors avancer
+    MILLESIME_POPULATIONS et URL_INSEE_POPULATIONS ensemble.
+    """
+    par_departement: dict[str, int] = {}
+    for c in communes:
+        pop = c.get("population")
+        if pop:
+            dep = c.get("codeDepartement") or _departement_du_code(c["code"])
+            par_departement[dep] = par_departement.get(dep, 0) + int(pop)
+    communs = sorted(set(par_departement) & set(pops_insee))
+    ecarts = [d for d in communs if par_departement[d] != pops_insee[d]]
+    if len(communs) < 96 or ecarts:
+        raise ValueError(
+            f"geo.api : populations différentes du millésime "
+            f"{MILLESIME_POPULATIONS} de l'INSEE pour {len(ecarts)} "
+            f"département(s) sur {len(communs)} (ex. {ecarts[:3]}) : l'API "
+            "sert sans doute un autre millésime, date de donnée à revoir")
+    return len(communs)
+
+
 def completer_populations(
     departements: list[dict],
     pops_insee: dict[str, int],
@@ -434,7 +473,8 @@ def recuperer_prefectures(session: requests.Session) -> list[dict]:
             URL_ANNUAIRE_RECORDS,
             params={
                 "where": 'pivot LIKE "prefecture"',
-                "select": "nom,code_insee_commune,adresse,siren",
+                "select": ("nom,code_insee_commune,adresse,siren,"
+                           "date_modification_datetime"),
                 "limit": 100,
                 "offset": decalage,
             },
@@ -447,6 +487,25 @@ def recuperer_prefectures(session: requests.Session) -> list[dict]:
     if len(fiches) < 95:
         raise ValueError(f"Annuaire : {len(fiches)} préfectures (≥ 95 attendues)")
     return fiches
+
+
+def date_donnees_annuaire(fiches: list[dict]) -> str:
+    """Date de donnée de S11 : la modification la plus récente des fiches
+    lues (`date_modification_datetime`, champ documenté par la DILA).
+
+    L'ancien code écrivait la date du jour à chaque cycle : l'annuaire
+    paraissait modifié tous les jours. Aucune fiche datée : le format a
+    changé, rien de vrai à écrire, on lève.
+    """
+    dates = sorted(
+        str(f.get("date_modification_datetime"))[:10]
+        for f in fiches if f.get("date_modification_datetime")
+    )
+    dates = [d for d in dates if re.fullmatch(r"\d{4}-\d{2}-\d{2}", d)]
+    if not dates:
+        raise ValueError("Annuaire : aucune fiche ne porte "
+                         "date_modification_datetime, date de donnée inconnue")
+    return dates[-1]
 
 
 def parser_prefecture(fiche: dict) -> dict | None:
@@ -853,6 +912,9 @@ def main() -> int:
             max_age_heures=24 * 30, session=session,  # millésime annuel
         )
         pops_insee = charger_populations_departements(chemin_insee)
+        nb_deps_controles = controler_millesime_geo(communes, pops_insee)
+        log.info("geo.api : populations %d confirmées sur %d départements",
+                 MILLESIME_POPULATIONS, nb_deps_controles)
         deps_completes = completer_populations(departements, pops_insee, communes)
         if deps_completes:
             log.info(
@@ -900,9 +962,13 @@ def main() -> int:
             db.upsert_meta(
                 conn, "S27-geo-api", "geo.api.gouv.fr (départements, communes)",
                 "https://geo.api.gouv.fr", "Licence Ouverte 2.0", "continue",
-                date_donnees="2026-01-01", lignes=len(departements) + len(villes),
-                notes="COG et populations de référence 2023 en vigueur au"
-                      " 01/01/2026 ; centroïdes des communes > 50 000 hab."
+                date_donnees=EN_VIGUEUR_POPULATIONS,
+                lignes=len(departements) + len(villes),
+                notes=f"COG et populations de référence {MILLESIME_POPULATIONS}"
+                      f" en vigueur au {date.fromisoformat(EN_VIGUEUR_POPULATIONS):%d/%m/%Y}"
+                      f" (millésime contrôlé sur {nb_deps_controles}"
+                      " départements contre le fichier INSEE)"
+                      " ; centroïdes des communes > 50 000 hab."
                       " pour ref_villes ; population de Mayotte par somme"
                       " communale (absente du CSV INSEE).",
             )
@@ -910,7 +976,7 @@ def main() -> int:
                 conn, "S27-insee-populations",
                 "INSEE — populations de référence 2023 (ensemble.zip)",
                 URL_INSEE_POPULATIONS, "Licence Ouverte 2.0", "annuelle",
-                date_donnees="2023-01-01", lignes=len(pops_insee),
+                date_donnees=f"{MILLESIME_POPULATIONS}-01-01", lignes=len(pops_insee),
                 notes="PMUN par département (décret n° 2025-1362 du"
                       " 26/12/2025, en vigueur au 01/01/2026) ; Mayotte"
                       " absente du fichier d'ensemble.",
@@ -920,7 +986,8 @@ def main() -> int:
                 "Fond de carte départements (france-geojson + DROM Etalab 2025)",
                 URL_FRANCE_GEOJSON_DEPARTEMENTS, "Licence Ouverte (version non précisée par le producteur)",
                 "statique",
-                date_donnees="2025-01-01", lignes=len(geojson["features"]),
+                date_donnees=f"{MILLESIME_CONTOURS}-01-01",
+                lignes=len(geojson["features"]),
                 notes="Métropole : france-geojson simplifié (millésime 2018,"
                       " contours stables) ; DROM 971/972/973/974/976 :"
                       f" contours Etalab 2025 (100 m) — {octets_geojson} octets"
@@ -931,7 +998,8 @@ def main() -> int:
                 "Annuaire de l'administration (DILA) — préfectures",
                 URL_ANNUAIRE_RECORDS, "Open data DILA (mention DILA)",
                 "quotidienne",
-                date_donnees=aujourd_hui, lignes=nb_prefectures,
+                date_donnees=date_donnees_annuaire(prefectures),
+                lignes=nb_prefectures,
                 notes="Fiches pivot 'prefecture' : lat/lon du bâtiment pour"
                       " les points préfecture de ref_villes. Codes"
                       " d'arrondissement (Lyon 3e, Marseille 3e) ramenés à la"

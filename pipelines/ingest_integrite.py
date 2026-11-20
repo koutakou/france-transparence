@@ -104,6 +104,7 @@ from pipelines.ingest_hatvp_declarations import (charger_liste_blanche,
                                                  composantes_identite,
                                                  date_complete,
                                                  ecritures_incluses)
+from pipelines.ingest_hatvp_declarations import date_donnees_sans_last_modified
 
 log = obtenir_logger("ingest_integrite")
 
@@ -1798,6 +1799,39 @@ def ecrire(conn, dossiers: list[dict], rne: dict, chemins: dict,
     return {"total_cm": total_cm, "nb_alertes": len(lignes_alertes)}
 
 
+def date_s14_sans_last_modified(conn: sqlite3.Connection, dossiers: list[dict],
+                                aujourd_hui: date) -> str:
+    """Date de donnée de S14 quand la HATVP n'envoie pas de Last-Modified.
+
+    Jamais la date du jour : S14 paraîtrait fraîche à chaque cycle, fichier
+    régénéré ou non. Même règle que S15 (`date_donnees_sans_last_modified`) :
+    la plus haute des bornes basses que l'on sait vraies, la date du cycle
+    précédent et le dépôt ou la publication la plus récente du fichier. Au
+    pire la source paraît plus âgée qu'elle n'est, jamais plus fraîche. Les
+    dates postérieures au jour sont ignorées (coquilles et publications
+    programmées existent dans le fichier, voir `controler_dates_hatvp`).
+    Garder cette date plutôt que lever : une levée arrêterait les pipelines
+    en aval et tout le rafraîchissement du site pour un en-tête HTTP absent.
+    Sans aucune borne (base neuve et en-tête absent), il n'y a rien de vrai à
+    écrire : lève.
+    """
+    ligne = conn.execute(
+        "SELECT date_donnees FROM meta_sources WHERE source_id = 'S14'"
+    ).fetchone()
+    precedente = ligne[0] if ligne else None
+    contenu = [j for d in dossiers for c in ("date_depot", "date_publication")
+               if (j := _parser_date_iso(d.get(c))) and j <= aujourd_hui]
+    retenue = date_donnees_sans_last_modified(
+        precedente, max(contenu).isoformat() if contenu else None)
+    if not retenue:
+        raise RuntimeError(
+            "liste.csv : Last-Modified indisponible et aucune date connue "
+            "(ni cycle précédent ni dépôt daté) : pas de date de donnée vraie")
+    log.warning("liste.csv : Last-Modified indisponible, date de donnée gardée "
+                "au %s (cycle précédent %s)", retenue, precedente)
+    return retenue
+
+
 def main() -> int:
     aujourd_hui = date.today()
     session = session_http()
@@ -1808,10 +1842,9 @@ def main() -> int:
         chemin_liste = telecharger(URL_HATVP_LISTE, REP_RAW / "liste.csv",
                                    max_age_heures=6, session=session)
         date_hatvp = date_derniere_modification(session, URL_HATVP_LISTE)
-        if not date_hatvp:
-            log.warning("liste.csv : Last-Modified indisponible, date d'ingestion utilisée")
-            date_hatvp = aujourd_hui.isoformat()
         dossiers = parser_liste_hatvp(chemin_liste)
+        if not date_hatvp:
+            date_hatvp = date_s14_sans_last_modified(conn, dossiers, aujourd_hui)
         if len(dossiers) < 10_000:
             raise ValueError(f"liste.csv : {len(dossiers)} lignes, seuil de plausibilité "
                              "(10 000) non atteint — source suspecte, abandon")
