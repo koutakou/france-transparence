@@ -247,7 +247,7 @@ function SectionCroisement({
               représentation d&apos;intérêts ; l&apos;attribution d&apos;un
               marché résulte d&apos;une procédure d&apos;achat public encadrée.
               Le cumul des deux n&apos;est ni interdit, ni irrégulier, ni
-              suspect en soi : une entreprise, une association ou une chambre
+              anormal en soi : une entreprise, une association ou une chambre
               consulaire peut avoir des raisons parfaitement légitimes de
               figurer au répertoire. Aucune des entités listées ci-dessous
               n&apos;est en tort du seul fait d&apos;y figurer, et cette
@@ -339,7 +339,7 @@ function SectionCroisement({
                 <strong className="font-medium text-ink">
                   {formatNombre(ag.suspectsHorsAc)} marchés
                 </strong>{" "}
-                portent le drapeau « montant suspect » (anomalie signalée à la
+                portent le drapeau « montant signalé » (anomalie signalée à la
                 source, ou montant au-delà du plafond) et apportent{" "}
                 {ag.montantSuspectsHorsAc !== null
                   ? formatEuros(ag.montantSuspectsHorsAc)
@@ -357,7 +357,7 @@ function SectionCroisement({
                 {formatNombre(ag.sirensHorsAcHorsSuspects)} représentants
                 d&apos;intérêts. À lire comme une{" "}
                 <strong className="font-medium text-ink">borne basse</strong>, et
-                non comme le montant réel : le drapeau « suspect » n&apos;a pas
+                non comme le montant réel : le drapeau « montant signalé » n&apos;a pas
                 été vérifié marché par marché, il écarte donc aussi des montants
                 exacts.
               </li>
@@ -480,7 +480,7 @@ function SectionCroisement({
               ? formatEuros(ag.defautMontantTousHorsSuspects)
               : "—"}{" "}
             sur {formatNombre(ag.defautMarchesTousHorsSuspects)} marchés une fois
-            écartés les montants marqués suspects. Sur le périmètre de référence
+            écartés les montants signalés. Sur le périmètre de référence
             de cette page (accords-cadres exclus), il reste{" "}
             {formatNombre(ag.defautSirensHorsAc)} entités,{" "}
             {formatNombre(ag.defautMarchesHorsAc)} marchés et{" "}
@@ -495,7 +495,7 @@ function SectionCroisement({
           <p className="text-xs leading-relaxed text-ink-muted">
             « AC » = accord-cadre. Montants écrêtés à{" "}
             {formatEuros(PLAFOND_ECRETAGE)} par marché puis répartis entre
-            co-titulaires ; ils comprennent ici les montants marqués suspects,
+            co-titulaires ; ils comprennent ici les montants signalés,
             le détail par entité étant trop fin pour qu&apos;une borne basse par
             ligne ait un sens. La liste officielle complète des représentants
             d&apos;intérêts en défaut de déclaration — marchés publics ou non —

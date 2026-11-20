@@ -35,7 +35,7 @@ import { bornePerimetreRompu } from "@/lib/queries/budget-ruptures";
 export const metadata: Metadata = metadonneesPage({
   chemin: "/",
   description:
-    "Le tableau de bord de l'argent public : budget général de l'État, marchés publics, élus, lobbying, financement de la vie politique, finances locales, prestations de protection sociale et alertes d'intégrité — données publiques officielles, datées et sourcées.",
+    "Le tableau de bord de l'argent public : budget général de l'État, marchés publics, élus, lobbying, financement de la vie politique, finances locales, prestations de protection sociale et alertes d'intégrité, à partir de sources publiques officielles, plus quelques consolidations reconnues et créditées, datées et sourcées.",
 });
 
 /* ------------------------------------------------------------------ */
@@ -269,8 +269,9 @@ export default async function Accueil() {
           Ce tableau de bord couvre le budget général de l&apos;État, la
           commande publique, le Journal officiel, le Parlement et les élus, le
           lobbying, le financement de la vie politique, les finances locales et
-          les prestations de protection sociale (tous régimes), uniquement à
-          partir de données publiques officielles — chaque bloc affiche la date
+          les prestations de protection sociale (tous régimes), à partir de
+          sources publiques officielles, plus quelques consolidations reconnues et créditées (liste et licences sur la page
+          Données). Chaque bloc affiche la date
           et la fréquence réelle de sa source. Hors champ&nbsp;: la loi de
           financement de la sécurité sociale en tant que texte voté, la
           dépense propre des opérateurs de l&apos;État et les entreprises
@@ -434,7 +435,7 @@ export default async function Accueil() {
 
         <Card
           titre="Top 5 missions (PLF 2026)"
-          sousTitre={etiquettePlf2026 ?? "Crédits de paiement du PLF 2026"}
+          sousTitre={`${etiquettePlf2026 ?? "Crédits de paiement du PLF 2026"} · hors prélèvements sur recettes (collectivités, Union européenne), qui ne sont pas des missions`}
           droite={<BadgeSource source={sources.S20} mention="PLF" />}
         >
           <BarList
@@ -532,12 +533,12 @@ export default async function Accueil() {
                     {m.montant !== null ? (
                       <span className="inline-flex items-baseline gap-1.5">
                         <Money valeur={m.montant} />
-                        {m.suspect === 1 && (
+                        {m.signale === 1 && (
                           <span
                             className="text-[11px] text-ink-muted"
-                            title="Montant classé suspect : anomalie signalée à la source, ou montant supérieur à 100 M€ (écrêté dans les agrégats)."
+                            title="Montant signalé, à vérifier : anomalie signalée à la source, ou montant supérieur à 100 M€ (écrêté dans les agrégats)."
                           >
-                            suspect
+                            signalé
                           </span>
                         )}
                       </span>
@@ -618,8 +619,8 @@ export default async function Accueil() {
       </div>
 
       <Card
-        titre="Budget par ministère (destination 2025)"
-        sousTitre="Crédits de paiement BRUTS du PLF 2025 — non comparables aux dépenses nettes du budget général"
+        titre="Budget par ministère (PLF 2025, édition ancienne)"
+        sousTitre="Crédits de paiement BRUTS du projet de loi de finances pour 2025, dernière édition par ministère ingérée. Elle est plus ancienne que le PLF 2026 du bloc des missions, et ses montants ne se comparent ni à lui ni aux dépenses nettes du budget général."
         droite={<BadgeSource source={sources.S21} mention="PLF" />}
       >
         <DataTable
