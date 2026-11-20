@@ -7,9 +7,10 @@ import { Money } from "@/components/ui/Money";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { ESPACE_FINE, formatDateFr, formatNombre, formatPct } from "@/lib/format";
 import { enTeteCategorie, formatDateSourceFr } from "@/lib/frais-entetes";
+import { libelleCadre } from "@/lib/frais-textes";
 import {
   getFraisData,
-  getVerrousCada,
+  getAvisCada,
   grouperParCategorie,
   PERIMETRE_DFP_METROPOLE,
   PERIMETRE_ELYSEE_CHARGES,
@@ -19,7 +20,7 @@ import {
   PERIMETRE_REVERSEMENTS_AN,
   SENS_REFUS,
   type TrainvieFait,
-  type VerrousCadaData,
+  type AvisCadaData,
 } from "@/lib/queries/frais";
 import { JsonLd } from "@/components/JsonLd";
 import { NoticeLecture } from "@/components/ui/NoticeLecture";
@@ -192,7 +193,7 @@ function ResumeCol({
 }
 
 /* ------------------------------------------------------------------ */
-/* Carte des verrous (S38 — avis de la CADA)                           */
+/* Avis de la CADA par administration (S38)                           */
 /* ------------------------------------------------------------------ */
 
 /** Libellés des catégories d'administration produites par le pipeline. */
@@ -218,7 +219,7 @@ function moisEntre(debutIso: string, finIso: string): number {
 }
 
 /**
- * La carte des verrous : qui refuse de communiquer, sur quel fondement, et
+ * Les avis de la CADA par administration : qui refuse de communiquer, sur quel fondement, et
  * dans quel sens la CADA tranche.
  *
  * Rendue intégralement côté serveur — le site doit rester utilisable sans
@@ -227,24 +228,24 @@ function moisEntre(debutIso: string, finIso: string): number {
  * bloc a été pesé : cette carte ajoute une quinzaine de kilo-octets au HTML
  * de /frais, sur une page qui en fait déjà plus de deux cents.
  */
-function CarteDesVerrous({ data }: { data: VerrousCadaData }) {
+function AvisCadaParAdministration({ data }: { data: AvisCadaData }) {
   const { meta, avis, conseils, premiereAnnee, derniereAnnee, administrations } = data;
-  const retardMois = moisEntre(meta.date_donnees, meta.date_ingestion);
+  const ecartMois = moisEntre(meta.date_donnees, meta.date_ingestion);
   const defavorable = data.sens.find((s) => s.sens === "Défavorable")?.dossiers ?? 0;
   const favorable = data.sens.find((s) => s.sens === "Favorable")?.dossiers ?? 0;
   const pct = (v: number) => formatPct((100 * v) / avis, 0);
 
   return (
     <Card
-      titre="La carte des verrous"
-      sousTitre="Ce que l’administration refuse de communiquer, et ce que la CADA en dit"
+      titre="Avis de la CADA par administration"
+      sousTitre="Les demandes de documents refusées par une administration, et le sens de l’avis rendu par la CADA"
       droite={
         <FreshnessBadge
           dateDonnees={meta.date_donnees}
           source="Avis de la CADA"
           frequence={meta.frequence}
           url={meta.url}
-          mention={`retard de versement : ${retardMois} mois`}
+          mention={`dernière séance publiée il y a ${ecartMois} mois`}
         />
       }
     >
@@ -252,8 +253,8 @@ function CarteDesVerrous({ data }: { data: VerrousCadaData }) {
         <p className="max-w-3xl text-[13px] leading-relaxed text-ink-secondary">
           Quand une administration refuse de communiquer un document, le demandeur peut
           saisir la Commission d’accès aux documents administratifs, qui rend un avis.
-          Ces avis sont publiés : ils dessinent, décision après décision, la carte des
-          refus. {formatNombre(avis)} avis et {formatNombre(conseils)} conseils sont ici
+          Ces avis sont publiés, et leurs dénombrements montrent où portent les
+          demandes refusées. {formatNombre(avis)} avis et {formatNombre(conseils)} conseils sont ici
           dépouillés, de {premiereAnnee} à {derniereAnnee}, visant{" "}
           {formatNombre(administrations)} libellés d’administration distincts. Seuls des
           dénombrements sont conservés : le texte des décisions, qui nomme des
@@ -263,7 +264,7 @@ function CarteDesVerrous({ data }: { data: VerrousCadaData }) {
         {/* Le piège éditorial, en clair et jamais masqué. */}
         <p className="max-w-3xl rounded-lg border border-dashed border-raised-border p-3 text-[13px] leading-relaxed text-ink-secondary">
           <span className="font-semibold text-ink">
-            {retardMois}&nbsp;mois de retard de versement.
+            Dernière séance publiée il y a {ecartMois}&nbsp;mois.
           </span>{" "}
           La CADA publie par lots : le jeu de données porte une date de mise à jour
           récente, mais la dernière séance qu’il contient est celle du{" "}
@@ -384,7 +385,7 @@ function CarteDesVerrous({ data }: { data: VerrousCadaData }) {
  */
 export default async function FraisPage() {
   const data = getFraisData();
-  const verrous = getVerrousCada();
+  const avisCada = getAvisCada();
 
   if (!data) {
     return (
@@ -464,7 +465,7 @@ export default async function FraisPage() {
           <p className="mt-2 text-sm text-ink-secondary">
             Barèmes publics des indemnités, dotations et avances. Les notes de
             frais des parlementaires ne sont ni publiées ni communicables (voir
-            la notice pour l’ordonnance et les refus du 11&nbsp;juin&nbsp;2026).
+            la notice pour l’ordonnance n°&nbsp;58-1100).
           </p>
         </div>
         {meta && (
@@ -521,8 +522,9 @@ export default async function FraisPage() {
           <p>
             Barèmes des assemblées et de l’administration, rapports du
             déontologue, comptes de l’Élysée audités par la Cour des
-            comptes. Les refus d’accès de l’Assemblée nationale et du
-            Sénat du 11 juin 2026 sont cités tels quels.
+            comptes, textes de loi, décisions de justice et réponses du
+            Gouvernement publiées au Journal officiel. Chaque affirmation
+            renvoie à un document officiel.
           </p>
         }
         limites={
@@ -530,8 +532,9 @@ export default async function FraisPage() {
             Aucune note de frais individuelle n’est publiée ni
             communicable pour les parlementaires (ordonnance
             n°&nbsp;58-1100 du 17 novembre 1958). L’absence d’une
-            catégorie n’est pas un oubli : c’est, dans les cas
-            documentés, un refus d’accès à la source.
+            catégorie n’est pas un oubli : dans les cas documentés, elle
+            tient à un texte ou à un choix de publication de
+            l’institution, dit à chaque fois avec sa source.
           </p>
         }
       />
@@ -561,15 +564,15 @@ export default async function FraisPage() {
         })}
       </div>
 
-      {/* ----------------------------- Boîte noire ----------------------------- */}
+      {/* ------------------------ Ce que la loi ne publie pas ------------------------ */}
       <div className="mt-2 flex flex-col gap-1">
         <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
-          La boîte noire — ce que la loi ne publie pas
+          Ce que la loi ne publie pas
         </h2>
         <p className="max-w-3xl text-xs leading-relaxed text-ink-secondary">
           {formatNombre(opacites.length)} points documentés où la donnée n’est ni publiée ni
-          accessible — avec, à chaque fois, ce qui manque, la base du refus et la source
-          datée.
+          accessible, avec, à chaque fois, ce qui manque, le cadre qui l’explique et la
+          source officielle datée.
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -578,8 +581,8 @@ export default async function FraisPage() {
             <h3 className="text-sm font-semibold leading-snug text-ink">{o.sujet}</h3>
             <p className="text-[13px] leading-relaxed text-ink-secondary">{o.ce_qui_manque}</p>
             <p className="text-xs leading-relaxed text-ink-muted">
-              <span className="font-medium uppercase tracking-[0.08em] text-[10px]">
-                Base du refus&nbsp;
+              <span className="font-medium uppercase tracking-[0.08em] text-[11px]">
+                {libelleCadre(o.base_du_refus)}&nbsp;
               </span>
               — {o.base_du_refus}
             </p>
@@ -599,8 +602,8 @@ export default async function FraisPage() {
         ))}
       </div>
 
-      {/* --------------------------- Carte des verrous -------------------------- */}
-      {verrous && <CarteDesVerrous data={verrous} />}
+      {/* --------------------------- Avis de la CADA ---------------------------- */}
+      {avisCada && <AvisCadaParAdministration data={avisCada} />}
 
       {/* ------------------------------ En résumé ------------------------------ */}
       <Card titre="En résumé" sousTitre="Ce que la loi publie — et ce qu’elle ne publie pas">
@@ -617,10 +620,9 @@ export default async function FraisPage() {
           </ResumeCol>
           <ResumeCol etat="Non publics" titre="Les justificatifs" nonPublic>
             Les justificatifs et notes de frais des parlementaires ne sont ni publiés ni
-            communicables (ordonnance n°&nbsp;58-1100&nbsp;; refus écrits de l’Assemblée
-            nationale et du Sénat du 11&nbsp;juin&nbsp;2026). À l’inverse, les notes de
+            communicables (ordonnance n°&nbsp;58-1100). À l’inverse, les notes de
             frais des élus locaux sont communicables sur demande depuis la décision du
-            Conseil d’État du 8&nbsp;février&nbsp;2023 — le Parlement est l’exception.
+            Conseil d’État du 8&nbsp;février&nbsp;2023 : le Parlement est l’exception.
           </ResumeCol>
         </div>
       </Card>

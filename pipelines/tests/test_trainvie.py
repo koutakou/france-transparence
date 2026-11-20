@@ -154,6 +154,42 @@ def test_chaque_opacite_est_documentee(conn):
         assert o["date"], o["id"]
 
 
+# Producteurs officiels admis comme source d'un fait ou d'une opacité
+# (décision du propriétaire du 20/11/2026) : loi, décret, rapport de la Cour
+# des comptes ou d'une assemblée, décision de justice. /frais citait un média
+# d'opinion, Next INpact et un cabinet d'avocats.
+DOMAINES_OFFICIELS = (
+    "assemblee-nationale.fr", "senat.fr", "ccomptes.fr", "conseil-etat.fr",
+    "conseil-constitutionnel.fr", "elysee.fr", "gouv.fr",
+)
+
+
+def _officiel(url: str) -> bool:
+    from urllib.parse import urlsplit
+    hote = urlsplit(url).hostname or ""
+    return urlsplit(url).scheme == "https" and any(
+        hote == d or hote.endswith("." + d) for d in DOMAINES_OFFICIELS)
+
+
+def test_toutes_les_sources_sont_officielles():
+    hors_liste = [x["id"] for x in FAITS + OPACITES if not _officiel(x["source_url"])]
+    assert hors_liste == []
+    assert not _officiel("https://www.lecourrierdesstrateges.fr/x")
+    assert not _officiel("https://faux-senat.fr/x")
+
+
+def test_le_mot_refus_seulement_avec_un_refus_date():
+    """« Base du refus » s'affichait sur des cas où personne n'a rien refusé
+    (calendrier de la Cour des comptes, choix du Sénat). Le texte d'une
+    opacité ne parle de refus que s'il cite un refus daté."""
+    import re
+    for o in OPACITES:
+        texte = o["base_du_refus"] + " " + o["ce_qui_manque"]
+        for m in re.finditer(r"refus", texte, re.I):
+            voisinage = texte[m.start():m.start() + 120]
+            assert re.search(r"\d{2}/\d{2}/\d{4}", voisinage), (o["id"], voisinage)
+
+
 def test_opacites_couvrent_les_manques_du_rapport(conn):
     ids = {r["id"] for r in conn.execute("SELECT id FROM trainvie_opacites")}
     assert {
@@ -235,7 +271,7 @@ def test_meta_source_s31(conn):
     assert meta["lignes"] == nb
     # Calculée, plus écrite en dur : le document le plus récent est le rapport
     # de la Cour des comptes sur l'exercice 2025 de l'Élysée, publié le
-    # 17/09/2026 (avant lui : le refus écrit des deux chambres du 11/06/2026).
+    # 17/09/2026.
     assert meta["date_donnees"] == "2026-09-17"
     assert meta["url"].endswith("exercice-2025")
     assert meta["date_ingestion"]
