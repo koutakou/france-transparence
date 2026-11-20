@@ -10,6 +10,7 @@ import { JsonLd } from "@/components/JsonLd";
 import { DataTable } from "@/components/ui/DataTable";
 import { formatDateFr, formatNombre } from "@/lib/format";
 import { instantDeConstruction } from "@/lib/lecture";
+import { natureSource } from "@/lib/nature-sources";
 import {
   getCatalogueSources,
   getCouvertureBudgetMensuel,
@@ -92,14 +93,14 @@ const POSTES: { poste: string; donnee: string; publie: string }[] = [
   {
     poste: "Notes de frais",
     donnee:
-      "Aucune note de frais du pouvoir national n'est publiée, ni communicable (ordonnance 58-1100, CE mars 2025, refus des deux chambres du 11/06/2026).",
+      "Aucune note de frais du pouvoir national n'est publiée. Celles des parlementaires ne sont pas non plus communicables (ordonnance n° 58-1100 du 17 novembre 1958).",
     publie:
-      "La page « Frais & train de vie » : barèmes 2026, enveloppes, contrôles agrégés, et la « boîte noire » qui documente ce qui est caché et sur quel fondement.",
+      "La page « Frais & train de vie » : barèmes 2026, enveloppes, contrôles agrégés, et la liste de ce que la loi ne publie pas, chaque point avec son cadre et sa source officielle.",
   },
   {
     poste: "Ventilation par ministère",
     donnee:
-      "Le niveau mission/programme mensuel n'existe qu'en PDF anti-bot ; l'API mensuelle compte 26 lignes, par grands titres. La LFI 2026 n'a jamais été publiée en données.",
+      "Le niveau mission/programme mensuel n'existe qu'en PDF ; l'API mensuelle compte 26 lignes, par grands titres. La LFI 2026 n'a jamais été publiée en données.",
     publie:
       "Une répartition mensuelle par nature de dépense, et une répartition annuelle par mission issue du PLF 2026.",
   },
@@ -304,9 +305,10 @@ export default async function PageDonnees() {
           Données &amp; exports
         </h1>
         <p className="max-w-3xl text-sm text-ink-secondary">
-          Le manifeste de méthode du dashboard : données publiques réelles
-          uniquement, fraîcheur mesurée et affichée, limites dites telles
-          quelles. Comment lire un chiffre, d’où il vient et ce qu’il ne dit
+          Le manifeste de méthode du dashboard : sources publiques
+          officielles, plus quelques consolidations reconnues et créditées,
+          étiquetées comme telles dans le tableau ci-dessous. Fraîcheur
+          mesurée et affichée, limites dites telles quelles. Comment lire un chiffre, d’où il vient et ce qu’il ne dit
           pas : page{" "}
           <Link
             href="/comprendre"
@@ -339,6 +341,17 @@ export default async function PageDonnees() {
                 <span className="block min-w-56 whitespace-normal leading-snug">
                   {s.nom}{" "}
                   <span className="text-[11px] text-ink-muted">({s.source_id})</span>
+                  {(() => {
+                    const nature = natureSource(s.source_id);
+                    return nature ? (
+                      <span className="mt-1 block text-[11px] leading-snug text-ink-muted">
+                        <span className="rounded border border-dashed border-raised-border px-1 py-0.5 font-medium text-ink-secondary">
+                          {nature.etiquette}
+                        </span>{" "}
+                        {nature.detail}
+                      </span>
+                    ) : null;
+                  })()}
                 </span>
               ),
             },
@@ -480,7 +493,7 @@ export default async function PageDonnees() {
         <p className="mb-3 max-w-3xl text-xs text-ink-muted">
           Aucune source publique française ne diffuse la dépense de l’État en
           continu. Pour chaque poste, voici ce que la donnée contient — chaque
-          limite étant établie source à l’appui (docs/SOURCES.md §3) — et ce que
+          limite étant établie source à l’appui, et ce que
           le dashboard publie à partir de là.
         </p>
         <ul className="flex flex-col gap-3">

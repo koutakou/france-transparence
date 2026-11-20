@@ -12,7 +12,7 @@ import "./globals.css";
 // comptait 78, et X le coupait en plein mot. Vérifié par npm test.
 const TITRE_DEFAUT = "France Transparence — argent public et vie politique, données ouvertes";
 const DESCRIPTION_DEFAUT =
-  "Dépenses de l'État, marchés publics, élus, lobbying, financement de la vie politique : données publiques officielles, fraîcheur mesurée et affichée, sources et limites documentées.";
+  "Dépenses de l'État, marchés publics, élus, lobbying, financement politique : sources publiques officielles, plus quelques consolidations reconnues et créditées, fraîcheur et limites affichées.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
