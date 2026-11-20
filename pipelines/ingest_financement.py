@@ -141,6 +141,8 @@ MAX_AGE_HEURES = 7 * 24  # données annuelles figées : cache 7 jours
 #
 # `fraction1_eur`/`fraction2_eur` restent None tant que le décret n'a pas été
 # dépouillé fraction par fraction (le tableau est dans le corps du texte).
+# `date_decret` (date de signature) est la date de donnée de S37 : elle suit
+# le dernier décret inscrit, qui donne aussi l'URL.
 DECRETS_AIDE_PUBLIQUE: tuple[dict, ...] = (
     {
         "annee": 2024,
@@ -149,6 +151,7 @@ DECRETS_AIDE_PUBLIQUE: tuple[dict, ...] = (
         "fraction2_eur": None,
         "perimetre": "Enveloppe nationale, 1re + 2nde fractions",
         "reference": "Décret n° 2024-77 du 2 février 2024",
+        "date_decret": "2024-02-02",
         "source_url": "https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000049085148",
         "note": (
             "Montant re-vérifié sur Légifrance le 20/08/2026 sur le texte "
@@ -168,6 +171,7 @@ DECRETS_AIDE_PUBLIQUE: tuple[dict, ...] = (
         "fraction2_eur": None,
         "perimetre": "Enveloppe nationale, 1re + 2nde fractions",
         "reference": "Décret n° 2026-149 du 3 mars 2026 (JO du 04/03/2026)",
+        "date_decret": "2026-03-03",
         "source_url": "https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000053613045",
         "note": (
             "Répartition par parti non publiée en données exploitables "
@@ -1477,7 +1481,7 @@ def main() -> int:
             url=dernier_decret["source_url"],
             licence="Texte officiel (JORF)",
             frequence="annuelle",
-            date_donnees="2026-03-03",
+            date_donnees=dernier_decret["date_decret"],
             lignes=nb_decrets,
             notes="Enveloppes NATIONALES fixées par décret, "
                   + ", ".join(
