@@ -923,8 +923,13 @@ def ecrire_db(conn, donnees: dict) -> dict:
         # table partagée : on ne touche QUE nos types
         conn.execute(
             "DELETE FROM alertes WHERE type IN (?, ?)", TYPES_ALERTES)
+        # Colonnes NOMMÉES : la table est partagée, un autre pipeline y pose
+        # `date_fait` (db.assurer_date_fait_alertes). Un INSERT positionnel
+        # casse dès qu'une colonne s'ajoute, ce qu'il a fait le 20/11/2026.
         conn.executemany(
-            "INSERT INTO alertes VALUES (?,?,?,?,?,?,?,?,?)", lignes_alertes)
+            "INSERT INTO alertes (id, type, gravite, titre, detail, regle,"
+            " base_legale, source_url, date_calcul)"
+            " VALUES (?,?,?,?,?,?,?,?,?)", lignes_alertes)
         conn.commit()
     except Exception:
         conn.rollback()

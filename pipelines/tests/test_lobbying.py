@@ -311,6 +311,17 @@ def test_idempotence_et_table_alertes_partagee(base, tmp_path):
     ).fetchone()["n"] == 1  # intacte : on n'efface que nos types
 
 
+def test_ecriture_tolere_la_colonne_date_fait_posee_par_un_autre_pipeline(base):
+    """P7 et P10 posent `alertes.date_fait` avant ce pipeline (Makefile) : un
+    INSERT positionnel à 9 valeurs a fait échouer l'ingestion du 20/11/2026."""
+    conn, donnees = base
+    db.assurer_date_fait_alertes(conn)
+    ecrire_db(conn, donnees)
+    lignes = conn.execute(
+        "SELECT date_fait FROM alertes WHERE type IN (?, ?)", TYPES_ALERTES).fetchall()
+    assert len(lignes) == 3 and all(l["date_fait"] is None for l in lignes)
+
+
 # ---------------------------------------------------------------------------
 # Recomposition des portefeuilles ministériels (table FERMÉE)
 # ---------------------------------------------------------------------------
