@@ -174,6 +174,14 @@ COLONNES_VOTES_SENAT = (
 )
 # Fenêtre des agrégats de participation.
 FENETRE_JOURS = 365
+# Scrutins AN hors du taux de participation (numérateur ET dénominateur).
+# Motion de censure (code AN « MOC ») : seuls les votes POUR sont recueillis
+# (article 49 de la Constitution), un député qui ne la vote pas ne peut donc
+# pas y « participer ». La compter abaissait le taux de ceux qui ne la votent
+# pas, et pas celui des autres : un biais orienté politiquement. Mesuré le
+# 20/11/2026 : 23 motions en base, dont 11 dans la fenêtre de 365 jours.
+CODES_TYPE_VOTE_HORS_PARTICIPATION = frozenset({"MOC"})
+LIBELLES_TYPE_VOTE_HORS_PARTICIPATION = frozenset({"motion de censure"})
 # Part minimale des sénateurs en exercice que `votsen` doit lister, en
 # médiane, par scrutin : prémisse du dénominateur Sénat (voir
 # calculer_participation_senat). Mesuré le 15/10/2026 : 347 à 348 lignes par
@@ -506,6 +514,8 @@ def parser_scrutin(data: dict) -> tuple[dict, list[tuple[str, str, int, str | No
         "date_scrutin": s["dateScrutin"],
         "titre": s.get("titre"),
         "type_vote": (s.get("typeVote") or {}).get("libelleTypeVote"),
+        # Lu pour le filtre de participation, non stocké (pas de colonne).
+        "code_type_vote": (s.get("typeVote") or {}).get("codeTypeVote"),
         "sort": (s.get("sort") or {}).get("code"),
         "demandeur": (s.get("demandeur") or {}).get("texte"),
         "nombre_votants": _i(synthese.get("nombreVotants")),
@@ -568,6 +578,36 @@ def construire_url_senateur(nom: str, prenom: str, matricule: str) -> str:
         return t
     return (f"https://www.senat.fr/senateur/"
             f"{slug(nom)}_{slug(prenom)}{matricule.lower()}.html")
+
+
+def compte_dans_participation(meta: dict) -> bool:
+    """Faux pour un scrutin qui n'entre pas dans le taux de participation
+    (motion de censure, voir CODES_TYPE_VOTE_HORS_PARTICIPATION). Le code AN
+    fait foi, le libellé sert de repli si le code manque."""
+    code = (meta.get("code_type_vote") or "").strip().upper()
+    if code in CODES_TYPE_VOTE_HORS_PARTICIPATION:
+        return False
+    libelle = (meta.get("type_vote") or "").strip().lower()
+    return libelle not in LIBELLES_TYPE_VOTE_HORS_PARTICIPATION
+
+
+def fenetre_participation(
+    scrutins: list[tuple[dict, list]], date_min: str,
+) -> tuple[list[tuple[str, set[str]]], int]:
+    """Scrutins (meta, votes) → (fenêtre pour `calculer_participation`,
+    nombre de scrutins de la fenêtre écartés comme motions de censure)."""
+    fenetre: list[tuple[str, set[str]]] = []
+    exclus = 0
+    for meta, votes in scrutins:
+        if meta["date_scrutin"] < date_min:
+            continue
+        if not compte_dans_participation(meta):
+            exclus += 1
+            continue
+        exprimes = {uid for uid, pos, _, _ in votes
+                    if pos in ("pour", "contre", "abstention") and uid}
+        fenetre.append((meta["date_scrutin"], exprimes))
+    return fenetre, exclus
 
 
 def calculer_participation(
@@ -1253,15 +1293,15 @@ def ingerer_scrutins(conn, session: requests.Session) -> None:
     date_min_fenetre = (date.today() - timedelta(days=FENETRE_JOURS)).isoformat()
     metas: list[dict] = []
     votes_par_scrutin: dict[int, list] = {}       # numero -> votes nominaux
-    fenetre: list[tuple[str, set[str]]] = []      # (date, participants exprimés)
     for nom_fichier in fichiers:
         meta, votes = parser_scrutin(json.loads(z.read(nom_fichier)))
         metas.append(meta)
         votes_par_scrutin[meta["numero"]] = (meta["uid"], votes)
-        if meta["date_scrutin"] >= date_min_fenetre:
-            exprimes = {uid for uid, pos, _, _ in votes
-                        if pos in ("pour", "contre", "abstention") and uid}
-            fenetre.append((meta["date_scrutin"], exprimes))
+    # (date, participants exprimés), motions de censure écartées.
+    fenetre, nb_censures = fenetre_participation(
+        [(m, votes_par_scrutin[m["numero"]][1]) for m in metas],
+        date_min_fenetre,
+    )
     metas.sort(key=lambda m: m["numero"])
     dernier = metas[-1]
     seuil_detail = dernier["numero"] - NB_SCRUTINS_DETAIL + 1
@@ -1326,11 +1366,13 @@ def ingerer_scrutins(conn, session: requests.Session) -> None:
                 [(t, v, e,
                   "calcul France Transparence — scrutins publics AN des "
                   f"{FENETRE_JOURS} derniers jours (votes exprimés / scrutins "
-                  "depuis l'entrée en mandat)", maintenant, uid)
+                  "depuis l'entrée en mandat, motions de censure exclues)",
+                  maintenant, uid)
                  for uid, (v, e, t) in taux.items()],
             )
-        log.info("participation 12 mois : %d députés, %d scrutins en fenêtre",
-                 len(taux), len(fenetre))
+        log.info("participation 12 mois : %d députés, %d scrutins en fenêtre"
+                 " (%d motion(s) de censure exclue(s))",
+                 len(taux), len(fenetre), nb_censures)
     else:
         log.warning("deputes vide : agrégats de participation non calculés")
 
@@ -1344,7 +1386,8 @@ def ingerer_scrutins(conn, session: requests.Session) -> None:
                f"{dernier['date_scrutin']} ; détail nominal conservé pour les "
                f"scrutins n° ≥ {seuil_detail} ({NB_SCRUTINS_DETAIL} derniers) ; "
                f"agrégats de participation sur {len(fenetre)} scrutins "
-               f"depuis le {date_min_fenetre}"),
+               f"depuis le {date_min_fenetre}, {nb_censures} motion(s) de "
+               "censure exclue(s) (seuls les votes pour y sont recueillis)"),
     )
     log.info("scrutins : %d en méta, dernier n° %d du %s",
              len(metas), dernier["numero"], dernier["date_scrutin"])
