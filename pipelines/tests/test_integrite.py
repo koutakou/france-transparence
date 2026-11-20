@@ -304,23 +304,70 @@ def test_a1_chambre_non_verifiable_n_ecarte_rien(conn, caplog):
     assert any("non vérifiable" in m and "senateur" in m for m in caplog.messages)
 
 
-def test_a1_garde_fou_branche_dans_ecrire(tmp_path, dossiers, caplog):
+def _seuil_un(monkeypatch):
+    """Agrégats publiés dès 1 personne : la fixture n'a que deux personnes
+    « En cours », sous le seuil réel de 3. Sans cela, `ecrire()` ne
+    publierait rien dans aucun cas et le test ne prouverait rien."""
+    reel = p7.regrouper_sous_seuil
+    monkeypatch.setattr(p7, "regrouper_sous_seuil",
+                        lambda par_mandat, seuil=1: reel(par_mandat, 1))
+
+
+def _alertes_en_cours(conn):
+    return {r[0]: r[1] for r in conn.execute(
+        "SELECT id, titre FROM alertes WHERE type = ?", (p7.TYPE_ALERTE_EN_COURS,))}
+
+
+def test_a1_garde_fou_branche_dans_ecrire(tmp_path, dossiers, monkeypatch):
     """Le vrai `ecrire()` : les dossiers de sénateurs ne sont plus comptés
     quand la table `senateurs` montre un renouvellement postérieur au RNE.
-    Sous le seuil de 3 personnes rien n'est publié : le compte se lit au
-    journal (GUERZA seul, contre 3 dossiers sans le garde-fou)."""
-    conn = db.init_db(chemin=tmp_path / "t.db")
+    Preuve par les alertes écrites, avec sa contre-épreuve : sans
+    renouvellement récent, la même base publie l'agrégat des sénateurs."""
+    _seuil_un(monkeypatch)
+    rne_cm = {"cm": FIXTURES / "rne_cm_extrait.csv"}
+
+    conn = db.init_db(chemin=tmp_path / "garde.db")
     _chambre(conn, "senateurs", ["2026-10-01"] * 5 + ["2023-10-02"] * 4)
     _chambre(conn, "deputes", ["2024-07-07"] * 3)
     conn.commit()
-    with caplog.at_level("INFO"):
-        p7.ecrire(conn, dossiers, charger_rne(),
-                  {"cm": FIXTURES / "rne_cm_extrait.csv"},
-                  AUJOURD_HUI, "2026-08-14", "2026-08-11")
-    assert any("1 dossiers « En cours » au délai légal écoulé" in m
-               for m in caplog.messages)
-    assert conn.execute("SELECT COUNT(*) FROM alertes WHERE type = ?",
-                        (p7.TYPE_ALERTE_EN_COURS,)).fetchone()[0] == 0
+    p7.ecrire(conn, dossiers, charger_rne(), rne_cm,
+              AUJOURD_HUI, "2026-08-14", "2026-08-11")
+    avec_garde = _alertes_en_cours(conn)
+    conn.close()
+
+    conn = db.init_db(chemin=tmp_path / "contre.db")
+    _chambre(conn, "senateurs", ["2023-10-02"] * 9)
+    _chambre(conn, "deputes", ["2024-07-07"] * 3)
+    conn.commit()
+    p7.ecrire(conn, dossiers, charger_rne(), rne_cm,
+              AUJOURD_HUI, "2026-08-14", "2026-08-11")
+    sans_garde = _alertes_en_cours(conn)
+    conn.close()
+
+    assert set(avec_garde) == {"A1-EC-commune"}          # GUERZA seul
+    assert set(sans_garde) == {"A1-EC-commune", "A1-EC-senateur"}
+    assert sans_garde["A1-EC-senateur"].startswith("2 déclarations")  # dia + dsp
+
+
+def test_a1_delai_juge_a_la_date_du_fichier_hatvp(tmp_path, dossiers, monkeypatch):
+    """Revue du 21/11/2026 : entrée en fonction le 15/09, fichier HATVP du
+    14/11, cycle du 20/11. L'échéance du 15/11 n'est pas passée à la date du
+    fichier : le dossier n'est pas compté, même si le cycle tourne après."""
+    _seuil_un(monkeypatch)
+    rne = charger_rne()
+    (conte,) = [r for r in rne["maires"] if r["Nom de l'élu"] == "CONTE"]
+    conte["Date de début de la fonction"] = "2026-09-15"
+    rne_cm = {"cm": FIXTURES / "rne_cm_extrait.csv"}
+
+    conn = db.init_db(chemin=tmp_path / "t.db")
+    p7.ecrire(conn, dossiers, rne, rne_cm, date(2026, 11, 20), "2026-11-14", "2026-11-01")
+    titre = _alertes_en_cours(conn)["A1-EC-commune"]
+    assert titre.startswith("1 déclarations"), titre    # GUERZA seul, pas CONTE
+    conn.rollback()
+    # Contre-épreuve : un fichier du 16/11 dépasse l'échéance, CONTE compte.
+    p7.ecrire(conn, dossiers, rne, rne_cm, date(2026, 11, 20), "2026-11-16", "2026-11-01")
+    titre = _alertes_en_cours(conn)["A1-EC-commune"]
+    assert titre.startswith("2 déclarations"), titre
     conn.close()
 
 

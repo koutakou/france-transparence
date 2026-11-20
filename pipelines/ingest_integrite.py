@@ -1778,9 +1778,14 @@ def ecrire(conn, dossiers: list[dict], rne: dict, chemins: dict,
              total_cm, len(lignes_cm))
 
     # --- Alerte A1 ------------------------------------------------------
+    # Le délai de 2 mois se juge à la date du fichier HATVP lu, pas au jour
+    # du cycle : un dossier déposé entre la date du fichier et le cycle
+    # serait sinon compté « En cours » alors que le fichier ne peut pas le
+    # savoir. `aujourd_hui` reste la date de calcul des lignes.
+    date_lecture_a1 = date.fromisoformat(date_hatvp)
     index = construire_index_rne(rne)
     perimes = types_rne_anterieurs(conn, rne)
-    nominatives, en_cours, stats = calculer_a1(dossiers, index, aujourd_hui,
+    nominatives, en_cours, stats = calculer_a1(dossiers, index, date_lecture_a1,
                                                frozenset(perimes))
     lignes_alertes = construire_alertes(nominatives, en_cours, aujourd_hui,
                                         date_hatvp, date_rne)
