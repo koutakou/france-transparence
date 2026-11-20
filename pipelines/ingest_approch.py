@@ -49,7 +49,7 @@ SOURCE_NOM = "APProch — projets d'achats publics (DAE/AIFE)"
 SOURCE_URL = (
     "https://data.economie.gouv.fr/explore/dataset/projets-dachats-publics/"
 )
-SOURCE_LICENCE = "Licence Ouverte v2.0"
+SOURCE_LICENCE = "Licence Ouverte 2.0"
 SOURCE_FREQUENCE = "quotidienne"
 
 DATASET_URL = (

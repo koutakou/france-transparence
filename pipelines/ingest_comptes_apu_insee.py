@@ -67,7 +67,7 @@ URL_PAGE = (
 URL_FICHIER = (
     "https://www.insee.fr/fr/statistiques/fichier/8988845/{fichier}"
 )
-LICENCE = "Licence Ouverte 2.0 (Etalab)"
+LICENCE = "Licence Ouverte 2.0"
 FREQUENCE = "annuelle"
 CACHE_HEURES = 7 * 24
 

@@ -86,7 +86,7 @@ URL_API_DATASET = (
     "https://www.data.gouv.fr/api/1/datasets/"
     "6657c57abbefc8869c7c6364/"
 )
-LICENCE = "Licence Ouverte / Open Licence version 2.0"
+LICENCE = "Licence Ouverte 2.0"
 FREQUENCE = "annuelle"
 CACHE_HEURES = 7 * 24
 FICHIER_ZIP = "rei/rei_courant.zip"

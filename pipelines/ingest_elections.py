@@ -113,7 +113,7 @@ URL_API_DATASET = "https://www.data.gouv.fr/api/1/datasets/6481e741d4cf002ec0efe
 URL_PARQUET = (
     "https://data-pipeline-open.s3.sbg.io.cloud.ovh.net/elections/general_results.parquet"
 )
-LICENCE = "Licence Ouverte 2.0 (lov2)"
+LICENCE = "Licence Ouverte 2.0"
 # `frequency` du dataset = "punctual". Convention meta_sources déjà employée
 # par S29 (comptes de campagne) pour une source sans période : « par scrutin ».
 FREQUENCE = "par scrutin"

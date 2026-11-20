@@ -71,7 +71,7 @@ log = obtenir_logger("ingest_boamp")
 SOURCE_ID = "S2"
 SOURCE_NOM = "BOAMP — annonces de marchés publics (DILA)"
 SOURCE_URL = "https://boamp-datadila.opendatasoft.com/explore/dataset/boamp/"
-SOURCE_LICENCE = "etalab-2.0"
+SOURCE_LICENCE = "Licence Ouverte 2.0"
 SOURCE_FREQUENCE = "quotidienne"
 
 EXPORT_URL = (
