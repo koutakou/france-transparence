@@ -95,11 +95,14 @@ type SeuilSource = { unite: UniteAge; retard: number; alerte: number; editionFig
  * seuils dans `meta_sources` (colonnes dédiées) via les pipelines.
  *
  * Ordre et valeurs repris ligne à ligne de `fraicheur.conf`.
- * Dernière synchronisation : 25/08/2026, 44 sources (ajout de S52).
- * ⚠ Divergence voulue depuis le 11/11/2026 : S7-DATAN, S45, S47, S48 et S49
- * ont été recalibrés ici sur le calendrier amont relevé ce jour-là (détail
- * sur chaque ligne) ; `fraicheur.conf` n'est pas accessible depuis le dépôt
- * et doit recevoir les mêmes valeurs à la main (docs/ACTIONS-HUMAINES.md).
+ * Dernière synchronisation : 20/11/2026. S7-DATAN, S45, S47, S48 et S49,
+ * recalibrés ici le 11/11/2026 sur le calendrier amont (détail sur chaque
+ * ligne), ont été reportés le 20/11 dans `fraicheur.conf`.
+ * Le contrôle 8 de `ft-localiser` compare les deux tables avant chaque build
+ * et lit CE fichier : si ce tableau change de fichier ou de syntaxe
+ * (`clé: { unite: "…", retard: N, alerte: N }`), il faut mettre ce contrôle
+ * à jour sur le serveur, sinon le déploiement s'arrête (du 12 au 20/11/2026,
+ * le site n'a plus été reconstruit pour cette raison).
  */
 const SEUILS_SOURCES: Record<string, SeuilSource> = {
   // Quotidiennes strictes, calendrier ouvré

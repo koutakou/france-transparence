@@ -38,6 +38,17 @@ updates:
       app:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+    ignore:
+      # @types/node décrit l'API de Node : sa version majeure suit celle qui
+      # exécute le build (Node 24 en CI et sur le serveur, relevé le
+      # 20/11/2026). Des types 26 laisseraient passer des appels absents à
+      # l'exécution (#134). À relever avec le Node du serveur et de la CI.
+      - dependency-name: "@types/node"
+        versions: [">=25.0.0"]
+      # typescript-eslint ne prend pas TypeScript 7 en charge : le lint tombe
+      # (#133, check `construire` rouge). À lever quand il le prendra.
+      - dependency-name: "typescript"
+        versions: [">=7.0.0"]
     commit-message:
       prefix: "Dépendances app"
 
@@ -55,11 +66,11 @@ updates:
       pipelines:
         patterns: ["*"]
         update-types: ["minor", "patch"]
-    # DuckDB 2.x n'a aucune roue pour Python 3.10 et l'interpréteur de la
-    # venv du serveur n'est pas connu : une proposition `duckdb==2.x` passerait
-    # au vert en CI (3.14) et échouerait à l'installation sur un serveur en
-    # 3.10. À LEVER quand cet interpréteur est relevé en 3.11 ou plus
-    # (docs/ACTIONS-HUMAINES.md, section du 11/11/2026, points 1 et 2).
+    # DuckDB 2.x n'a aucune roue pour Python 3.10. Relevé du 20/11/2026 : la
+    # venv du serveur tourne sous Python 3.14 (/usr/bin/python3.14), la
+    # condition de levée est donc remplie. Le garder tant que le job
+    # `tests-python-3-10` et la contrainte 3.10 de requirements.txt n'ont pas
+    # été revus ensemble (docs/ACTIONS-HUMAINES.md).
     ignore:
       - dependency-name: "duckdb"
         versions: [">=2.0.0"]
