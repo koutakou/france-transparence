@@ -7,6 +7,7 @@ import { JsonLd } from "@/components/JsonLd";
 import { AgeALaLecture } from "@/components/client/AgeALaLecture";
 import { InteretsDeclares } from "@/components/client/InteretsDeclares";
 import { instantDeConstruction } from "@/lib/lecture";
+import { mentionPatrimoine } from "@/lib/mention-patrimoine";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { LienOfficiel } from "@/components/ui/LienOfficiel";
@@ -787,7 +788,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
 
       <Card
         titre="Déclarations HATVP"
-        sousTitre="Déclarations publiées par la HATVP, appariées par URL de fiche nominative — statut affiché tel que publié. Le contenu des déclarations de patrimoine n’est pas affiché ; il se consulte en préfecture."
+        sousTitre={`Déclarations publiées par la HATVP, appariées par URL de fiche nominative — statut affiché tel que publié. ${mentionPatrimoine(Boolean(depute || senateur))}`}
         droite={<Badge source={sources["S14"]} />}
       >
         {declarations.length > 0 ? (
