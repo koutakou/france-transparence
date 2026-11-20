@@ -10,6 +10,11 @@ import { StatStrip } from "@/components/ui/StatStrip";
 import { VueTableau } from "@/components/ui/VueTableau";
 import { formatDateFr, formatNombre, formatPct } from "@/lib/format";
 import {
+  METHODE_CENSURE,
+  RESERVE_PARTICIPATION_AN,
+  RESERVE_PARTICIPATION_SENAT,
+} from "@/lib/participation";
+import {
   getDepartementsDeputes,
   getDepartementsSenat,
   getDeputes,
@@ -234,7 +239,8 @@ export default async function PageElus() {
               ¹ Calcul France Transparence : votes exprimés / scrutins publics de l’AN des 365
               derniers jours depuis l’entrée en mandat (source AN, scrutins nominaux). Un taux
               proche de 0 % à la présidence de l’Assemblée est normal : qui préside ne prend pas
-              part aux votes.
+              part aux votes. {METHODE_CENSURE} {RESERVE_PARTICIPATION_AN} Le tableau se trie par
+              nom ou par groupe, jamais par ce taux.
             </p>
             <p>
               ² Score de participation publié par{" "}
@@ -374,7 +380,8 @@ export default async function PageElus() {
             ¹ Calcul France Transparence : votes exprimés (pour, contre, abstention) / scrutins
             publics du Sénat des 365 derniers jours où le Sénat liste le sénateur (« non-votant »
             compris) ; « — » : aucun scrutin de ce type depuis son entrée. Une délégation de vote
-            n’est pas une présence physique. Pas un score Datan (Datan ne publie pas le Sénat).
+            n’est pas une présence physique. Pas un score Datan (Datan ne publie pas le Sénat).{" "}
+            {RESERVE_PARTICIPATION_SENAT}
           </p>
         </Card>
       </div>
