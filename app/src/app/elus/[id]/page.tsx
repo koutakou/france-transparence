@@ -14,6 +14,11 @@ import { LienOfficiel } from "@/components/ui/LienOfficiel";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { formatDateFr, formatNombre, formatPct } from "@/lib/format";
 import {
+  METHODE_CENSURE,
+  RESERVE_PARTICIPATION_AN,
+  RESERVE_PARTICIPATION_SENAT,
+} from "@/lib/participation";
+import {
   getFicheElu,
   getIdsFichesStatiques,
   getSourcesElus,
@@ -584,7 +589,10 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
               },
             ]}
           />
-          <div className="mt-3 flex flex-col gap-1 text-[11px] leading-relaxed text-ink-muted">
+          <p className="mt-3 text-xs leading-relaxed text-ink-secondary">
+            {RESERVE_PARTICIPATION_AN} {METHODE_CENSURE}
+          </p>
+          <div className="mt-2 flex flex-col gap-1 text-[11px] leading-relaxed text-ink-muted">
             {depute.participation_source && (
               <p>
                 Méthode du taux : {depute.participation_source}
@@ -692,7 +700,10 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
               },
             ]}
           />
-          <div className="mt-3 flex flex-col gap-1 text-[11px] leading-relaxed text-ink-muted">
+          <p className="mt-3 text-xs leading-relaxed text-ink-secondary">
+            {RESERVE_PARTICIPATION_SENAT}
+          </p>
+          <div className="mt-2 flex flex-col gap-1 text-[11px] leading-relaxed text-ink-muted">
             {senateur.participation_source && (
               <p>
                 Méthode du taux : {senateur.participation_source}

@@ -6,6 +6,7 @@ import { JsonLd } from "@/components/JsonLd";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 import { CONTACT_ISSUES_URL } from "@/lib/site";
 import { getMetaSourcesParIds } from "@/lib/queries/donnees";
+import { METHODE_CENSURE, RESERVE_PARTICIPATION_SENAT } from "@/lib/participation";
 
 /**
  * Page /comprendre — appareil pédagogique du site.
@@ -1003,6 +1004,15 @@ export default function PageComprendre() {
             Sur les fiches de sénateurs, un seul taux, calculé ici sur les
             scrutins publics du Sénat (votes exprimés, pas une présence).
             Datan ne publie pas le Sénat.
+          </p>
+          <p id="participation" className="scroll-mt-32">
+            <strong className="font-medium text-ink">Comment le taux de participation est calculé.</strong>{" "}
+            À l’Assemblée : votes exprimés (pour, contre, abstention) sur les
+            scrutins publics des 365 derniers jours, depuis l’entrée en mandat
+            du député. {METHODE_CENSURE} Au Sénat : votes exprimés sur les
+            scrutins publics des 365 derniers jours où le Sénat liste le
+            sénateur. {RESERVE_PARTICIPATION_SENAT} Les deux taux ne se
+            comparent pas, et aucun tableau du site ne se trie par ce taux.
           </p>
         </div>
       </Card>

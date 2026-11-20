@@ -11,6 +11,7 @@ import { urlSite } from "@/lib/basePath";
 import { majParamsUrl } from "@/lib/urlEtat";
 import { useUrlInitiale } from "@/lib/useUrlInitiale";
 import type { DeputeLigne, SenateurLigne } from "@/lib/queries/elus";
+import { TRIS_PARLEMENTAIRES, lireTriParlementaires, trierParlementaires } from "@/lib/tri";
 
 /**
  * Tableau des députés OU des sénateurs — filtres et « tout afficher »
@@ -93,6 +94,7 @@ const CONFIG = {
     fragment: "/data/elus/deputes.json",
     paramGroupe: "gd",
     paramDepartement: "dd",
+    paramTri: "td",
     singulier: "député·e",
     pluriel: "député·es",
     vide: "Aucun député pour ces filtres",
@@ -101,6 +103,7 @@ const CONFIG = {
     fragment: "/data/elus/senateurs.json",
     paramGroupe: "gs",
     paramDepartement: "ds",
+    paramTri: "ts",
     singulier: "sénateur·rice",
     pluriel: "sénateur·rices",
     vide: "Aucun sénateur pour ces filtres",
@@ -226,7 +229,11 @@ export function TableParlementaires({
   // ?gs=…&ds=…, validée contre les listes réelles) ; toute action
   // utilisateur le surcharge définitivement.
   const urlInitiale = new URLSearchParams(useUrlInitiale());
-  const [surcharge, setSurcharge] = useState<{ groupe?: string; departement?: string }>({});
+  const [surcharge, setSurcharge] = useState<{
+    groupe?: string;
+    departement?: string;
+    tri?: string;
+  }>({});
   const [toutAfficher, setToutAfficher] = useState(false);
   const [complets, setComplets] = useState<LigneParlement[] | null>(null);
   const [indisponible, setIndisponible] = useState(false);
@@ -235,8 +242,12 @@ export function TableParlementaires({
   const dUrl = urlInitiale.get(cfg.paramDepartement) ?? "";
   const groupe = surcharge.groupe ?? (groupes.some((o) => o.valeur === gUrl) ? gUrl : "");
   const departement = surcharge.departement ?? (departements.includes(dUrl) ? dUrl : "");
+  // Tri par nom ou par groupe seulement, jamais par taux de participation.
+  const tri = lireTriParlementaires(surcharge.tri ?? urlInitiale.get(cfg.paramTri));
 
-  const besoinComplets = toutAfficher || groupe !== "" || departement !== "";
+  // Un tri par groupe sur les seules premières lignes alphabétiques serait
+  // trompeur : il exige la liste complète.
+  const besoinComplets = toutAfficher || groupe !== "" || departement !== "" || tri !== "nom";
   const chargement = besoinComplets && complets === null && !indisponible;
 
   // Chargement du fragment au premier geste qui le requiert.
@@ -261,16 +272,25 @@ export function TableParlementaires({
     setSurcharge((s) => ({ ...s, departement: valeur }));
     majParamsUrl({ [cfg.paramDepartement]: valeur || null });
   };
+  const surTri = (valeur: string) => {
+    const lu = lireTriParlementaires(valeur);
+    setSurcharge((s) => ({ ...s, tri: lu }));
+    majParamsUrl({ [cfg.paramTri]: lu === "nom" ? null : lu });
+  };
   const reinitialiser = () => {
     setSurcharge({ groupe: "", departement: "" });
     majParamsUrl({ [cfg.paramGroupe]: null, [cfg.paramDepartement]: null });
   };
 
   const source = besoinComplets && complets !== null ? complets : initiaux;
-  const lignes = source.filter(
-    (l) =>
-      (groupe === "" || champGroupe(variante, l) === groupe) &&
-      (departement === "" || champDepartement(variante, l) === departement),
+  const lignes = trierParlementaires(
+    source.filter(
+      (l) =>
+        (groupe === "" || champGroupe(variante, l) === groupe) &&
+        (departement === "" || champDepartement(variante, l) === departement),
+    ),
+    tri,
+    (l) => champGroupe(variante, l),
   );
   const tronque = !besoinComplets && initiaux.length < total;
   const filtreActif = groupe !== "" || departement !== "";
@@ -309,6 +329,16 @@ export function TableParlementaires({
             {departements.map((d) => (
               <option key={d} value={d}>
                 {d}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className={STYLE_LABEL_FILTRE}>
+          Trier par
+          <select value={tri} onChange={(e) => surTri(e.target.value)} className={STYLE_SELECT}>
+            {TRIS_PARLEMENTAIRES.map((t) => (
+              <option key={t.valeur} value={t.valeur}>
+                {t.libelle}
               </option>
             ))}
           </select>

@@ -143,7 +143,7 @@ export const PERIMETRE_ELUS_EN_BASE =
 
 /** Taux calculé ici : scrutins publics AN, fenêtre glissante. */
 export const PERIMETRE_PARTICIPATION_FT =
-  "scrutins publics de l’AN, 12 derniers mois depuis l’entrée en mandat — votes exprimés";
+  "scrutins publics de l’AN en séance, 12 derniers mois depuis l’entrée en mandat, motions de censure exclues, votes exprimés";
 
 /**
  * Chambre Sénat : le dénominateur est la liste publiée par le Sénat pour
