@@ -152,6 +152,13 @@
 
 Ce document synthétise les 9 rapports de la Phase 0 (`docs/recherche/01` à `09`), tous fondés sur des **appels réels effectués le 19/08/2026** (curl/API, codes HTTP constatés). Chaque affirmation de fraîcheur ou de volumétrie cite son rapport source entre parenthèses. Règle du projet : **données réelles uniquement, fraîcheur affichée et mesurée** — le site n'affiche rien que les sources ne contiennent pas.
 
+**Nature des sources (décision du propriétaire du 20/11/2026).** La promesse publique du site est : « sources publiques officielles, plus quelques consolidations reconnues et créditées ». Trois sources s'écartent de la règle stricte « officielle et sous licence ouverte » et sont étiquetées en clair sur `/donnees` (`app/src/lib/nature-sources.ts`) :
+- **S1** (DECP consolidées par Colin Maudry, decp-processing) : consolidation reconnue, non officielle. L'ajout des DECP officielles (S8) comme contrôle viendra plus tard.
+- **S7** (Datan) : scores calculés par une association, crédités et affichés à côté du taux calculé par le site.
+- **S31** (« train de vie ») : constantes recopiées à la main de documents officiels, sans licence ouverte.
+
+Sur `/frais`, chaque affirmation renvoie à un texte officiel (loi, décret, rapport de la Cour des comptes ou d'une assemblée, décision de justice, réponse ministérielle au JO). Faute de source officielle, l'affirmation est retirée : les refus écrits de l'AN et du Sénat du 11/06/2026 (connus par la presse) et l'arrêt « CE mars 2025 » (sans référence publiée) ne sont plus cités. Le pipeline (`pipelines/tests/test_trainvie.py`) et l'application (`app/src/lib/frais-textes.ts`) refusent tout domaine hors liste officielle.
+
 Contexte 2026 à garder en tête : LFI 2026 promulguée tardivement le 19/02/2026 et jamais publiée en données structurées (01-budget-etat.md) ; municipales des 15 et 22 mars 2026 intégrées au RNE et à la HATVP (04-elus-integrite.md) ; renouvellement sénatorial le 27/09/2026 et 17e législature paramétrable, jamais codée en dur (03-parlement.md).
 
 ---

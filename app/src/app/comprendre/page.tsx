@@ -150,7 +150,7 @@ const GLOSSAIRE: EntreeGlossaire[] = [
         Dans les totaux, chaque marché est plafonné à 100&nbsp;millions
         d’euros avant sommation. Un montant saisi à 12&nbsp;milliards ne pèse
         que 100&nbsp;M€ dans un agrégat. Le détail d’un marché conserve le
-        montant non écrêté, avec un drapeau «&nbsp;suspect&nbsp;».
+        montant non écrêté, avec un drapeau «&nbsp;montant signalé&nbsp;».
       </>
     ),
   },
@@ -624,11 +624,15 @@ export default function PageComprendre() {
             n’interprète pas, ne qualifie pas et ne conclut pas.
           </p>
           <p>
-            Une source n’entre que si elle est officielle, publiée, munie
-            d’une licence qui permet la republication — ou, à défaut, si elle
+            Une source officielle n’entre que si elle est publiée, munie
+            d’une licence qui permet la republication, ou, à défaut, si elle
             relève du régime des textes et publications officielles, cités
-            avec leur adresse. Le site n’enrichit pas ces sources hors open
-            data. Il ne croise que des identifiants déjà publics.
+            avec leur adresse. Le site repose ainsi sur des sources publiques
+            officielles, plus quelques consolidations reconnues et créditées :
+            celle des marchés publics (decp-processing, Colin Maudry) et les
+            scores de Datan, étiquetées comme telles sur la page Données. Il
+            n’enrichit pas ces sources hors open data. Il ne croise que des
+            identifiants déjà publics.
           </p>
           <p>
             Il ne qualifie d’irrégularité que ce qu’une autorité a elle-même
@@ -1720,8 +1724,7 @@ export default function PageComprendre() {
             ont des barèmes publiés. Les comptes de l’Élysée sont audités
             par la Cour des comptes. Les justificatifs de frais des
             parlementaires ne sont ni publiés ni communicables (ordonnance
-            n°&nbsp;58-1100 du 17 novembre 1958 ; refus écrits de
-            l’Assemblée nationale et du Sénat du 11 juin 2026). Voir{" "}
+            n°&nbsp;58-1100 du 17 novembre 1958). Voir{" "}
             <LienPage href="/frais/">Frais</LienPage>.
           </p>
           <p>

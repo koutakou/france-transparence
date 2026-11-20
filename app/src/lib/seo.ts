@@ -36,7 +36,7 @@ export const NOM_SITE = "France Transparence";
  * page d'accueil, qui décrit un tableau de bord, pas le projet.
  */
 const DESCRIPTION_SITE =
-  "Dépenses de l'État, marchés publics, élus, lobbying, financement de la vie politique : données publiques officielles, fraîcheur mesurée et affichée, sources et limites documentées.";
+  "Dépenses de l'État, marchés publics, élus, lobbying, financement politique : sources publiques officielles, plus quelques consolidations reconnues et créditées, fraîcheur et limites affichées.";
 
 /**
  * Texte de la Licence Ouverte 2.0, seule adresse du site pour cette licence
@@ -336,7 +336,7 @@ export function jsonLdIdentiteSite(): NoeudJsonLd {
       name: NOM_SITE,
       url: urlAbsolue("/"),
       description:
-        "Projet citoyen indépendant de mise en données de l'argent public et de la vie politique françaises, à partir des seules sources publiques officielles.",
+        "Projet citoyen indépendant de mise en données de l'argent public et de la vie politique françaises, à partir de sources publiques officielles, plus quelques consolidations reconnues et créditées.",
       logo: urlAbsolue("/og.png"),
       sameAs: ["https://github.com/koutakou/france-transparence"],
     },

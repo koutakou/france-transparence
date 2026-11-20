@@ -218,7 +218,9 @@ export default function PageMentionsLegales() {
           </p>
           <p>
             <strong className="text-ink">Données</strong> — les données
-            republiées proviennent exclusivement de publications officielles.
+            republiées proviennent de sources publiques officielles, plus quelques consolidations reconnues et créditées (la consolidation des
+            marchés publics de Colin Maudry, les scores de Datan), chacune
+            étiquetée comme telle sur la page Données.
             Leur licence, en revanche, n&apos;est pas uniforme : la plupart des
             sources sont diffusées sous{" "}
             <a
