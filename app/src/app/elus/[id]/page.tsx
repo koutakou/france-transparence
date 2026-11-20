@@ -81,8 +81,8 @@ export async function generateMetadata({
   const nomComplet = `${elu.prenom ?? ""} ${elu.nom}`.trim();
   const description =
     elu.uid_an || elu.matricule_senat
-      ? `Mandats, activité parlementaire et déclarations HATVP de ${nomComplet}, à partir des données publiques officielles (AN, Sénat, HATVP, RNE).`
-      : `Mandats et déclarations HATVP de ${nomComplet}, à partir des données publiques officielles (RNE, HATVP).`;
+      ? `Mandats, activité parlementaire et déclarations HATVP de ${nomComplet}, à partir de sources publiques officielles, plus quelques consolidations reconnues et créditées (AN, Sénat, HATVP, RNE, et pour un député les scores Datan crédités).`
+      : `Mandats et déclarations HATVP de ${nomComplet}, à partir de sources publiques officielles, plus quelques consolidations reconnues et créditées (pour cette fiche : RNE, HATVP).`;
   // `metadonneesFicheProfil` et non `metadonneesPage` : cette page décrit une
   // PERSONNE, son `og:type` vaut donc « profile » — ce que son JSON-LD dit
   // déjà (`ProfilePage` + `Person`), et que la carte de partage taisait.

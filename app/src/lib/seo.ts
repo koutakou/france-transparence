@@ -112,7 +112,7 @@ export const IMAGE_PARTAGE = {
   url: `${SITE_URL}/og.png`,
   width: 1200,
   height: 630,
-  alt: "France Transparence — données publiques officielles",
+  alt: "France Transparence : sources publiques officielles, plus quelques consolidations reconnues et créditées",
 };
 
 /**
