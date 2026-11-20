@@ -133,7 +133,7 @@ URL_DGCL_ETAT_RECAP = (
 # Associés) sont remplacées par le texte officiel, ou le fait est retiré
 # faute de texte officiel (refus AN/Sénat du 11/06/2026, arrêt « CE mars
 # 2025 » sans référence publiée).
-URL_ORD_58_1100 = "https://www.senat.fr/reglement/reglement142.html"
+URL_CE_2019_427725 = "https://www.conseil-etat.fr/fr/arianeweb/CE/decision/2019-06-27/427725"
 URL_QE_30813_FRAIS_REPRESENTATION = (
     "https://www.assemblee-nationale.fr/dyn/15/questions/QANR5L15QE30813"
 )
@@ -598,16 +598,18 @@ OPACITES: list[dict] = [
     dict(id="justificatifs-parlementaires",
          sujet="Justificatifs et notes de frais des parlementaires",
          ce_qui_manque="Aucun justificatif, aucune note de frais, aucun relevé individuel "
-                       "de député ou de sénateur n'est publié ni communicable ; la recherche "
-                       "« frais de mandat » sur l'API data.gouv.fr renvoie 0 dataset "
-                       "(vérifié le 19/08/2026).",
-         base_du_refus="Autonomie des assemblées : leurs documents relèvent de l'ordonnance "
-                       "n° 58-1100 du 17/11/1958, et non du droit d'accès aux documents "
-                       "administratifs (CADA). Aucun texte n'oblige à publier les "
-                       "justificatifs.",
-         source_nom="Ordonnance n° 58-1100 du 17/11/1958 relative au fonctionnement des "
-                    "assemblées parlementaires (texte publié par le Sénat)",
-         source_url=URL_ORD_58_1100, date="1958-11-17"),
+                       "de député ou de sénateur n'est publié. La recherche « frais de "
+                       "mandat » sur l'API data.gouv.fr renvoie 0 dataset (vérifié le "
+                       "19/08/2026).",
+         base_du_refus="Les documents produits ou reçus par les assemblées parlementaires "
+                       "sont régis par l'ordonnance n° 58-1100 du 17/11/1958 (CRPA, art. "
+                       "L300-2), et non par le droit d'accès aux documents administratifs. "
+                       "Le Conseil d'État a jugé le 27/06/2019 que les relevés du compte de "
+                       "frais de mandat d'un député et sa déclaration sur l'emploi de cette "
+                       "indemnité ne sont pas des documents administratifs au sens du CRPA. "
+                       "Aucun texte n'oblige à publier les justificatifs.",
+         source_nom="Conseil d'État, 27 juin 2019, Regards Citoyens, n° 427725",
+         source_url=URL_CE_2019_427725, date="2019-06-27"),
     dict(id="indemnites-parlementaires-versees",
          sujet="Indemnités parlementaires réellement versées",
          ce_qui_manque="Aucun fichier open data des indemnités réellement versées par "
@@ -619,16 +621,23 @@ OPACITES: list[dict] = [
          source_url=URL_AN_SITUATION, date="2026-01"),
     dict(id="frais-representation-ministres",
          sujet="Frais de représentation des ministres",
-         ce_qui_manque="Les enveloppes annuelles ne sont connues que par les réponses du "
-                       "Gouvernement aux questions écrites (150 000 € pour un ministre, "
-                       "120 000 € pour un ministre placé auprès d'un ministre, 100 000 € pour "
-                       "un secrétaire d'État) ; leur usage n'est pas publié.",
-         base_du_refus="Réponse du Gouvernement publiée au JO du 23/11/2021 : aucun document "
-                       "n'établit le détail de l'utilisation de la dotation, et le logiciel "
-                       "Chorus ne permet pas de l'obtenir par un traitement automatisé "
-                       "d'usage courant.",
-         source_nom="Assemblée nationale, question écrite n° 30813 (15e législature) et "
-                    "sa réponse",
+         ce_qui_manque="Le détail de l'utilisation de la dotation de frais de représentation "
+                       "n'est pas publié. Montants annuels donnés par la réponse à la question "
+                       "écrite n° 30813 : 150 000 € pour un ministre, 120 000 € pour un "
+                       "ministre placé auprès d'un ministre, 100 000 € pour un secrétaire "
+                       "d'État.",
+         base_du_refus="Réponse du ministère de la Justice, interrogé sur cette dotation, "
+                       "publiée au JO du 23/11/2021 : aucun document n'établit le détail de "
+                       "son utilisation, et le logiciel Chorus ne permet pas de l'obtenir par "
+                       "un traitement automatisé d'usage courant. La même réponse indique que "
+                       "des travaux ont été menés en 2021 pour mieux tracer ces dépenses à "
+                       "l'avenir, avec une ventilation prévue en frais de réception, de "
+                       "restauration, cadeaux protocolaires et achats de fleurs. Les "
+                       "ministères sont soumis au code des relations entre le public et "
+                       "l'administration (CRPA, art. L300-2), qui ouvre le droit d'accès aux "
+                       "documents administratifs.",
+         source_nom="Assemblée nationale, question écrite n° 30813 (15e législature), "
+                    "réponse du ministère de la Justice. CRPA, art. L300-2 (Légifrance)",
          source_url=URL_QE_30813_FRAIS_REPRESENTATION, date="2021-11-23"),
     dict(id="remunerations-cabinets",
          sujet="Rémunérations détaillées des cabinets ministériels",

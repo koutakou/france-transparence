@@ -464,8 +464,10 @@ export default async function FraisPage() {
           </h1>
           <p className="mt-2 text-sm text-ink-secondary">
             Barèmes publics des indemnités, dotations et avances. Les notes de
-            frais des parlementaires ne sont ni publiées ni communicables (voir
-            la notice pour l’ordonnance n°&nbsp;58-1100).
+            frais des parlementaires ne sont pas publiées, et le Conseil
+            d’État a jugé le 27&nbsp;juin 2019 que les relevés du compte de
+            frais de mandat d’un député ne sont pas des documents
+            administratifs communicables (voir la notice).
           </p>
         </div>
         {meta && (
@@ -619,8 +621,10 @@ export default async function FraisPage() {
             de la Cour des comptes sur les comptes de l’Élysée.
           </ResumeCol>
           <ResumeCol etat="Non publics" titre="Les justificatifs" nonPublic>
-            Les justificatifs et notes de frais des parlementaires ne sont ni publiés ni
-            communicables (ordonnance n°&nbsp;58-1100). À l’inverse, les notes de
+            Les justificatifs et notes de frais des parlementaires ne sont pas publiés, et
+            le Conseil d’État a jugé le 27&nbsp;juin 2019 que les relevés du compte de frais
+            de mandat d’un député ne sont pas des documents administratifs communicables
+            (n°&nbsp;427725). À l’inverse, les notes de
             frais des élus locaux sont communicables sur demande depuis la décision du
             Conseil d’État du 8&nbsp;février&nbsp;2023 : le Parlement est l’exception.
           </ResumeCol>
