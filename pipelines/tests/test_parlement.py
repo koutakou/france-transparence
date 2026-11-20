@@ -4,6 +4,8 @@ Fixtures 100 % réelles (extraites des dumps du 19/08/2026, < 50 Ko chacune) :
 - acteur_PA841605.json : fiche AMO10 complète d'un député en exercice ;
 - scrutin_VTANR5L17V8434.json : dernier scrutin de la législature (21/07/2026),
   contient à la fois des listes de votants et un votant unique (dict) ;
+- scrutin_VTANR5L17V7979.json : motion de censure du 06/07/2026 (code MOC,
+  132 pour, seuls les votes pour sont recueillis), dump du 20/11/2026 ;
 - odsen_extrait.csv : lignes réelles d'ODSEN_GENERAL.csv, encodage ISO-8859-1
   et commentaires « % » conservés tels quels ;
 - dosleg_extrait.sql : COPY PostgreSQL `scr` + `votsen` au gabarit du dump
@@ -176,6 +178,39 @@ def test_calcul_participation_cas_construit():
     assert r["PA2"] == (2, 4, 50.0)
     assert r["PA3"] == (1, 2, 50.0)   # pas pénalisé des scrutins d'avant mandat
     assert r["PA4"] == (0, 4, 0.0)
+
+
+def test_motion_de_censure_ne_change_aucun_taux():
+    """Audit du 20/11/2026 (C4) : sur une motion de censure, seuls les votes
+    POUR sont recueillis. Scrutin réel n° 7979 du 06/07/2026 (132 pour) :
+    dans la fenêtre, il ne change le taux de personne, ni de ceux qui l'ont
+    votée ni des autres."""
+    moc = p9.parser_scrutin(json.loads(
+        (FIXTURES / "scrutin_VTANR5L17V7979.json").read_text("utf-8")))
+    sps = p9.parser_scrutin(json.loads(
+        (FIXTURES / "scrutin_VTANR5L17V8434.json").read_text("utf-8")))
+    assert moc[0]["type_vote"] == "motion de censure"
+    assert moc[0]["code_type_vote"] == "MOC"
+    assert p9.compte_dans_participation(moc[0]) is False
+    assert p9.compte_dans_participation(sps[0]) is True
+    # repli sur le libellé si le code manque
+    assert p9.compte_dans_participation(
+        {"code_type_vote": None, "type_vote": "Motion de censure "}) is False
+
+    signataires = {u for u, pos, _, _ in moc[1] if pos == "pour"}
+    assert len(signataires) == 132
+    votants_sps = {u for u, pos, _, _ in sps[1] if pos != "nonVotant"}
+    autre = next(iter(votants_sps - signataires))
+    censeur = next(iter(signataires))
+    debuts = {censeur: "2024-07-07", autre: "2024-07-07"}
+
+    sans, n0 = p9.fenetre_participation([sps], "2025-11-20")
+    avec, n1 = p9.fenetre_participation([sps, moc], "2025-11-20")
+    assert (n0, n1) == (0, 1)
+    assert p9.calculer_participation(avec, debuts) == \
+        p9.calculer_participation(sans, debuts)
+    # hors fenêtre, la motion n'est même pas comptée comme exclue
+    assert p9.fenetre_participation([moc], "2026-07-07") == ([], 0)
 
 
 def test_participation_senat_denominateur_sur_la_liste_du_senat():
