@@ -18,8 +18,9 @@ Tables produites (remplacement complet, idempotent) :
   nb_femmes, nb_hommes, age_moyen.
 - alertes : table PARTAGÉE entre pipelines (CREATE TABLE IF NOT EXISTS ; ce
   pipeline n'efface QUE ses propres types : A1_hatvp_non_deposee,
-  A1_hatvp_retard_presume). Colonnes : id, type, gravite, titre, detail, regle,
-  base_legale, source_url, date_calcul.
+  A1_hatvp_en_cours_delai_ecoule, et l'ancien A1_hatvp_retard_presume pour le
+  purger). Colonnes : id, type, gravite, titre, detail, regle, base_legale,
+  source_url, date_calcul, date_fait (date du fichier HATVP lu).
 
 Table noyau complétée, et — depuis le rattrapage — élaguée :
 - elus : UPSERT prudent par (nom, prénom, date de naissance) normalisés —
@@ -48,12 +49,17 @@ Contrôle d'après-cycle, non bloquant :
 Alerte A1 — règle révisée de docs/SOURCES.md §4 (appliquée à la lettre) :
 - Nominatif RÉSERVÉ aux statuts natifs « Déclaration non déposée » (constat
   officiel HATVP, 4 cas au 14/08/2026) → 1 alerte nominative par dossier.
-- Retard PRÉSUMÉ (libellé « présumé » obligatoire) : statut « En cours »
-  ET date de début de la fonction (RNE) + 60 jours dépassée. Garde-fous :
+- Compte des dossiers « En cours » au délai légal écoulé (décision du
+  propriétaire du 20/11/2026 : le mot « retard » est retiré, le site ne
+  connaît pas la définition officielle de « En cours ») : statut « En cours »
+  ET date de début de la fonction (RNE) + 2 MOIS CALENDAIRES dépassée (le
+  délai légal, et non 60 jours : `common.ajouter_mois`). Garde-fous :
   (1) mandats EPCI exclus (délai courant à la transmission de la délégation en
   préfecture, date absente de l'open data) ; (2) jointure nom+prénom+département
   normalisés (accents/casse/tirets), homonyme non tranché = non-alerte ;
-  (3) restitution en AGRÉGATS par type de mandat, jamais nominative ;
+  (3) restitution en AGRÉGATS par type de mandat, jamais nominative, et
+  jamais sous SEUIL_PERSONNES_AGREGAT personnes (les types sous le seuil sont
+  regroupés, le regroupement lui-même soumis au seuil) ;
   (4) seuls les documents initiaux (di, dsp, dia) sont testés — le délai légal
   des modificatives et des fins de mandat court sur d'autres faits générateurs ;
   (5) périmètre apparié = populations RNE ingérées (députés, sénateurs, maires,
@@ -64,7 +70,7 @@ Alerte A1 — règle révisée de docs/SOURCES.md §4 (appliquée à la lettre) 
   pour une chambre dont le dernier renouvellement (lu dans la table de P9)
   est postérieur à la date de début la plus récente du fichier RNE : un réélu
   y porte encore la date de son mandat PRÉCÉDENT (constat du 15/10/2026 :
-  « 216 déclarations présumées en retard » pour des sénateurs réélus le
+  216 dossiers comptés à tort pour des sénateurs réélus le
   27/09/2026, dont l'échéance légale court jusqu'en décembre).
 
 meta_sources : S14 (HATVP liste.csv, date_donnees = Last-Modified réel) et
@@ -86,12 +92,14 @@ import sqlite3
 import sys
 import unicodedata
 from collections import Counter, defaultdict
-from datetime import date, timedelta
+from datetime import date
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 from pipelines import db
-from pipelines.common import RACINE, RAW_DIR, obtenir_logger, session_http, telecharger
+from pipelines.common import (
+    RACINE, RAW_DIR, ajouter_mois, obtenir_logger, session_http, telecharger,
+)
 from pipelines.ingest_hatvp_declarations import (charger_liste_blanche,
                                                  composantes_identite,
                                                  date_complete,
@@ -146,8 +154,21 @@ LIBELLES_DOC = {
 }
 
 TYPE_ALERTE_NON_DEPOSEE = "A1_hatvp_non_deposee"
-TYPE_ALERTE_RETARD = "A1_hatvp_retard_presume"
-TYPES_ALERTES_P7 = (TYPE_ALERTE_NON_DEPOSEE, TYPE_ALERTE_RETARD)
+TYPE_ALERTE_EN_COURS = "A1_hatvp_en_cours_delai_ecoule"
+# Ancien type, qui portait le mot « retard » : plus jamais écrit, mais effacé à
+# chaque cycle pour que ses lignes ne survivent pas dans la table partagée.
+TYPE_ALERTE_RETARD_ANCIEN = "A1_hatvp_retard_presume"
+TYPES_ALERTES_P7 = (TYPE_ALERTE_NON_DEPOSEE, TYPE_ALERTE_EN_COURS)
+TYPES_ALERTES_EFFACES_P7 = TYPES_ALERTES_P7 + (TYPE_ALERTE_RETARD_ANCIEN,)
+
+# Délai légal de dépôt des déclarations initiales : « dans les deux mois qui
+# suivent l'entrée en fonction ». Compté en mois calendaires, jamais en jours.
+DELAI_LEGAL_A1_MOIS = 2
+
+# Aucun agrégat publié sous ce nombre de personnes : sur 577 députés, une
+# cellule « 1 personne » se lit nominativement dans liste.csv (constat de
+# l'audit du 20/11/2026, décision du propriétaire).
+SEUIL_PERSONNES_AGREGAT = 3
 
 BASE_LEGALE_A1 = (
     "Loi n° 2013-907 du 11 octobre 2013 (art. 4 et 11) ; art. LO 135-1 du code "
@@ -155,18 +176,22 @@ BASE_LEGALE_A1 = (
     "(art. 26) : 3 ans d'emprisonnement, 45 000 € d'amende, inéligibilité."
 )
 
-REGLE_A1_RETARD = (
-    "Retard PRÉSUMÉ : statut natif « En cours » (déclaration attendue, non "
-    "déposée) ET date de début de la fonction (RNE du {date_rne}) + 60 jours "
-    "dépassée. Garde-fous appliqués : mandats EPCI exclus (délai courant à la "
-    "transmission de la délégation en préfecture, date absente de l'open data) ; "
-    "jointure nom+prénom+département normalisés, homonyme non tranché = "
-    "non-alerte ; documents initiaux seulement (di, dsp, dia) ; qualité "
-    "déclarée filtrée sur la population RNE appariée (maires, présidents "
-    "d'exécutifs, parlementaires) ; agrégat non nominatif ; aucune alerte "
-    "pour une chambre dont le dernier renouvellement est postérieur au RNE "
-    "ingéré. Réserve : RNE trimestriel, dates de fonction possiblement "
-    "périmées jusqu'à ~3 mois."
+REGLE_A1_EN_COURS = (
+    "Compte des dossiers au statut natif « En cours » dans liste.csv de la "
+    "HATVP dont l'entrée en fonction (RNE du {date_rne}) remonte à plus de 2 "
+    "mois, délai légal de dépôt compté en mois calendaires et non en jours. "
+    "Le site ne connaît pas la définition officielle de ce statut et n'en "
+    "déduit aucun manquement. Garde-fous appliqués : mandats EPCI exclus "
+    "(délai courant à la transmission de la délégation en préfecture, date "
+    "absente de l'open data), jointure nom, prénom et département normalisés, "
+    "homonyme non tranché écarté, documents initiaux seulement (di, dsp, dia), "
+    "qualité déclarée filtrée sur la population RNE appariée (maires, "
+    "présidents d'exécutifs, parlementaires), aucun compte pour une chambre "
+    "dont le dernier renouvellement est postérieur au RNE ingéré. Agrégat non "
+    "nominatif, jamais publié sous 3 personnes : les mandats sous ce seuil "
+    "sont regroupés, et le regroupement n'est publié qu'à partir de 3 "
+    "personnes. Réserve : RNE trimestriel, dates de fonction possiblement "
+    "périmées jusqu'à environ 3 mois."
 )
 
 # Garde-fou n° 7 de la règle A1 : le RNE trimestriel ignore-t-il le dernier
@@ -181,8 +206,8 @@ PART_ENTREE_COLLECTIVE = 0.25
 
 REGLE_A1_NON_DEPOSEE = (
     "Constat officiel HATVP repris tel quel : statut natif « Déclaration non "
-    "déposée » dans liste.csv. Seuls cas nominatifs de l'alerte A1 (les retards "
-    "présumés restent agrégés)."
+    "déposée » dans liste.csv. Seuls cas nominatifs de l'alerte A1 (les dossiers "
+    "« En cours » ne sont publiés qu'en agrégats)."
 )
 
 SCHEMA_P7 = """
@@ -740,27 +765,39 @@ def types_rne_anterieurs(conn, rne: dict[str, list[dict]]) -> dict[str, tuple]:
             perimes[tm] = (entree, plus_recent)
     # Journalisé À CHAQUE CYCLE, vide compris.
     log.info("A1 : chambres dont le RNE précède le dernier renouvellement"
-             " (retards présumés non calculés) : %s",
+             " (dossiers « En cours » non comptés) : %s",
              {tm: f"entrée {e}, RNE au plus tard {r}" for tm, (e, r) in perimes.items()}
              or "aucune")
     return perimes
+
+
+def delai_legal_ecoule(debut: date, aujourd_hui: date) -> bool:
+    """Vrai si le délai légal de 2 mois ouvert le jour `debut` est échu.
+
+    Entrée en fonction le 1er juillet : échéance le 1er septembre, jour
+    compris. Lu le 31 août ou le 1er septembre, le délai court encore, lu le
+    2 septembre il est écoulé. L'ancien décompte en 60 jours le donnait pour
+    écoulé dès le 31 août.
+    """
+    return ajouter_mois(debut, DELAI_LEGAL_A1_MOIS) < aujourd_hui
 
 
 def calculer_a1(dossiers: list[dict], index_rne: dict[str, dict],
                 aujourd_hui: date,
                 types_perimes: frozenset[str] | set[str] = frozenset(),
                 ) -> tuple[list[dict], list[dict], Counter]:
-    """Applique la règle A1. Retourne (nominatives, retards_presumes, stats).
+    """Applique la règle A1. Retourne (nominatives, en_cours_delai_ecoule, stats).
 
     `types_perimes` : types de mandat dont le RNE précède le dernier
-    renouvellement de la chambre (voir types_rne_anterieurs) — aucun retard
-    présumé n'y est calculé, chaque dossier est compté.
+    renouvellement de la chambre (voir types_rne_anterieurs) : aucun dossier
+    n'y est compté au-delà du délai, chaque dossier est compté à part.
 
     - nominatives : dossiers au statut natif « Déclaration non déposée »
       (seuls cas nominatifs autorisés) ;
-    - retards_presumes : dossiers « En cours » appariés à un élu RNE unique
-      dont la date de début de fonction + 60 jours est dépassée (EPCI exclus,
-      homonymes non tranchés exclus, documents initiaux seulement) ;
+    - en_cours_delai_ecoule : dossiers « En cours » appariés à un élu RNE
+      unique dont l'entrée en fonction remonte à plus de 2 mois calendaires
+      (`delai_legal_ecoule`, EPCI exclus, homonymes non tranchés exclus,
+      documents initiaux seulement) ;
     - stats : compteurs de tri (exclusions, non-appariés…) pour la traçabilité.
     """
     nominatives = [d for d in dossiers if d["statut_publication"] == STATUT_NON_DEPOSEE]
@@ -817,23 +854,56 @@ def calculer_a1(dossiers: list[dict], index_rne: dict[str, dict],
         if debut is None:
             stats["sans_date_fonction"] += 1
             continue
-        if debut + timedelta(days=60) < aujourd_hui:
-            stats["retard_presume"] += 1
+        if delai_legal_ecoule(debut, aujourd_hui):
+            stats["delai_ecoule"] += 1
             retards.append(d)
         else:
             stats["delai_non_ecoule"] += 1
     return nominatives, retards, stats
 
 
-def construire_alertes(nominatives: list[dict], retards: list[dict],
+#: Clé de la cellule qui regroupe les types de mandat sous le seuil.
+MANDATS_REGROUPES = "autres"
+
+
+def regrouper_sous_seuil(par_mandat: dict[str, list[dict]],
+                         seuil: int = SEUIL_PERSONNES_AGREGAT,
+                         ) -> tuple[list[tuple[str, list[dict]]], int]:
+    """Cellules publiables d'un agrégat par type de mandat.
+
+    Un type de mandat qui compte moins de `seuil` personnes distinctes
+    (`classement`, clé personne HATVP) ne forme pas sa propre cellule : ses
+    dossiers rejoignent « autres mandats ». Ce regroupement n'est publié que
+    s'il atteint lui-même le seuil. Retourne (cellules, personnes_retenues),
+    où `personnes_retenues` compte les personnes qui ne figurent dans aucune
+    cellule publiée (journalisé, jamais publié).
+    """
+    cellules: list[tuple[str, list[dict]]] = []
+    reste: list[dict] = []
+    for tm in sorted(par_mandat):
+        ds = par_mandat[tm]
+        if len({d["classement"] for d in ds}) >= seuil:
+            cellules.append((tm, ds))
+        else:
+            reste.extend(ds)
+    personnes_reste = len({d["classement"] for d in reste})
+    if reste and personnes_reste >= seuil:
+        cellules.append((MANDATS_REGROUPES, reste))
+        personnes_reste = 0
+    return cellules, personnes_reste
+
+
+def construire_alertes(nominatives: list[dict], en_cours: list[dict],
                        aujourd_hui: date, date_hatvp: str, date_rne: str) -> list[tuple]:
     """Lignes prêtes pour la table alertes. Nominatif = non déposées SEULEMENT.
 
     `date_hatvp` / `date_rne` : dates réelles des données (ISO), citées dans
     les textes pour que les réserves restent vraies aux runs suivants.
+    `date_hatvp` est aussi la `date_fait` des lignes : les deux types
+    décrivent l'état de liste.csv à cette date, pas l'instant du cycle.
     """
     date_calcul = aujourd_hui.isoformat()
-    regle_retard = REGLE_A1_RETARD.format(date_rne=date_rne)
+    regle_en_cours = REGLE_A1_EN_COURS.format(date_rne=date_rne)
     lignes: list[tuple] = []
     for d in nominatives:
         slug = (d["url_dossier"].rstrip("/").rsplit("/", 1)[-1]
@@ -851,37 +921,53 @@ def construire_alertes(nominatives: list[dict], retards: list[dict],
             BASE_LEGALE_A1,
             (URL_HATVP_SITE + d["url_dossier"]) if d["url_dossier"] else URL_HATVP_LISTE,
             date_calcul,
+            date_hatvp,
         ))
     par_mandat: dict[str, list[dict]] = defaultdict(list)
-    for d in retards:
+    for d in en_cours:
         par_mandat[d["type_mandat"]].append(d)
-    for tm in sorted(par_mandat):
-        ds = par_mandat[tm]
+    cellules, retenues = regrouper_sous_seuil(par_mandat)
+    if retenues:
+        log.info("A1 : %d personne(s) hors de tout agrégat publié (moins de %d "
+                 "personnes, même regroupées)", retenues, SEUIL_PERSONNES_AGREGAT)
+    for tm, ds in cellules:
         personnes = len({d["classement"] for d in ds})
+        libelle = ("autres mandats, chacun sous 3 personnes"
+                   if tm == MANDATS_REGROUPES else f"mandat « {tm} »")
         lignes.append((
-            f"A1-RP-{tm}",
-            TYPE_ALERTE_RETARD,
-            "moyenne",
-            f"{len(ds)} déclaration(s) HATVP présumée(s) en retard — mandat « {tm} »",
-            f"{len(ds)} dossier(s) « En cours » concernant {personnes} personne(s), "
-            f"attendus depuis plus de 60 jours après l'entrée en fonction (RNE du "
-            f"{date_rne}). Agrégat non nominatif : le détail individuel reste une "
-            f"présomption (RNE trimestriel, démissions/délégations non visibles).",
-            regle_retard,
+            f"A1-EC-{tm}",
+            TYPE_ALERTE_EN_COURS,
+            "info",
+            f"{len(ds)} déclarations au statut « En cours » à la HATVP plus de "
+            f"2 mois après l'entrée en fonction, {libelle}",
+            f"{len(ds)} dossiers au statut « En cours » dans liste.csv de la "
+            f"HATVP du {date_hatvp}, pour {personnes} personnes, dont l'entrée "
+            f"en fonction connue du répertoire national des élus du {date_rne} "
+            f"remonte à plus de 2 mois, délai légal de dépôt. Le site ne connaît "
+            f"pas la définition officielle de ce statut : il peut désigner une "
+            f"déclaration attendue comme une déclaration déposée en cours "
+            f"d'examen. Ce compte ne constate aucun manquement. Agrégat non "
+            f"nominatif, jamais publié sous 3 personnes.",
+            regle_en_cours,
             BASE_LEGALE_A1,
             URL_HATVP_LISTE,
             date_calcul,
+            date_hatvp,
         ))
     return lignes
 
 
 def ecrire_alertes(conn, lignes: list[tuple]) -> None:
-    """Table partagée : ne supprime QUE les types d'alerte de ce pipeline."""
-    marqueurs = ",".join("?" for _ in TYPES_ALERTES_P7)
-    conn.execute(f"DELETE FROM alertes WHERE type IN ({marqueurs})", TYPES_ALERTES_P7)
+    """Table partagée : ne supprime QUE les types d'alerte de ce pipeline,
+    ancien type compris."""
+    db.assurer_date_fait_alertes(conn)
+    marqueurs = ",".join("?" for _ in TYPES_ALERTES_EFFACES_P7)
+    conn.execute(f"DELETE FROM alertes WHERE type IN ({marqueurs})",
+                 TYPES_ALERTES_EFFACES_P7)
     conn.executemany(
         "INSERT INTO alertes (id, type, gravite, titre, detail, regle, base_legale,"
-        " source_url, date_calcul) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", lignes)
+        " source_url, date_calcul, date_fait)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", lignes)
 
 
 # ---------------------------------------------------------------------------
@@ -1694,13 +1780,14 @@ def ecrire(conn, dossiers: list[dict], rne: dict, chemins: dict,
     # --- Alerte A1 ------------------------------------------------------
     index = construire_index_rne(rne)
     perimes = types_rne_anterieurs(conn, rne)
-    nominatives, retards, stats = calculer_a1(dossiers, index, aujourd_hui,
-                                              frozenset(perimes))
-    lignes_alertes = construire_alertes(nominatives, retards, aujourd_hui,
+    nominatives, en_cours, stats = calculer_a1(dossiers, index, aujourd_hui,
+                                               frozenset(perimes))
+    lignes_alertes = construire_alertes(nominatives, en_cours, aujourd_hui,
                                         date_hatvp, date_rne)
     ecrire_alertes(conn, lignes_alertes)
-    log.info("A1 : %d constats nominatifs « non déposée », %d retards présumés "
-             "(agrégés en %d alertes) ; tri : %s", len(nominatives), len(retards),
+    log.info("A1 : %d constats nominatifs « non déposée », %d dossiers « En cours »"
+             " au délai légal écoulé (agrégés en %d alertes) ; tri : %s",
+             len(nominatives), len(en_cours),
              len(lignes_alertes) - len(nominatives), dict(stats))
 
     return {"total_cm": total_cm, "nb_alertes": len(lignes_alertes)}

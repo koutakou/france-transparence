@@ -125,7 +125,7 @@ def test_a1_retard_vrai_maire_et_senatrice(resultat_a1):
     # BOURGUIGNON, sénatrice depuis le 01/09/2025 : dia ET dsp « En cours »
     assert ("BOURGUIGNON", "senateur", "dia") in cles
     assert ("BOURGUIGNON", "senateur", "dsp") in cles
-    assert stats["retard_presume"] == 3 == len(retards)
+    assert stats["delai_ecoule"] == 3 == len(retards)
 
 
 def test_a1_epci_toujours_exclus(resultat_a1):
@@ -141,11 +141,40 @@ def test_a1_homonyme_non_tranche_est_une_non_alerte(resultat_a1):
     assert all(d["nom"] != "LEFEVRE" for d in retards)
 
 
-def test_a1_delai_de_60_jours_non_ecoule(resultat_a1):
+def test_a1_delai_de_2_mois_non_ecoule(resultat_a1):
     _, retards, stats = resultat_a1
-    # CONTE Yoann, fonction du 25/07/2026 : + 60 j non dépassés au 19/08/2026.
+    # CONTE Yoann, fonction du 25/07/2026 : 2 mois non écoulés au 19/08/2026.
     assert stats["delai_non_ecoule"] == 1
     assert all(d["nom"] != "CONTE" for d in retards)
+
+
+@pytest.mark.parametrize(("lecture", "ecoule"), [
+    (date(2026, 8, 30), False),   # 60 jours pile : l'ancienne règle comptait dès le 31/08
+    (date(2026, 8, 31), False),
+    (date(2026, 9, 1), False),    # échéance légale, jour compris
+    (date(2026, 9, 2), True),
+])
+def test_a1_delai_legal_en_mois_calendaires(lecture, ecoule):
+    """Audit du 20/11/2026, C3 : entrée en fonction le 01/07, le dépôt est dû
+    « dans les 2 mois », soit le 01/09. Avant, `+ 60 jours` comptait le
+    dossier dès le 31/08."""
+    assert p7.delai_legal_ecoule(date(2026, 7, 1), lecture) is ecoule
+
+
+def test_a1_delai_legal_fin_de_mois_et_fevrier():
+    # 31/12 + 2 mois = dernier jour de février (59 jours, 60 en année bissextile).
+    assert not p7.delai_legal_ecoule(date(2026, 12, 31), date(2027, 2, 28))
+    assert p7.delai_legal_ecoule(date(2026, 12, 31), date(2027, 3, 1))
+    assert not p7.delai_legal_ecoule(date(2027, 12, 31), date(2028, 2, 29))
+
+
+def test_a1_borne_reelle_conte(dossiers):
+    """La même borne, sur la ligne de la fixture : CONTE, fonction du 25/07/2026."""
+    index = p7.construire_index_rne(charger_rne())
+    _, avant, _ = p7.calculer_a1(dossiers, index, date(2026, 9, 25))
+    _, apres, _ = p7.calculer_a1(dossiers, index, date(2026, 9, 26))
+    assert all(d["nom"] != "CONTE" for d in avant)
+    assert any(d["nom"] == "CONTE" for d in apres)
 
 
 def test_a1_qualite_hors_population_appariee(resultat_a1):
@@ -162,20 +191,63 @@ def test_a1_nominatif_reserve_aux_non_deposees(resultat_a1):
     lignes = p7.construire_alertes(nominatives, retards, AUJOURD_HUI,
                                    "2026-08-14", "2026-08-11")
     nd = [l for l in lignes if l[1] == p7.TYPE_ALERTE_NON_DEPOSEE]
-    rp = [l for l in lignes if l[1] == p7.TYPE_ALERTE_RETARD]
-    assert len(nd) == 4 and len(rp) == 2         # agrégats : commune + senateur
+    ec = [l for l in lignes if l[1] == p7.TYPE_ALERTE_EN_COURS]
+    assert len(nd) == 4
+    # GUERZA (commune) et BOURGUIGNON (senateur) : 1 personne chacun, 2 une fois
+    # regroupés. Sous le seuil de 3 personnes, aucun agrégat n'est publié.
+    assert ec == []
     assert any("FEROUSSIER" in l[3] for l in nd)  # nominatif = constat officiel
     for l in nd:
         assert "constat officiel" in l[3]
-    for l in rp:                                  # agrégats : libellé « présumé »…
-        assert "présumée" in l[3]
-        assert "RNE du 2026-08-11" in l[5]        # date des données, jamais en dur
-        # … et JAMAIS nominatifs :
-        for nom in ("GUERZA", "BOURGUIGNON"):
-            assert nom not in l[3] and nom not in (l[4] or "")
     assert all(l[6] == p7.BASE_LEGALE_A1 for l in lignes)
+    # date_fait = date du fichier HATVP lu, jamais l'instant du cycle
+    assert all(l[9] == "2026-08-14" for l in lignes)
     ids = [l[0] for l in lignes]
     assert len(ids) == len(set(ids))              # ids déterministes et uniques
+
+
+def _dossier_en_cours(classement, type_mandat, type_document="di"):
+    """Dossier « En cours » au gabarit de la ligne réelle GUERZA."""
+    return {"classement": classement, "type_mandat": type_mandat,
+            "type_document": type_document, "nom": classement.upper(),
+            "prenom": "X", "statut_publication": "En cours"}
+
+
+def test_a1_aucun_agregat_sous_3_personnes():
+    """Audit du 20/11/2026, C3 : « 1 personne(s) — mandat depute » se lisait
+    nominativement dans liste.csv. Un type sous 3 personnes rejoint « autres
+    mandats », publié seulement s'il atteint lui-même 3 personnes."""
+    en_cours = (
+        [_dossier_en_cours(f"maire{i}", "commune") for i in range(4)]
+        + [_dossier_en_cours("depute0", "depute", "dsp"),
+           _dossier_en_cours("depute0", "depute", "di")]   # 2 dossiers, 1 personne
+    )
+    lignes = p7.construire_alertes([], en_cours, AUJOURD_HUI, "2026-08-14", "2026-08-11")
+    assert [l[0] for l in lignes] == ["A1-EC-commune"]
+    assert "4 déclarations" in lignes[0][3] and "pour 4 personnes" in lignes[0][4]
+    assert not any("depute" in (l[3] + l[4]) for l in lignes)
+    # Deux autres personnes sous le seuil chacune : le regroupement atteint 3.
+    en_cours += [_dossier_en_cours("senateur0", "senateur"),
+                 _dossier_en_cours("pcd0", "departement")]
+    lignes = p7.construire_alertes([], en_cours, AUJOURD_HUI, "2026-08-14", "2026-08-11")
+    assert [l[0] for l in lignes] == ["A1-EC-commune", "A1-EC-autres"]
+    autres = lignes[1]
+    assert "autres mandats" in autres[3] and "pour 3 personnes" in autres[4]
+    assert "« depute »" not in autres[3] + autres[4]
+
+
+def test_a1_textes_sans_retard_ni_non_depose():
+    """Décision du 20/11/2026 : le mot « retard » est retiré, et « En cours »
+    n'est plus présenté comme une déclaration non déposée."""
+    en_cours = [_dossier_en_cours(f"maire{i}", "commune") for i in range(3)]
+    (ligne,) = p7.construire_alertes([], en_cours, AUJOURD_HUI, "2026-08-14", "2026-08-11")
+    texte = " ".join(str(v) for v in ligne[2:6]).lower()
+    assert "retard" not in texte and "présum" not in texte
+    assert "non déposée" not in texte
+    assert "60 jours" not in texte and "2 mois" in texte
+    assert "RNE du 2026-08-11" in ligne[5]       # date des données, jamais en dur
+    assert ligne[2] == "info"
+    assert ";" not in ligne[3] + ligne[4]
 
 
 # ---------------------------------------------------------------------------
@@ -232,20 +304,35 @@ def test_a1_chambre_non_verifiable_n_ecarte_rien(conn, caplog):
     assert any("non vérifiable" in m and "senateur" in m for m in caplog.messages)
 
 
-def test_a1_garde_fou_branche_dans_ecrire(tmp_path, dossiers):
-    """Le vrai `ecrire()` : plus d'alerte « mandat senateur » quand la table
-    `senateurs` montre un renouvellement postérieur au RNE."""
+def test_a1_garde_fou_branche_dans_ecrire(tmp_path, dossiers, caplog):
+    """Le vrai `ecrire()` : les dossiers de sénateurs ne sont plus comptés
+    quand la table `senateurs` montre un renouvellement postérieur au RNE.
+    Sous le seuil de 3 personnes rien n'est publié : le compte se lit au
+    journal (GUERZA seul, contre 3 dossiers sans le garde-fou)."""
     conn = db.init_db(chemin=tmp_path / "t.db")
     _chambre(conn, "senateurs", ["2026-10-01"] * 5 + ["2023-10-02"] * 4)
     _chambre(conn, "deputes", ["2024-07-07"] * 3)
     conn.commit()
-    p7.ecrire(conn, dossiers, charger_rne(),
-              {"cm": FIXTURES / "rne_cm_extrait.csv"},
-              AUJOURD_HUI, "2026-08-14", "2026-08-11")
-    ids = {r[0] for r in conn.execute(
-        "SELECT id FROM alertes WHERE type = ?", (p7.TYPE_ALERTE_RETARD,))}
-    assert "A1-RP-senateur" not in ids and "A1-RP-commune" in ids
+    with caplog.at_level("INFO"):
+        p7.ecrire(conn, dossiers, charger_rne(),
+                  {"cm": FIXTURES / "rne_cm_extrait.csv"},
+                  AUJOURD_HUI, "2026-08-14", "2026-08-11")
+    assert any("1 dossiers « En cours » au délai légal écoulé" in m
+               for m in caplog.messages)
+    assert conn.execute("SELECT COUNT(*) FROM alertes WHERE type = ?",
+                        (p7.TYPE_ALERTE_EN_COURS,)).fetchone()[0] == 0
     conn.close()
+
+
+def test_ecrire_alertes_purge_l_ancien_type_retard(conn):
+    """L'ancien type « A1_hatvp_retard_presume » ne survit pas au cycle."""
+    conn.execute(
+        "INSERT INTO alertes (id, type, gravite, titre, date_calcul) VALUES"
+        " ('A1-RP-depute', 'A1_hatvp_retard_presume', 'moyenne',"
+        " '1 déclaration(s) HATVP présumée(s) en retard', '2026-11-20')")
+    p7.ecrire_alertes(conn, [])
+    assert conn.execute("SELECT COUNT(*) FROM alertes").fetchone()[0] == 0
+    assert "date_fait" in {r[1] for r in conn.execute("PRAGMA table_info(alertes)")}
 
 
 def test_ecrire_alertes_preserve_les_autres_pipelines(conn, resultat_a1):
