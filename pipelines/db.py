@@ -102,6 +102,23 @@ def init_db(conn: sqlite3.Connection | None = None,
     return conn
 
 
+def assurer_date_fait_alertes(conn: sqlite3.Connection) -> None:
+    """Pose la colonne `alertes.date_fait` si elle manque. Idempotent.
+
+    `date_calcul` est l'instant du cycle qui a recalculé l'alerte, pas la date
+    du fait : avant cette colonne, une décision CNCCFP de 2025 sortait datée du
+    jour de l'ingestion. `date_fait` porte la date du fait telle que la source
+    la donne, et reste NULL quand la source ne la donne pas (jamais la date du
+    cycle à sa place). La table `alertes` est partagée par trois pipelines,
+    chacun avec son `CREATE TABLE IF NOT EXISTS` : la colonne se pose ici, à
+    l'écriture, par ceux qui la remplissent. Un `ALTER TABLE` est
+    transactionnel en SQLite et se greffe sur la transaction de l'appelant.
+    """
+    colonnes = {r[1] for r in conn.execute("PRAGMA table_info(alertes)")}
+    if colonnes and "date_fait" not in colonnes:
+        conn.execute("ALTER TABLE alertes ADD COLUMN date_fait TEXT")
+
+
 def instructions_sql(script: str) -> list[str]:
     """Découpe un script SQL en instructions, à passer UNE À UNE à
     `conn.execute` dans une transaction ouverte.

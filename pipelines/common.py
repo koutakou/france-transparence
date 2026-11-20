@@ -6,6 +6,7 @@ Fournit :
 - `telecharger_ressource()` : idem, mais le cache tombe dès que la ressource
   amont a été modifiée après la copie locale ;
 - des helpers de log horodatés ;
+- `ajouter_mois` : délais légaux comptés en mois calendaires ;
 - `reparer_mojibake` / `normaliser_espaces` / `assainir_texte` : hygiène des
   chaînes, partagée parce que le MÊME défaut (UTF-8 relu en cp1252) touche
   au moins quatre sources indépendantes — DECP, jaune budgétaire, comptes de
@@ -16,11 +17,12 @@ Aucune donnée fictive : ces utilitaires ne fabriquent rien, ils rapatrient.
 
 from __future__ import annotations
 
+import calendar
 import logging
 import re
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import requests
@@ -431,3 +433,26 @@ def assainir_texte_integral(valeur: str | None) -> str | None:
             break
         propre = suivant
     return normaliser_espaces(propre)
+
+
+# ---------------------------------------------------------------------------
+# Délais légaux en mois calendaires
+# ---------------------------------------------------------------------------
+
+
+def ajouter_mois(jour: date, mois: int) -> date:
+    """`jour` + `mois` mois calendaires, ramené au dernier jour du mois cible.
+
+    Un délai légal écrit « dans les 2 mois » se compte en mois, pas en
+    60 jours : une entrée en fonction le 1er juillet a jusqu'au 1er septembre
+    (62 jours), une le 31 décembre jusqu'au 28 ou 29 février (59 ou 60 jours).
+    Quand le quantième n'existe pas dans le mois cible (31 → 30 avril, 29 → 28
+    février d'une année commune), on retient le dernier jour de ce mois, comme
+    le fait `INTERVAL n MONTH` de DuckDB (`ingest_decp.py`, règle 3).
+    """
+    rang = jour.month - 1 + mois
+    annee, mois_cible = jour.year + rang // 12, rang % 12 + 1
+    return jour.replace(
+        year=annee, month=mois_cible,
+        day=min(jour.day, calendar.monthrange(annee, mois_cible)[1]),
+    )
