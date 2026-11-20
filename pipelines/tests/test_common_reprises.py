@@ -53,33 +53,42 @@ def test_un_flux_coupe_est_repris_et_le_fichier_est_entier(tmp_path, pauses):
     assert not (tmp_path / "x.zip.part").exists()
 
 
-@pytest.mark.parametrize("statut", [429, 500, 503])
-def test_un_statut_transitoire_persistant_est_repris_deux_fois_puis_leve(tmp_path, pauses, statut):
-    session = _Session(*(_Reponse(statut=statut) for _ in range(3)))
-    with pytest.raises(requests.HTTPError):
-        common.telecharger("https://amont/x.csv", tmp_path / "x.csv", session=session)
+def test_un_flux_coupe_trois_fois_leve_apres_deux_reprises(tmp_path, pauses):
+    coupure = requests.exceptions.ChunkedEncodingError("IncompleteRead")
+    session = _Session(*(_Reponse((b"x",), coupure=coupure) for _ in range(3)))
+    with pytest.raises(requests.exceptions.ChunkedEncodingError):
+        common.telecharger("https://amont/x.zip", tmp_path / "x.zip", session=session)
     assert session.appels == 3 and pauses == [30, 120]
-    assert not (tmp_path / "x.csv").exists()
+    assert not (tmp_path / "x.zip").exists() and not (tmp_path / "x.zip.part").exists()
 
 
-@pytest.mark.parametrize("panne", [
-    requests.ConnectionError("Connection reset by peer"),
-    requests.exceptions.ReadTimeout("read timeout=300"),
-])
-def test_une_connexion_coupee_puis_retablie(tmp_path, pauses, panne):
-    class _Coupee(_Session):
-        def get(self, url, **k):
-            self.appels += 1
-            if self.appels == 1:
-                raise panne
-            return _Reponse((b"ok",))
-    session = _Coupee()
+def test_un_delai_de_lecture_pendant_le_flux_est_repris(tmp_path, pauses):
+    # requests transforme un ReadTimeoutError pendant iter_content en ConnectionError.
+    coupure = requests.exceptions.ConnectionError("Read timed out.")
+    session = _Session(_Reponse((b"deb",), coupure=coupure), _Reponse((b"ok",)))
     common.telecharger("https://amont/s.parquet", tmp_path / "s.parquet", session=session)
     assert (tmp_path / "s.parquet").read_bytes() == b"ok" and pauses == [30]
 
 
-@pytest.mark.parametrize("statut", [403, 404, 410, 499])
-def test_un_refus_amont_n_est_jamais_repris(tmp_path, pauses, statut):
+@pytest.mark.parametrize("panne", [
+    requests.ConnectionError("Connection reset by peer"),
+    requests.exceptions.ConnectTimeout("connect timeout=300"),
+    requests.exceptions.SSLError("certificate has expired"),
+])
+def test_une_panne_avant_le_flux_n_est_pas_reprise(tmp_path, pauses, panne):
+    """urllib3 l'a déjà rejouée : la reprendre ici triplerait le pire cas."""
+    class _SansReponse(_Session):
+        def get(self, url, **k):
+            self.appels += 1
+            raise panne
+    session = _SansReponse()
+    with pytest.raises(type(panne)):
+        common.telecharger("https://amont/x", tmp_path / "x", session=session)
+    assert session.appels == 1 and pauses == []
+
+
+@pytest.mark.parametrize("statut", [403, 404, 429, 500, 503])
+def test_un_statut_d_erreur_n_est_jamais_repris(tmp_path, pauses, statut):
     session = _Session(_Reponse(statut=statut))
     with pytest.raises(requests.HTTPError):
         common.telecharger("https://amont/x", tmp_path / "x", session=session)

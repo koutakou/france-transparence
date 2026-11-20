@@ -80,28 +80,21 @@ def session_http(total_retries: int = 3, backoff: float = 1.0) -> requests.Sessi
     return s
 
 
-# Reprises du téléchargement ENTIER. Les retries de `session_http` (urllib3)
-# ne couvrent que l'établissement de la connexion et les statuts 429/5xx : une
-# coupure PENDANT la lecture du flux n'est jamais rejouée, et une indisponibilité
-# de plus de quelques secondes épuise leur backoff. Une seule source tombée
-# suffit à faire échouer tout le cycle. Mesuré en CI : AN Scrutins coupé à
-# 3 Mo sur 30 (IncompleteRead) le 18/11/2026, Sirene « Connection reset by
-# peer » le 15/11/2026, data.gouv.fr en 503 le 16/11/2026.
-# Seules ces pannes de transport sont reprises : un 404 ou un 403 reste un
-# échec immédiat, c'est un changement amont qu'il faut voir.
+# Reprises du téléchargement ENTIER après une coupure PENDANT le flux. Les
+# retries de `session_http` (urllib3) couvrent l'établissement de la connexion
+# et les statuts 429/5xx, mais une fois les en-têtes reçus, une coupure de la
+# lecture n'est jamais rejouée, et une seule source tombée fait échouer tout le
+# cycle. Mesuré en CI : AN Scrutins coupé à 3 Mo sur 30 (IncompleteRead) le
+# 18/11/2026, Sirene « Connection reset by peer » le 15/11/2026.
+# Rien d'autre n'est repris. Un hôte muet, un 5xx persistant, un DNS ou un
+# certificat en échec sont déjà rejoués par urllib3 : les reprendre ici
+# triplerait le pire cas (jusqu'à 4 × `timeout` par appel) et ferait tuer le
+# cycle par son délai plutôt que laisser jouer le secours de la source.
 PAUSES_REPRISE_S = (30, 120)
-_ERREURS_TRANSPORT = (
+_COUPURES_DE_FLUX = (
     requests.exceptions.ChunkedEncodingError,
-    requests.exceptions.ConnectionError,
-    requests.exceptions.Timeout,
+    requests.exceptions.ConnectionError,  # délai de lecture pendant le flux
 )
-
-
-def _reprenable(erreur: Exception) -> bool:
-    if isinstance(erreur, requests.exceptions.HTTPError):
-        statut = erreur.response.status_code if erreur.response is not None else 0
-        return statut == 429 or statut >= 500
-    return isinstance(erreur, _ERREURS_TRANSPORT)
 
 
 def telecharger(
@@ -138,9 +131,11 @@ def telecharger(
     tmp = dest.with_suffix(dest.suffix + ".part")
     pauses = list(PAUSES_REPRISE_S)
     while True:
+        en_flux = False
         try:
             with s.get(url, stream=True, timeout=timeout, allow_redirects=True) as r:
                 r.raise_for_status()
+                en_flux = True
                 octets = 0
                 with open(tmp, "wb") as f:
                     for chunk in r.iter_content(chunk_size=1 << 20):
@@ -150,10 +145,10 @@ def telecharger(
             tmp.replace(dest)
             break
         except Exception as erreur:
-            if not pauses or not _reprenable(erreur):
+            if not (en_flux and pauses and isinstance(erreur, _COUPURES_DE_FLUX)):
                 raise
             pause = pauses.pop(0)
-            log.warning("téléchargement interrompu (%s), reprise dans %d s : %s",
+            log.warning("flux interrompu (%s), reprise dans %d s : %s",
                         type(erreur).__name__, pause, url)
             time.sleep(pause)
         finally:
