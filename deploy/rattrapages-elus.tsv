@@ -1,26 +1,32 @@
-# Rattrapages de fiches d'élus relus à la main : liste blanche du repli de
-# `upsert_elus` (pipelines/ingest_integrite.py, fonction `_rattraper`).
+# Rattrapages de fiches d'élus relus à la main : liste blanche de
+# `upsert_elus` (pipelines/ingest_integrite.py). Seules ces lignes rattrapent.
 #
 # Décision du propriétaire du 20/11/2026 (audit des données, constat C1) :
-# zéro fusion fausse. Le repli n'accepte plus qu'une date de naissance
-# exacte, avec un nom et un prénom dont l'une des écritures contient tous les
-# mots de l'autre. Une personne RNE dont l'identifiant `rne-*` figure ici est
-# rattachée à la fiche de la deuxième colonne, même hors de cette règle, si
-# cette fiche existe et si la clé exacte ne l'atteint pas déjà.
+# zéro fusion fausse. Une personne RNE dont l'identifiant `rne-*` figure ici
+# est rattachée à la fiche de la deuxième colonne si elle porte au RNE un
+# mandat de député ou de sénateur, si sa date de naissance est complète, si
+# cette fiche est une fiche AN ou Sénat de la base et si la clé exacte ne
+# l'atteint pas déjà. Une ligne refusée ou sans effet est journalisée.
 #
-# Un rattrapage que la règle fait et qui ne figure pas ici est signalé dans
-# le journal du cycle (« rattachement(s) nouveau(x) du repli ») et compté.
-# Le relire, puis l'inscrire ici avec sa preuve.
+# La règle du repli (`_rattraper` : date de naissance exacte, nom et prénom
+# dont l'une des écritures contient tous les mots de l'autre) ne rattrape
+# plus rien seule. Ce qu'elle trouve hors de cette liste est signalé dans le
+# journal du cycle (« NON appliqué(s) »). Vérifier le cas à la main, puis
+# l'inscrire ici avec sa preuve pour qu'il soit appliqué au cycle suivant.
 #
 # Mesuré le 20/11/2026 par rejeu en lecture seule sur la base servie et le
 # RNE relivré le jour même : 16 rattrapages, tous au même siège des deux
-# côtés. 13 passent la règle stricte, 3 ne passent que par cette liste
-# (GALZY et OLIVE, une composante de date, REID ABERLOT, faute de frappe).
+# côtés, tous avec un mandat de député ou de sénateur au RNE. 13 passent la
+# règle stricte, 3 ne passent que par cette liste (GALZY et OLIVE, une
+# composante de date, REID ABERLOT, faute de frappe).
 #
 # L'identifiant `rne-*` est le haché de l'état civil RNE (nom, prénom, date)
-# que `upsert_elus` donnerait à la fiche en double : aucune date de naissance
-# n'est écrite en clair ici. Format : quatre champs séparés par des
-# tabulations, tous obligatoires.
+# que `upsert_elus` donnerait à la fiche en double. La date y est hachée avec
+# le nom : elle n'est pas écrite telle quelle, mais le haché ne la protège
+# pas contre une recherche et ne prétend pas le faire. Format : quatre champs
+# séparés par des tabulations, tous obligatoires, clé `rne-` suivie de 16
+# chiffres hexadécimaux, fiche `PA` ou `SEN-`. Une ligne hors format fait
+# échouer le chargement.
 #
 # id rne	id fiche	personne	preuve
 rne-9b0690c3380e2630	PA793214	ABADIE Audrey (RNE), fiche Abadie-Amiel Audrey	Nom inclus dans l'autre écriture, même prénom, date de naissance identique, même siège : RNE député 09 2e circonscription, fiche député Ariège 2e circonscription. Relu le 26/08/2026 (redirections-elus.tsv).

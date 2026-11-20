@@ -210,14 +210,21 @@ cumulait trois tolérances (un mot de nom commun, un mot de prénom commun, une
 composante de date différente) et pouvait rattacher la déclaration d'une
 personne à la fiche d'une autre. Il exige désormais la date de naissance
 exacte, et un nom comme un prénom dont l'une des écritures contient tous les
-mots de l'autre (`ecritures_incluses`). Les cas justes qu'il perd entrent dans
-la liste blanche relue `deploy/rattachements-souples.tsv`, avec leur preuve.
-Un rattachement du repli absent de cette liste est signalé au journal du cycle
-et compté. Mesuré le 20/11/2026 sur la base servie : 1 866 déclarations
-rattachées, dont 62 par le repli pour 30 déclarants. La règle stricte seule en
-garde 58, la liste blanche reprend les 4 autres (2 déclarants), aucun
-rattachement nouveau. Même règle pour les fiches d'élus de P7, liste blanche
-`deploy/rattrapages-elus.tsv`.
+mots de l'autre (`ecritures_incluses`), et il ne rattache plus rien seul.
+Seule la liste blanche relue `deploy/rattachements-souples.tsv` rattache, ligne
+par ligne, avec la preuve de chaque cas. Ce que la règle trouve hors de cette
+liste est signalé au journal du cycle, sans être appliqué : le vérifier à la
+main, puis l'inscrire avec sa preuve. Une fiche que la clé exacte atteint déjà
+dans le même fichier n'est jamais une cible du repli. Une ligne de la liste
+refusée ou sans effet est journalisée. Mesuré le 20/11/2026 sur la base
+servie : 1 866 déclarations rattachées, dont 62 par le repli pour 30
+déclarants, toutes par la liste. La règle stricte seule en trouverait 58, les
+4 autres (2 déclarants) ne passent que par la liste, aucun rattachement
+nouveau. La clé de la liste est un haché de l'état civil : la date y est
+hachée avec le nom, ce qui évite de l'écrire telle quelle mais ne la protège
+pas contre une recherche, et ne prétend pas le faire. Même règle pour les
+fiches d'élus de P7, liste blanche `deploy/rattrapages-elus.tsv`, où la
+personne RNE doit en plus porter un mandat de député ou de sénateur.
 
 **Pourquoi la date de naissance est indispensable.** Sans elle, la clé
 nom + prénom gagnerait **8 fiches** (+0,8 point) et rouvrirait l'homonymie :

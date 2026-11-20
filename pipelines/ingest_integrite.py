@@ -94,6 +94,7 @@ from pipelines import db
 from pipelines.common import RACINE, RAW_DIR, obtenir_logger, session_http, telecharger
 from pipelines.ingest_hatvp_declarations import (charger_liste_blanche,
                                                  composantes_identite,
+                                                 date_complete,
                                                  ecritures_incluses)
 
 log = obtenir_logger("ingest_integrite")
@@ -607,6 +608,26 @@ def _composantes(s: str | None) -> frozenset[str]:
 # personne RNE recevrait (`_identifiant_rne`), cible : la fiche AN ou Sénat.
 # Voir `_rattraper` pour ce qui y entre et pourquoi.
 CHEMIN_RATTRAPAGES_VERIFIES = RACINE / "deploy" / "rattrapages-elus.tsv"
+# Une cible de rattrapage est une fiche AN ou Sénat, jamais une `rne-*`.
+MOTIF_CLE_RNE = r"rne-[0-9a-f]{16}"
+MOTIF_FICHE_PARLEMENTAIRE = r"PA\d+|SEN-\d{5}[A-Z]"
+
+
+def charger_rattrapages_verifies(chemin=None) -> dict[str, str]:
+    """La liste blanche de P7, au format validé (voir `charger_liste_blanche`)."""
+    return charger_liste_blanche(chemin or CHEMIN_RATTRAPAGES_VERIFIES,
+                                 MOTIF_CLE_RNE, MOTIF_FICHE_PARLEMENTAIRE)
+
+
+def _a_un_mandat_parlementaire(p: dict) -> bool:
+    """Vrai si la personne RNE porte un mandat de député ou de sénateur.
+
+    Une fiche AN/Sénat ne reçoit que les mandats d'une personne que le RNE
+    enregistre AUSSI comme député ou sénateur : un maire homonyme, né le même
+    jour, n'est jamais une cible. Mesuré le 20/11/2026 : les 16 rattrapages
+    l'ont tous.
+    """
+    return any(m.get("type") in ("depute", "senateur") for m in p["mandats"])
 
 
 def _identifiant_rne(cle: tuple[str, str, str]) -> str:
@@ -969,8 +990,10 @@ def _rattraper(p: dict, index_nom: dict, garde: set) -> dict | None:
          « Jean-Luc ». Les cas justes que la règle stricte perd (la faute de
          frappe, les deux dates qui divergent d'un chiffre) ne passent plus
          que par la liste blanche relue `CHEMIN_RATTRAPAGES_VERIFIES`, avec
-         la preuve de chaque ligne. Un rattrapage que la règle fait et que la
-         liste ne porte pas est signalé au journal et compté (`upsert_elus`).
+         la preuve de chaque ligne. Depuis le 21/11/2026, la règle ne fait
+         plus que proposer : `upsert_elus` n'applique que la liste blanche,
+         et signale au journal, sans l'appliquer, ce que la règle trouve hors
+         de la liste.
       3. **un seul candidat**, sinon on renonce. Deux candidats, c'est une
          homonymie, et attribuer la déclaration d'intérêts d'une personne à
          une autre serait la faute la plus grave possible ici.
@@ -1114,9 +1137,12 @@ def upsert_elus(conn, personnes: dict[tuple, dict],
     """UPSERT prudent par (nom, prénom, date de naissance) normalisés.
 
     `liste_blanche` : {identifiant `rne-*` : fiche AN/Sénat}, rattrapages relus
-    à la main. Par défaut, `CHEMIN_RATTRAPAGES_VERIFIES`. Elle est consultée
-    avant `_rattraper`, et seulement pour une cible qui est bien une fiche
-    AN/Sénat que la clé exacte n'atteint pas déjà.
+    à la main. Par défaut, `CHEMIN_RATTRAPAGES_VERIFIES`. C'est le SEUL moyen
+    de rattraper : une ligne ne s'applique qu'à une personne RNE qui porte un
+    mandat de député ou de sénateur, dont la date de naissance est complète,
+    et vers une fiche AN/Sénat que la clé exacte n'atteint pas déjà.
+    `_rattraper` ne fait que proposer, au journal, ce qu'il faut vérifier
+    puis inscrire. Une ligne refusée ou sans effet est journalisée.
 
     Ne touche jamais uid_an / matricule_senat ; ne remplit sexe et profession
     que s'ils sont NULL ; remplace uniquement les mandats "source": "RNE" du
@@ -1139,7 +1165,7 @@ def upsert_elus(conn, personnes: dict[tuple, dict],
     chaque passage : c'est là, et là seulement, que les doublons persistent.
     """
     if liste_blanche is None:
-        liste_blanche = charger_liste_blanche(CHEMIN_RATTRAPAGES_VERIFIES)
+        liste_blanche = charger_rattrapages_verifies()
     existants: dict[tuple, dict] = {}
     index_nom: dict[tuple, list] = defaultdict(list)
     # Fiches AN/Sénat indexées : dénominateur du garde-fou de volume, et seules
@@ -1158,8 +1184,9 @@ def upsert_elus(conn, personnes: dict[tuple, dict],
                     index_nom[(annee, c)].append(e)
 
     inseres = maj = rattrapes = 0
-    par_liste = 0
-    hors_liste: list[str] = []      # rattrapages de la règle, absents de la liste
+    hors_liste: list[str] = []      # proposés par la règle, absents de la liste
+    refus: list[str] = []           # lignes de la liste refusées ce cycle
+    utilisees: set[str] = set()
     supprimes: list[str] = []
     # Garde-fou n° 4 : une fiche AN/Sénat que la CLÉ EXACTE atteint déjà n'est
     # pas rattrapable. Le seul `pris.add()` de la boucle n'interdit qu'un DOUBLE
@@ -1181,24 +1208,39 @@ def upsert_elus(conn, personnes: dict[tuple, dict],
         # bonne cible et la ligne `rne-*` doit disparaître. Sans cette reprise,
         # le correctif cesserait de créer des doublons sans jamais effacer ceux
         # que la base servie porte déjà, et le site ne bougerait pas.
-        if e is None or e["id"].startswith("rne-"):
+        # Seule la liste blanche rattrape. La règle ne fait que proposer, au
+        # journal, ce qu'il faut vérifier puis inscrire. Garde-fou n° 5 : la
+        # personne RNE porte elle-même un mandat de député ou de sénateur.
+        cible = None
+        if (e is None or e["id"].startswith("rne-")) and _a_un_mandat_parlementaire(p):
             ident_rne = _identifiant_rne(cle)
             verifiee = liste_blanche.get(ident_rne)
-            if verifiee in cibles and verifiee not in pris:
-                cible = cibles[verifiee]
-                par_liste += 1
-            else:
-                cible = _rattraper(p, index_nom, pris)
-                if cible is not None:
-                    hors_liste.append(f"{ident_rne} -> {cible['id']}"
+            if verifiee is not None:
+                raison = None
+                if not date_complete(cle[2]):
+                    raison = "clé calculée sans date de naissance complète"
+                elif verifiee not in cibles:
+                    raison = "la cible n'est pas une fiche AN/Sénat de la base"
+                elif verifiee in pris:
+                    raison = "fiche déjà atteinte par la clé exacte"
+                if raison is None:
+                    cible = cibles[verifiee]
+                    utilisees.add(ident_rne)
+                else:
+                    refus.append(f"{ident_rne} -> {verifiee} ({p['nom']} {p['prenom']})"
+                                 f" : {raison}")
+            if cible is None:
+                regle = _rattraper(p, index_nom, pris)
+                if regle is not None:
+                    hors_liste.append(f"{ident_rne} -> {regle['id']}"
                                       f" ({p['nom']} {p['prenom']})")
-            if cible is not None:
-                pris.add(cible["id"])
-                rattrapes += 1
-                if e is not None:
-                    conn.execute("DELETE FROM elus WHERE id = ?", (e["id"],))
-                    supprimes.append(e["id"])
-                e = cible
+        if cible is not None:
+            pris.add(cible["id"])
+            rattrapes += 1
+            if e is not None:
+                conn.execute("DELETE FROM elus WHERE id = ?", (e["id"],))
+                supprimes.append(e["id"])
+            e = cible
         if e is not None:
             try:
                 anciens = json.loads(e["mandats"]) if e["mandats"] else []
@@ -1218,14 +1260,23 @@ def upsert_elus(conn, personnes: dict[tuple, dict],
                 (ident, p["nom"], p["prenom"], p["sexe"], p["date_naissance"],
                  p["profession"], json.dumps(p["mandats"], ensure_ascii=False)))
             inseres += 1
-    log.info("rattrapage : %d par la liste blanche %s, %d par la règle stricte"
-             " hors de la liste", par_liste, CHEMIN_RATTRAPAGES_VERIFIES.name,
-             len(hors_liste))
+    nom_liste = CHEMIN_RATTRAPAGES_VERIFIES.name
+    log.info("rattrapage : %d par la liste blanche %s, %d proposé(s) par la règle"
+             " hors de la liste, non appliqué(s)", rattrapes, nom_liste, len(hors_liste))
     if hors_liste:
-        log.warning("rattrapage : %d rattachement(s) nouveau(x) du repli, absent(s)"
-                    " de la liste blanche %s, à relire puis à y inscrire avec leur"
-                    " preuve : %s", len(hors_liste),
-                    CHEMIN_RATTRAPAGES_VERIFIES.name, " | ".join(hors_liste))
+        log.warning("rattrapage : %d rattachement(s) que la règle ferait, NON appliqué(s)"
+                    " faute de figurer dans la liste blanche %s. Vérifier chaque cas à"
+                    " la main (même personne, même siège), puis ajouter au fichier une"
+                    " ligne avec sa preuve pour qu'il soit appliqué au cycle suivant : %s",
+                    len(hors_liste), nom_liste, " | ".join(hors_liste))
+    for r in refus:
+        log.warning("liste blanche %s : ligne refusée, %s", nom_liste, r)
+    mortes = sorted(set(liste_blanche) - utilisees)
+    if mortes:
+        log.warning("liste blanche %s : %d ligne(s) sans effet ce cycle (personne absente"
+                    " du RNE, sans mandat de député ou de sénateur, ou refusée). Vérifier,"
+                    " puis retirer ou corriger : %s", nom_liste, len(mortes),
+                    " | ".join(f"{c} -> {liste_blanche[c]}" for c in mortes))
     _controler_volume_supprimees(supprimes, len(cibles))
     return inseres, maj, rattrapes
 

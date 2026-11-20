@@ -519,30 +519,49 @@ def ecritures_incluses(a: str | None, b: str | None) -> bool:
 
 # Liste blanche des rattachements par repli relus à la main (décision du
 # propriétaire du 20/11/2026 : zéro fusion fausse). Le repli n'accepte plus
-# qu'une date de naissance EXACTE. Un cas juste qu'il perdrait (date qui
-# diverge d'un chiffre entre deux sources, diminutif) n'est rattaché que s'il
-# figure ici, avec sa preuve. Un rattachement que le repli fait et qui n'y
-# figure pas est signalé au journal du cycle et compté, pour être relu.
+# qu'une date de naissance EXACTE, et il ne rattache plus rien seul : un
+# rattachement n'est appliqué que s'il figure ici, avec sa preuve. Ce que la
+# règle propose et qui n'y figure pas est signalé au journal du cycle, sans
+# être appliqué, pour être vérifié puis inscrit.
 CHEMIN_RATTACHEMENTS_VERIFIES = RACINE / "deploy" / "rattachements-souples.tsv"
+
+# Formats admis au chargement d'une liste blanche. Clé : `cle_declarant` (P15)
+# ou `rne-*` (P7). Cible : une fiche AN (`PA*`), Sénat (`SEN-*`) ou RNE.
+MOTIF_CLE_DECLARANT = r"hatvp-[0-9a-f]{16}"
+MOTIF_FICHE = r"PA\d+|SEN-\d{5}[A-Z]|rne-[0-9a-f]{16}"
+_DATE_COMPLETE = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def date_complete(naissance: str | None) -> bool:
+    """Vrai pour une date de naissance complète au format AAAA-MM-JJ."""
+    return bool(_DATE_COMPLETE.fullmatch((naissance or "").strip()))
 
 
 def cle_declarant(nom: str | None, prenom: str | None, naissance: str | None) -> str:
     """Clé hachée de l'état civil d'un déclarant, tel que `lire_identite` le rend.
 
-    Hachée pour que la liste blanche versionnée ne porte aucune date de
-    naissance en clair. Même construction que les identifiants `rne-*` de P7.
+    La date est hachée avec le nom et le prénom. Cela évite de l'écrire telle
+    quelle dans la liste versionnée, sans la protéger : qui connaît le nom
+    retrouve la date en essayant toutes celles d'un siècle. Ce n'est pas le
+    but. Même construction que les identifiants `rne-*` de P7.
     """
     brut = "|".join((nom or "", prenom or "", (naissance or "").strip()))
     return "hatvp-" + hashlib.sha1(brut.encode()).hexdigest()[:16]
 
 
-def charger_liste_blanche(chemin: str | Path) -> dict[str, str]:
+def charger_liste_blanche(chemin: str | Path, motif_cle: str = MOTIF_CLE_DECLARANT,
+                          motif_cible: str = MOTIF_FICHE) -> dict[str, str]:
     """{clé: identifiant de fiche} d'une liste blanche TSV relue à la main.
 
     Format : `clé`, `identifiant de fiche`, `personne`, `preuve`, séparés par
-    des tabulations, lignes « # » ignorées. Une ligne sans preuve ou une clé
-    en double fait échouer le chargement : une liste blanche dont on ne sait
-    pas ce qu'elle prouve ne doit rien rattacher.
+    des tabulations, lignes « # » ignorées. Une ligne qui n'a pas exactement
+    quatre champs non vides, une clé ou une cible hors format, ou une clé en
+    double fait échouer le chargement : une liste blanche dont on ne sait pas
+    ce qu'elle prouve ne doit rien rattacher.
+
+    Une clé calculée sans date de naissance complète ne se voit pas dans le
+    haché : elle est refusée là où elle sert, quand l'état civil qui la
+    produit n'a pas de date complète (`date_complete`), et journalisée.
     """
     liste: dict[str, str] = {}
     with open(chemin, encoding="utf-8") as f:
@@ -553,6 +572,10 @@ def charger_liste_blanche(chemin: str | Path) -> dict[str, str]:
             if len(champs) != 4 or not all(champs):
                 raise ValueError(f"{chemin}, ligne {numero} : quatre champs non vides "
                                  f"attendus (clé, fiche, personne, preuve)")
+            if not re.fullmatch(motif_cle, champs[0]):
+                raise ValueError(f"{chemin}, ligne {numero} : clé {champs[0]!r} hors format")
+            if not re.fullmatch(motif_cible, champs[1]):
+                raise ValueError(f"{chemin}, ligne {numero} : fiche {champs[1]!r} hors format")
             if champs[0] in liste:
                 raise ValueError(f"{chemin}, ligne {numero} : clé {champs[0]} en double")
             liste[champs[0]] = champs[1]
@@ -841,6 +864,11 @@ def construire_index_souple(conn) -> dict[tuple[str, str], list[dict]]:
       3. **un seul candidat**, sinon on renonce. Deux candidats, c'est une
          homonymie, et la trancher au hasard serait la faute la plus grave
          que ce pipeline puisse commettre.
+      4. depuis le 21/11/2026 : la règle ne rattache plus rien seule. Seule la
+         liste blanche applique un rattachement, et une fiche que la clé
+         exacte atteint déjà dans le même fichier n'en est plus une cible.
+         Ce que la règle propose hors de la liste est signalé au journal du
+         cycle (`parcourir`, `hors_liste`), sans être appliqué.
 
     ⚠️ Limite connue du garde-fou n° 3 : « un seul candidat » se mesure sur
     l'état de `elus` du jour. Six des 32 appariements ne tiennent que par
@@ -956,8 +984,36 @@ def parcourir(chemin: str | Path, index_elus: dict[tuple[str, str, str], str],
     # au fichier de 88,8 Mo. Toutes ces valeurs sont mesurées le 26/08/2026.
     uuids_vus: set[str] = set()
     stats: Counter = Counter()
-    # Rattachements du repli absents de la liste blanche : à relire.
+    # Ce que la règle du repli propose hors de la liste blanche : signalé, pas
+    # appliqué (cle, fiche, nom, prénom, uuid).
     hors_liste: list[tuple[str, str, str, str, str]] = []
+    # Lignes de la liste blanche refusées ce cycle, avec la raison.
+    refus_liste: list[str] = []
+    cles_utilisees: set[str] = set()
+    # Garde-fou n° 4 : fiches atteintes par la clé exacte dans ce fichier. Le
+    # repli est tranché APRÈS le parcours, pour que le garde-fou ne dépende pas
+    # de l'ordre des déclarations. Les déclarations en attente sont gardées
+    # extraites : quelques dizaines, mesuré 62 le 20/11/2026.
+    atteintes: set[str] = set()
+    en_attente: list[tuple] = []
+
+    def rattacher(extrait: dict, elu_id: str) -> None:
+        stats["rattachees"] += 1
+        entete = extrait["entete"]
+        entete["elu_id"] = elu_id
+        entetes.append(entete)
+        for r in extrait["rubriques"]:
+            rubriques.append((entete["uuid"], r["rubrique"], r["rubrique_ordre"],
+                              r["neant"], r["nb_lignes"]))
+            if r["neant"] == 1:
+                stats["rubriques_neant"] += 1
+        for ligne in extrait["lignes"]:
+            ligne["declaration_uuid"] = entete["uuid"]
+            ligne["elu_id"] = elu_id
+            lignes.append(ligne)
+            if ligne["montants"]:
+                stats["lignes_avec_montant"] += 1
+            stats["montants"] += len(ligne["montants"])
 
     for evenement, element in contexte:
         if evenement != "end" or element.tag != "declaration":
@@ -976,52 +1032,48 @@ def parcourir(chemin: str | Path, index_elus: dict[tuple[str, str, str], str],
         if not naissance:
             stats["sans_date_naissance"] += 1
         elu_id = index_elus.get((nom, prenom, naissance or ""))
-        if elu_id is None and liste_blanche:
-            # Rattachement relu à la main, avec sa preuve : il passe avant la
-            # règle du repli, qu'il complète sans jamais primer la clé exacte.
-            elu_id = liste_blanche.get(cle_declarant(nom, prenom, naissance))
-            if elu_id is not None:
-                stats["rattachees_par_repli"] += 1
-                stats["rattachees_par_liste_blanche"] += 1
-        if elu_id is None and index_souple is not None:
-            # Repli : les deux sources n'écrivent pas l'état civil pareil.
-            # Voir construire_index_souple pour le pourquoi et les garde-fous.
-            elu_id = apparier_souple(index_souple, nom, prenom, naissance)
-            if elu_id is not None:
-                stats["rattachees_par_repli"] += 1
-                stats["rattachees_par_repli_hors_liste"] += 1
-                hors_liste.append((cle_declarant(nom, prenom, naissance), elu_id,
-                                   nom, prenom, extrait["entete"]["uuid"]))
-        if elu_id is None:
-            stats["non_apparie"] += 1
-            element.clear()
-            racine.clear()
-            continue
-        stats["rattachees"] += 1
-
-        entete = extrait["entete"]
-        entete["elu_id"] = elu_id
-        entetes.append(entete)
-        for r in extrait["rubriques"]:
-            rubriques.append((entete["uuid"], r["rubrique"], r["rubrique_ordre"],
-                              r["neant"], r["nb_lignes"]))
-            if r["neant"] == 1:
-                stats["rubriques_neant"] += 1
-        for ligne in extrait["lignes"]:
-            ligne["declaration_uuid"] = entete["uuid"]
-            ligne["elu_id"] = elu_id
-            lignes.append(ligne)
-            if ligne["montants"]:
-                stats["lignes_avec_montant"] += 1
-            stats["montants"] += len(ligne["montants"])
-
         element.clear()
         racine.clear()
+        if elu_id is not None:
+            atteintes.add(elu_id)
+            rattacher(extrait, elu_id)
+            continue
+        # Repli : les deux sources n'écrivent pas l'état civil pareil. Voir
+        # construire_index_souple pour le pourquoi et les garde-fous.
+        cle = cle_declarant(nom, prenom, naissance)
+        verifiee = (liste_blanche or {}).get(cle)
+        regle = (apparier_souple(index_souple, nom, prenom, naissance)
+                 if index_souple is not None else None)
+        if verifiee is None and regle is None:
+            stats["non_apparie"] += 1
+            continue
+        en_attente.append((extrait, cle, verifiee, regle, nom, prenom, naissance))
+
+    for extrait, cle, verifiee, regle, nom, prenom, naissance in en_attente:
+        uuid = extrait["entete"]["uuid"]
+        if verifiee is not None:
+            raison = None
+            if not date_complete(naissance):
+                raison = "clé calculée sans date de naissance complète"
+            elif verifiee in atteintes:
+                raison = "fiche déjà atteinte par la clé exacte d'un autre état civil"
+            if raison is None:
+                cles_utilisees.add(cle)
+                stats["rattachees_par_repli"] += 1
+                stats["rattachees_par_liste_blanche"] += 1
+                rattacher(extrait, verifiee)
+                continue
+            refus_liste.append(f"{cle} -> {verifiee} ({nom} {prenom}, {uuid}) : {raison}")
+        stats["non_apparie"] += 1
+        if regle is not None and regle not in atteintes:
+            stats["repli_hors_liste"] += 1
+            hors_liste.append((cle, regle, nom, prenom, uuid))
 
     stats["lignes"] = len(lignes)
     stats["elus_apparies"] = len({e["elu_id"] for e in entetes})
     return {"entetes": entetes, "rubriques": rubriques, "lignes": lignes,
-            "uuids_vus": uuids_vus, "stats": stats, "hors_liste": hors_liste}
+            "uuids_vus": uuids_vus, "stats": stats, "hors_liste": hors_liste,
+            "refus_liste": refus_liste, "cles_utilisees": cles_utilisees}
 
 
 # ---------------------------------------------------------------------------
@@ -1469,8 +1521,8 @@ def executer(chemin_db=None, max_age_heures: float | None = 6.0) -> dict:
         # Une entrée de la liste blanche dont la fiche n'existe plus ne
         # rattache rien : la cible doit porter une fiche publiée.
         vivier = elus_avec_fiche(conn)
-        liste_blanche = {cle: elu for cle, elu in
-                         charger_liste_blanche(CHEMIN_RATTACHEMENTS_VERIFIES).items()
+        liste_complete = charger_liste_blanche(CHEMIN_RATTACHEMENTS_VERIFIES)
+        liste_blanche = {cle: elu for cle, elu in liste_complete.items()
                          if elu in vivier}
         # Lu AVANT `ecrire()`, seul endroit du fichier qui DROPpe les tables.
         precedents = rattachements_precedents(conn)
@@ -1480,11 +1532,24 @@ def executer(chemin_db=None, max_age_heures: float | None = 6.0) -> dict:
         hors_liste = donnees.get("hors_liste", [])
         if hors_liste:
             log.warning(
-                "repli : %d déclaration(s) rattachée(s) hors de la liste blanche %s,"
-                " à relire puis à y inscrire avec leur preuve : %s",
+                "repli : %d déclaration(s) que la règle rattacherait, NON rattachée(s)"
+                " faute de figurer dans la liste blanche %s. Vérifier chaque cas à la"
+                " main (même personne, même mandat), puis ajouter au fichier une ligne"
+                " avec sa preuve pour qu'il soit appliqué au cycle suivant : %s",
                 len(hors_liste), CHEMIN_RATTACHEMENTS_VERIFIES.name,
                 " | ".join(f"{cle} -> {elu} ({nom} {prenom}, {uuid})"
                            for cle, elu, nom, prenom, uuid in hors_liste))
+        for refus in donnees.get("refus_liste", []):
+            log.warning("liste blanche %s : ligne refusée, %s",
+                        CHEMIN_RATTACHEMENTS_VERIFIES.name, refus)
+        mortes = sorted(set(liste_complete) - set(donnees.get("cles_utilisees", ())))
+        if mortes:
+            log.warning(
+                "liste blanche %s : %d ligne(s) sans effet ce cycle (fiche absente du"
+                " vivier, déclarant absent du fichier ou atteint par la clé exacte)."
+                " Vérifier, puis retirer ou corriger : %s",
+                CHEMIN_RATTACHEMENTS_VERIFIES.name, len(mortes),
+                " | ".join(f"{cle} -> {liste_complete[cle]}" for cle in mortes))
 
         # Garde-fous de plausibilité : mieux vaut ne rien écrire qu'écrire une
         # base amputée qui ferait dire au site « aucun intérêt déclaré ».
@@ -1633,15 +1698,16 @@ def executer(chemin_db=None, max_age_heures: float | None = 6.0) -> dict:
         log.info(
             "P15 terminé : %d déclarations lues, %d refusées par type, %d blocs "
             "patrimoniaux refusés par balise ; %d rattachées à %d élus (%.1f %%), "
-            "dont %d par le repli d'orthographe (%d par la liste blanche, %d hors "
-            "liste à relire) ; %d lignes, %d montants, "
+            "dont %d par le repli d'orthographe (%d par la liste blanche), %d "
+            "proposée(s) par la règle hors liste, non rattachée(s) ; %d lignes, "
+            "%d montants, "
             "%d rubriques « néant » ; %d perte(s) de rattachement acquittée(s), "
             "%d détachement(s) d'élus sans fiche",
             stats["declarations_lues"], stats["refus_type_declaration"],
             stats["refus_balise_patrimoine"], stats["rattachees"],
             stats["elus_apparies"], taux, stats["rattachees_par_repli"],
             stats["rattachees_par_liste_blanche"],
-            stats["rattachees_par_repli_hors_liste"],
+            stats["repli_hors_liste"],
             stats["lignes"], stats["montants"], stats["rubriques_neant"],
             stats["pertes_acquittees"], stats["pertes_hors_fiche"])
         stats["date_donnees"] = date_donnees
