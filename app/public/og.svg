@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <!-- Image de partage (og:image) de France Transparence, source de og.png.
+       Après toute retouche, rasteriser en 1200 x 630 par une capture d'écran
+       d'un navigateur sans interface (Chrome ou Edge en mode headless,
+       fenêtre de 1200 x 630, sans barres de défilement) et remplacer og.png.
+       Le texte alternatif (IMAGE_PARTAGE.alt, src/lib/seo.ts) porte la même
+       promesse sur les sources. -->
+  <defs>
+    <radialGradient id="halo" cx="1090" cy="40" r="420" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#12305a" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#0a1628" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#0a1628"/>
+  <rect width="1200" height="630" fill="url(#halo)"/>
+  <rect x="96" y="157" width="56" height="4" fill="#4a7dd6"/>
+  <rect x="152" y="157" width="56" height="4" fill="#e8eef8"/>
+  <rect x="208" y="157" width="56" height="4" fill="#e0564f"/>
+  <g font-family="Inter, 'Segoe UI', system-ui, -apple-system, sans-serif">
+    <text x="96" y="224" font-size="26" font-weight="600" letter-spacing="6" fill="#94a3b8">FRANCE TRANSPARENCE</text>
+    <text x="96" y="317" font-size="60" font-weight="700" letter-spacing="-1" fill="#e8eef8">L’argent public et la vie politique,</text>
+    <text x="96" y="389" font-size="60" font-weight="700" letter-spacing="-1" fill="#e8eef8">en données ouvertes</text>
+    <text x="96" y="462" font-size="23" fill="#a9b7cc">Sources publiques officielles, plus quelques consolidations reconnues et créditées.</text>
+    <text x="96" y="496" font-size="23" fill="#a9b7cc">Sources datées, fraîcheur mesurée et affichée.</text>
+    <text x="96" y="582" font-size="21" fill="#7f8ea6">francetransparence.fr</text>
+  </g>
+  <rect x="0" y="622" width="400" height="8" fill="#4a7dd6"/>
+  <rect x="400" y="622" width="400" height="8" fill="#e8eef8"/>
+  <rect x="800" y="622" width="400" height="8" fill="#e0564f"/>
+</svg>

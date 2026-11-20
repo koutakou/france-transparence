@@ -44,7 +44,7 @@ import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 const CHEMIN = "/elus/";
 const TITRE = "Élus & institutions";
 const DESCRIPTION =
-  "Députés, sénateurs, maires et présidents d’exécutifs locaux : mandats, groupes, votes nominaux et déclarations HATVP, à partir des données officielles datées.";
+  "Députés, sénateurs, maires et présidents d’exécutifs locaux : mandats, groupes, votes nominaux et déclarations HATVP, à partir de sources publiques officielles, plus quelques consolidations reconnues et créditées, toutes datées.";
 
 export const metadata: Metadata = metadonneesPage({
   chemin: CHEMIN,
