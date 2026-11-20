@@ -155,7 +155,7 @@ Ce document synthétise les 9 rapports de la Phase 0 (`docs/recherche/01` à `09
 **Nature des sources (décision du propriétaire du 20/11/2026).** La promesse publique du site est : « sources publiques officielles, plus quelques consolidations reconnues et créditées ». Trois sources s'écartent de la règle stricte « officielle et sous licence ouverte » et sont étiquetées en clair sur `/donnees` (`app/src/lib/nature-sources.ts`) :
 - **S1** (DECP consolidées par Colin Maudry, decp-processing) : consolidation reconnue, non officielle. L'ajout des DECP officielles (S8) comme contrôle viendra plus tard.
 - **S7** (Datan) : scores calculés par une association, crédités et affichés à côté du taux calculé par le site.
-- **S31** (« train de vie ») : constantes recopiées à la main de documents officiels, sans licence ouverte.
+- **S31** (« train de vie ») : chiffres recopiés à la main de documents officiels (textes de loi, rapports, PDF publics), sans jeu de données ouvert lisible par machine.
 
 Sur `/frais`, chaque affirmation renvoie à un texte officiel (loi, décret, rapport de la Cour des comptes ou d'une assemblée, décision de justice, réponse ministérielle au JO). Faute de source officielle, l'affirmation est retirée : les refus écrits de l'AN et du Sénat du 11/06/2026 (connus par la presse) et l'arrêt « CE mars 2025 » (sans référence publiée) ne sont plus cités. Le pipeline (`pipelines/tests/test_trainvie.py`) et l'application (`app/src/lib/frais-textes.ts`) refusent tout domaine hors liste officielle.
 

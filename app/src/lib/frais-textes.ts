@@ -1,6 +1,6 @@
 /**
  * Règles de texte de /frais, sans base ni JSX (testées par
- * tests/frais-textes.test.mjs).
+ * tests/textes-ton.test.mjs).
  */
 
 /**
@@ -20,6 +20,9 @@ const DOMAINES_OFFICIELS = [
   "conseil-constitutionnel.fr",
   "elysee.fr",
   "gouv.fr",
+  "hatvp.fr",
+  "cada.fr",
+  "vie-publique.fr",
 ] as const;
 
 export function sourceOfficielle(url: string): boolean {
@@ -39,8 +42,12 @@ export function sourceOfficielle(url: string): boolean {
  * « Base du refus » s'affichait sur chaque cas, y compris quand personne n'a
  * rien refusé (calendrier de la Cour des comptes, choix de publication du
  * Sénat, absence d'obligation légale). « Refus » n'est employé que si le
- * texte cite un refus daté.
+ * texte cite un refus daté : le mot « refus », non nié, suivi d'une date dans
+ * la même phrase. Même règle que `REFUS_DATE` du test du pipeline
+ * (pipelines/tests/test_trainvie.py), avec les mêmes cas des deux côtés.
  */
+const REFUS_DATE = /(?<!aucun )(?<!sans )(?<!pas de )\brefus[^.]{0,120}?\d{2}\/\d{2}\/\d{4}/i;
+
 export function libelleCadre(texte: string): string {
-  return /refus[^.]{0,120}\d{2}\/\d{2}\/\d{4}/i.test(texte) ? "Base du refus" : "Cadre";
+  return REFUS_DATE.test(texte) ? "Base du refus" : "Cadre";
 }

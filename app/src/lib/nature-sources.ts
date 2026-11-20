@@ -22,9 +22,9 @@ const NATURES: Record<string, NatureSource> = {
       "Scores calculés et publiés par l’association Datan à partir des données de l’Assemblée nationale, crédités et affichés à côté du taux calculé ici.",
   },
   S31: {
-    etiquette: "Officielle, sans licence ouverte",
+    etiquette: "Officielle, recopiée à la main",
     detail:
-      "Constantes recopiées à la main de documents officiels (lois, rapports de la Cour des comptes et des assemblées), chacune citée avec son adresse. Ces documents ne sont pas diffusés sous licence ouverte.",
+      "Chiffres recopiés à la main de documents officiels (textes de loi, rapports, PDF publics), sans jeu de données ouvert lisible par machine. Chaque chiffre est cité avec son adresse.",
   },
 };
 
