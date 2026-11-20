@@ -396,15 +396,21 @@ def test_repli_rattache_les_orthographes_divergentes(
 
     Sans le repli, la déclaration est JETÉE en silence (`non_apparie`) alors
     que la personne a une fiche sur le site. Tous ces cas ont une date de
-    naissance EXACTE : ils passent la règle stricte du 20/11/2026. Les dates
-    qui divergent d'une composante sont refusées depuis
-    (`test_repli_refuse_les_cas_de_laudit_c1`).
+    naissance EXACTE : la règle stricte du 20/11/2026 les trouve. Depuis le
+    21/11/2026 elle ne fait que les PROPOSER (`hors_liste`) : seule une ligne
+    de la liste blanche les rattache. Les dates qui divergent d'une
+    composante sont refusées par la règle (`test_repli_refuse_les_cas_de_laudit_c1`).
     """
     souple = _souple([("elu-souple", nom_fiche, prenom_fiche, naissance_fiche)])
     # Clé exacte vide : seul le repli peut rattacher.
     donnees = p15.parcourir(EXTRAIT_REEL, {}, souple)
-    assert donnees["stats"]["rattachees_par_repli"] >= 1, f"non rattaché : {motif}"
-    assert {e["elu_id"] for e in donnees["entetes"]} == {"elu-souple"}
+    assert donnees["entetes"] == [], f"rattaché hors liste : {motif}"
+    assert {(c, e) for c, e, *_ in donnees["hors_liste"]} == {
+        (p15.cle_declarant(*ELU_UN), "elu-souple")}, f"non proposé : {motif}"
+    relu = p15.parcourir(EXTRAIT_REEL, {}, souple,
+                         {p15.cle_declarant(*ELU_UN): "elu-souple"})
+    assert relu["stats"]["rattachees_par_repli"] >= 1, f"non rattaché : {motif}"
+    assert {e["elu_id"] for e in relu["entetes"]} == {"elu-souple"}
 
 
 def test_repli_est_strictement_additif_jamais_prioritaire():
@@ -448,8 +454,7 @@ def test_repli_dans_lautre_sens_xml_composé_fiche_simple():
     # la fiche un nom dont « NOSBE » n'est qu'une composante.
     souple = _souple([("elu-simple", "Nosbé de la Pagerie", "Sandrine", "1972-10-29")])
     donnees = p15.parcourir(EXTRAIT_REEL, {}, souple)
-    assert donnees["stats"]["rattachees_par_repli"] >= 1
-    assert {e["elu_id"] for e in donnees["entetes"]} == {"elu-simple"}
+    assert [e for _, e, *_ in donnees["hors_liste"]] == ["elu-simple"]
 
 
 def test_le_repli_reste_un_appoint_mesure():
@@ -462,7 +467,8 @@ def test_le_repli_reste_un_appoint_mesure():
     seuil pour que personne ne le desserre sans le vouloir.
     """
     souple = _souple([("elu-souple", "Nosbé-Durand", "Sandrine", "1972-10-29")])
-    donnees = p15.parcourir(EXTRAIT_REEL, {}, souple)
+    donnees = p15.parcourir(EXTRAIT_REEL, {}, souple,
+                            {p15.cle_declarant(*ELU_UN): "elu-souple"})
     stats = donnees["stats"]
     # Sur cette fixture, tout passe par le repli : la proportion vaut 100 %,
     # donc très au-dessus du seuil que `main()` refuse.
@@ -597,19 +603,150 @@ def test_la_liste_blanche_rattache_un_cas_relu_et_rien_dautre():
     assert "elu-souple" not in {e["elu_id"] for e in exacte["entetes"]}
 
 
-def test_un_rattachement_du_repli_hors_liste_est_compte_et_nomme():
-    """Un cas exact passe, mais s'il n'a pas été relu, il est compté et nommé."""
+def test_un_rattachement_du_repli_hors_liste_est_signale_pas_applique():
+    """Un cas exact que la règle trouve, sans ligne relue : nommé, pas rattaché."""
     souple = _souple([("elu-souple", "Nosbé-Durand", "Sandrine", "1972-10-29")])
     donnees = p15.parcourir(EXTRAIT_REEL, {}, souple, {})
     stats = donnees["stats"]
-    assert stats["rattachees_par_repli"] >= 1
-    assert stats["rattachees_par_repli_hors_liste"] == stats["rattachees_par_repli"]
+    assert stats["rattachees_par_repli"] == 0 and donnees["entetes"] == []
+    assert stats["repli_hors_liste"] == 1
     assert {(c, e) for c, e, *_ in donnees["hors_liste"]} == {
         (p15.cle_declarant(*ELU_UN), "elu-souple")}
     # Relu et inscrit : plus rien à signaler.
     relu = p15.parcourir(EXTRAIT_REEL, {}, souple,
                          {p15.cle_declarant(*ELU_UN): "elu-souple"})
     assert relu["hors_liste"] == []
+
+
+def _extrait_avec_identite(tmp_path, nom, prenom, naissance_fr):
+    """La fixture réelle, où le déclarant Nosbé prend l'état civil donné."""
+    texte = EXTRAIT_REEL.read_text(encoding="utf-8")
+    for avant, apres in (("<nom>Nosbé</nom>", f"<nom>{nom}</nom>"),
+                         ("<prenom>Sandrine</prenom>", f"<prenom>{prenom}</prenom>"),
+                         ("<dateNaissance>29/10/1972</dateNaissance>",
+                          f"<dateNaissance>{naissance_fr}</dateNaissance>")):
+        assert texte.count(avant) == 1, avant
+        texte = texte.replace(avant, apres)
+    chemin = tmp_path / "extrait.xml"
+    chemin.write_text(texte, encoding="utf-8")
+    return chemin
+
+
+def test_cle_declarant_valeur_de_reference():
+    """Valeur figée, calculée une fois à la main (sha1 de « DUPONT|ANNE|1970-01-01 »).
+
+    La liste blanche versionnée porte ces clés : si leur construction change,
+    toutes ses lignes deviennent mortes sans qu'aucun calcul le voie.
+    """
+    assert p15.cle_declarant("DUPONT", "ANNE", "1970-01-01") == "hatvp-32d79d5ee1530c2c"
+
+
+def test_un_senateur_ne_recoit_pas_la_declaration_de_son_jumeau_maire(tmp_path):
+    """Le cas de la relecture : sénateur « Martin Jean-Marc », maire « MARTIN JEAN ».
+
+    Même nom, même date, « JEAN » inclus dans « JEAN MARC » : la règle les
+    rapproche. La déclaration n'est PAS rattachée à la fiche du sénateur, et
+    le cas est signalé une seule fois, pour être vérifié.
+    """
+    xml = _extrait_avec_identite(tmp_path, "MARTIN", "JEAN", "21/05/1960")
+    souple = _souple([("SEN-21000A", "Martin", "Jean-Marc", "1960-05-21")])
+    donnees = p15.parcourir(xml, {}, souple, {})
+    assert "SEN-21000A" not in {e["elu_id"] for e in donnees["entetes"]}
+    assert [e for _, e, *_ in donnees["hors_liste"]] == ["SEN-21000A"]
+    assert donnees["stats"]["repli_hors_liste"] == 1
+
+
+def test_repli_exige_l_inclusion_du_nom():
+    """Date exacte, même prénom, un mot de nom commun : refusé sans inclusion."""
+    souple = _souple([("SEN-1", "Martin-Lefebvre", "Jean", "1960-05-21")])
+    assert p15.apparier_souple(souple, "MARTIN", "JEAN", "1960-05-21") == "SEN-1"
+    assert p15.apparier_souple(souple, "DURAND MARTIN", "JEAN", "1960-05-21") is None
+    assert p15.apparier_souple(souple, "MARTIN DUPUIS", "JEAN", "1960-05-21") is None
+
+
+def test_une_fiche_atteinte_par_la_cle_exacte_n_est_plus_une_cible_du_repli():
+    """Garde-fou n° 4, comme P7 : ni la règle ni la liste ne visent PA2.
+
+    AVIRAGNET atteint PA2 par la clé exacte, APRÈS la déclaration de Nosbé
+    dans le fichier : le garde-fou ne dépend pas de l'ordre.
+    """
+    souple = _souple([("PA2", "Nosbé-Durand", "Sandrine", "1972-10-29")])
+    donnees = p15.parcourir(EXTRAIT_REEL, {ELU_DEUX: "PA2"}, souple, {})
+    assert donnees["hors_liste"] == []
+    avec_liste = p15.parcourir(EXTRAIT_REEL, {ELU_DEUX: "PA2"}, souple,
+                               {p15.cle_declarant(*ELU_UN): "PA2"})
+    nosbe = [e for e in avec_liste["entetes"] if e["elu_id"] == "PA2"]
+    assert len(nosbe) == len([e for e in donnees["entetes"] if e["elu_id"] == "PA2"])
+    assert avec_liste["stats"]["rattachees_par_liste_blanche"] == 0
+    assert len(avec_liste["refus_liste"]) == 1
+    assert "déjà atteinte par la clé exacte" in avec_liste["refus_liste"][0]
+
+
+def test_la_liste_blanche_refuse_une_cle_sans_date_complete(tmp_path):
+    """Une clé calculée sans date de naissance complète ne rattache rien."""
+    xml = _extrait_avec_identite(tmp_path, "Nosbé", "Sandrine", "")
+    cle = p15.cle_declarant(ELU_UN[0], ELU_UN[1], None)
+    donnees = p15.parcourir(xml, {}, {}, {cle: "PA1"})
+    assert donnees["entetes"] == []
+    assert donnees["stats"]["rattachees_par_liste_blanche"] == 0
+    assert "sans date de naissance complète" in donnees["refus_liste"][0]
+
+
+def test_executer_ecarte_une_ligne_hors_vivier_et_la_journalise(
+        tmp_path, monkeypatch, caplog):
+    """Une ligne dont la fiche n'est pas publiée n'atteint jamais `parcourir`.
+
+    Et elle est journalisée comme ligne sans effet, pour être corrigée.
+    """
+    import logging
+    chemin = tmp_path / "p15_vivier.db"
+    monkeypatch.setenv("FT_DB_PATH", str(chemin))
+    conn = db.init_db(chemin=chemin)
+    _base_de_gardefou(conn, {})
+    conn.close()
+    cle = p15.cle_declarant(*ELU_UN)
+    liste = tmp_path / "liste.tsv"
+    liste.write_text(f"{cle}\tPA999999\tNOSBE (HATVP), fiche absente\tpreuve du test\n",
+                     encoding="utf-8")
+    monkeypatch.setattr(p15, "CHEMIN_RATTACHEMENTS_VERIFIES", liste)
+    monkeypatch.setattr(p15, "session_http", lambda *a, **k: None)
+    monkeypatch.setattr(p15, "telecharger", lambda *a, **k: EXTRAIT_REEL)
+    monkeypatch.setattr(p15, "date_derniere_modification", lambda *a, **k: "2026-08-21")
+    vrai_parcourir = p15.parcourir
+    vues = []
+
+    def parse(chemin_xml, index_elus, index_souple=None, liste_blanche=None):
+        vues.append(dict(liste_blanche or {}))
+        donnees = vrai_parcourir(EXTRAIT_REEL, {ELU_UN: "PA1", ELU_DEUX: "PA2"},
+                                 index_souple, liste_blanche)
+        donnees["stats"]["declarations_lues"] = 6_608
+        donnees["stats"]["rattachees"] = 2_332
+        return donnees
+
+    monkeypatch.setattr(p15, "parcourir", parse)
+    with caplog.at_level(logging.INFO):
+        p15.executer(chemin_db=chemin, max_age_heures=None)
+    assert vues == [{}]
+    assert "1 ligne(s) sans effet" in caplog.text and f"{cle} -> PA999999" in caplog.text
+
+
+@pytest.mark.parametrize("motif, contenu, attendu", [
+    ("trois champs", "hatvp-0000000000000001\tPA1\tX Y\n", "quatre champs"),
+    ("cinq champs", "hatvp-0000000000000001\tPA1\tX Y\tpreuve\tde trop\n", "quatre champs"),
+    ("clé hors format", "hatvp-000000000000001\tPA1\tX Y\tpreuve\n", "clé"),
+    ("clé de P7 dans P15", "rne-0000000000000001\tPA1\tX Y\tpreuve\n", "clé"),
+    ("cible hors format", "hatvp-0000000000000001\tPA 1\tX Y\tpreuve\n", "fiche"),
+])
+def test_une_liste_blanche_p15_invalide_refuse_de_charger(tmp_path, motif, contenu, attendu):
+    """Une ligne invalide fait échouer le chargement : rien n'est rattaché."""
+    chemin = tmp_path / "liste.tsv"
+    chemin.write_text(contenu, encoding="utf-8")
+    with pytest.raises(ValueError, match=attendu):
+        p15.charger_liste_blanche(chemin)
+    chemin.write_text("hatvp-0000000000000001\trne-0000000000000002\tX Y\tpreuve\n",
+                      encoding="utf-8")
+    assert p15.charger_liste_blanche(chemin) == {
+        "hatvp-0000000000000001": "rne-0000000000000002"}
 
 
 def test_appariement_exige_la_date_de_naissance():
@@ -1190,8 +1327,9 @@ def test_executer_signale_au_journal_un_rattachement_hors_liste(
     """La garde est BRANCHÉE : le cycle nomme ce qu'il faut relire, et le compte.
 
     La déclaration de Nosbé n'est plus atteinte par la clé exacte, seulement
-    par le repli, et la liste blanche servie est vide. Le cycle réussit (un
-    cas exact passe toujours), mais le journal porte la clé et la fiche.
+    par le repli, et la liste blanche servie est vide. La règle la trouve,
+    mais rien n'est rattaché hors de la liste : le journal porte la clé, la
+    fiche et ce qu'il faut faire.
     """
     import logging
     chemin = tmp_path / "p15_hors_liste.db"
@@ -1216,10 +1354,13 @@ def test_executer_signale_au_journal_un_rattachement_hors_liste(
         return donnees
 
     monkeypatch.setattr(p15, "parcourir", parse_par_repli)
-    with caplog.at_level(logging.INFO):
-        stats = p15.executer(chemin_db=chemin, max_age_heures=None)
-    assert stats["rattachees_par_repli_hors_liste"] >= 1
-    assert "hors de la liste blanche" in caplog.text
+    # Non rattachée, la déclaration de Nosbé manque au cycle : les garde-fous
+    # de perte refusent d'écrire. Le signalement est journalisé AVANT eux.
+    with caplog.at_level(logging.INFO), pytest.raises(ValueError):
+        p15.executer(chemin_db=chemin, max_age_heures=None)
+    assert "1 déclaration(s) que la règle rattacherait" in caplog.text
+    assert "NON rattachée(s)" in caplog.text
+    assert "Vérifier chaque cas" in caplog.text and "ajouter au fichier" in caplog.text
     assert f"{p15.cle_declarant(*ELU_UN)} -> PA1" in caplog.text
 
 

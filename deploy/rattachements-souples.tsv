@@ -1,26 +1,37 @@
 # Déclarations HATVP rattachées par le repli et relues à la main : liste
-# blanche de `apparier_souple` (pipelines/ingest_hatvp_declarations.py).
+# blanche de `parcourir` (pipelines/ingest_hatvp_declarations.py). Seules ces
+# lignes rattachent une déclaration que la clé exacte manque.
 #
 # Décision du propriétaire du 20/11/2026 (audit des données, constat C1) :
-# zéro fusion fausse. Le repli n'accepte plus qu'une date de naissance
-# exacte, avec un nom et un prénom dont l'une des écritures contient tous les
-# mots de l'autre. Un déclarant dont la clé figure ici est rattaché à la fiche
-# de la deuxième colonne, même hors de cette règle, si cette fiche est publiée
-# et si la clé exacte n'a rien trouvé.
+# zéro fusion fausse. Un déclarant dont la clé figure ici est rattaché à la
+# fiche de la deuxième colonne si cette fiche est publiée, si sa date de
+# naissance est complète et si la clé exacte n'atteint pas déjà cette fiche
+# dans le même fichier. Une ligne refusée ou sans effet est journalisée.
 #
-# Un rattachement que la règle fait et qui ne figure pas ici est signalé dans
-# le journal du cycle (« rattachée(s) hors de la liste blanche ») et compté.
-# Le relire, puis l'inscrire ici avec sa preuve.
+# La règle du repli (`apparier_souple` : date de naissance exacte, nom et
+# prénom dont l'une des écritures contient tous les mots de l'autre) ne
+# rattache plus rien seule. Ce qu'elle trouve hors de cette liste est signalé
+# dans le journal du cycle (« NON rattachée(s) »). Vérifier le cas à la main,
+# puis l'inscrire ici avec sa preuve pour qu'il soit appliqué au cycle suivant.
 #
 # Mesuré le 20/11/2026 par rejeu en lecture seule sur la base servie et le
 # fichier declarations.xml du jour : 62 déclarations rattachées par le repli,
-# pour 30 déclarants, toutes au même mandat des deux côtés. 28 déclarants
-# passent la règle stricte, 2 ne passent que par cette liste (AESCHLIMANN,
-# prénom abrégé, LELOUIS, une composante de date) pour 4 déclarations.
+# pour 30 déclarants. 28 de ces déclarants sont au même mandat des deux
+# côtés. Deux ne le sont pas : GOULET DE RUGY et SALAMI DADKHAH déclarent au
+# titre d'un mandat local (département de la Vendée, région Bretagne) et
+# leur fiche est celle de sénateur. Leur ligne est justifiée par l'identité
+# (même date de naissance, nom inclus dans l'autre écriture, même prénom).
+# 28 déclarants passent la règle stricte, 2 ne passent que par cette liste
+# (AESCHLIMANN, prénom abrégé, LELOUIS, une composante de date) pour 4
+# déclarations.
 #
 # La clé est le haché de l'état civil du déclarant tel que `lire_identite` le
-# rend (nom, prénom, date) : aucune date de naissance n'est écrite en clair
-# ici. Format : quatre champs séparés par des tabulations, tous obligatoires.
+# rend (nom, prénom, date). La date y est hachée avec le nom : elle n'est pas
+# écrite telle quelle, mais le haché ne la protège pas contre une recherche et
+# ne prétend pas le faire. Format : quatre champs séparés par des
+# tabulations, tous obligatoires, clé `hatvp-` suivie de 16 chiffres
+# hexadécimaux, fiche `PA`, `SEN-` ou `rne-`. Une ligne hors format fait
+# échouer le chargement.
 #
 # clé déclarant	id fiche	personne	preuve
 hatvp-d97e0a72f1a7ec3e	SEN-21071F	AESCHLIMANN MARIE DOMINIQUE (HATVP), fiche Aeschlimann Marie-Do	Même nom, prénom abrégé d'un côté, date de naissance identique, déclaration HATVP au titre de « senateur Hauts-de-Seine(92) », fiche sénateur Hauts-de-Seine. Relu le 20/11/2026.

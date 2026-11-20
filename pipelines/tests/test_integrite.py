@@ -322,16 +322,18 @@ def _poser_fiche(conn, ident, nom, prenom, naissance, uid="uid-x"):
     ("prénom composé tronqué", "{nom}", "{prenom}-Pierre", None),
 ])
 def test_rattrapage_les_ecritures_divergentes_de_letat_civil(
-        conn, motif, nom_an, prenom_an, decalage_date):
+        conn, caplog, motif, nom_an, prenom_an, decalage_date):
     """Chaque motif d'écriture divergente mesuré sur la base servie.
 
-    La clé exacte échoue sur chacun ; le rattrapage doit retrouver la fiche
-    AN, y verser le mandat RNE, et ne créer aucune ligne `rne-*` pour cette
-    personne. Ce sont des cas à date de naissance EXACTE : ils passent la
-    règle stricte du 20/11/2026 sans liste blanche. Les deux cas de date
-    divergente qui figuraient ici sont refusés depuis
+    La clé exacte échoue sur chacun. Ce sont des cas à date de naissance
+    EXACTE : la règle stricte du 20/11/2026 les trouve. Depuis le 21/11/2026
+    elle ne fait que les PROPOSER au journal, sans rien appliquer. Inscrit
+    dans la liste blanche, le rattrapage retrouve la fiche AN, y verse le
+    mandat RNE, et ne crée aucune ligne `rne-*` pour cette personne. Les deux
+    cas de date divergente qui figuraient ici sont refusés par la règle
     (`test_rattrapage_refuse_une_date_divergente_hors_liste_blanche`).
     """
+    import logging
     depute = charger_rne()["deputes"][0]
     nom, prenom = depute["Nom de l'élu"], depute["Prénom de l'élu"]
     naissance = depute["Date de naissance"]
@@ -346,10 +348,22 @@ def test_rattrapage_les_ecritures_divergentes_de_letat_civil(
         cible_date = naissance[:8] + ("01" if naissance[8:] != "01" else "02")
 
     _poser_fiche(conn, "PA-cible", cible_nom, cible_prenom, cible_date, uid="PA-cible")
-    avant = conn.execute("SELECT count(*) AS n FROM elus").fetchone()["n"]
+    ident = _identifiant(nom, prenom, naissance)
 
+    # Sans la ligne relue : proposé au journal, pas appliqué.
+    with caplog.at_level(logging.INFO):
+        _, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(charger_rne()),
+                                         liste_blanche={})
+    assert rattrapes == 0, f"appliqué hors liste : {motif}"
+    assert f"{ident} -> PA-cible" in caplog.text, f"non proposé : {motif}"
+    assert "NON appliqué" in caplog.text
+    assert "RNE" not in conn.execute(
+        "SELECT mandats FROM elus WHERE id = 'PA-cible'").fetchone()["mandats"]
+    conn.execute("DELETE FROM elus WHERE id LIKE 'rne-%'")
+
+    avant = conn.execute("SELECT count(*) AS n FROM elus").fetchone()["n"]
     inseres, maj, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(charger_rne()),
-                                             liste_blanche={})
+                                             liste_blanche={ident: "PA-cible"})
 
     assert rattrapes == 1, f"non rattrapé : {motif}"
     ligne = conn.execute("SELECT mandats FROM elus WHERE id = 'PA-cible'").fetchone()
@@ -388,7 +402,8 @@ def test_rattrapage_supprime_le_doublon_deja_en_base(conn):
     assert conn.execute("SELECT count(*) AS n FROM elus WHERE id = ?",
                         (ancien,)).fetchone()["n"] == 1
 
-    _, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(charger_rne()))
+    _, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(charger_rne()),
+                                     liste_blanche={ancien: "PA-cible"})
 
     assert rattrapes == 1
     # Le doublon a disparu, et son mandat vit désormais sur la fiche AN.
@@ -497,57 +512,106 @@ def _identifiant(nom, prenom, naissance):
     ("date : le jour diverge", "Jean-Luc", "1960-05-20", "Jean-Luc", "1960-05-21"),
 ])
 def test_rattrapage_refuse_une_date_divergente_hors_liste_blanche(
-        conn, motif, rne_prenom, rne_date, fiche_prenom, fiche_date):
-    """Zéro fusion fausse : aucun de ces cas ne rattrape, aucune fiche ne bouge."""
+        conn, caplog, motif, rne_prenom, rne_date, fiche_prenom, fiche_date):
+    """Zéro fusion fausse : aucun de ces cas ne rattrape, aucune fiche ne bouge.
+
+    La règle ne les propose même pas : rien n'est signalé à vérifier.
+    """
+    import logging
     _poser_fiche(conn, "SEN-1", "Martin", fiche_prenom, fiche_date, uid="SEN-1")
 
-    inseres, _, rattrapes = p7.upsert_elus(
-        conn, p7.preparer_personnes(_rne_un_seul("MARTIN", rne_prenom, rne_date)),
-        liste_blanche={})
+    with caplog.at_level(logging.INFO):
+        inseres, _, rattrapes = p7.upsert_elus(
+            conn, p7.preparer_personnes(_rne_un_seul("MARTIN", rne_prenom, rne_date)),
+            liste_blanche={})
 
+    assert "NON appliqué" not in caplog.text, f"proposé : {motif}"
     assert rattrapes == 0, f"fusion fausse : {motif}"
     assert inseres == 1                   # la personne RNE a sa propre fiche
     assert "RNE" not in conn.execute(
         "SELECT mandats FROM elus WHERE id = 'SEN-1'").fetchone()["mandats"]
 
 
+def test_identifiant_rne_valeur_de_reference():
+    """Valeur figée, calculée une fois à la main (sha1 de « DUPONT|ANNE|1970-01-01 »).
+
+    La liste blanche versionnée porte ces identifiants : si leur construction
+    change, toutes ses lignes deviennent mortes sans qu'aucun calcul le voie.
+    """
+    assert p7._identifiant_rne(("DUPONT", "ANNE", "1970-01-01")) == "rne-32d79d5ee1530c2c"
+
+
+def test_rattraper_exige_l_inclusion_du_nom_et_du_prenom():
+    """Date exacte et un mot commun ne suffisent pas : il faut l'inclusion.
+
+    Appelé sans `upsert_elus`, pour que le refus ne dépende que de la règle.
+    """
+    fiche = {"id": "SEN-1", "nom": "Martin-Lefebvre", "prenom": "Jean-Luc",
+             "date_naissance": "1960-05-21"}
+    index = {("1960", c): [fiche] for c in p7._composantes(fiche["nom"])}
+
+    def personne(nom, prenom):
+        return {"nom": nom, "prenom": prenom, "date_naissance": "1960-05-21"}
+
+    # Témoin : nom inclus, même prénom, même date.
+    assert p7._rattraper(personne("MARTIN", "Jean-Luc"), index, set()) is fiche
+    # Noms distincts qui partagent « MARTIN » : aucune écriture n'inclut l'autre.
+    assert p7._rattraper(personne("DURAND MARTIN", "Jean-Luc"), index, set()) is None
+    assert p7._rattraper(personne("MARTIN DUPUIS", "Jean-Luc"), index, set()) is None
+    # Prénoms distincts qui partagent « JEAN ».
+    assert p7._rattraper(personne("MARTIN", "Jean-Paul"), index, set()) is None
+    # Fiche déjà prise : jamais une cible.
+    assert p7._rattraper(personne("MARTIN", "Jean-Luc"), index, {"SEN-1"}) is None
+
+
 def test_la_liste_blanche_rattrape_un_cas_relu_hors_de_la_regle(conn, caplog):
-    """Une ligne relue rattrape ce que la règle stricte refuse, sans alerte."""
+    """Une ligne relue rattrape ce que la règle stricte refuse, sans alerte.
+
+    Identité fictive : même nom, même prénom, le mois de naissance diverge
+    entre les deux sources.
+    """
     import logging
-    _poser_fiche(conn, "PA-olive", "Olive", "Karl", "1969-03-29", uid="PA-olive")
-    rne = _rne_un_seul("OLIVE", "Karl", "1969-09-29")
-    ident = _identifiant("OLIVE", "Karl", "1969-09-29")
+    _poser_fiche(conn, "PA-fictif", "Valmont", "Lucien", "1971-03-14", uid="PA-fictif")
+    rne = _rne_un_seul("VALMONT", "Lucien", "1971-09-14")
+    ident = _identifiant("VALMONT", "Lucien", "1971-09-14")
+    # Figé à la main : sha1 de « valmont|lucien|1971-09-14 », clé normalisée.
+    assert ident == "rne-518ce50dbd1db28d"
 
     with caplog.at_level(logging.INFO):
         inseres, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(rne),
-                                               liste_blanche={ident: "PA-olive"})
+                                               liste_blanche={ident: "PA-fictif"})
 
     assert (inseres, rattrapes) == (0, 1)
     assert {m["source"] for m in json.loads(conn.execute(
-        "SELECT mandats FROM elus WHERE id = 'PA-olive'").fetchone()["mandats"])} == {"AN", "RNE"}
+        "SELECT mandats FROM elus WHERE id = 'PA-fictif'").fetchone()["mandats"])} == {"AN", "RNE"}
     assert "1 par la liste blanche" in caplog.text
-    assert "nouveau" not in caplog.text
+    assert "NON appliqué" not in caplog.text and "sans effet" not in caplog.text
 
 
-def test_la_liste_blanche_ne_vise_qu_une_fiche_an_senat_libre(conn):
+def test_la_liste_blanche_ne_vise_qu_une_fiche_an_senat_libre(conn, caplog):
     """Une ligne dont la cible n'est pas une fiche AN/Sénat libre ne fait rien.
 
     Cible absente, cible `rne-*`, cible déjà atteinte par la clé exacte d'une
-    autre personne : dans les trois cas, aucun rattrapage.
+    autre personne : dans les trois cas, aucun rattrapage, et la ligne
+    refusée est journalisée.
     """
-    rne = _rne_un_seul("OLIVE", "Karl", "1969-09-29")
-    ident = _identifiant("OLIVE", "Karl", "1969-09-29")
+    import logging
+    rne = _rne_un_seul("VALMONT", "Lucien", "1971-09-14")
+    ident = _identifiant("VALMONT", "Lucien", "1971-09-14")
     conn.execute("INSERT INTO elus (id, nom, prenom, date_naissance, mandats)"
                  " VALUES ('rne-autre', 'DURAND', 'Paul', '1950-01-01', '[]')")
     for cible in ("PA-absente", "rne-autre"):
-        _, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(rne),
-                                         liste_blanche={ident: cible})
+        caplog.clear()
+        with caplog.at_level(logging.INFO):
+            _, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(rne),
+                                             liste_blanche={ident: cible})
         assert rattrapes == 0, cible
+        assert "ligne refusée" in caplog.text and "sans effet" in caplog.text
         conn.execute("DELETE FROM elus WHERE id LIKE 'rne-%' AND id != 'rne-autre'")
 
     # Fiche déjà prise par la clé exacte d'une autre personne RNE.
     _poser_fiche(conn, "PA-prise", "DUPONT", "Anne", "1970-01-01", uid="PA-prise")
-    rne2 = _rne_un_seul("OLIVE", "Karl", "1969-09-29")
+    rne2 = _rne_un_seul("VALMONT", "Lucien", "1971-09-14")
     autre = dict(rne2["deputes"][0])
     autre.update({"Nom de l'élu": "DUPONT", "Prénom de l'élu": "Anne",
                   "Date de naissance": "1970-01-01"})
@@ -560,8 +624,11 @@ def test_la_liste_blanche_ne_vise_qu_une_fiche_an_senat_libre(conn):
     assert len([m for m in mandats if m.get("source") == "RNE"]) == 1
 
 
-def test_un_rattrapage_hors_liste_blanche_est_signale_et_compte(conn, caplog):
-    """Un cas exact passe toujours, mais s'il n'a pas été relu, le journal le dit."""
+def test_un_rattrapage_hors_liste_blanche_est_signale_pas_applique(conn, caplog):
+    """La règle trouve un cas exact, mais sans ligne relue rien n'est appliqué.
+
+    Le journal dit quoi faire : vérifier, puis ajouter une ligne prouvée.
+    """
     import logging
     _poser_fiche(conn, "PA-cible", "Favennec-Bécot", "Yannick", "1958-06-10",
                  uid="PA-cible")
@@ -569,21 +636,63 @@ def test_un_rattrapage_hors_liste_blanche_est_signale_et_compte(conn, caplog):
     ident = _identifiant("FAVENNEC", "Yannick", "1958-06-10")
 
     with caplog.at_level(logging.INFO):
-        _, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(rne),
-                                         liste_blanche={})
-    assert rattrapes == 1
-    assert "1 rattachement(s) nouveau(x) du repli" in caplog.text
+        inseres, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(rne),
+                                               liste_blanche={})
+    assert (inseres, rattrapes) == (1, 0)
+    assert "RNE" not in conn.execute(
+        "SELECT mandats FROM elus WHERE id = 'PA-cible'").fetchone()["mandats"]
+    assert "1 rattachement(s) que la règle ferait, NON appliqué(s)" in caplog.text
+    assert "Vérifier chaque cas" in caplog.text and "ajouter au fichier" in caplog.text
     assert f"{ident} -> PA-cible" in caplog.text
 
-    # Relu et inscrit : plus de signalement au cycle suivant.
+    # Relu et inscrit : appliqué au cycle suivant, plus de signalement. La
+    # ligne `rne-*` créée au premier passage disparaît.
     caplog.clear()
-    conn.execute("UPDATE elus SET mandats = '[{\"source\": \"AN\", \"type\": \"depute\"}]'"
-                 " WHERE id = 'PA-cible'")
     with caplog.at_level(logging.INFO):
         _, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(rne),
                                          liste_blanche={ident: "PA-cible"})
     assert rattrapes == 1
-    assert "nouveau" not in caplog.text
+    assert "NON appliqué" not in caplog.text
+    assert conn.execute("SELECT count(*) AS n FROM elus WHERE id = ?",
+                        (ident,)).fetchone()["n"] == 0
+
+
+def test_rattrapage_exige_un_mandat_parlementaire_au_rne(conn, caplog):
+    """Un maire homonyme né le même jour n'atteint jamais une fiche AN/Sénat.
+
+    Même avec une ligne dans la liste blanche : la personne RNE doit porter
+    elle-même un mandat de député ou de sénateur. Rien n'est proposé non plus.
+    """
+    import logging
+    _poser_fiche(conn, "SEN-1", "Martin", "Jean-Marc", "1960-05-21", uid="SEN-1")
+    rne = {k: [] for k in charger_rne()}
+    maire = dict(charger_rne()["maires"][0])
+    maire.update({"Nom de l'élu": "MARTIN", "Prénom de l'élu": "Jean",
+                  "Date de naissance": "1960-05-21"})
+    rne["maires"] = [maire]
+    ident = _identifiant("MARTIN", "Jean", "1960-05-21")
+
+    with caplog.at_level(logging.INFO):
+        inseres, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(rne),
+                                               liste_blanche={ident: "SEN-1"})
+    assert (inseres, rattrapes) == (1, 0)
+    assert "RNE" not in conn.execute(
+        "SELECT mandats FROM elus WHERE id = 'SEN-1'").fetchone()["mandats"]
+    assert "NON appliqué" not in caplog.text
+    assert f"{ident} -> SEN-1" in caplog.text and "sans effet" in caplog.text
+
+
+def test_la_liste_blanche_refuse_une_cle_sans_date_complete(conn, caplog):
+    """Une clé calculée sans date de naissance complète ne rattrape rien."""
+    import logging
+    _poser_fiche(conn, "PA-fictif", "Valmont", "Lucien", "1971-03-14", uid="PA-fictif")
+    rne = _rne_un_seul("VALMONT", "Lucien", "")
+    ident = _identifiant("VALMONT", "Lucien", "")
+    with caplog.at_level(logging.INFO):
+        _, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(rne),
+                                         liste_blanche={ident: "PA-fictif"})
+    assert rattrapes == 0
+    assert "sans date de naissance complète" in caplog.text
 
 
 def test_les_listes_blanches_versionnees_sont_lisibles_et_concordent():
@@ -593,12 +702,9 @@ def test_les_listes_blanches_versionnees_sont_lisibles_et_concordent():
     `redirections-elus.tsv` doit viser la MÊME fiche dans la liste blanche :
     une divergence voudrait dire qu'une des deux tables se trompe de personne.
     """
-    import re
-    p7_liste = p15.charger_liste_blanche(p7.CHEMIN_RATTRAPAGES_VERIFIES)
+    p7_liste = p7.charger_rattrapages_verifies()
     p15_liste = p15.charger_liste_blanche(p15.CHEMIN_RATTACHEMENTS_VERIFIES)
-    assert p7_liste and p15_liste
-    assert all(re.fullmatch(r"rne-[0-9a-f]{16}", c) for c in p7_liste)
-    assert all(re.fullmatch(r"hatvp-[0-9a-f]{16}", c) for c in p15_liste)
+    assert len(p7_liste) == 16 and len(p15_liste) == 30
     redirections = {}
     for ligne in (p7.RACINE / "deploy" / "redirections-elus.tsv").read_text(
             encoding="utf-8").splitlines():
@@ -609,18 +715,33 @@ def test_les_listes_blanches_versionnees_sont_lisibles_et_concordent():
         assert p7_liste.get(source) == cible, source
 
 
-def test_une_liste_blanche_sans_preuve_ou_en_double_refuse_de_charger(tmp_path):
-    """Une liste dont on ne sait pas ce qu'elle prouve ne doit rien rattacher."""
-    sans_preuve = tmp_path / "a.tsv"
-    sans_preuve.write_text("# commentaire\nrne-0000000000000001\tPA1\tX Y\t\n",
-                           encoding="utf-8")
-    with pytest.raises(ValueError, match="quatre champs"):
-        p15.charger_liste_blanche(sans_preuve)
-    double = tmp_path / "b.tsv"
-    double.write_text("rne-0000000000000001\tPA1\tX Y\tpreuve\n"
-                      "rne-0000000000000001\tPA2\tX Y\tpreuve\n", encoding="utf-8")
-    with pytest.raises(ValueError, match="en double"):
-        p15.charger_liste_blanche(double)
+@pytest.mark.parametrize("motif, contenu, attendu", [
+    ("sans preuve", "rne-0000000000000001\tPA1\tX Y\t\n", "quatre champs"),
+    ("trois champs", "rne-0000000000000001\tPA1\tX Y\n", "quatre champs"),
+    ("cinq champs", "rne-0000000000000001\tPA1\tX Y\tpreuve\tde trop\n", "quatre champs"),
+    ("clé hors format", "rne-00000000000000zz\tPA1\tX Y\tpreuve\n", "clé"),
+    ("clé de P15 dans P7", "hatvp-0000000000000001\tPA1\tX Y\tpreuve\n", "clé"),
+    ("cible hors format", "rne-0000000000000001\tPA-1\tX Y\tpreuve\n", "fiche"),
+    ("cible rne-* dans P7", "rne-0000000000000001\trne-0000000000000002\tX Y\tpreuve\n",
+     "fiche"),
+    ("clé en double", "rne-0000000000000001\tPA1\tX Y\tpreuve\n"
+                      "rne-0000000000000001\tSEN-12345A\tX Y\tpreuve\n", "en double"),
+])
+def test_une_liste_blanche_invalide_refuse_de_charger(tmp_path, motif, contenu, attendu):
+    """Une ligne invalide fait échouer le chargement : rien n'est rattaché."""
+    chemin = tmp_path / "liste.tsv"
+    chemin.write_text("# commentaire\n" + contenu, encoding="utf-8")
+    with pytest.raises(ValueError, match=attendu):
+        p7.charger_rattrapages_verifies(chemin)
+
+
+def test_une_liste_blanche_valide_se_charge(tmp_path):
+    """Témoin des refus ci-dessus : les mêmes lignes, bien formées, passent."""
+    chemin = tmp_path / "liste.tsv"
+    chemin.write_text("# commentaire\n\nrne-0000000000000001\tPA1\tX Y\tpreuve\n"
+                      "rne-0000000000000002\tSEN-12345A\tX Y\tpreuve\n", encoding="utf-8")
+    assert p7.charger_rattrapages_verifies(chemin) == {
+        "rne-0000000000000001": "PA1", "rne-0000000000000002": "SEN-12345A"}
 
 
 def _rne_avec_jumeau(nom_jumeau: str, **surcharges):
@@ -833,11 +954,13 @@ def test_upsert_elus_arme_reellement_le_garde_fou_de_volume(conn, monkeypatch):
         (ancien, nom, prenom, naissance))
 
     with pytest.raises(ValueError, match="rattrapage invraisemblable"):
-        p7.upsert_elus(conn, p7.preparer_personnes(charger_rne()))
+        p7.upsert_elus(conn, p7.preparer_personnes(charger_rne()),
+                       liste_blanche={ancien: "PA-cible"})
 
     # Et l'acquittement traverse bien le même câblage.
     monkeypatch.setenv(p7.ENV_RATTRAPAGES_ACQUITTES, ancien)
-    _, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(charger_rne()))
+    _, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(charger_rne()),
+                                     liste_blanche={ancien: "PA-cible"})
     assert rattrapes == 1
 
 
@@ -864,7 +987,8 @@ def test_la_suppression_tombe_dans_la_transaction_de_ecrire(conn):
     conn.commit()
 
     conn.execute("BEGIN IMMEDIATE")
-    _, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(charger_rne()))
+    _, _, rattrapes = p7.upsert_elus(conn, p7.preparer_personnes(charger_rne()),
+                                     liste_blanche={ancien: "PA-cible"})
     assert rattrapes == 1
     assert conn.execute("SELECT count(*) AS n FROM elus WHERE id = ?",
                         (ancien,)).fetchone()["n"] == 0
@@ -1074,7 +1198,8 @@ def test_le_controle_lit_la_meme_requete_que_upsert_elus():
     assert "rowid" not in p7.REQUETE_ETAT_CIVIL
 
 
-def test_le_controle_mesure_l_etat_d_APRES_upsert_elus(tmp_path, dossiers, caplog):
+def test_le_controle_mesure_l_etat_d_APRES_upsert_elus(tmp_path, dossiers, caplog,
+                                                      monkeypatch):
     """Il compte l'état d'APRÈS le rattrapage, pas celui d'avant.
 
     ⚠️ CE TEST EXISTE PARCE QU'UNE RÉFUTATION A MONTRÉ QU'IL MANQUAIT. Le
@@ -1100,10 +1225,15 @@ def test_le_controle_mesure_l_etat_d_APRES_upsert_elus(tmp_path, dossiers, caplo
         depute = charger_rne()["deputes"][0]
         nom, prenom, naissance = (depute["Nom de l'élu"], depute["Prénom de l'élu"],
                                   depute["Date de naissance"])
-        _poser_fiche(conn, "PA-cible", nom + "-Bécot", prenom, naissance,
-                     uid="PA-cible")
+        _poser_fiche(conn, "PA4242", nom + "-Bécot", prenom, naissance,
+                     uid="PA4242")
         cle = (p7.normaliser_texte(nom), p7.normaliser_texte(prenom), naissance)
         ancien = "rne-" + hashlib.sha1("|".join(cle).encode()).hexdigest()[:16]
+        # Le rattrapage n'est appliqué que par la liste blanche, que `ecrire`
+        # lit dans son fichier : une liste d'une ligne, pour ce test.
+        liste = tmp_path / "rattrapages.tsv"
+        liste.write_text(f"{ancien}\tPA4242\tX Y\tpreuve du test\n", encoding="utf-8")
+        monkeypatch.setattr(p7, "CHEMIN_RATTRAPAGES_VERIFIES", liste)
         _poser_ligne(conn, ancien, nom, prenom, naissance)
         _poser_ligne(conn, "rne-000000000000jum", nom, prenom, naissance)
         conn.commit()
