@@ -377,7 +377,8 @@ def _fiche_depute(conn, uid, nom, prenom, num_departement, num_circo):
 
 def test_alertes_campagnes_et_partis(conn):
     fin.charger_campagnes(conn, fin.parser_campagnes(FIX_CAMPAGNES.read_bytes()))
-    # KOUASSI (Ain, 3e circonscription, décision R) a une fiche d'élu.
+    # KOUASSI (Ain, 3e circonscription, décision R) a une fiche d'élu : depuis
+    # la décision du 21/11/2026, cela ne le fait plus nommer.
     _fiche_depute(conn, "PA900001", "Kouassi", "Fulgence", "01", "3")
     fin.charger_partis(
         conn, {2024: fin.parser_partis(FIX_PARTIS_2024.read_bytes(), 2024)}
@@ -394,12 +395,12 @@ def test_alertes_campagnes_et_partis(conn):
         r["id"]: r for r in conn.execute("SELECT * FROM alertes")
     }
 
-    # A5 — rejet : KOUASSI (décision R), gravité haute
-    rejet = alertes["FIN-CAMP-REJ-202409066"]
-    assert rejet["type"] == "financement_campagne_rejetee"
-    assert rejet["gravite"] == "haute"
-    assert "KOUASSI" in rejet["titre"]
-    assert rejet["base_legale"].startswith("Code électoral")
+    # A5 — aucun rejet n'est une alerte, fiche d'élu ou non (décision du
+    # 21/11/2026) : les rejets restent en agrégats sans nom.
+    assert not [a for a in alertes.values() if a["type"] == "financement_campagne_rejetee"]
+    assert not any(i.startswith("FIN-CAMP-REJ-") for i in alertes)
+    assert not any("KOUASSI" in (a["titre"] or "") + (a["detail"] or "")
+                   for a in alertes.values())
     # A5 — les 4 réformés (AR GUERAUD, DÔ, LEBOUCHER, ARM PRIé) ne sont plus
     # des alertes : approuvés, ils restent en agrégats sans nom.
     assert not [a for a in alertes.values() if a["type"] == "financement_campagne_reformee"]
@@ -475,7 +476,6 @@ def test_marqueur_etoile_sorti_du_nom_et_stocke(conn):
                    nom="Mme YADAN Caroline", marqueur_etoile=True,
                    decision="R", decision_famille="rejete")
     fin.charger_campagnes(conn, lignes + [marquee])
-    _fiche_depute(conn, "PA900002", "Yadan", "Caroline", "01", "1")
     ligne = conn.execute(
         "SELECT nom, marqueur_etoile FROM campagnes_2024 WHERE candidat_id = '999999999'"
     ).fetchone()
@@ -485,11 +485,6 @@ def test_marqueur_etoile_sorti_du_nom_et_stocke(conn):
     assert conn.execute(
         "SELECT COUNT(*) AS n FROM campagnes_2024 WHERE nom LIKE '%(*)%'"
     ).fetchone()["n"] == 0
-    fin.calculer_alertes(conn, None)
-    detail = conn.execute(
-        "SELECT detail FROM alertes WHERE id = 'FIN-CAMP-REJ-999999999'"
-    ).fetchone()["detail"]
-    assert "(*)" in detail and "n'est pas documentée" in detail
 
 
 # ---------------------------------------------------------------------------
@@ -499,83 +494,42 @@ def test_marqueur_etoile_sorti_du_nom_et_stocke(conn):
 
 def _charger_corpus_alertes(conn):
     lignes = fin.parser_campagnes(FIX_CAMPAGNES.read_bytes())
-    # compte intégralement à zéro : 55 cas réels sur les 85 rejets publiés —
-    # absence de compte exploitable, souvent le motif même du rejet.
-    tout_zero = dict(
-        lignes[0], candidat_id="900000001", nom="M. SANSCOMPTE Jean",
-        depenses_declarees=0.0, depenses_retenues=0.0, recettes_declarees=0.0,
-        recettes_retenues=0.0, remboursement_etat=0.0,
-        decision="R", decision_famille="rejete",
-    )
-    fin.charger_campagnes(conn, lignes + [tout_zero])
-    _fiche_depute(conn, "PA900001", "Kouassi", "Fulgence", "01", "3")
-    _fiche_depute(conn, "PA900003", "Sanscompte", "Jean", "1", "1")
+    fin.charger_campagnes(conn, lignes)
     fin.charger_partis(conn, {2024: fin.parser_partis(FIX_PARTIS_2024.read_bytes(), 2024)})
     fin.calculer_alertes(conn, None)
 
 
-def test_alerte_compte_tout_a_zero_ne_publie_pas_de_montant(conn):
-    _charger_corpus_alertes(conn)
-    detail = conn.execute(
-        "SELECT detail FROM alertes WHERE id = 'FIN-CAMP-REJ-900000001'"
-    ).fetchone()["detail"]
-    assert "Aucun montant renseigné" in detail
-    assert "tous les postes du compte sont à zéro" in detail
-    assert "ne signifie PAS que le candidat n'a rien dépensé" in detail
-    # surtout : aucun montant chiffré n'est affirmé
-    assert "0 €" not in detail
-    assert "0.0" not in detail
-    assert "€" not in detail  # aucun montant n'est affirmé du tout
+def test_aucun_rejet_nomme_meme_pour_un_elu_qui_a_une_fiche(conn):
+    """Décision du propriétaire du 21/11/2026 : TOUS les rejets passent en
+    agrégats. Les seules personnes que l'ancienne règle nommait étaient des
+    députés en exercice, pour qui la réserve « non définitive » aurait été
+    fausse. Le compte des rejets reste publié, sans nom."""
+    lignes = fin.parser_campagnes(FIX_CAMPAGNES.read_bytes())
+    fin.charger_campagnes(conn, lignes)
+    _fiche_depute(conn, "PA900001", "Kouassi", "Fulgence", "01", "3")
+    fin.calculer_alertes(conn, None)
+    assert conn.execute("SELECT COUNT(*) FROM alertes WHERE type LIKE"
+                        " 'financement_campagne%'").fetchone()[0] == 0
+    fin.creer_vues(conn)
+    rejets = sum(r["nb"] for r in conn.execute(
+        "SELECT * FROM v_campagnes_2024_par_decision WHERE decision = 'R'"))
+    assert rejets == sum(1 for l in lignes if l["decision"] == "R") >= 1
 
 
-def test_alerte_remboursement_zero_legitime_garde_son_zero(conn):
-    """KOUASSI : dépenses > 0, remboursement 0 € — un VRAI zéro, à conserver."""
-    _charger_corpus_alertes(conn)
-    detail = conn.execute(
-        "SELECT detail FROM alertes WHERE id = 'FIN-CAMP-REJ-202409066'"
-    ).fetchone()["detail"]
-    assert f"Dépenses déclarées : 773{FINE}€" in detail
-    assert f"remboursement État : 0{FINE}€" in detail
-    assert "aucun montant renseigné" not in detail.lower()
-
-
-def test_rejet_publie_porte_la_reserve_et_aucune_generalisation(conn):
-    """Audit du 20/11/2026 (C2, R1) : réserve « non définitive » dans le
-    titre et le détail, plus de « fréquemment le motif », plus de code brut
-    « décision R », et aucune date du cycle en guise de date de décision."""
-    _charger_corpus_alertes(conn)
-    rejets = conn.execute(
-        "SELECT * FROM alertes WHERE type = 'financement_campagne_rejetee'").fetchall()
-    assert {r["id"] for r in rejets} == {"FIN-CAMP-REJ-202409066", "FIN-CAMP-REJ-900000001"}
-    for r in rejets:
-        for texte in (r["titre"], r["detail"]):
-            assert "non définitive" in texte
-            assert "le juge de l'élection statue" in texte
-        assert "fréquemment" not in r["detail"]
-        assert "décision R" not in r["detail"] and "décision R" not in r["titre"]
-        assert "—" not in r["titre"] + r["detail"] and ";" not in r["titre"] + r["detail"]
-        assert r["date_fait"] is None
-        assert date.today().isoformat() not in (r["date_fait"] or "")
-
-
-def test_rejet_sans_fiche_d_elu_reste_dans_l_agregat(conn):
-    """Un candidat sans fiche d'élu n'est jamais nommé, et le rapprochement
-    exige le même département, la même circonscription et un seul élu."""
+def test_anciennes_alertes_de_rejet_nominatives_purgees(conn):
+    """Les alertes de rejet déjà en base, nominatives, ne survivent pas au
+    premier cycle, qu'elles visent un élu ou non."""
     fin.charger_campagnes(conn, fin.parser_campagnes(FIX_CAMPAGNES.read_bytes()))
-    # Même nom, autre circonscription : pas la même personne pour ce site.
-    _fiche_depute(conn, "PA900001", "Kouassi", "Fulgence", "01", "2")
+    conn.executemany(
+        "INSERT INTO alertes (id, type, gravite, titre, date_calcul) VALUES"
+        " (?, 'financement_campagne_rejetee', 'haute', ?, '2026-11-20T00:00:00+00:00')",
+        [("FIN-CAMP-REJ-202409066", "Compte de campagne rejeté — M. KOUASSI Fulgence"),
+         ("FIN-CAMP-REJ-900000001", "Compte de campagne rejeté par la CNCCFP, M. X Y"
+          " (décision non définitive : le juge de l'élection statue)")])
     fin.calculer_alertes(conn, None)
-    assert conn.execute("SELECT COUNT(*) FROM alertes WHERE type LIKE"
-                        " 'financement_campagne%'").fetchone()[0] == 0
-    # Deux fiches sur la même clé : homonymie non tranchée, pas de nom.
-    _fiche_depute(conn, "PA900004", "Kouassi", "Fulgence", "01", "3")
-    _fiche_depute(conn, "PA900005", "KOUASSI", "Fulgence", "1", "3")
-    fin.calculer_alertes(conn, None)
-    assert conn.execute("SELECT COUNT(*) FROM alertes WHERE type LIKE"
-                        " 'financement_campagne%'").fetchone()[0] == 0
-    # Sans table `deputes` (ordre de lancement changé) : aucun nom non plus.
-    conn.execute("DROP TABLE deputes")
-    assert fin.fiches_elus_candidats(conn) == {}
+    assert conn.execute("SELECT COUNT(*) FROM alertes WHERE type ="
+                        " 'financement_campagne_rejetee'").fetchone()[0] == 0
+    assert "financement_campagne_rejetee" in fin.TYPES_ALERTES
 
 
 def test_anciennes_alertes_de_reformation_purgees(conn):

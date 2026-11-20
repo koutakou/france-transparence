@@ -70,21 +70,18 @@ Tables créées (idempotentes, rejouables à volonté) :
   schéma : id, type, gravite, titre, detail, regle, base_legale, source_url,
   date_calcul, date_fait). Seuls les types de CE pipeline sont effacés puis
   recalculés :
-    financement_campagne_rejetee      décision R (SOURCES.md §4 A5), gravité
-                                      haute, NOMINATIVE seulement pour une
-                                      personne qui a une fiche d'élu (député
-                                      rapproché sans ambiguïté), avec la
-                                      réserve « décision non définitive »
     financement_parti_dependance_aide aide publique ≥ 75 % des produits et
                                       produits ≥ 1 M€, dernier exercice (A4,
                                       indicateur, pas une infraction), gravité info
     financement_parti_prive_aide      documentaire : la liste des partis privés
                                       d'aide pour manquement n'existe qu'en PDF
                                       au JO (avis CNCCFP, A4/M7), gravité info
-  Décision du propriétaire du 20/11/2026 : les approbations après réformation
-  (AR*) ne sont plus des alertes, elles restent en agrégats sans nom
-  (v_campagnes_2024_par_decision), et les rejets de candidats sans fiche d'élu
-  aussi. L'ancien type financement_campagne_reformee est effacé à chaque cycle.
+  Décisions du propriétaire du 20/11/2026 et du 21/11/2026 : les comptes de
+  campagne ne sont plus des alertes. Rejets (R) et approbations après
+  réformation (AR*) restent en agrégats sans nom
+  (v_campagnes_2024_par_decision). Les anciens types
+  financement_campagne_rejetee et financement_campagne_reformee sont effacés
+  à chaque cycle et jamais réécrits.
 
 Vues (agrégats pour le front) :
 - v_partis_top_produits            top partis par produits, dernier exercice (EUR)
@@ -110,11 +107,8 @@ from __future__ import annotations
 import csv
 import io
 import re
-import sqlite3
 import sys
 import time
-import unicodedata
-from collections import defaultdict
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -240,9 +234,10 @@ FAMILLES_DECISION = {
     "DD": "dispense_depot",
 }
 
-#: Types effacés puis recalculés à chaque cycle. `financement_campagne_reformee`
-#: n'est plus jamais écrit (une approbation après réformation n'est pas une
-#: alerte) : il reste ici pour que ses anciennes lignes soient purgées.
+#: Types effacés puis recalculés à chaque cycle. `financement_campagne_rejetee`
+#: et `financement_campagne_reformee` ne sont plus jamais écrits (décisions du
+#: 20/11 et du 21/11/2026 : comptes de campagne en agrégats sans nom) : ils
+#: restent ici pour que leurs anciennes lignes, nominatives, soient purgées.
 TYPES_ALERTES = (
     "financement_campagne_rejetee",
     "financement_campagne_reformee",
@@ -1288,155 +1283,17 @@ def legende_marqueur_etoile(marqueur) -> str:
     )
 
 
-_RE_CIVILITE = re.compile(r"^(?:M\.|Mme|Mlle)\s+")
-_RE_NUMERO_CIRCO = re.compile(r"(\d+)\s*(?:re|e)\s+circonscription", re.IGNORECASE)
-
-
-def cle_identite(texte: str | None) -> str:
-    """Nom comparable : sans accents ni casse, tirets et apostrophes en espaces."""
-    sans_accents = "".join(
-        c for c in unicodedata.normalize("NFKD", texte or "")
-        if not unicodedata.combining(c)
-    )
-    return " ".join(re.sub(r"[-'’]", " ", sans_accents).lower().split())
-
-
-def _code_dep_comparable(code) -> str:
-    return str(code or "").strip().upper().lstrip("0")
-
-
-def numero_circonscription(circonscription: str | None) -> int | None:
-    """« Ain - 3e circonscription » → 3 (None si le libellé n'en porte pas)."""
-    m = _RE_NUMERO_CIRCO.search(circonscription or "")
-    return int(m.group(1)) if m else None
-
-
-def fiches_elus_candidats(conn) -> dict[str, str]:
-    """{candidat_id: elus.id} des candidats de 2024 qui ont une fiche d'élu.
-
-    Décision du propriétaire du 20/11/2026 : un rejet de compte n'est publié
-    nominativement que pour une personne qui a une fiche d'élu sur ce site.
-    Le rapprochement ne vise que les députés de la table `deputes` (écrite par
-    `ingest_parlement`, lancé avant ce pipeline), élus au même scrutin, et
-    exige les QUATRE concordances : nom et prénom normalisés, département et
-    numéro de circonscription. Un candidat qui serait aussi maire ou
-    conseiller n'est pas rapproché par son seul nom : il reste dans
-    l'agrégat, on accepte cette perte plutôt qu'une fusion fausse. Une clé
-    portée par deux fiches n'est pas tranchée. Table absente (base de test,
-    ordre de lancement changé) : aucun rapprochement, donc aucun nom publié.
-    """
-    try:
-        deputes = conn.execute(
-            """SELECT d.nom, d.prenom, d.num_departement, d.num_circo, e.id AS elu_id
-               FROM deputes d JOIN elus e ON e.uid_an = d.uid_an"""
-        ).fetchall()
-    except sqlite3.OperationalError:
-        return {}
-    index: dict[tuple, set[str]] = defaultdict(set)
-    for d in deputes:
-        try:
-            circo = int(str(d["num_circo"]).strip())
-        except ValueError:
-            continue
-        index[(cle_identite(f"{d['nom']} {d['prenom'] or ''}"),
-               _code_dep_comparable(d["num_departement"]), circo)].add(d["elu_id"])
-    fiches: dict[str, str] = {}
-    for c in conn.execute(
-        "SELECT candidat_id, nom, code_departement, circonscription FROM campagnes_2024"
-    ):
-        circo = numero_circonscription(c["circonscription"])
-        if not c["code_departement"] or circo is None:
-            continue
-        elus = index.get((cle_identite(_RE_CIVILITE.sub("", c["nom"])),
-                          _code_dep_comparable(c["code_departement"]), circo))
-        if elus and len(elus) == 1:
-            fiches[c["candidat_id"]] = next(iter(elus))
-    return fiches
-
-
-#: Réserve portée par chaque rejet publié (titre et détail). Un rejet par la
-#: CNCCFP saisit le juge de l'élection, qui peut ne pas la suivre.
-RESERVE_REJET = "Décision non définitive : le juge de l'élection statue"
-
-REGLE_REJET = (
-    "Compte rejeté par la CNCCFP (code R) dans le fichier des comptes de "
-    "campagne des législatives 2024. Publié avec le nom seulement pour une "
-    "personne qui a une fiche d'élu sur ce site (député élu au même scrutin, "
-    "rapproché par nom, prénom, département et circonscription). Les autres "
-    "rejets, et les comptes approuvés après réformation, sont publiés en "
-    "agrégats sans nom sur la page Financement (SOURCES.md §4, alerte A5)."
-)
-
-BASE_LEGALE_A5 = (
-    "Code électoral, art. L.52-15 (contrôle des comptes de campagne par la "
-    "CNCCFP, qui saisit le juge de l'élection en cas de rejet) et LO 136-1 "
-    "(le Conseil constitutionnel statue pour les députés)."
-)
-
-
-def detail_rejet(c) -> str:
-    """Texte d'un rejet publié : réserve d'abord, montants ensuite.
-
-    Aucune généralisation sur le motif : la CNCCFP ne le publie pas dans ce
-    fichier (audit des pages du 20/11/2026, R1).
-    """
-    dd, dr = c["depenses_declarees"], c["depenses_retenues"]
-    ecart = (dd - dr) if (dd is not None and dr is not None) else None
-    entete = (
-        f"Législatives 2024, {c['circonscription']}. {RESERVE_REJET} (le "
-        "Conseil constitutionnel pour les députés), qui peut ne pas suivre la "
-        "commission. Le fichier CNCCFP ne date pas cette décision et ne suit "
-        "pas celles du juge. "
-    )
-    if compte_sans_montant(c):
-        corps = (
-            "Aucun montant renseigné : tous les postes du compte sont à "
-            "zéro dans le fichier CNCCFP (dépenses déclarées, dépenses "
-            "retenues, recettes déclarées et remboursement de l'État). Cela "
-            "ne signifie PAS que le candidat n'a rien dépensé."
-        )
-    else:
-        corps = (
-            f"Dépenses déclarées : {formater_euros(dd)}, "
-            f"retenues : {formater_euros(dr)}, "
-            + (f"écart : {formater_euros(ecart)}, " if ecart is not None else "")
-            + f"remboursement État : {formater_euros(c['remboursement_etat'])}."
-        )
-    return entete + corps + legende_marqueur_etoile(c["marqueur_etoile"])
-
-
 def calculer_alertes(conn, url_avis_2024: str | None) -> int:
     """Recalcule les alertes de CE pipeline (types effacés puis réinsérés)."""
     quand = datetime.now(timezone.utc).isoformat(timespec="seconds")
     alertes: list[tuple] = []
 
-    # A5 — comptes de campagne rejetés (R), nominatifs pour les seules
-    # personnes qui ont une fiche d'élu (décision du propriétaire du
-    # 20/11/2026). Les approbations après réformation (AR*) et les autres
-    # rejets restent en agrégats sans nom (v_campagnes_2024_par_decision).
-    # `date_fait` reste NULL : le fichier CNCCFP ne date pas les décisions, et
-    # l'instant du cycle n'est pas la date d'une décision.
-    fiches = fiches_elus_candidats(conn)
-    for c in conn.execute(
-        """SELECT candidat_id, nom, marqueur_etoile, circonscription,
-                  depenses_declarees, depenses_retenues, recettes_declarees,
-                  remboursement_etat
-           FROM campagnes_2024
-           WHERE decision_famille = 'rejete'
-           ORDER BY candidat_id"""
-    ):
-        if c["candidat_id"] not in fiches:
-            continue
-        alertes.append(
-            (
-                f"FIN-CAMP-REJ-{c['candidat_id']}",
-                "financement_campagne_rejetee", "haute",
-                f"Compte de campagne rejeté par la CNCCFP, {c['nom']} "
-                f"({RESERVE_REJET.lower()})",
-                detail_rejet(c), REGLE_REJET, BASE_LEGALE_A5,
-                URL_DATASET_LEG2024, quand, None,
-            )
-        )
+    # A5 : aucune alerte. Décision du propriétaire du 21/11/2026 : TOUS les
+    # rejets de comptes de campagne, comme les approbations après réformation,
+    # sont publiés en agrégats sans nom (v_campagnes_2024_par_decision), et le
+    # site renvoie aux décisions du Conseil constitutionnel. Le type
+    # `financement_campagne_rejetee` n'est plus jamais écrit : il reste dans
+    # TYPES_ALERTES pour que ses anciennes lignes nominatives soient purgées.
 
     # A4 (part calculable) — dépendance à l'aide publique, dernier exercice.
     regle_dep = (
