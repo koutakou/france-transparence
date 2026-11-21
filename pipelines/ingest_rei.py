@@ -74,7 +74,7 @@ log = obtenir_logger("rei")
 
 SOURCE_ID = "S48"
 NOM_SOURCE = (
-    "REI — fiscalité directe locale "
+    "REI : fiscalité directe locale "
     "(DGFiP, DESF)"
 )
 URL_DATASET = (
@@ -142,15 +142,15 @@ BORNE_CFE = (5e9, 12e9)
 
 NOTES = (
     "impositions primitives du rôle général, année d'IMPOSITION, par "
-    "taxe et bénéficiaire ; pas les comptes OFGL S16 ; pas l'IRCOM S47 ; "
-    "pas la caisse S13 ; pas les compensations/fractions de TVA ; pas "
-    "les chambres ; pas les taux ; cellule vide = secret statistique "
-    "(BOI-DJC-CADA-20), pas un zéro ; IFER régional répliqué par commune "
-    "— une valeur par région ; P33 est le total CFE intercommunal "
-    "(P33_1/P33_2 non additionnés) ; F13 est le TEOM total (F23–F83 et "
-    "TIEOM* non additionnés au FDL : TIEOM est une part de F13) ; "
-    "unité native = euros ; Md€ = euros ÷ 1e9 ; "
-    "date_donnees = 31/12 de l'année d'imposition, jamais last_update ; "
+    "taxe et bénéficiaire. Pas les comptes OFGL S16. Pas l'IRCOM S47. "
+    "Pas la caisse S13. Pas les compensations/fractions de TVA. Pas "
+    "les chambres. Pas les taux. Cellule vide = secret statistique "
+    "(BOI-DJC-CADA-20), pas un zéro. IFER régional répliqué par commune : "
+    "une valeur par région. P33 est le total CFE intercommunal "
+    "(P33_1/P33_2 non additionnés). F13 est le TEOM total (F23 à F83 et "
+    "TIEOM* non additionnés au FDL : TIEOM est une part de F13). "
+    "Unité native = euros. Md€ = euros ÷ 1e9, "
+    "date_donnees = 31/12 de l'année d'imposition, jamais last_update, "
     "0 page communale"
 )
 

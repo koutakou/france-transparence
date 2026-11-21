@@ -658,8 +658,8 @@ def phrase_exercices_partis(
     """Début de la note S25 : ce qui est ingéré, et ce que la CNCCFP a publié
     d'après le jeu relu ce jour-là — jamais une affirmation figée."""
     dernier = max(exercices)
-    debut = (f"Exercice {dernier} ; " if min(exercices) == dernier
-             else f"Exercices {min(exercices)}-{dernier} ; ")
+    debut = (f"Exercice {dernier}, " if min(exercices) == dernier
+             else f"Exercices {min(exercices)}-{dernier}, ")
     if publie is None:
         return debut + ("dernier exercice publié par la CNCCFP : non lisible "
                         f"dans le jeu data.gouv le {jour:%d/%m/%Y}")
@@ -1440,7 +1440,7 @@ def main() -> int:
         db.upsert_meta(
             conn,
             source_id="S25",
-            nom="CNCCFP — comptes des partis et groupements politiques",
+            nom="CNCCFP : comptes des partis et groupements politiques",
             url=URL_DATASET_PARTIS,
             licence="Licence Ouverte (version non vérifiée)",
             frequence="annuelle",
@@ -1454,7 +1454,7 @@ def main() -> int:
         db.upsert_meta(
             conn,
             source_id="S29",
-            nom="CNCCFP — comptes de campagne, législatives 2024",
+            nom="CNCCFP : comptes de campagne, législatives 2024",
             url=URL_DATASET_LEG2024,
             licence="Licence Ouverte (version non vérifiée)",
             frequence="par scrutin",
@@ -1463,8 +1463,8 @@ def main() -> int:
             notes="Scrutin des 30/06 et 07/07/2024, CSV publié le 29/07/2025 "
                   "(cp1252, 6 lignes de garde, mojibake réparé). Casse des "
                   "noms réparée à l'ingestion : le CSV source livre "
-                  "« M. EL\xe9LOU\xe9-VALMAR » (0xE9 = « é » minuscule) — "
-                  "défaut de la source, pas du pipeline. Marqueur « (*) » "
+                  "« M. EL\xe9LOU\xe9-VALMAR » (0xE9 = « é » minuscule), "
+                  "un défaut de la source, pas du pipeline. Marqueur « (*) » "
                   "(51 noms) sorti du nom, signification non documentée par "
                   "la CNCCFP. Municipales 2026 : aucun dataset publié au "
                   "19/08/2026, instruction CNCCFP en cours.",

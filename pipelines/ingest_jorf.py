@@ -870,6 +870,11 @@ def ecarts_anormaux(dates_jo: list[str]) -> list[tuple[str, str, int]]:
     return trous
 
 
+def _phrase(texte: str) -> str:
+    """Majuscule initiale : le texte ouvre une phrase de la note."""
+    return texte[:1].upper() + texte[1:]
+
+
 def _editions(n: int | None) -> str:
     """Ce que le dépôt de la DILA proposait, en mots de lecteur. `None` :
     il n'a pas pu être lu ce jour-là."""
@@ -926,22 +931,22 @@ def note_fenetre(
              else "éditions quotidiennes non relues : ")
             + ", ".join(_fr(d) for d in sorted(non_relues)))
     trous = manques
-    dit_trous = " ; ".join(manques)
+    dit_trous = ", ".join(manques)
     if len(dates_jo) < jours:
         note = (
             f"{MARQUE_FENETRE_REDUITE} : {len(dates_jo)} JO sur les {jours}"
             f" visés, du {_fr(debut)} au {_fr(fin)} (constat du"
-            f" {_fr(constat)}) ; {etat_index}, les JO plus anciens ne sont"
+            f" {_fr(constat)}). {_phrase(etat_index)}, les JO plus anciens ne sont"
             " pas affichés ici"
         )
-        return f"{note} ; {dit_trous}" if trous else note
-    note = f"{len(dates_jo)} JO, du {_fr(debut)} au {_fr(fin)} ; {etat_index}"
+        return f"{note}, {dit_trous}" if trous else note
+    note = f"{len(dates_jo)} JO, du {_fr(debut)} au {_fr(fin)}. {_phrase(etat_index)}"
     if index_reduit:
         note += ", les JO plus anciens viennent de ce qui a été conservé ici"
     if trous:
         return (
             f"{MARQUE_FENETRE_DISCONTINUE} : {dit_trous} (constat du"
-            f" {_fr(constat)}) ; {note}"
+            f" {_fr(constat)}). {note}"
         )
     return note
 
@@ -1246,7 +1251,7 @@ def main(argv: list[str] | None = None) -> int:
     db.upsert_meta(
         conn,
         source_id="S3",
-        nom="DILA — Journal officiel « Lois et décrets » (JORFSIMPLE)",
+        nom="DILA : Journal officiel « Lois et décrets » (JORFSIMPLE)",
         url=URL_JORFSIMPLE,
         licence="Licence Ouverte (version non vérifiée)",
         frequence="quotidienne",

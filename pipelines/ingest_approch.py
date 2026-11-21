@@ -45,7 +45,7 @@ from pipelines.common import obtenir_logger, session_http, telecharger
 log = obtenir_logger("ingest_approch")
 
 SOURCE_ID = "S9"
-SOURCE_NOM = "APProch — projets d'achats publics (DAE/AIFE)"
+SOURCE_NOM = "APProch : projets d'achats publics (DAE/AIFE)"
 SOURCE_URL = (
     "https://data.economie.gouv.fr/explore/dataset/projets-dachats-publics/"
 )
@@ -225,9 +225,9 @@ def _executer() -> None:
             lignes=len(projets),
             notes=(
                 f"{len(projets)} projets à publication future "
-                f"(dont {nb_avec_tranche} avec tranche de montant) ; "
-                "montants en tranches texte non sommables ; acheteur = SIREN "
-                "seul ; date_donnees = data_processed du dataset "
+                f"(dont {nb_avec_tranche} avec tranche de montant). "
+                "Montants en tranches texte non sommables. Acheteur = SIREN "
+                "seul, date_donnees = data_processed du dataset "
                 "(pas de date par enregistrement)"
             ),
         )

@@ -1225,13 +1225,13 @@ def ingerer_amo10(conn, session: requests.Session) -> None:
     date_amo20 = clore_mandats_an(conn, session, {a["uid"] for a in acteurs})
     db.upsert_meta(
         conn, source_id="S5-AMO10",
-        nom="AN — députés, mandats, organes actifs (AMO10) ; fins de mandat "
+        nom="AN : députés, mandats, organes actifs (AMO10) et fins de mandat "
             "des sortants (AMO20)",
         url=URL_AMO10, licence="Licence Ouverte (version non vérifiée)", frequence="quotidienne",
         date_donnees=date_donnees, lignes=len(acteurs),
-        notes=(f"législature {LEGISLATURE} ; {len(effectifs)} groupes ; "
-               "AMO50 proscrit (figé au 11/07/2024) ; lien HATVP fourni par "
-               "le champ uri_hatvp de l'AN ; AMO20 "
+        notes=(f"législature {LEGISLATURE}, {len(effectifs)} groupes. "
+               "AMO50 proscrit (figé au 11/07/2024). Lien HATVP fourni par "
+               "le champ uri_hatvp de l'AN. AMO20 "
                + (f"(données du {date_amo20}, {URL_AMO20}) lu pour la seule "
                   "date de fin des mandats de député sortis d'AMO10"
                   if date_amo20 else
@@ -1364,7 +1364,7 @@ def ingerer_scrutins(conn, session: requests.Session) -> None:
                      participation_source = ?, participation_maj = ?
                    WHERE uid_an = ?""",
                 [(t, v, e,
-                  "calcul France Transparence — scrutins publics AN des "
+                  "calcul France Transparence : scrutins publics AN des "
                   f"{FENETRE_JOURS} derniers jours (votes exprimés / scrutins "
                   "depuis l'entrée en mandat, motions de censure exclues)",
                   maintenant, uid)
@@ -1378,14 +1378,14 @@ def ingerer_scrutins(conn, session: requests.Session) -> None:
 
     db.upsert_meta(
         conn, source_id="S5-SCRUTINS",
-        nom="AN — scrutins publics et votes nominaux",
+        nom="AN : scrutins publics et votes nominaux",
         url=URL_SCRUTINS, licence="Licence Ouverte (version non vérifiée)",
         frequence="quotidienne", date_donnees=dernier["date_scrutin"],
         lignes=len(metas),
         notes=(f"dernier scrutin n° {dernier['numero']} du "
-               f"{dernier['date_scrutin']} ; détail nominal conservé pour les "
-               f"scrutins n° ≥ {seuil_detail} ({NB_SCRUTINS_DETAIL} derniers) ; "
-               f"agrégats de participation sur {len(fenetre)} scrutins "
+               f"{dernier['date_scrutin']}. Détail nominal conservé pour les "
+               f"scrutins n° ≥ {seuil_detail} ({NB_SCRUTINS_DETAIL} derniers). "
+               f"Agrégats de participation sur {len(fenetre)} scrutins "
                f"depuis le {date_min_fenetre}, {nb_censures} motion(s) de "
                "censure exclue(s) (seuls les votes pour y sont recueillis)"),
     )
@@ -1739,14 +1739,14 @@ def ingerer_senat(conn, session: requests.Session) -> str | None:
     avec_debut = sum(1 for r in actifs if r["Matricule"] in debuts_mandat)
     db.upsert_meta(
         conn, source_id="S6-ODSEN",
-        nom="Sénat — sénateurs en exercice (ODSEN_GENERAL + export_sens elusen)",
+        nom="Sénat : sénateurs en exercice (ODSEN_GENERAL + export_sens elusen)",
         url=URL_ODSEN_GENERAL, licence="Licence Ouverte (version non vérifiée)",
         frequence="quotidienne", date_donnees=date_donnees,
         lignes=len(actifs),
-        notes=("ISO-8859-1, lignes % sautées ; date de début du mandat en "
+        notes=("ISO-8859-1, lignes % sautées. Date de début du mandat en "
                "cours lue dans la table elusen du dump export_sens "
                f"({avec_debut}/{len(actifs)} sénateurs en exercice dotés "
-               "d'une date) ; date_fin_mandat NULL tant que le mandat court"),
+               "d'une date), date_fin_mandat NULL tant que le mandat court"),
     )
     # Comptes journalisés À CHAQUE CYCLE, zéros compris (cf. AMO10).
     log.info("Sénat : date de début du mandat en cours connue pour %d/%d"
@@ -1918,10 +1918,10 @@ def ingerer_dosleg(conn, session: requests.Session) -> None:
             fenetre, [s["matricule"] for s in senateurs])
         maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
         source = (
-            "calcul France Transparence — scrutins publics du Sénat des "
+            "calcul France Transparence : scrutins publics du Sénat des "
             f"{FENETRE_JOURS} derniers jours (votes exprimés / scrutins où "
             "le Sénat publie la position du sénateur, « non-votant » "
-            "compris ; une délégation n'est pas une présence physique)"
+            "compris, une délégation n'est pas une présence physique)"
         )
         with conn:
             conn.executemany(
@@ -1945,17 +1945,17 @@ def ingerer_dosleg(conn, session: requests.Session) -> None:
 
     db.upsert_meta(
         conn, source_id="S6-DOSLEG",
-        nom="Sénat — scrutins publics et votes nominaux (Dosleg scr + votsen)",
+        nom="Sénat : scrutins publics et votes nominaux (Dosleg scr + votsen)",
         url=URL_DOSLEG, licence="Licence Ouverte (version non vérifiée)",
         frequence="quotidienne", date_donnees=dernier["date_scrutin"],
         lignes=len(scrutins),
         notes=(
             f"dernier scrutin session {dernier['sesann']} n° {dernier['numero']} "
-            f"du {dernier['date_scrutin']} ; {len(lignes_votes)} votes nominaux "
-            f"conservés pour les {n_detail} derniers scrutins ; agrégats de "
+            f"du {dernier['date_scrutin']}, {len(lignes_votes)} votes nominaux "
+            f"conservés pour les {n_detail} derniers scrutins. Agrégats de "
             f"participation sur {len(fenetre_exprimes) - sans_detail} "
             f"scrutins dotés d'un détail nominal depuis le {date_min_fenetre} "
-            f"({sans_detail} sans détail publié) ; COPY sans PostgreSQL ; pas "
+            f"({sans_detail} sans détail publié). COPY sans PostgreSQL. Pas "
             "Ameli, pas questions, pas TAP export_sens"
         ),
     )
@@ -1998,7 +1998,7 @@ def ingerer_datan(conn, session: requests.Session) -> None:
         except ValueError:
             return None
 
-    source = ("Datan — dataset data.gouv.fr « Députés actifs de l'Assemblée "
+    source = ("Datan : dataset data.gouv.fr « Députés actifs de l'Assemblée "
               "nationale », licence fr-lo, méthodologie datan.fr (scores "
               "calculés par Datan, non par France Transparence)")
     date_maj = max((l.get("dateMaj") or "" for l in lignes), default="") or None
@@ -2024,13 +2024,13 @@ def ingerer_datan(conn, session: requests.Session) -> None:
                            "(AMO10 manquant ?)")
     db.upsert_meta(
         conn, source_id="S7-DATAN",
-        nom="Datan — scores participation/loyauté/majorité des députés",
+        nom="Datan : scores participation/loyauté/majorité des députés",
         url="https://www.data.gouv.fr/datasets/deputes-actifs-de-lassemblee-"
             "nationale-informations-et-statistiques",
         licence="Licence Ouverte (version non vérifiée)", frequence="quotidienne",
         date_donnees=date_maj, lignes=len(lignes),
-        notes=(f"{apparies}/{len(lignes)} députés appariés par id PA… ; "
-               "scores Datan à créditer à l'affichage ; le taux calculé "
+        notes=(f"{apparies}/{len(lignes)} députés appariés par identifiant AN (PA suivi de chiffres). "
+               "Scores Datan à créditer à l'affichage. Le taux calculé "
                "France Transparence coexiste (colonnes taux_participation_12m)"),
     )
     log.info("Datan : %d/%d scores appariés (dateMaj %s)",

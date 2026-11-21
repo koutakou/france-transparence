@@ -1639,19 +1639,19 @@ def main() -> int:
             lignes=comptes["decp_marches"],
             notes=(
                 f"consolidation communautaire decp-processing (Colin Maudry), "
-                f"à créditer ; la date retenue est celle de la notification "
-                f"initiale du marché — min(dateNotification) sur toutes ses "
-                f"lignes, avenants compris — et non celle du dernier avenant ; "
-                f"les fenêtres portent sur elle, les montants et titulaires "
-                f"sur la version courante ; les classements titulaires et "
+                f"à créditer. La date retenue est celle de la notification "
+                f"initiale du marché (min(dateNotification) sur toutes ses "
+                f"lignes, avenants compris), et non celle du dernier avenant. "
+                f"Les fenêtres portent sur elle, les montants et titulaires "
+                f"sur la version courante. Les classements titulaires et "
                 f"acheteurs sont regroupés par ENTREPRISE (SIREN), les "
                 f"identifiants non conformes en étant écartés et comptés à "
-                f"part ; fenêtres : détail {MOIS_DETAIL} "
+                f"part. Fenêtres : détail {MOIS_DETAIL} "
                 f"mois, agrégats {MOIS_AGGREGATS} mois, série {MOIS_SERIE} "
-                f"mois ; agrégats écrêtés à {PLAFOND_ECRETAGE_EUR:.0f} € "
-                f"({stats['nb_suspects']} marchés au montant signalé) ; montants "
-                f"d'accords-cadres = maximums ; latence légale de publication "
-                f"jusqu'à 2 mois ; {stats['lignes_parquet']} lignes au parquet"
+                f"mois. Agrégats écrêtés à {PLAFOND_ECRETAGE_EUR:.0f} € "
+                f"({stats['nb_suspects']} marchés au montant signalé). Montants "
+                f"d'accords-cadres = maximums. Latence légale de publication "
+                f"jusqu'à 2 mois, {stats['lignes_parquet']} lignes au parquet"
             ),
         )
     except Exception:

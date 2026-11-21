@@ -78,14 +78,14 @@ BORNE_MAX_PC = 80.0  # exclusive
 N_VALUES_MIN = 25  # par na_item
 
 NOTES = (
-    "flux annuel, na_item=TE (dépenses) et TR (recettes) ; "
+    "flux annuel, na_item=TE (dépenses) et TR (recettes). "
     "ESA S13 = APU, distinct de la source S13 (SMB DGFiP, budget de l'État), "
-    "de S41 (stock GD trimestriel, Maastricht) et de S42 (B9, Maastricht) ; "
-    "pas un indicateur Maastricht ; "
-    "Md€ = MIO_EUR÷1000 (jamais ÷1e9) ; "
-    "PC_GDP lu à part ; B9 non recalculé (TR−TE) ; "
-    "pas de COFOG, pas de taxag, pas de D41PAY, pas de S.1311, pas de par habitant ; "
-    "date_donnees = 31/12 du TIME max commun, jamais JSON-stat updated ; "
+    "de S41 (stock GD trimestriel, Maastricht) et de S42 (B9, Maastricht). "
+    "Pas un indicateur Maastricht. "
+    "Md€ = MIO_EUR÷1000 (jamais ÷1e9). "
+    "PC_GDP lu à part. B9 non recalculé (TR−TE). "
+    "Pas de COFOG, pas de taxag, pas de D41PAY, pas de S.1311, pas de par habitant, "
+    "date_donnees = 31/12 du TIME max commun, jamais JSON-stat updated. "
     "DOI 10.2908/GOV_10A_MAIN"
 )
 

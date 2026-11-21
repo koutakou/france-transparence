@@ -86,7 +86,7 @@ from pipelines.common import (
 log = obtenir_logger("lobbying")
 
 ID_SOURCE = "S4"
-NOM_SOURCE = "HATVP — Répertoire des représentants d'intérêts (AGORA)"
+NOM_SOURCE = "HATVP : Répertoire des représentants d'intérêts (AGORA)"
 URL_ZIP = "https://www.hatvp.fr/agora/opendata/csv/Vues_Separees_CSV.zip"
 LICENCE = "Licence Ouverte (version non vérifiée)"
 FREQUENCE = "quotidienne"
@@ -112,9 +112,9 @@ TYPES_ALERTES = ("lobbying_defaut_declaration", "lobbying_declaration_incomplete
 
 BASE_LEGALE = (
     "Loi n° 2016-1691 du 09/12/2016 « Sapin II » (répertoire des représentants "
-    "d'intérêts) — art. 18-3 de la loi n° 2013-907 du 11/10/2013 : communication "
-    "annuelle des activités et moyens à la HATVP ; sanctions pénales en cas de "
-    "manquement (art. 18-9 et 18-10) ; décret n° 2017-867 du 09/05/2017."
+    "d'intérêts) : art. 18-3 de la loi n° 2013-907 du 11/10/2013 : communication "
+    "annuelle des activités et moyens à la HATVP. Sanctions pénales en cas de "
+    "manquement (art. 18-9 et 18-10). Décret n° 2017-867 du 09/05/2017."
 )
 
 REGLE_DEFAUT = (
@@ -844,7 +844,7 @@ def _lignes_alertes(donnees: dict, date_calcul: str) -> list[tuple]:
                     f"(aucune publication)"
                 )
         detail = (f"{categorie}" + (f", {ville}" if ville else "") + ". "
-                  + " ; ".join(morceaux) + ".")
+                  + ". ".join(m[:1].upper() + m[1:] for m in morceaux) + ".")
         lignes.append((
             f"lobbying_defaut_declaration:{rid}",
             "lobbying_defaut_declaration",
@@ -864,7 +864,7 @@ def _lignes_alertes(donnees: dict, date_calcul: str) -> list[tuple]:
     n = len(par_entite)
     if n:
         n_ex = nb_rien + nb_partiel
-        repartition = " ; ".join(
+        repartition = ", ".join(
             f"exercice {a} : {c}" for a, c in sorted(par_annee.items()))
         lignes.append((
             "lobbying_declaration_incomplete:agregat",

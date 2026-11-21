@@ -59,7 +59,7 @@ log = obtenir_logger("cge")
 
 SOURCE_ID = "S22"
 NOM_SOURCE = (
-    "Compte général de l'État — bilan patrimonial (DGFiP, pièce de synthèse)"
+    "Compte général de l'État : bilan patrimonial (DGFiP, pièce de synthèse)"
 )
 URL_DATASET = (
     "https://data.economie.gouv.fr/explore/dataset/balances_des_comptes_etat/"
@@ -106,13 +106,13 @@ N_ANNEES_MIN = 15
 SEUIL_EUR = 1e8
 
 NOTES = (
-    "comptabilité générale de l'État (CGE), pas le budget (S13) ; "
-    "totaux lus dans la pièce de synthèse xlsx, jamais sommés depuis "
-    "les balances compte×programme ; millésime = 31/12 de la pièce, "
-    "jamais modified du catalogue ; les balances 2025 existent au grain "
-    "compte tant que la pièce ne porte pas 2025 aucun total 2025 n'est écrit ; "
-    "situation nette = I − II, ce n'est pas la dette de l'État ni Maastricht "
-    "(S41/S42/S44) ; Md€ = euros÷1e9 ; certaines colonnes de la pièce sont "
+    "comptabilité générale de l'État (CGE), pas le budget (S13). "
+    "Totaux lus dans la pièce de synthèse xlsx, jamais sommés depuis "
+    "les balances compte×programme. Millésime = 31/12 de la pièce, "
+    "jamais modified du catalogue. Les balances 2025 existent au grain "
+    "compte tant que la pièce ne porte pas 2025 aucun total 2025 n'est écrit. "
+    "Situation nette = I − II, ce n'est pas la dette de l'État ni Maastricht "
+    "(S41/S42/S44). Md€ = euros÷1e9. Certaines colonnes de la pièce sont "
     "en euros, d'autres en millions malgré l'en-tête"
 )
 

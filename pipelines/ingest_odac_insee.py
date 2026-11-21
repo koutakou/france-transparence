@@ -75,13 +75,13 @@ N_ANNEES_MIN = 25
 NOTES = (
     "comptes nationaux base 2020, présentation dépenses et recettes "
     "(Insee Résultats 8988845, tableau 3.204 seulement, secteur S13112 "
-    "ODAC) ; unité native Md€ ; date_donnees = 31/12 de l'année max, "
-    "jamais modified Melodi ni date de parution ; distinct de S50 "
-    "(S1311 = État+ODAC en consolidation, sans le 3.204 ; ne pas "
-    "additionner à S13111) ; distinct de S13 (budget de l'État), de S39 "
-    "(jaune opérateurs, 0 €), de S44 (TE/TR), de S42 (B9 non ingéré) ; "
-    "ODAC ≠ opérateurs de l'État ; pas de PO (3.216 reste à S50) ; "
-    "pas B9NF, pas épargne brute, pas les lignes dont"
+    "ODAC). Unité native Md€, date_donnees = 31/12 de l'année max, "
+    "jamais modified Melodi ni date de parution. Distinct de S50 "
+    "(S1311 = État+ODAC en consolidation, sans le 3.204, ne pas "
+    "additionner à S13111). Distinct de S13 (budget de l'État), de S39 "
+    "(jaune opérateurs, 0 €), de S44 (TE/TR), de S42 (B9 non ingéré). "
+    "ODAC ≠ opérateurs de l'État. Pas de PO (3.216 reste à S50). "
+    "Pas B9NF, pas épargne brute, pas les lignes dont"
 )
 
 _DDL = """

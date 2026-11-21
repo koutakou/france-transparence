@@ -55,7 +55,7 @@ from pipelines.common import obtenir_logger, session_http, telecharger
 log = obtenir_logger("dole")
 
 SOURCE_ID = "S43"
-NOM_SOURCE = "DILA — dossiers législatifs (DOLE)"
+NOM_SOURCE = "DILA : dossiers législatifs (DOLE)"
 URL_INDEX = "https://echanges.dila.gouv.fr/OPENDATA/DOLE/"
 URL_CATALOGUE = "https://www.data.gouv.fr/datasets/dole-les-dossiers-legislatifs"
 LICENCE = "Licence Ouverte 2.0"
@@ -88,13 +88,13 @@ RE_FREEMIUM = re.compile(
 RE_INCREMENT = re.compile(r'href="(DOLE_(\d{8})-(\d{6})\.tar\.gz)"')
 
 NOTES = (
-    "stock DILA DOLE (Freemium + incréments, last-write-wins) ; "
-    "métadonnées seulement, pas l'exposé des motifs ; "
-    "TYPE n'est pas clôturé en fin de législature — la navette affichée "
-    "est restreinte à la législature de numéro max ; "
-    "distinct de S3 (JORFSIMPLE, fenêtre 30 JO) et de S35 (autres fonds) ; "
+    "stock DILA DOLE (Freemium + incréments, last-write-wins). "
+    "Métadonnées seulement, pas l'exposé des motifs. "
+    "TYPE n'est pas clôturé en fin de législature : la navette affichée "
+    "est restreinte à la législature de numéro max. "
+    "Distinct de S3 (JORFSIMPLE, fenêtre 30 JO) et de S35 (autres fonds), "
     "date_donnees = max(DATE_DERNIERE_MODIFICATION), jamais last_update "
-    "data.gouv ; paternité DILA, Licence Ouverte 2.0"
+    "data.gouv. Paternité DILA, Licence Ouverte 2.0"
 )
 
 _DDL = """

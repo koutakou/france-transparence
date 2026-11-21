@@ -87,13 +87,13 @@ N_TOTALS_MIN = 20
 
 NOTES = (
     "flux annuel des PRESTATIONS (E11), pas les recettes, pas les frais "
-    "de gestion ; tous régimes (si_code S1), distinct du budget de l'État "
-    "(S13) et des dépenses APU ESA (S44, TE) ; le régime général S13141 "
-    "n'est pas l'ensemble de la sécurité sociale (S13142 existe) ; "
-    "tranches exclusives seulement (si_niveau 0/1, ps_niveau 0/1) — "
-    "les niveaux 2-3 recouvrent et ne sont pas ingérés ; "
-    "Md€ = million d'euros ÷ 1000 (jamais ÷ 1e9) ; "
-    "pas de % du PIB, pas de par habitant, pas de LFSS ; "
+    "de gestion. Tous régimes (si_code S1), distinct du budget de l'État "
+    "(S13) et des dépenses APU ESA (S44, TE). Le régime général S13141 "
+    "n'est pas l'ensemble de la sécurité sociale (S13142 existe). "
+    "Tranches exclusives seulement (si_niveau 0/1, ps_niveau 0/1) : "
+    "les niveaux 2-3 recouvrent et ne sont pas ingérés. "
+    "Md€ = million d'euros ÷ 1000 (jamais ÷ 1e9). "
+    "Pas de % du PIB, pas de par habitant, pas de LFSS, "
     "date_donnees = 31/12 de l'année max, jamais last_update data.gouv"
 )
 
