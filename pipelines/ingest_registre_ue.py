@@ -101,7 +101,7 @@ from pipelines.common import RAW_DIR, assainir_texte, obtenir_logger, telecharge
 log = obtenir_logger("registre_ue")
 
 ID_SOURCE = "S40"
-NOM_SOURCE = "Registre de transparence de l'Union européenne — organisations"
+NOM_SOURCE = "Registre de transparence de l'Union européenne : organisations"
 URL_EXPORT = "https://transparency-register.europa.eu/odplastorganisationxml_en"
 URL_CATALOGUE = "https://data.europa.eu/api/hub/search/datasets/transparency-register"
 LICENCE = "Décision 2011/833/UE (réutilisation des documents de la Commission)"
@@ -333,7 +333,7 @@ def libelle_fourchette(borne_min: float | None, borne_max: float | None) -> str 
     Le registre publie les bornes, pas un libellé : trois formes existent
     dans la donnée réelle et sont rendues telles quelles —
     `(None, 10000)` → « < 10 000 € » (la fourchette d'entrée est ouverte
-    vers le bas), `(10000, 24999)` → « 10 000 € – 24 999 € »,
+    vers le bas), `(10000, 24999)` → « de 10 000 € à 24 999 € »,
     `(10000000, None)` → « ≥ 10 000 000 € » (dernière fourchette, non
     bornée). Deux bornes absentes = rien n'a été déclaré → None, et surtout
     pas « 0 € ».
@@ -344,7 +344,7 @@ def libelle_fourchette(borne_min: float | None, borne_max: float | None) -> str 
         return f"< {_euros(borne_max)}"  # type: ignore[arg-type]
     if borne_max is None:
         return f"≥ {_euros(borne_min)}"
-    return f"{_euros(borne_min)} – {_euros(borne_max)}"
+    return f"de {_euros(borne_min)} à {_euros(borne_max)}"
 
 
 def url_fiche_ue(identifiant: str | None) -> str | None:
@@ -606,14 +606,14 @@ def ecrire_db(conn, donnees: dict) -> None:
             "Registre de transparence commun Parlement européen / Commission "
             "européenne (accord interinstitutionnel du 20/05/2021). BLOC "
             "CLOISONNÉ : cadre juridique distinct de celui du répertoire "
-            "français des représentants d'intérêts (S4, loi « Sapin II ») — "
-            "les tables ue_registre_* ne doivent jamais être fusionnées avec "
+            "français des représentants d'intérêts (S4, loi « Sapin II »). "
+            "Les tables ue_registre_* ne doivent jamais être fusionnées avec "
             "les tables lobby_*, ni leurs montants comparés. Aucune clé de "
             "rapprochement n'existe de toute façon : l'export ne porte ni "
             "SIREN ni numéro de TVA. Organisations seulement : le second "
             "export du registre (personnes physiques accréditées auprès du "
             f"Parlement européen) n'est pas ingéré. {stats['organisations_total']} "
-            f"inscrits, dont {stats['france_total']} à siège en France ; "
+            f"inscrits, dont {stats['france_total']} à siège en France, "
             f"{stats['personnes_physiques_exclues']} travailleurs indépendants "
             "(personnes physiques) comptés dans les agrégats mais exclus de la "
             "table nominative. Coûts annuels de représentation d'intérêts en "

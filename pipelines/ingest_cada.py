@@ -127,7 +127,7 @@ URL_DATASET_PAGE = "https://www.data.gouv.fr/datasets/avis-et-conseils-de-la-cad
 # à chaque lot (…/20260814-172417/cada-2026-08-14.csv).
 TITRE_RESSOURCE = "ensemble consolidé"
 
-NOM_SOURCE = "CADA — avis et conseils (ensemble consolidé)"
+NOM_SOURCE = "CADA : avis et conseils (ensemble consolidé)"
 LICENCE = "Licence Ouverte (version non vérifiée)"
 # Cadence réelle observée sur les lots publiés : deux à quatre versements par
 # an, sans calendrier annoncé. « annuelle » serait faux, « quotidienne » aussi.
@@ -636,8 +636,8 @@ def ecrire_db(conn: sqlite3.Connection, agr: Agregats,
         phrase_retard = (
             f"Écart de publication : dernière séance publiée le "
             f"{derniere_seance.strftime('%d/%m/%Y')} alors que le jeu a été modifié "
-            f"le {versement.strftime('%d/%m/%Y')}, soit {retard_mois} mois d'écart ; "
-            f"les derniers millésimes sont donc incomplets par construction."
+            f"le {versement.strftime('%d/%m/%Y')}, soit {retard_mois} mois d'écart. "
+            f"Les derniers millésimes sont donc incomplets par construction."
         )
     else:
         phrase_retard = ("Date de versement amont indisponible : "
@@ -649,7 +649,7 @@ def ecrire_db(conn: sqlite3.Connection, agr: Agregats,
                         for t, n in agr.types.most_common())
     notes = (
         f"AGRÉGATS SEULEMENT : le texte intégral des décisions (93 % du CSV de "
-        f"198 Mo) n'est jamais ingéré — poids et prudence, les motivations "
+        f"198 Mo) n'est jamais ingéré : poids et prudence, les motivations "
         f"nomment des responsables publics. {agr.lignes} décisions dépouillées "
         f"({volumes}), séances du "
         f"{agr.premiere_seance.strftime('%d/%m/%Y') if agr.premiere_seance else '?'} "
@@ -749,7 +749,7 @@ def executer(chemin_db=None, max_age_heures: float | None = CACHE_HEURES,
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="P16 — avis et conseils de la CADA, en agrégats seulement."
+        description="P16 : avis et conseils de la CADA, en agrégats seulement."
     )
     parser.add_argument(
         "--csv", dest="chemin_csv", default=None,

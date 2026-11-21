@@ -688,7 +688,7 @@ def test_index_reduit_a_deux_nocturnes_la_base_garde_ses_trente_jo(
     assert c.execute("SELECT count(*) FROM jorf_textes").fetchone()[0] == 32
     note = _note_s3(c)
     assert note == (
-        "30 JO, du 14/07/2026 au 19/08/2026 ; le dépôt public de la DILA"
+        "30 JO, du 14/07/2026 au 19/08/2026. Le dépôt public de la DILA"
         " propose 2 éditions quotidiennes du JO depuis son renouvellement du"
         " 08/11/2026, les JO plus anciens viennent de ce qui a été conservé ici")
     c.close()
@@ -719,7 +719,7 @@ def test_la_fenetre_glisse_sur_les_jo_en_base_pas_sur_l_index(
     assert c.execute("SELECT count(*) FROM jorf_textes_archive").fetchone()[0] == 20
     assert c.execute(
         "SELECT MAX(date_publi) FROM jorf_textes_archive").fetchone()[0] < attendus[0]
-    assert _note_s3(c).startswith("10 JO, du 07/08/2026 au 19/08/2026 ;")
+    assert _note_s3(c).startswith("10 JO, du 07/08/2026 au 19/08/2026.")
     c.close()
 
 
@@ -788,7 +788,7 @@ def test_base_vide_et_index_reduit_la_fenetre_se_dit_reduite(
         f"{MARQUE_FENETRE_REDUITE} : 1 JO sur les 30 visés,"
         " du 19/08/2026 au 19/08/2026 (constat du ")
     assert note.endswith(
-        " ; le dépôt public de la DILA propose 2 éditions quotidiennes du JO"
+        ". Le dépôt public de la DILA propose 2 éditions quotidiennes du JO"
         " depuis son renouvellement du 08/11/2026, les JO plus anciens ne"
         " sont pas affichés ici")
     # Lue telle quelle sur /documents : aucun mot du pipeline.
@@ -837,7 +837,7 @@ def test_fenetre_discontinue_se_dit_dans_la_note_et_au_journal(
     assert note.startswith(f"{MARQUE_FENETRE_REDUITE} : 16 JO sur les 30 visés")
     assert note.endswith(
         "propose 1 édition quotidienne du JO, les JO plus anciens ne sont pas"
-        " affichés ici ; aucun JO entre le 31/07/2026 et le 19/08/2026 (19 jours)")
+        " affichés ici, aucun JO entre le 31/07/2026 et le 19/08/2026 (19 jours)")
     avert = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
     assert sum("fenêtre DISCONTINUE : 1 écart(s)" in m for m in avert) == 1
 
@@ -850,15 +850,15 @@ def test_note_fenetre_pleine_mais_discontinue():
     note = note_fenetre(troues, len(troues), 400, None, "2026-08-19")
     assert note.startswith(
         f"{MARQUE_FENETRE_DISCONTINUE} : aucun JO entre le 31/07/2026"
-        " et le 08/08/2026 (8 jours) (constat du 19/08/2026) ; 24 JO, du ")
+        " et le 08/08/2026 (8 jours) (constat du 19/08/2026). 24 JO, du ")
     pleine = note_fenetre(dates, 30, 400, None, "2026-08-19")
     assert pleine == (
-        "30 JO, du 14/07/2026 au 19/08/2026 ; le dépôt public de la DILA"
+        "30 JO, du 14/07/2026 au 19/08/2026. Le dépôt public de la DILA"
         " propose 400 éditions quotidiennes du JO")
     # Bornes exactes : 30 JO pour 30 visés n'est pas « réduit », un dépôt
     # qui propose exactement 30 éditions non plus ; 29 l'est.
     assert note_fenetre(dates, 30, 30, "20261108", "2026-08-19") == (
-        "30 JO, du 14/07/2026 au 19/08/2026 ; le dépôt public de la DILA"
+        "30 JO, du 14/07/2026 au 19/08/2026. Le dépôt public de la DILA"
         " propose 30 éditions quotidiennes du JO")
     assert "renouvellement du 08/11/2026" in note_fenetre(
         dates, 30, 29, "20261108", "2026-08-19")
@@ -921,7 +921,7 @@ def test_les_jo_archives_a_tort_reviennent_dans_la_fenetre(
     assert [tuple(r) for r in c.execute(
         "SELECT texte_id, date_publi, archive_le FROM jorf_textes_archive")] == [
         ("JORFTEXT000000341494", "2007-11-27", "2026-10-15")]
-    assert _note_s3(c).startswith("30 JO, du 14/07/2026 au 19/08/2026 ;")
+    assert _note_s3(c).startswith("30 JO, du 14/07/2026 au 19/08/2026.")
     c.close()
     avert = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
     assert sum(
@@ -985,7 +985,7 @@ def test_fenetre_d_exactement_la_taille_visee_n_est_pas_reduite(
         monkeypatch, tmp_path, '<a href="JORFSIMPLE_20260819-003035.tar.gz">',
         {"JORFSIMPLE_20260819-003035.tar.gz": mini_tarball}, args=("--jours", "1"))
     assert code == 0
-    assert _note_s3(c).startswith("1 JO, du 19/08/2026 au 19/08/2026 ;")
+    assert _note_s3(c).startswith("1 JO, du 19/08/2026 au 19/08/2026.")
     c.close()
     assert not any("RÉDUITE" in r.getMessage() for r in caplog.records)
 
@@ -1132,7 +1132,7 @@ def test_base_neuve_index_reduit_copies_au_coffre_trente_jo(
     # 29 textes relus (un par extrait) + les 2 de la nocturne téléchargée.
     assert c.execute("SELECT count(*) FROM jorf_textes").fetchone()[0] == 31
     assert _note_s3(c) == (
-        "30 JO, du 14/07/2026 au 19/08/2026 ; le dépôt public de la DILA"
+        "30 JO, du 14/07/2026 au 19/08/2026. Le dépôt public de la DILA"
         " propose 1 édition quotidienne du JO depuis son renouvellement du"
         " 08/11/2026, les JO plus anciens viennent de ce qui a été conservé ici")
     c.close()
@@ -1220,7 +1220,7 @@ def test_copie_ecartee_au_milieu_de_la_fenetre_est_nommee_dans_la_note(
     note = _note_s3(c)
     c.close()
     assert note.startswith(f"{MARQUE_FENETRE_REDUITE} : 29 JO sur les 30 visés")
-    assert note.endswith(" ; édition quotidienne non relue : 16/07/2026")
+    assert note.endswith(", édition quotidienne non relue : 16/07/2026")
     avert = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
     assert sum("fenêtre INCOMPLÈTE : 1 édition(s)" in m and "2026-07-16" in m
                for m in avert) == 1
@@ -1235,19 +1235,19 @@ def test_editions_non_relues_dans_la_note():
         sans, len(sans), 400, None, "2026-08-19", ("2026-07-17", "2026-07-16")
     ) == (
         f"{MARQUE_FENETRE_DISCONTINUE} : aucun JO entre le 14/07/2026 et le"
-        " 18/07/2026 (4 jours) ; éditions quotidiennes non relues :"
-        " 16/07/2026, 17/07/2026 (constat du 19/08/2026) ; 28 JO, du"
-        " 14/07/2026 au 19/08/2026 ; le dépôt public de la DILA propose 400"
+        " 18/07/2026 (4 jours), éditions quotidiennes non relues :"
+        " 16/07/2026, 17/07/2026 (constat du 19/08/2026). 28 JO, du"
+        " 14/07/2026 au 19/08/2026. Le dépôt public de la DILA propose 400"
         " éditions quotidiennes du JO")
     sans_le_16 = [d for d in dates if d != "2026-07-16"]
     assert note_fenetre(
         sans_le_16, 29, 400, None, "2026-08-19", ("2026-07-16",)
     ).startswith(
         f"{MARQUE_FENETRE_DISCONTINUE} : édition quotidienne non relue :"
-        " 16/07/2026 (constat du 19/08/2026) ; 29 JO, du ")
+        " 16/07/2026 (constat du 19/08/2026). 29 JO, du ")
     assert note_fenetre(
         sans_le_16, 30, 400, None, "2026-08-19", ("2026-07-16",)
-    ).endswith(" ; édition quotidienne non relue : 16/07/2026")
+    ).endswith(", édition quotidienne non relue : 16/07/2026")
     assert "non relue" not in note_fenetre(dates, 30, 400, None, "2026-08-19")
 
 
@@ -1366,7 +1366,7 @@ def test_index_sans_nocturne_base_neuve_les_copies_font_le_cycle(
     assert c.execute(
         "SELECT date_donnees FROM meta_sources WHERE source_id = 'S3'"
     ).fetchone()[0] == "2026-08-19"
-    assert "le dépôt public de la DILA ne propose aucune édition quotidienne du JO" in _note_s3(c)
+    assert "Le dépôt public de la DILA ne propose aucune édition quotidienne du JO" in _note_s3(c)
     c.close()
     avert = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
     assert sum("index DILA réduit à 0 livraison nocturne" in m
@@ -1391,7 +1391,7 @@ def test_dila_injoignable_base_neuve_les_copies_font_le_cycle(monkeypatch, tmp_p
     c = db.connexion(base)
     assert _jo_en_base(c) == [l[0] for l in _trente_jo()]
     assert _note_s3(c) == (
-        "30 JO, du 14/07/2026 au 19/08/2026 ; le dépôt public de la DILA"
+        "30 JO, du 14/07/2026 au 19/08/2026. Le dépôt public de la DILA"
         " n'a pas pu être lu, les JO plus anciens viennent de ce qui a été"
         " conservé ici")
     c.close()

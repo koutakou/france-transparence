@@ -172,7 +172,7 @@ DELAI_LEGAL_A1_MOIS = 2
 SEUIL_PERSONNES_AGREGAT = 3
 
 BASE_LEGALE_A1 = (
-    "Loi n° 2013-907 du 11 octobre 2013 (art. 4 et 11) ; art. LO 135-1 du code "
+    "Loi n° 2013-907 du 11 octobre 2013 (art. 4 et 11). Art. LO 135-1 du code "
     "électoral : dépôt dans les 2 mois suivant l'entrée en fonction. Sanctions "
     "(art. 26) : 3 ans d'emprisonnement, 45 000 € d'amende, inéligibilité."
 )
@@ -1886,12 +1886,12 @@ def main() -> int:
         statuts = Counter(d["statut_publication"] for d in dossiers)
         db.upsert_meta(
             conn, source_id="S14",
-            nom="HATVP — liste des déclarations publiées (liste.csv)",
+            nom="HATVP : liste des déclarations publiées (liste.csv)",
             url=URL_HATVP_LISTE, licence="Licence Ouverte (version non vérifiée)",
             frequence="hebdomadaire", date_donnees=date_hatvp, lignes=len(dossiers),
             notes=f"statuts : {statuts[STATUT_EN_COURS]} « En cours », "
-                  f"{statuts[STATUT_NON_DEPOSEE]} « Déclaration non déposée » ; "
-                  "décompte recalculé à chaque cycle (méthode : "
+                  f"{statuts[STATUT_NON_DEPOSEE]} « Déclaration non déposée ». "
+                  "Décompte recalculé à chaque cycle (méthode : "
                   "https://francetransparence.fr/comprendre/#elus)")
         db.upsert_meta(
             conn, source_id="S17",
@@ -1899,7 +1899,7 @@ def main() -> int:
             url=URL_RNE_PAGE, licence="Licence Ouverte 2.0",
             frequence="trimestrielle", date_donnees=date_rne, lignes=nb_mandats_ingeres,
             notes=f"mandats ingérés : députés, sénateurs, maires, présidents "
-                  f"d'exécutifs ; {total_cm} conseillers municipaux agrégés par "
+                  f"d'exécutifs, {total_cm} conseillers municipaux agrégés par "
                   "département, non ingérés nominativement")
         conn.commit()
         log.info("P7 terminé : %d dossiers HATVP, %d mandats RNE, %d alertes A1",

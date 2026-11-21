@@ -102,7 +102,7 @@ PAGE_ASSOS = ("https://data.economie.gouv.fr/explore/dataset/plf25-donnees-de-l-
 ETIQUETTE_2026 = ("PLF 2026 déposé le 14/10/2025, pas la LFI promulguée le "
                   "19/02/2026 (crédits par mission non publiés en données sur "
                   "data.economie.gouv.fr au 21/11/2026)")
-ETIQUETTE_2025 = "PLF 2025 déposé en octobre 2024 — projet, pas la LFI 2025 votée"
+ETIQUETTE_2025 = "PLF 2025 déposé en octobre 2024 : projet, pas la LFI 2025 votée"
 ANNEE_VERSEMENT_ASSOS = 2023  # millésime du jaune PLF 2025 (colonne source objet_2023)
 
 # ---------------------------------------------------------------------------
@@ -457,34 +457,34 @@ def main() -> int:
         # 3. Fraîcheur par source (date de la donnée, jamais la date du jour).
         db.upsert_meta(
             conn, source_id="S20",
-            nom="PLF 2026 — Budget vert (mission × programme × action)",
+            nom="PLF 2026 : Budget vert (mission × programme × action)",
             url=PAGE_VERT, licence="Licence Ouverte 2.0", frequence="annuelle",
             date_donnees="2025-10-14",
             lignes=len(verts),
             notes="Montants 2026 = PLF déposé le 14/10/2025, PAS la LFI "
                   "promulguée le 19/02/2026 (mention « PLF » obligatoire à "
-                  "l'affichage) ; inclut l'exécution 2024 réelle en CP par action.",
+                  "l'affichage). Inclut l'exécution 2024 réelle en CP par action.",
         )
         db.upsert_meta(
             conn, source_id="S21",
-            nom="PLF 2025 — dépenses selon destination (ministère → sous-action × titre)",
+            nom="PLF 2025 : dépenses selon destination (ministère → sous-action × titre)",
             url=PAGE_DEST, licence="Licence Ouverte 2.0", frequence="annuelle",
             date_donnees="2024-10-11",
             lignes=len(dests),
             notes="PLF 2025 déposé en octobre 2024 (données publiées le "
-                  "11/10/2024) — projet de loi, pas la LFI votée ; aucun "
+                  "11/10/2024) : projet de loi, pas la LFI votée. Aucun "
                   "équivalent PLF/LFI 2026 publié en données sur "
-                  "data.economie.gouv.fr au 21/11/2026 ; montants BG bruts.",
+                  "data.economie.gouv.fr au 21/11/2026. Montants BG bruts.",
         )
         db.upsert_meta(
             conn, source_id="S23",
-            nom="Jaune PLF 2025 — subventions de l'État aux associations (versements 2023)",
+            nom="Jaune PLF 2025 : subventions de l'État aux associations (versements 2023)",
             url=PAGE_ASSOS, licence="Licence Ouverte 2.0", frequence="annuelle",
             date_donnees="2023-12-31",
             lignes=len(assos),
             notes="Versements 2023, publiés en décembre 2024 avec le PLF 2025 "
-                  "(décalage ~2 ans) ; le jaune PLF 2026 n'est pas publié en "
-                  "données au 19/08/2026 ; qualité Chorus brute (SIREN « NR » "
+                  "(décalage ~2 ans). Le jaune PLF 2026 n'est pas publié en "
+                  "données au 19/08/2026. Qualité Chorus brute (SIREN « NR » "
                   "→ NULL, textes nettoyés).",
         )
         conn.close()

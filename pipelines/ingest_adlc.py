@@ -139,15 +139,15 @@ HEROS_MIN = 1_000_000_000.0
 HEROS_MAX = 50_000_000_000.0
 
 NOTES = (
-    "CSV sanctions 2009+ joint aux métadonnées (titre, date, URL) ; "
-    "grain = SUM(Montant total) une fois par id_decision ; pas "
-    "SUM(individuel) ni totaux répétés sur chaque ligne ; personnes "
-    "physiques hors table nominative ; décision 18-D-19 hors héros "
-    "(particulier seul) ; date_donnees = date de la dernière décision "
-    "sanctionnée, jamais last_modified du dataset ; JSON texte intégral "
-    "non ingéré ; xlsx 2021 non ingéré ; 0 SIREN, pas de jointure "
-    "DECP/HATVP ; pas un marché public, pas une recette S13, pas un "
-    "recouvrement (avant appels et recours) ; source_id S52, jamais S39"
+    "CSV sanctions 2009+ joint aux métadonnées (titre, date, URL). "
+    "Grain = SUM(Montant total) une fois par id_decision. Pas "
+    "SUM(individuel) ni totaux répétés sur chaque ligne. Personnes "
+    "physiques hors table nominative. Décision 18-D-19 hors héros "
+    "(particulier seul), date_donnees = date de la dernière décision "
+    "sanctionnée, jamais last_modified du dataset. JSON texte intégral "
+    "non ingéré. Xlsx 2021 non ingéré, 0 SIREN, pas de jointure "
+    "DECP/HATVP. Pas un marché public, pas une recette S13, pas un "
+    "recouvrement (avant appels et recours), source_id S52, jamais S39"
 )
 
 _DDL = """

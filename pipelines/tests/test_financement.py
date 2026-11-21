@@ -986,7 +986,7 @@ def test_s25_date_donnees_suit_le_dernier_exercice_ingere(monkeypatch, tmp_path)
     finally:
         c.close()
     assert d == "2023-12-31"
-    assert note.startswith("Exercice 2023 ; ")
+    assert note.startswith("Exercice 2023, ")
 
 
 def test_un_cycle_reussi_ecrit_les_trois_lignes_meta(monkeypatch, tmp_path):
@@ -1041,7 +1041,7 @@ def test_note_s25_lit_le_dernier_exercice_publie_dans_le_jeu():
     tableur = [{**avis_seul[0], "format": "xlsx"}, *RESSOURCES_CNCCFP_2026_11_11]
     assert fin.dernier_exercice_publie(tableur) == (2025, "2026-02-10")
     phrase = fin.phrase_exercices_partis((2021, 2022, 2023, 2024), publie, date(2026, 11, 11))
-    assert phrase == ("Exercices 2021-2024 ; l'exercice 2024 (dépôt N+1, publication N+2) "
+    assert phrase == ("Exercices 2021-2024, l'exercice 2024 (dépôt N+1, publication N+2) "
                       "est paru le 10/02/2026 et restait le plus récent publié au 11/11/2026")
 
 

@@ -181,7 +181,7 @@ def test_libelle_fourchette():
     """Les trois formes réellement publiées, et rien de plus."""
     assert libelle_fourchette(None, 10000.0) == f"< 10{FINE}000{INSEC}€"
     assert libelle_fourchette(25000.0, 49999.0) == (
-        f"25{FINE}000{INSEC}€ – 49{FINE}999{INSEC}€"
+        f"de 25{FINE}000{INSEC}€ à 49{FINE}999{INSEC}€"
     )
     assert libelle_fourchette(10000000.0, None) == f"≥ 10{FINE}000{FINE}000{INSEC}€"
     # rien de déclaré : surtout pas « 0 € »

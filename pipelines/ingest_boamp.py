@@ -70,7 +70,7 @@ from pipelines.common import assainir_texte_integral, obtenir_logger, telecharge
 log = obtenir_logger("ingest_boamp")
 
 SOURCE_ID = "S2"
-SOURCE_NOM = "BOAMP — annonces de marchés publics (DILA)"
+SOURCE_NOM = "BOAMP : annonces de marchés publics (DILA)"
 SOURCE_URL = "https://boamp-datadila.opendatasoft.com/explore/dataset/boamp/"
 SOURCE_LICENCE = "Licence Ouverte 2.0"
 SOURCE_FREQUENCE = "quotidienne"
@@ -820,10 +820,10 @@ def _executer() -> None:
                 f"{len(aos)} AO en cours (dont {nb_annulees} annulés, "
                 f"{nb_montants} avec montant publié dans l'annonce, "
                 f"{nb_fourchettes} autres avec seulement une fourchette "
-                f"d'estimation, jamais comptée comme un montant) ; "
+                f"d'estimation, jamais comptée comme un montant), "
                 f"{len(annonces)} annonces sur {FENETRE_JOURS} jours civils "
-                f"(aujourd'hui compris) ; "
-                "via /exports/json (plafond /records 10 000)"
+                f"(aujourd'hui compris). "
+                "Via /exports/json (plafond /records 10 000)"
             ),
         )
     finally:

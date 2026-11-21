@@ -75,12 +75,12 @@ BORNE_MAX_MIO = 8e6  # exclusive
 N_VALUES_MIN = 80
 
 NOTES = (
-    "stock consolidé brut, valeur faciale, fin de trimestre ; "
-    "ESA S13 = APU, distinct de la source S13 (SMB DGFiP, flux de l'État) ; "
-    "na_item=GD uniquement, jamais un déficit ; "
-    "distinct des charges d'intérêts DGFiP ; "
-    "Md€ = MIO_EUR÷1000 (jamais ÷1e9) ; "
-    "le TIME max peut porter le statut p (provisoire) ; "
+    "stock consolidé brut, valeur faciale, fin de trimestre. "
+    "ESA S13 = APU, distinct de la source S13 (SMB DGFiP, flux de l'État), "
+    "na_item=GD uniquement, jamais un déficit. "
+    "Distinct des charges d'intérêts DGFiP. "
+    "Md€ = MIO_EUR÷1000 (jamais ÷1e9). "
+    "Le TIME max peut porter le statut p (provisoire). "
     "DOI 10.2908/GOV_10Q_GGDEBT"
 )
 

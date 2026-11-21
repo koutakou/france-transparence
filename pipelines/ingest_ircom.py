@@ -70,7 +70,7 @@ log = obtenir_logger("ircom")
 
 SOURCE_ID = "S47"
 NOM_SOURCE = (
-    "IRCOM — impôt sur le revenu par collectivité territoriale "
+    "IRCOM : impôt sur le revenu par collectivité territoriale "
     "(DGFiP, DESF)"
 )
 URL_DATASET = (
@@ -99,13 +99,13 @@ N_NC_MAX = 1_000
 
 NOTES = (
     "impôt net SUR RÔLE des foyers, année des REVENUS, par commune "
-    "de résidence ; pas l'IR de caisse S13 (budget général, cumul YTD) ; "
-    "pas le PFU (crédit d'impôt exclu) ; CEHR incluse ; n.c. = secret "
-    "statistique (notice DESF) ; un négatif est une restitution ; "
-    "tranches de RFR, salaires et pensions NON ingérés ; "
-    "unité native = milliers d'euros, stockée en euros (× 1000) ; "
-    "Md€ = euros ÷ 1e9 ; date_donnees = 31/12 de l'année des revenus, "
-    "jamais last_update data.gouv ; B31 (Autres, DINR, SPM) entre "
+    "de résidence. Pas l'IR de caisse S13 (budget général, cumul YTD). "
+    "Pas le PFU (crédit d'impôt exclu). CEHR incluse. N.c. = secret "
+    "statistique (notice DESF). Un négatif est une restitution. "
+    "Tranches de RFR, salaires et pensions NON ingérés. "
+    "Unité native = milliers d'euros, stockée en euros (× 1000). "
+    "Md€ = euros ÷ 1e9, date_donnees = 31/12 de l'année des revenus, "
+    "jamais last_update data.gouv. B31 (Autres, DINR, SPM) entre "
     "dans le total national, pas dans la carte des départements"
 )
 

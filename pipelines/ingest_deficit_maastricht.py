@@ -86,13 +86,13 @@ BORNE_MAX_ABS_PC = 20.0  # exclusive
 N_VALUES_MIN = 25
 
 NOTES = (
-    "flux annuel, na_item=B9 (net lending + / net borrowing −) ; "
+    "flux annuel, na_item=B9 (net lending + / net borrowing −). "
     "ESA S13 = APU, distinct de la source S13 (SMB DGFiP, solde de l'État) "
-    "et de S41 (stock GD trimestriel) ; "
-    "Md€ = MIO_EUR÷1000 (jamais ÷1e9) ; "
-    "PC_GDP lu à part, jamais comparé au seuil de 3 % ; "
-    "pas de série trimestrielle, pas de S.1311, pas de par habitant ; "
-    "date_donnees = 31/12 du TIME max, jamais JSON-stat updated ; "
+    "et de S41 (stock GD trimestriel). "
+    "Md€ = MIO_EUR÷1000 (jamais ÷1e9). "
+    "PC_GDP lu à part, jamais comparé au seuil de 3 %. "
+    "Pas de série trimestrielle, pas de S.1311, pas de par habitant, "
+    "date_donnees = 31/12 du TIME max, jamais JSON-stat updated. "
     "DOI 10.2908/GOV_10DD_EDPT1"
 )
 

@@ -55,7 +55,7 @@ log = obtenir_logger("recettes_plf")
 
 SOURCE_ID = "S46"
 NOM_SOURCE = (
-    "PLF 2025 — recettes du budget général "
+    "PLF 2025 : recettes du budget général "
     "(État A, Direction du Budget)"
 )
 URL_DATASET = (
@@ -79,7 +79,7 @@ FICHIER_RAW = "budget/plf25_recettes_bg.csv"
 DATES_PUBLICATION = {2025: "2024-10-11"}
 
 ETIQUETTE = (
-    "PLF 2025 déposé en octobre 2024 — projet, pas la LFI 2025 votée, "
+    "PLF 2025 déposé en octobre 2024 : projet, pas la LFI 2025 votée, "
     "pas l'exécution (S13)"
 )
 
@@ -111,13 +111,13 @@ BORNE_NF = (5e9, 50e9)        # 5–50 Md€ de non fiscales
 BORNE_FISCALES = (200e9, 900e9)
 
 NOTES = (
-    "État A du PLF, recettes BRUTES en euros, pas les nettes S13 ; "
-    "pas la LFI votée ; pas 2026 (aucun jeu plf26-recettes au 24/08) ; "
-    "56 lignes non fiscales = le détail que S13 ne publie pas ; "
-    "lignes 2110/2116/2199 = participations et dividendes du même "
-    "État A, pas le rapport APE ; PSR = prélèvements sur recettes, "
-    "pas un encaissement conservé ; un zéro publié est un zéro ; "
-    "Md€ = euros ÷ 1e9 à la lecture (jamais ÷ 1000) ; "
+    "État A du PLF, recettes BRUTES en euros, pas les nettes S13. "
+    "Pas la LFI votée. Pas 2026 (aucun jeu plf26-recettes au 24/08), "
+    "56 lignes non fiscales = le détail que S13 ne publie pas. "
+    "Lignes 2110/2116/2199 = participations et dividendes du même "
+    "État A, pas le rapport APE. PSR = prélèvements sur recettes, "
+    "pas un encaissement conservé. Un zéro publié est un zéro. "
+    "Md€ = euros ÷ 1e9 à la lecture (jamais ÷ 1000), "
     "date_donnees = publication open data du millésime max "
     "(2025 → 2024-10-11, lendemain du dépôt AN 10/10/2024), "
     "jamais modified relu à chaque run"

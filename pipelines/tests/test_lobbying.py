@@ -288,7 +288,7 @@ def test_agregat_distingue_entites_et_exercices():
     assert detail.startswith("1 entité inscrite ")
     assert "sur 2 exercices concernés : 2 sans aucune publication, " \
         "0 avec communication partielle" in detail
-    assert "exercice 2023 : 1 ; exercice 2024 : 1" in detail
+    assert "exercice 2023 : 1, exercice 2024 : 1" in detail
     assert "un exercice flaggé = une entité comptée" not in regle
 
 def test_idempotence_et_table_alertes_partagee(base, tmp_path):

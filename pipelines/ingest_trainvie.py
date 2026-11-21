@@ -141,33 +141,33 @@ URL_CE_2023_452521 = "https://www.conseil-etat.fr/fr/arianeweb/CE/decision/2023-
 URL_DATAGOUV_FRAIS_MANDAT = "https://www.data.gouv.fr/api/1/datasets/?q=frais%20de%20mandat"
 
 SRC_AN_SITUATION = (
-    "Assemblée nationale — fiche de synthèse n° 7 « La situation matérielle du député » "
+    "Assemblée nationale : fiche de synthèse n° 7 « La situation matérielle du député » "
     "(màj janvier 2026)"
 )
-SRC_SENAT_INDEMNITE = "Sénat — « L'indemnité parlementaire » (senat.fr)"
+SRC_SENAT_INDEMNITE = "Sénat : « L'indemnité parlementaire » (senat.fr)"
 SRC_AN_DFP = (
-    "Assemblée nationale — fiche pratique déontologie « Frais de mandat » "
+    "Assemblée nationale : fiche pratique déontologie « Frais de mandat » "
     "(DFP, arrêté du Bureau n° 34/XVII du 02/07/2025)"
 )
-SRC_SENAT_FRAIS = "Sénat — « Les frais de mandat » (senat.fr)"
+SRC_SENAT_FRAIS = "Sénat : « Les frais de mandat » (senat.fr)"
 SRC_AN_DEONTOLOGUE = (
     "Rapport du déontologue de l'Assemblée nationale du 13/05/2026 (exercice 2024)"
 )
-SRC_SENAT_CDP = "Comité de déontologie parlementaire du Sénat — rapport d'activité 2024-2025"
+SRC_SENAT_CDP = "Comité de déontologie parlementaire du Sénat : rapport d'activité 2024-2025"
 SRC_CCOMPTES_2025 = (
-    "Cour des comptes — « Les comptes et la gestion des services de la présidence "
+    "Cour des comptes : « Les comptes et la gestion des services de la présidence "
     "de la République », exercice 2025 (S2026-0961, publié le 17/09/2026)"
 )
 SRC_CCOMPTES_2024 = (
-    "Cour des comptes — « Les comptes et la gestion des services de la présidence "
+    "Cour des comptes : « Les comptes et la gestion des services de la présidence "
     "de la République », exercice 2024 (publié le 18/07/2025)"
 )
 SRC_CCOMPTES_2023 = (
-    "Cour des comptes — « Les comptes et la gestion des services de la présidence "
+    "Cour des comptes : « Les comptes et la gestion des services de la présidence "
     "de la République », exercice 2023 (publié le 29/07/2024)"
 )
 SRC_SENAT_RAP_LFI2026 = (
-    "Rapport Sénat n° 139 (2025-2026), tome III annexe 32 — mission « Pouvoirs publics » "
+    "Rapport Sénat n° 139 (2025-2026), tome III annexe 32 : mission « Pouvoirs publics » "
     "(LFI 2026, loi n° 2026-103 du 19/02/2026)"
 )
 SRC_JAUNE_CABINETS = (
@@ -175,7 +175,7 @@ SRC_JAUNE_CABINETS = (
     "(situation au 01/07/2025)"
 )
 SRC_DGCL_BAREME = (
-    "DGCL — barème des indemnités maximales des élus locaux au 01/01/2026 "
+    "DGCL : barème des indemnités maximales des élus locaux au 01/01/2026 "
     "(collectivites-locales.gouv.fr, màj 17/02/2026)"
 )
 
@@ -194,7 +194,7 @@ FAITS: list[dict] = [
          institution="Assemblée nationale et Sénat",
          source_nom=SRC_AN_SITUATION, source_url=URL_AN_SITUATION,
          date_source="2026-01",
-         notes="Valeur au 01/01/2024, en vigueur à la date de la fiche consultée (janvier 2026) ; identique députés/sénateurs."),
+         notes="Valeur au 01/01/2024, en vigueur à la date de la fiche consultée (janvier 2026). Identique députés/sénateurs."),
     dict(id="ip-base", assiette="brut", categorie="indemnites_parlementaires",
          libelle="Indemnité de base", valeur=5931.95, unite="euros_par_mois",
          periode="2026", institution="Assemblée nationale et Sénat",
@@ -222,8 +222,8 @@ FAITS: list[dict] = [
          unite="euros_par_mois", periode="2026", institution="Sénat",
          source_nom=SRC_SENAT_INDEMNITE, source_url=URL_SENAT_INDEMNITE,
          date_source="2026-08-19",
-         notes="Net inférieur à celui d'un député (cotisation pension plus élevée) ; "
-               "page consultée le 19/08/2026."),
+         notes="Net inférieur à celui d'un député (cotisation pension plus élevée). "
+               "Page consultée le 19/08/2026."),
     dict(id="ip-ecretement-cumul", assiette="brut", categorie="indemnites_parlementaires",
          libelle="Plafond d'écrêtement des indemnités de mandats locaux cumulés",
          valeur=2965.98, unite="euros_par_mois", periode="2026",
@@ -245,7 +245,7 @@ FAITS: list[dict] = [
          valeur=7698.50, unite="euros_par_mois", periode="2026",
          institution="Assemblée nationale",
          source_nom=SRC_AN_SITUATION, source_url=URL_AN_SITUATION,
-         date_source="2026-01", notes="S'ajoute à l'indemnité parlementaire ; brut mensuel."),
+         date_source="2026-01", notes="S'ajoute à l'indemnité parlementaire. Brut mensuel."),
     dict(id="isf-questeur-an", assiette="brut", categorie="indemnites_parlementaires",
          libelle="Indemnité spéciale de fonction d'un questeur de l'Assemblée nationale",
          valeur=5300.36, unite="euros_par_mois", periode="2026",
@@ -288,8 +288,8 @@ FAITS: list[dict] = [
          valeur=6600.0, unite="euros_par_mois", periode="2026", institution="Sénat",
          source_nom=SRC_SENAT_FRAIS, source_url=URL_SENAT_FRAIS,
          date_source="2026-08-19",
-         notes="Portée de 5 900 € à 6 600 € par le Bureau du 16/11/2023, effet 2024 ; "
-               "majorée outre-mer/Français de l'étranger ; justification a posteriori "
+         notes="Portée de 5 900 € à 6 600 € par le Bureau du 16/11/2023, effet 2024. "
+               "Majorée outre-mer/Français de l'étranger. Justification a posteriori "
                "dans l'application JULIA. Page consultée le 19/08/2026."),
     dict(id="afm-senat-hebergement", categorie="frais_mandat",
          libelle="Avance dédiée d'hébergement parisien d'un sénateur",
@@ -303,7 +303,7 @@ FAITS: list[dict] = [
          source_nom=SRC_SENAT_FRAIS, source_url=URL_SENAT_FRAIS,
          date_source="2026-08-19", notes="6 000 € pour 3 ans. Page consultée le 19/08/2026."),
     dict(id="afm-senat-representation-autorites", categorie="frais_mandat",
-         libelle="Frais de représentation des autorités du Sénat (vice-présidents, questeurs…)",
+         libelle="Frais de représentation des autorités du Sénat (vice-présidents, questeurs, etc.)",
          valeur=750.0, unite="euros_par_mois", periode="2026", institution="Sénat",
          source_nom=SRC_SENAT_FRAIS, source_url=URL_SENAT_FRAIS,
          date_source="2026-08-19", notes="Page consultée le 19/08/2026."),
@@ -313,7 +313,7 @@ FAITS: list[dict] = [
          institution="Assemblée nationale",
          source_nom=SRC_AN_SITUATION, source_url=URL_AN_SITUATION,
          date_source="2026-01",
-         notes="Jusqu'à 5 collaborateurs ; revalorisé comme la fonction publique."),
+         notes="Jusqu'à 5 collaborateurs. Revalorisé comme la fonction publique."),
 
     # --- Contrôles des frais de mandat (publiés, agrégés, anonymes) ------
     dict(id="ctrl-an-pct-controles", categorie="controles",
@@ -342,7 +342,7 @@ FAITS: list[dict] = [
          institution="Assemblée nationale",
          source_nom=SRC_AN_DEONTOLOGUE, source_url=URL_AN_DEONTOLOGUE,
          date_source="2026-05-13",
-         notes="Arrêté au 31/12/2025 ; moins de 1 % de l'avance de frais de mandat versée."),
+         notes="Arrêté au 31/12/2025. Moins de 1 % de l'avance de frais de mandat versée."),
     dict(id="ctrl-senat-controles", categorie="controles",
          libelle="Sénateurs contrôlés sur leurs frais de mandat (exercice 2024)",
          valeur=362.0, unite="personnes", periode="2024", institution="Sénat",
@@ -363,7 +363,7 @@ FAITS: list[dict] = [
          libelle="Frais de mandat nets déclarés par les sénateurs en 2024",
          valeur=29900000.0, unite="euros", periode="2024", institution="Sénat",
          source_nom=SRC_SENAT_CDP, source_url=URL_SENAT_CDP, date_source="2025",
-         notes="+6,7 % après revalorisation de l'avance ; +14,6 % sur 2018-2024, "
+         notes="+6,7 % après revalorisation de l'avance, +14,6 % sur 2018-2024, "
                "inférieur à l'inflation (16,2 %). Aucun montant de reversement publié."),
 
     # --- Élysée (le train de vie le mieux audité : Cour des comptes) -----
@@ -377,7 +377,7 @@ FAITS: list[dict] = [
          institution="Présidence de la République",
          source_nom=SRC_CCOMPTES_2025, source_url=URL_CCOMPTES_ELYSEE_2025_PDF,
          date_source="2026-09-17",
-         notes="Annexe n° 1, p. 78 (« Total charges ») ; 125,3 M€ au tableau n° 1, "
+         notes="Annexe n° 1, p. 78 (« Total charges »), 125,3 M€ au tableau n° 1, "
                "p. 14 : +2 % par rapport à 2024. Produits : 130 386 928,1 €."),
     dict(id="elysee-excedent-2025", categorie="elysee",
          libelle="Excédent de l'exercice 2025 de la présidence de la République",
@@ -385,7 +385,7 @@ FAITS: list[dict] = [
          institution="Présidence de la République",
          source_nom=SRC_CCOMPTES_2025, source_url=URL_CCOMPTES_ELYSEE_2025_PDF,
          date_source="2026-09-17",
-         notes="Annexe n° 1, p. 78 (« Résultat de l'activité (bénéfice) ») ; "
+         notes="Annexe n° 1, p. 78 (« Résultat de l'activité (bénéfice) »), "
                "5,1 M€ p. 13, après 6,7 M€ en 2024."),
     dict(id="elysee-dotation-2025", categorie="elysee",
          libelle="Dotation annuelle de la présidence de la République (exercice 2025)",
@@ -393,7 +393,7 @@ FAITS: list[dict] = [
          institution="Présidence de la République",
          source_nom=SRC_CCOMPTES_2025, source_url=URL_CCOMPTES_ELYSEE_2025_PDF,
          date_source="2026-09-17",
-         notes="Annexe n° 1, p. 75 (« Dotation annuelle ») ; identique à celle de "
+         notes="Annexe n° 1, p. 75 (« Dotation annuelle »). Identique à celle de "
                "2024 (p. 15)."),
     dict(id="elysee-activite-presidentielle-2025", categorie="elysee",
          libelle="Dépenses liées à l'activité présidentielle, déplacements compris "
@@ -405,7 +405,7 @@ FAITS: list[dict] = [
          notes="Rapport, p. 17 : montant arrondi par la Cour (24 M€ en 2024 sur le même "
                "périmètre). Réceptions comprises : ce n'est pas le seul coût des "
                "déplacements. 31 déplacements en Europe et 24 hors d'Europe ou "
-               "outre-mer. Ce décompte par zone est celui de ce rapport ; il ne se "
+               "outre-mer. Ce décompte par zone est celui de ce rapport. Il ne se "
                "compare pas à celui du rapport sur 2024 (34 internationaux, 3 "
                "outre-mer), qui ne découpe pas les zones de la même façon."),
     dict(id="elysee-dotation-2024", categorie="elysee",
@@ -425,7 +425,7 @@ FAITS: list[dict] = [
          valeur=123300000.0, unite="euros", periode="2024",
          institution="Présidence de la République",
          source_nom=SRC_CCOMPTES_2024, source_url=URL_CCOMPTES_ELYSEE_2024_PDF,
-         date_source="2025-07-18", notes="-2 % par rapport à 2023 ; produits 130 M€."),
+         date_source="2025-07-18", notes="-2 % par rapport à 2023. Produits 130 M€."),
     dict(id="elysee-excedent-2024", categorie="elysee",
          libelle="Excédent de l'exercice 2024 de la présidence de la République",
          valeur=6700000.0, unite="euros", periode="2024",
@@ -445,8 +445,8 @@ FAITS: list[dict] = [
          institution="Présidence de la République",
          source_nom=SRC_CCOMPTES_2024, source_url=URL_CCOMPTES_ELYSEE_2024_PDF,
          date_source="2025-07-18",
-         notes="Les 5 voyages les plus chers : 4,88 M€, soit 46 % du coût international ; "
-               "remboursements avions au ministère des Armées : 1,4 M€."),
+         notes="Les 5 voyages les plus chers : 4,88 M€, soit 46 % du coût international. "
+               "Remboursements avions au ministère des Armées : 1,4 M€."),
     dict(id="elysee-charges-2023", categorie="elysee",
          libelle="Charges de la présidence de la République (exercice 2023)",
          valeur=124200000.0, unite="euros", periode="2023",
@@ -468,14 +468,14 @@ FAITS: list[dict] = [
          institution="Assemblée nationale",
          source_nom=SRC_SENAT_RAP_LFI2026, source_url=URL_SENAT_RAP_LFI2026,
          date_source="2026-02-19",
-         notes="Gelée depuis 2025 ; solde budgétaire 2026 prévu -34,14 M€, "
+         notes="Gelée depuis 2025. Solde budgétaire 2026 prévu -34,14 M€, "
                "couvert par prélèvement sur réserves."),
     dict(id="lfi2026-senat", categorie="institutions",
          libelle="Dotation du Sénat, jardin et musée du Luxembourg compris (LFI 2026)",
          valeur=353470900.0, unite="euros", periode="2026", institution="Sénat",
          source_nom=SRC_SENAT_RAP_LFI2026, source_url=URL_SENAT_RAP_LFI2026,
          date_source="2026-02-19",
-         notes="Gelée depuis 2025 ; prélèvement 2026 sur réserves : 22,14 M€."),
+         notes="Gelée depuis 2025. Prélèvement 2026 sur réserves : 22,14 M€."),
     dict(id="lfi2026-chaines", categorie="institutions",
          libelle="Dotation des chaînes parlementaires LCP-AN et Public Sénat (LFI 2026)",
          valeur=35596900.0, unite="euros", periode="2026",
@@ -497,7 +497,7 @@ FAITS: list[dict] = [
     dict(id="lfi2026-mission-total", categorie="institutions",
          libelle="Total de la mission « Pouvoirs publics » (LFI 2026)",
          valeur=1140179221.0, unite="euros", periode="2026",
-         institution="État — mission Pouvoirs publics",
+         institution="État : mission Pouvoirs publics",
          source_nom=SRC_SENAT_RAP_LFI2026, source_url=URL_SENAT_RAP_LFI2026,
          date_source="2026-02-19", notes="+0,21 % par rapport à la LFI 2025."),
 
@@ -615,9 +615,9 @@ OPACITES: list[dict] = [
          ce_qui_manque="Aucun fichier open data des indemnités réellement versées par "
                        "parlementaire (retenues pour absences, écrêtements de cumul) : "
                        "seules les grilles de barèmes sont publiées.",
-         base_du_refus="Autonomie des assemblées (ordonnance n° 58-1100) ; aucune obligation "
+         base_du_refus="Autonomie des assemblées (ordonnance n° 58-1100). Aucune obligation "
                        "de publication individuelle.",
-         source_nom=SRC_AN_SITUATION + " — seuls les barèmes y figurent",
+         source_nom=SRC_AN_SITUATION + ", seuls les barèmes y figurent",
          source_url=URL_AN_SITUATION, date="2026-01"),
     dict(id="frais-representation-ministres",
          sujet="Frais de représentation des ministres",
@@ -642,30 +642,30 @@ OPACITES: list[dict] = [
     dict(id="remunerations-cabinets",
          sujet="Rémunérations détaillées des cabinets ministériels",
          ce_qui_manque="Les tableaux de rémunérations brutes annuelles par cabinet ont disparu "
-                       "du jaune budgétaire depuis le PLF 2024 ; dernières données riches : "
+                       "du jaune budgétaire depuis le PLF 2024. Dernières données riches : "
                        "jaune PLF 2023 (exercice 2022, moyenne 8 495 € brut/mois). Recul "
                        "vérifié par téléchargement des éditions PLF 2024, 2025 et 2026.",
-         base_du_refus="Aucune justification publiée ; la note d'introduction du jaune PLF 2026 "
+         base_du_refus="Aucune justification publiée. La note d'introduction du jaune PLF 2026 "
                        "continue pourtant de décrire le principe de cette publication.",
-         source_nom=SRC_JAUNE_CABINETS + " — tableaux de rémunérations absents",
+         source_nom=SRC_JAUNE_CABINETS + ", tableaux de rémunérations absents",
          source_url=URL_JAUNE_CABINETS_2026, date="2025-07-01"),
     dict(id="indemnites-locales-versees",
          sujet="Indemnités réellement versées aux élus locaux",
          ce_qui_manque="L'état récapitulatif annuel des indemnités (art. L. 2123-24-1-1 CGCT, "
                        "loi Engagement et proximité de 2019) est communiqué aux conseillers "
                        "avant le vote du budget, mais jamais centralisé : aucune obligation de "
-                       "mise en ligne, aucun open data national — la donnée existe dans plus de "
+                       "mise en ligne, aucun open data national : la donnée existe dans plus de "
                        "34 000 communes sans être agrégeable. Le Répertoire national des élus "
                        "liste les mandats sans les indemnités.",
          base_du_refus="Aucune obligation légale de publication en ligne ni de centralisation "
                        "nationale.",
-         source_nom="DGCL — fiche pratique « état récapitulatif annuel des indemnités perçues "
+         source_nom="DGCL : fiche pratique « état récapitulatif annuel des indemnités perçues "
                     "par les élus » (constat au 19/08/2026)",
          source_url=URL_DGCL_ETAT_RECAP, date="2026-08-19"),
     dict(id="contraste-elus-locaux-communicables",
          sujet="Notes de frais des exécutifs locaux : communicables, mais au cas par cas",
          ce_qui_manque="Aucune publication spontanée ni centralisée des notes de frais des "
-                       "élus locaux ; l'accès suppose une demande individuelle de chaque "
+                       "élus locaux. L'accès suppose une demande individuelle de chaque "
                        "citoyen, collectivité par collectivité.",
          base_du_refus="A contrario : le Conseil d'État a jugé le 08/02/2023 (notes de frais "
                        "de la maire de Paris) que notes de frais et reçus de déplacement, "
@@ -693,7 +693,7 @@ OPACITES: list[dict] = [
                        "plusieurs mois après la clôture de l'exercice : celui de l'exercice "
                        "2025 l'a été le 17/09/2026. Aucun jeu de données n'accompagne ce "
                        "rapport.",
-         base_du_refus="Calendrier de publication de la Cour des comptes ; aucune obligation "
+         base_du_refus="Calendrier de publication de la Cour des comptes. Aucune obligation "
                        "de délai ni de format ouvert.",
          source_nom=SRC_CCOMPTES_2025,
          source_url=URL_CCOMPTES_ELYSEE_2025_PAGE, date="2026-09-17"),
@@ -837,7 +837,7 @@ def ingester(conn: sqlite3.Connection | None = None) -> tuple[int, int]:
             date_donnees=date_document_la_plus_recente(),
             lignes=len(FAITS) + len(OPACITES),
             notes=f"{len(FAITS)} faits sourcés + {len(OPACITES)} opacités documentées "
-                  "(05-frais-indemnites.md, URLs re-vérifiées le 19/08/2026 ; "
+                  "(05-frais-indemnites.md, URLs re-vérifiées le 19/08/2026, "
                   "Élysée exercice 2025 : rapport Cour des comptes S2026-0961 du "
                   "17/09/2026, lu le 11/11/2026).",
         )
@@ -881,7 +881,7 @@ def verifier_urls(timeout: float = 3.0) -> dict[str, int | str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="P13 — frais & train de vie : faits sourcés et opacités documentées."
+        description="P13, frais & train de vie : faits sourcés et opacités documentées."
     )
     parser.add_argument(
         "--verifier-urls", action="store_true",

@@ -118,7 +118,7 @@ from pipelines.common import obtenir_logger, session_http, telecharger_ressource
 log = obtenir_logger("ingest_sirene")
 
 SOURCE_ID = "S18"
-SOURCE_NOM = "Stock Sirene — unités légales (INSEE via data.gouv.fr)"
+SOURCE_NOM = "Stock Sirene : unités légales (INSEE via data.gouv.fr)"
 SOURCE_URL = (
     "https://www.data.gouv.fr/datasets/"
     "base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret"
@@ -510,8 +510,8 @@ def executer(chemin_db: str | Path | None = None,
                 f"référentiel d'attributs restreint aux {stats['siren_cites']} "
                 f"SIREN cités par les autres tables, dont {stats['taux']:.1%} "
                 f"retrouvés dans un stock de {stats['lignes_parquet']} unités "
-                f"légales ; {stats['ecartes_non_diffusibles']} unités non "
-                "diffusibles écartées ; aucun nom de personne physique ingéré"
+                f"légales, {stats['ecartes_non_diffusibles']} unités non "
+                "diffusibles écartées. Aucun nom de personne physique ingéré"
             ),
         )
         return stats

@@ -374,8 +374,8 @@ def meta_s27_geo_api(nb_compares: int, nb_ecarts: int) -> dict[str, str]:
                  " et l'API sert sans doute un millésime plus récent")
     return {
         "date_donnees": EN_VIGUEUR_POPULATIONS,
-        "notes": debut + " ; centroïdes des communes > 50 000 hab."
-                 " pour les points des villes ; population de Mayotte par somme"
+        "notes": debut + ". Centroïdes des communes > 50 000 hab."
+                 " pour les points des villes. Population de Mayotte par somme"
                  " communale (absente du CSV INSEE).",
     }
 
@@ -835,21 +835,21 @@ def meta_entites_etat(
             # flux du jour livre, datée par date_donnees ; « Lecornu II »
             # écrit ici serait devenu faux au premier changement.
             "notes": "Ministères tels que le flux les livre (type"
-                     f" 'ministere') — source : {source_ministeres} ;"
-                     " institutions clés (type 'institution') enrichies"
-                     " (SIREN Présidence : RefOrgaAdminEtat ; SIREN"
+                     f" 'ministere'), source : {source_ministeres}. "
+                     "Institutions clés (type 'institution') enrichies"
+                     " (SIREN Présidence : RefOrgaAdminEtat, SIREN"
                      " Intérieur : rapport 09 §1.1).",
         }
     return {
-        "nom": "Ministères de l'État — liste vérifiée (secours :"
+        "nom": "Ministères de l'État : liste vérifiée (secours :"
                " RefOrgaAdminEtat inexploitable)",
         "url": URL_DECRET_GOUVERNEMENT,
         "notes": f"RefOrgaAdminEtat (DILA) inexploitable le {jour} :"
                  f" {motif_secours} → ministères depuis la"
-                 f" {source_ministeres} ; institutions clés sans"
-                 " RefOrgaAdminEtat ; SIREN Premier ministre et Présidence :"
-                 " relevés dans RefOrgaAdminEtat du 15/10/2026 ; SIREN"
-                 " Intérieur : rapport 09 §1.1 ; le SIREN d'une institution"
+                 f" {source_ministeres}. Institutions clés sans"
+                 " RefOrgaAdminEtat. SIREN Premier ministre et Présidence :"
+                 " relevés dans RefOrgaAdminEtat du 15/10/2026. SIREN"
+                 " Intérieur : rapport 09 §1.1. Le SIREN d'une institution"
                  " déjà connu en base n'est pas effacé.",
     }
 
@@ -1007,11 +1007,11 @@ def main() -> int:
             )
             db.upsert_meta(
                 conn, "S27-insee-populations",
-                "INSEE — populations de référence 2023 (ensemble.zip)",
+                "INSEE : populations de référence 2023 (ensemble.zip)",
                 URL_INSEE_POPULATIONS, "Licence Ouverte 2.0", "annuelle",
                 date_donnees=f"{MILLESIME_POPULATIONS}-01-01", lignes=len(pops_insee),
                 notes="PMUN par département (décret n° 2025-1362 du"
-                      " 26/12/2025, en vigueur au 01/01/2026) ; Mayotte"
+                      " 26/12/2025, en vigueur au 01/01/2026). Mayotte"
                       " absente du fichier d'ensemble.",
             )
             db.upsert_meta(
@@ -1022,13 +1022,13 @@ def main() -> int:
                 date_donnees=f"{MILLESIME_CONTOURS}-01-01",
                 lignes=len(geojson["features"]),
                 notes="Métropole : france-geojson simplifié (millésime 2018,"
-                      " contours stables) ; DROM 971/972/973/974/976 :"
-                      f" contours Etalab 2025 (100 m) — {octets_geojson} octets"
+                      " contours stables). DROM 971/972/973/974/976 :"
+                      f" contours Etalab 2025 (100 m), {octets_geojson} octets"
                       " écrits dans data/geo/departements.geojson.",
             )
             db.upsert_meta(
                 conn, "S11-annuaire-administration",
-                "Annuaire de l'administration (DILA) — préfectures",
+                "Annuaire de l'administration (DILA) : préfectures",
                 URL_ANNUAIRE_RECORDS, "Open data DILA (mention DILA)",
                 "quotidienne",
                 date_donnees=date_donnees_annuaire(prefectures),
@@ -1036,7 +1036,7 @@ def main() -> int:
                 notes="Fiches pivot 'prefecture' : lat/lon du bâtiment pour"
                       " les points préfecture des cartes. Codes"
                       " d'arrondissement (Lyon 3e, Marseille 3e) ramenés à la"
-                      " commune ; Paris n'a aucune fiche sous ce pivot"
+                      " commune. Paris n'a aucune fiche sous ce pivot"
                       " (préfecture de police à part) → Paris reste une"
                       " grande ville non marquée préfecture.",
             )

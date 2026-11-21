@@ -12,6 +12,12 @@ Audit des pages du 20/11/2026 :
   « Légifrance anti-bot », `partis_comptes` étaient publiés sur /alertes et
   /financement. Le lecteur n'a ni ces fichiers, ni ces tables.
 
+Décision du propriétaire (style des textes publiés) : aucun texte du site ne
+porte de tiret cadratin, de tiret demi-cadratin, de point-virgule ni de
+points de suspension typographiques. Le contrôle vaut pour toutes les
+chaînes servies, libellés courts compris. Un point-virgule n'y compte que
+s'il touche une espace : `delim=';'` ou `stdin;$` sont du code.
+
 Test de structure (AST) : il lit le code des pipelines sans l'exécuter. Un
 texte « servi » est ici toute chaîne en prose (au moins trois espaces) qui
 n'est ni une docstring, ni un message de journal ou d'exception, ni du SQL.
@@ -61,6 +67,19 @@ INTERDITS: list[tuple[re.Pattern[str], str]] = [
      "un écart de publication n'est pas un retard imputable"),
 ]
 
+# Style des textes publiés. Exceptions nommées une à une, avec leur raison.
+SIGNES_INTERDITS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile("—"), "tiret cadratin"),
+    (re.compile("–"), "tiret demi-cadratin"),
+    (re.compile(r";(?=\s)|(?<=\s);"), "point-virgule"),
+    (re.compile("…"), "points de suspension typographiques"),
+]
+SIGNES_PERMIS = {
+    # Réparation de la source : U+0085 du Sénat est l'octet cp1252 de « … »,
+    # rendu au texte d'origine. Ce n'est pas un texte écrit par le site.
+    ("ingest_parlement.py", "…"),
+}
+
 CREATION = re.compile(
     r"CREATE\s+(?:TABLE|VIEW)\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z0-9]+_[a-z0-9_]+)",
     re.IGNORECASE,
@@ -88,6 +107,13 @@ def _docstrings(arbre: ast.AST) -> set[int]:
     return ids
 
 
+def _est_journal(f: ast.AST) -> bool:
+    """`log.info`, ou `(log.info if ok else log.warning)`."""
+    if isinstance(f, ast.IfExp):
+        return _est_journal(f.body) and _est_journal(f.orelse)
+    return isinstance(f, ast.Attribute) and f.attr in METHODES_JOURNAL
+
+
 def _hors_service(arbre: ast.AST) -> set[int]:
     """Nœuds sous un appel de journal, un `raise`, un `assert` ou un `print`."""
     ids: set[int] = set()
@@ -95,7 +121,7 @@ def _hors_service(arbre: ast.AST) -> set[int]:
         exclu = isinstance(n, (ast.Raise, ast.Assert))
         if isinstance(n, ast.Call):
             f = n.func
-            exclu = (isinstance(f, ast.Attribute) and f.attr in METHODES_JOURNAL) or (
+            exclu = _est_journal(f) or (
                 isinstance(f, ast.Name) and f.id in {"print", "exit"}
             ) or (
                 # Contrôles de vraisemblance : la liste finit dans un
@@ -144,6 +170,11 @@ def mots_interdits_dans(texte: str) -> list[str]:
             for motif, pourquoi in INTERDITS if (m := motif.search(texte))]
 
 
+def signes_interdits_dans(texte: str) -> list[str]:
+    return [f"« {m.group(0)} » ({nom})"
+            for motif, nom in SIGNES_INTERDITS if (m := motif.search(texte))]
+
+
 def tables_du_schema() -> set[str]:
     tables: set[str] = set()
     for m in MODULES:
@@ -180,6 +211,41 @@ def test_aucun_libelle_court_ne_porte_de_mot_interdit():
             for faute in mots_interdits_dans(texte):
                 relevees.append(f"{m.name}:{ligne} : {faute}")
     assert relevees == []
+
+
+def test_aucun_texte_servi_ne_porte_de_tiret_long_ni_de_point_virgule():
+    relevees = []
+    for m in MODULES:
+        for ligne, texte in _chaines(m.read_text(encoding="utf-8")):
+            if (m.name, texte) in SIGNES_PERMIS:
+                continue
+            for faute in signes_interdits_dans(texte):
+                relevees.append(f"{m.name}:{ligne} : {faute} dans {texte[:80]!r}")
+    assert relevees == []
+
+
+def test_le_controle_des_signes_voit_chaque_forme():
+    for texte in [
+        "HATVP — liste des déclarations",
+        "{} – {}",
+        "pas la LFI votée ; aucun équivalent",
+        "Exercice {} ;",
+        " ; ",
+        "questeurs…",
+    ]:
+        assert signes_interdits_dans(texte), texte
+    for texte in [";", "candidat;", "read_csv('{}', delim=';', header=true)",
+                  r"^COPY (\w+) FROM stdin;$", "net borrowing −", "GF01 à GF10"]:
+        assert signes_interdits_dans(texte) == [], texte
+
+
+def test_un_journal_conditionnel_n_est_pas_un_texte_servi():
+    source = (
+        "import logging\n"
+        "log = logging.getLogger(__name__)\n"
+        '(log.info if True else log.warning)("communes %s ; écart %s ici", 1, 2)\n'
+    )
+    assert _chaines(source) == []
 
 
 def test_le_controle_voit_les_libelles_courts():

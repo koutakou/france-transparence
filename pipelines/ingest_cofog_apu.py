@@ -104,15 +104,15 @@ N_ANNEES_MIN = 25
 TOLERANCE_ADDITIVITE_MIO = 1.0
 
 NOTES = (
-    "flux annuel, na_item=TE, CFAP (COFOG-99) TOTAL + GF01–GF10 ; "
+    "flux annuel, na_item=TE, CFAP (COFOG-99) TOTAL + GF01 à GF10. "
     "ESA S13 = APU, distinct de la source S13 (SMB DGFiP, budget de l'État), "
-    "de S44 (TE gov_10a_main, table distincte) et de S45 (prestations DREES) ; "
-    "pas un indicateur Maastricht ; "
-    "Md€ = MIO_EUR÷1000 (jamais ÷1e9) ; "
-    "PC_GDP lu à part, non additif ; "
-    "groupes GF0101… non ingérés ; pas de taxag, pas de S.1311, pas de par habitant ; "
+    "de S44 (TE gov_10a_main, table distincte) et de S45 (prestations DREES). "
+    "Pas un indicateur Maastricht. "
+    "Md€ = MIO_EUR÷1000 (jamais ÷1e9). "
+    "PC_GDP lu à part, non additif. "
+    "Groupes GF0101 et suivants non ingérés. Pas de taxag, pas de S.1311, pas de par habitant, "
     "date_donnees = 31/12 du TIME max de TOTAL, jamais JSON-stat updated "
-    "ni OBS_PERIOD_OVERALL_LATEST ; "
+    "ni OBS_PERIOD_OVERALL_LATEST. "
     "DOI 10.2908/GOV_10A_EXP"
 )
 

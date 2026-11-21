@@ -132,7 +132,7 @@ log = obtenir_logger("ingest_hatvp_declarations")
 # ---------------------------------------------------------------------------
 
 ID_SOURCE = "S15"
-NOM_SOURCE = "HATVP — contenu des déclarations d'intérêts (declarations.xml)"
+NOM_SOURCE = "HATVP : contenu des déclarations d'intérêts (declarations.xml)"
 URL_DECLARATIONS = "https://www.hatvp.fr/livraison/merge/declarations.xml"
 LICENCE = "Licence Ouverte (version non vérifiée)"
 
@@ -1682,7 +1682,7 @@ def executer(chemin_db=None, max_age_heures: float | None = 6.0) -> dict:
                 f"{stats['declarations_lues']} déclarations lues, "
                 f"{stats['refus_type_declaration']} refusées par type (patrimoine et "
                 f"types non retenus), {stats['refus_balise_patrimoine']} blocs "
-                f"patrimoniaux refusés par nom de balise ; {stats['rattachees']} "
+                f"patrimoniaux refusés par nom de balise, {stats['rattachees']} "
                 f"déclarations d'intérêts rattachées à {stats['elus_apparies']} élus "
                 f"sur {len(index_elus)} fiches ({taux:.1f} %), {stats['lignes']} lignes "
                 f"dont {stats['lignes_avec_montant']} avec au moins un montant annuel "
@@ -1691,7 +1691,7 @@ def executer(chemin_db=None, max_age_heures: float | None = 6.0) -> dict:
                 f"conjoint, ni collaborateurs. Texte source non normalisé : affichage "
                 f"verbatim, aucun agrégat. Dépôt le plus récent parmi les "
                 f"déclarations rattachées : "
-                f"{max((e['date_depot'] or '') for e in donnees['entetes']) or '—'} "
+                f"{max((e['date_depot'] or '') for e in donnees['entetes']) or 'non renseigné'} "
                 f"(le délai de publication de la HATVP explique l'écart avec la date "
                 f"de régénération du fichier, seule retenue comme date_donnees)."
             ))

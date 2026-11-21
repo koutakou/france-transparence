@@ -1030,15 +1030,15 @@ def executer() -> None:
         db.upsert_meta(
             conn,
             source_id="S16",
-            nom="OFGL — comptes des collectivités et dotations DGF (data.ofgl.fr)",
+            nom="OFGL : comptes des collectivités et dotations DGF (data.ofgl.fr)",
             url="https://data.ofgl.fr/explore/dataset/ofgl-base-communes/",
             licence="Licence Ouverte 2.0",
-            frequence="annuelle (comptes N chargés en juillet N+1, provisoires jusqu'en décembre ; dotations N au printemps N)",
+            frequence="annuelle (comptes N chargés en juillet N+1, provisoires jusqu'en décembre, dotations N au printemps N)",
             date_donnees=f"{EXERCICE_COMPTES}-12-31",
             lignes=sum(comptes.values()),
             notes=(
-                f"{phrase_comptes_provisoires(EXERCICE_COMPTES, disponibilite)} ; "
-                f"dotations DGF jusqu'à l'exercice {ANNEE_DGF_DETAIL}. "
+                f"{phrase_comptes_provisoires(EXERCICE_COMPTES, disponibilite)}. "
+                f"Dotations DGF jusqu'à l'exercice {ANNEE_DGF_DETAIL}. "
                 f"Séries communales {SERIE_DEBUT}-{EXERCICE_COMPTES} (top {TOP_COMMUNES}, "
                 f"budgets principaux) et médianes d'€/hab par strate démographique "
                 f"(médiane calculée par l'API OFGL sur l'ensemble des communes). "

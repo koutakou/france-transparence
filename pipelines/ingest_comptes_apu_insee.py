@@ -107,14 +107,14 @@ N_ANNEES_MIN = 25
 NOTES = (
     "comptes nationaux base 2020, présentation dépenses et recettes "
     "(Insee Résultats 8988845, tableaux 3.201/3.202/3.203/3.205/3.212 "
-    "et 3.216) ; unité native Md€ (et % du PIB pour le PO) ; "
+    "et 3.216). Unité native Md€ (et % du PIB pour le PO), "
     "date_donnees = 31/12 de l'année max, jamais modified Melodi ni "
-    "date de parution ; distinct de S13 (SMB DGFiP, budget de l'État), "
+    "date de parution. Distinct de S13 (SMB DGFiP, budget de l'État), "
     "de S44 (TE/TR gov_10a_main, table distincte), de S42 (B9 Maastricht, "
-    "non ingéré ici), de S49 (CFAP) ; pas taxag ; pas une ventilation "
-    "de S44 ; sous-secteurs non additifs au S13 (consolidations) ; "
-    "S1311 n'est pas « la dette de l'État » ni le budget général ; "
-    "S1314 n'est pas « la Sécu » ; cube Melodi DD_CNA_APU homologue"
+    "non ingéré ici), de S49 (CFAP). Pas taxag. Pas une ventilation "
+    "de S44. Sous-secteurs non additifs au S13 (consolidations). "
+    "S1311 n'est pas « la dette de l'État » ni le budget général. "
+    "S1314 n'est pas « la Sécu ». Cube Melodi DD_CNA_APU homologue"
 )
 
 _DDL = """

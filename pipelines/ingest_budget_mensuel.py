@@ -513,9 +513,9 @@ def main() -> int:
             frequence="mensuelle",
             date_donnees=date_max,
             lignes=len(enregistrements),
-            notes="Cumuls depuis le 1er janvier, euros ; mois infra-annuels "
-                  "provisoires ; export API (2024→) + pièce jointe 2013-2023 ; "
-                  "pas de détail mission/programme dans cette source.",
+            notes="Cumuls depuis le 1er janvier, euros. Mois infra-annuels "
+                  "provisoires. Export API (2024→) + pièce jointe 2013-2023. "
+                  "Pas de détail mission/programme dans cette source.",
         )
         conn.close()
         log.info("budget_mensuel: %d enregistrements écrits, données au %s",
