@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { LienOfficiel } from "@/components/ui/LienOfficiel";
-import { formatNombre, formatPct } from "@/lib/format";
+import { Vide } from "@/components/ui/Vide";
+import { formatNombre, formatPct, VIDE } from "@/lib/format";
 import { libelleNature } from "@/lib/jorf-libelles";
 import { urlSite } from "@/lib/basePath";
 import { majParamsUrl } from "@/lib/urlEtat";
@@ -104,7 +105,7 @@ const COLONNES_FLUX: Colonne<TexteVue>[] = [
           {l.ministere}
         </span>
       ) : (
-        "—"
+        <Vide />
       ),
   },
 ];
@@ -205,7 +206,7 @@ export function FluxTextes({
             <option value="">Toutes les natures</option>
             {natures.map((n) => (
               <option key={n.code} value={n.code}>
-                {libelleNature(n.code)} — {formatNombre(n.nb)}
+                {libelleNature(n.code)} ({formatNombre(n.nb)})
               </option>
             ))}
           </select>
@@ -232,13 +233,13 @@ export function FluxTextes({
 
       <Card
         titre="Flux des textes"
-        sousTitre={`Fenêtre : ${mentionFenetre}, JORF « Lois et décrets » — ce n’est pas le fonds DOLE. Du plus récent au plus ancien — ministère absent sur ${formatPct(
+        sousTitre={`Fenêtre : ${mentionFenetre}, JORF « Lois et décrets » (ce n’est pas le fonds DOLE). Du plus récent au plus ancien. Ministère réellement absent sur ${formatPct(
           pctSansMinistere,
-        )} des textes (lois, Conseil constitutionnel… — réel), affiché « — »`}
+        )} des textes (lois, Conseil constitutionnel, etc.), affiché « ${VIDE} »`}
       >
         {indisponible && besoinFragment && (
           <p className="mb-2 text-xs text-ink-muted">
-            Flux complet indisponible (fragment /data/documents/textes.json non chargé) — les{" "}
+            Flux complet indisponible (fragment /data/documents/textes.json non chargé). Les{" "}
             {formatNombre(initiales.length)} textes les plus récents restent affichés.
           </p>
         )}
@@ -261,11 +262,11 @@ export function FluxTextes({
               ? depuisFragment
                 ? " (filtrés)"
                 : indisponible
-                  ? " — filtre non appliqué : le flux complet n’a pas pu être chargé"
+                  ? " (filtre non appliqué : le flux complet n’a pas pu être chargé)"
                   : ""
               : ""}{" "}
             · {formatNombre(PAR_PAGE)} par page
-            {chargement ? " · chargement du flux complet…" : ""}
+            {chargement ? " · chargement du flux complet en cours" : ""}
           </span>
           <span className="flex gap-2">
             {pageAffichee > 1 ? (
