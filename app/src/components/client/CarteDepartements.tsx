@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { MapFrance, type PointCarte } from "@/components/ui/MapFrance";
 import {
   HAUTEUR_CARTE,
@@ -9,6 +9,14 @@ import {
 } from "@/components/ui/projection-france";
 import { formatEuros, formatNombre } from "@/lib/format";
 import { urlSite } from "@/lib/basePath";
+
+/** Texte du cadre dans le HTML statique, vrai quand le script ne tourne pas. */
+const TEXTE_SANS_SCRIPT = "Carte affichée avec JavaScript activé.";
+
+/** Aucun changement à suivre : seul compte l'écart serveur / navigateur. */
+function abonnementInerte(): () => void {
+  return () => {};
+}
 
 /**
  * Carte de France dessinée CÔTÉ CLIENT — le fond est chargé une seule fois
@@ -94,6 +102,14 @@ export function CarteDepartements({
   // false tant que la carte n'approche pas du viewport (aucun travail engagé).
   const [approche, setApproche] = useState(false);
   const cadre = useRef<HTMLDivElement>(null);
+  // false dans le HTML statique, true dès que le script a pris la main. Sans
+  // JavaScript, le cadre ne doit pas annoncer un chargement qui n'aura
+  // jamais lieu (ancien « Chargement du fond de carte… » en role=status).
+  const scriptActif = useSyncExternalStore(
+    abonnementInerte,
+    () => true,
+    () => false,
+  );
 
   useEffect(() => {
     // Pas d'IntersectionObserver (ou plus de cadre à observer) : chemin
@@ -135,9 +151,9 @@ export function CarteDepartements({
         // Ratio du repère de référence des tracés précalculés : le cadre de
         // chargement a exactement les proportions du SVG à venir (CLS nul).
         style={{ aspectRatio: `${LARGEUR_CARTE} / ${HAUTEUR_CARTE}` }}
-        role="status"
+        role={scriptActif ? "status" : undefined}
       >
-        Chargement du fond de carte…
+        {scriptActif ? "Chargement du fond de carte…" : TEXTE_SANS_SCRIPT}
       </div>
     );
   }

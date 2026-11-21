@@ -39,7 +39,9 @@ const LIBELLES_TYPE: Record<string, string> = {
   A1_hatvp_en_cours_delai_ecoule: "HATVP, statut « En cours » après 2 mois (agrégat)",
   lobbying_defaut_declaration: "Lobbying — défaut de déclaration",
   lobbying_declaration_incomplete: "Lobbying — déclaration incomplète",
-  financement_parti_dependance_aide: "Parti — dépendance à l'aide publique",
+  // Seuil = SEUIL_DEPENDANCE_RATIO de pipelines/ingest_financement.py
+  // (tests/libelles-alertes.test.mjs vérifie que les deux disent le même nombre).
+  financement_parti_dependance_aide: "Parti : aide publique d'au moins 75 % des produits",
   financement_parti_prive_aide: "Partis privés d'aide (avis CNCCFP)",
 };
 
@@ -290,6 +292,20 @@ export function AlertesListe({ types, parGravite, total, initiales }: AlertesLis
             : `${formatNombre(totalFiltre)} alerte${totalFiltre > 1 ? "s" : ""} — page ${formatNombre(pageBornee)} sur ${formatNombre(pages)}`}
           {chargement ? " · chargement de la liste complète…" : ""}
         </p>
+        {/* Sans JavaScript, filtres et pagination restent inertes : la page
+            le dit et renvoie à l'export complet, au lieu d'un « page 1 sur
+            31 » sans suite. */}
+        <noscript>
+          <p className="text-xs text-ink-secondary">
+            Sans JavaScript, seules les {formatNombre(initiales.length)} premières alertes
+            sont affichées et les filtres ne répondent pas. La liste complète est
+            téléchargeable en JSON (/api/alertes.json) depuis la page{" "}
+            <a href={urlSite("/donnees/")} className="underline underline-offset-2">
+              Données
+            </a>
+            .
+          </p>
+        </noscript>
         {indisponible && besoinFragment && (
           <p className="text-xs text-ink-muted">
             Liste complète indisponible (fragment /data/alertes.json non chargé) — les{" "}
