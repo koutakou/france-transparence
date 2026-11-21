@@ -43,3 +43,11 @@ test("sans marché écrêté ni suspect, les montants valent 0 €, pas « n.d. 
 test("le numérateur est inclus dans le dénominateur", () => {
   assert.ok(croisement.agregats.sirensHorsAc <= croisement.ensemble.sirensTitulairesHorsAc);
 });
+
+test("les sommes écrêtées et signalées ne masquent pas une classe non vide par COALESCE", async () => {
+  const { readFileSync } = await import("node:fs");
+  const sql = readFileSync(new URL("../src/lib/queries/croisement-lobbying-marches.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(sql, /COALESCE\(SUM\(CASE WHEN ac = 0/);
+  assert.match(sql, /CASE WHEN COUNT\(CASE WHEN ac = 0 AND montant_suspect = 1 THEN 1 END\) = 0 THEN 0/);
+  assert.match(sql, /CASE WHEN COUNT\(CASE WHEN ac = 0 AND montant_retenu > \$\{PLAFOND_ECRETAGE\}\.0/);
+});

@@ -532,29 +532,35 @@ const DECALAGES_FENETRE = ["+0 day", "-1 day", "+1 day"] as const;
  */
 /**
  * Requête de `chargerDecompositionSuspects`. Une classe vide vaut 0 €, pas
- * « n.d. » : un marché n'est suspect que par son montant (classification de
- * la source ou dépassement du plafond), donc COALESCE ne masque aucun manque.
+ * « n.d. ». Une classe non vide garde sa vraie somme, NULL (« n.d. ») si
+ * aucune de ses parts n'est connue : COALESCE(SUM(...), 0) l'aurait masquée.
  */
 export const SQL_DECOMPOSITION_SUSPECTS = `SELECT COUNT(*)                                        AS nb_fenetre,
             SUM(CASE WHEN montant_suspect = 1 THEN 1 ELSE 0 END) AS nb_suspects,
             SUM(CASE WHEN montant_suspect = 1
                       AND montant_anomalie = 'aberrant' THEN 1 ELSE 0 END)
                                                             AS nb_aberrants,
-            COALESCE(SUM(CASE WHEN montant_suspect = 1
-                      AND montant_anomalie = 'aberrant'
-                     THEN min(montant_retenu, :plafond) END), 0) AS montant_aberrants,
+            CASE WHEN COUNT(CASE WHEN montant_suspect = 1
+                                  AND montant_anomalie = 'aberrant' THEN 1 END) = 0 THEN 0
+                 ELSE SUM(CASE WHEN montant_suspect = 1
+                                AND montant_anomalie = 'aberrant'
+                               THEN min(montant_retenu, :plafond) END) END AS montant_aberrants,
             SUM(CASE WHEN montant_suspect = 1
                       AND montant_anomalie = 'suspect' THEN 1 ELSE 0 END)
                                                             AS nb_suspects_source,
-            COALESCE(SUM(CASE WHEN montant_suspect = 1
-                      AND montant_anomalie = 'suspect'
-                     THEN min(montant_retenu, :plafond) END), 0) AS montant_suspects_source,
+            CASE WHEN COUNT(CASE WHEN montant_suspect = 1
+                                  AND montant_anomalie = 'suspect' THEN 1 END) = 0 THEN 0
+                 ELSE SUM(CASE WHEN montant_suspect = 1
+                                AND montant_anomalie = 'suspect'
+                               THEN min(montant_retenu, :plafond) END) END AS montant_suspects_source,
             SUM(CASE WHEN montant_suspect = 1
                       AND montant_anomalie IS NULL THEN 1 ELSE 0 END)
                                                             AS nb_hors_plafond,
-            COALESCE(SUM(CASE WHEN montant_suspect = 1
-                      AND montant_anomalie IS NULL
-                     THEN min(montant_retenu, :plafond) END), 0) AS montant_hors_plafond
+            CASE WHEN COUNT(CASE WHEN montant_suspect = 1
+                                  AND montant_anomalie IS NULL THEN 1 END) = 0 THEN 0
+                 ELSE SUM(CASE WHEN montant_suspect = 1
+                                AND montant_anomalie IS NULL
+                               THEN min(montant_retenu, :plafond) END) END AS montant_hors_plafond
        FROM decp_marches
       WHERE date_notification > date(:jour, :decalage, '-12 months')`;
 
