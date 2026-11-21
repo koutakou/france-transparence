@@ -71,12 +71,18 @@ test("/recettes et /comprendre : deux phrases liées par « mais » et « et »,
 
 test("« n.d. » seulement pour un manque : ministère sans objet, vote sans position dit en clair", () => {
   const flux = aplati("components/client/FluxTextes.tsx");
-  assert.match(flux, /\) : \( \/\/ Une loi ou une décision du Conseil constitutionnel n'a pas de ministère\. <Vide sansObjet \/> \)/);
-  assert.match(flux, /affiché « \$\{SANS_OBJET\} » \(sans objet\)/);
+  // « s.o. » selon la nature du texte (tests/jorf-sans-objet.test.mjs), jamais pour tous.
+  assert.match(flux, /<Vide sansObjet=\{ministereSansObjet\(l\.nature, l\.titre\)\} \/>/);
+  assert.doesNotMatch(flux, /<Vide sansObjet \/>/);
+  assert.match(flux, /affiché « \$\{SANS_OBJET\} » \(sans objet\) pour une loi, une ordonnance ou une décision du Conseil constitutionnel, « \$\{VIDE\} » \(non disponible\) sinon/);
   const vide = lire("components/ui/Vide.tsx");
   assert.match(vide, /<abbr title="sans objet">\{SANS_OBJET\}<\/abbr>/);
   const elu = aplati("app/elus/[id]/page.tsx");
   assert.match(elu, /if \(!l\.position\) return <span className="text-ink-muted">Sans position enregistrée<\/span>;/);
+  // Les légendes sous les tableaux de votes décrivent la cellule affichée.
+  assert.doesNotMatch(elu, /« n\.d\. » : aucune position/);
+  assert.match(elu, /Sans position enregistrée : aucune position au scrutin public, donnée de l’Assemblée telle quelle\./);
+  assert.match(elu, /Sans position enregistrée : aucune position au scrutin public, donnée du Sénat telle quelle\./);
 });
 
 test("libellé PLF 2025 : la copie de l'app est le texte exact du pipeline, sans tiret long", () => {

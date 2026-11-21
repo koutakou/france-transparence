@@ -119,9 +119,10 @@ test("B : les catégories de données publiées forment une liste à puces, sans
     "contenu des déclarations d'intérêts, avec ses rubriques",
   );
   assert.ok(
-    items.includes("les montants de rémunération déclarés, année par année qui y figurent, reproduits mot pour mot et datés"),
+    items.includes("les montants de rémunération déclarés dans ces déclarations, année par année, reproduits mot pour mot et datés"),
     "montants de rémunération",
   );
+  assert.ok(!items.some((b) => /qui y figurent/.test(b)), "« y » sans antécédent dans la puce");
   assert.match(TEXTE, /Aucune coordonnée privée n'est publiée : ni adresse postale personnelle, ni téléphone, ni adresse électronique, ni donnée relevant de l'article 9 du RGPD\./);
   assert.ok(!BLOCS.some((b) => /nom et prénom.*comptes de partis/.test(b)), "plus d'énumération en une seule phrase");
 });
