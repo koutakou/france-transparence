@@ -5,8 +5,9 @@ import { Card } from "@/components/ui/Card";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { LienOfficiel } from "@/components/ui/LienOfficiel";
 import { Vide } from "@/components/ui/Vide";
-import { formatNombre, formatPct, SANS_OBJET } from "@/lib/format";
+import { formatNombre, formatPct, SANS_OBJET, VIDE } from "@/lib/format";
 import { libelleNature } from "@/lib/jorf-libelles";
+import { ministereSansObjet } from "@/lib/jorf-sans-objet";
 import { urlSite } from "@/lib/basePath";
 import { majParamsUrl } from "@/lib/urlEtat";
 import { useUrlInitiale } from "@/lib/useUrlInitiale";
@@ -105,8 +106,9 @@ const COLONNES_FLUX: Colonne<TexteVue>[] = [
           {l.ministere}
         </span>
       ) : (
-        // Une loi ou une décision du Conseil constitutionnel n'a pas de ministère.
-        <Vide sansObjet />
+        // « s.o. » pour une loi, une ordonnance ou une décision du Conseil
+        // constitutionnel (pas de ministère par nature), « n.d. » sinon.
+        <Vide sansObjet={ministereSansObjet(l.nature, l.titre)} />
       ),
   },
 ];
@@ -236,7 +238,7 @@ export function FluxTextes({
         titre="Flux des textes"
         sousTitre={`Fenêtre : ${mentionFenetre}, JORF « Lois et décrets » (ce n’est pas le fonds DOLE). Du plus récent au plus ancien. Ministère réellement absent sur ${formatPct(
           pctSansMinistere,
-        )} des textes (lois, Conseil constitutionnel, etc.), affiché « ${SANS_OBJET} » (sans objet)`}
+        )} des textes, affiché « ${SANS_OBJET} » (sans objet) pour une loi, une ordonnance ou une décision du Conseil constitutionnel, « ${VIDE} » (non disponible) sinon`}
       >
         {indisponible && besoinFragment && (
           <p className="mb-2 text-xs text-ink-muted">
