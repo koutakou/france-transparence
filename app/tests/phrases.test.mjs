@@ -40,7 +40,7 @@ test("liste livrée épuisée : jamais « 0 échéances », jamais « aucun appe
   );
   const p = phraseEcheancesEpuisees("08/11/2026 à 05h26", 48);
   assert.match(p, /arrêtées à sa construction \(08\/11\/2026 à 05h26\) pour les 48 heures suivantes/);
-  assert.match(p, /les appels d’offres qui clôturent plus tard n’y figurent pas/);
+  assert.match(p, /passées à cette heure\. Les appels d’offres qui clôturent plus tard n’y figurent pas/);
   assert.doesNotMatch(p, /aucun appel d’offres/i);
 });
 

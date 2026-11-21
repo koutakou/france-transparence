@@ -25,8 +25,10 @@ import { Sparkline } from "@/components/ui/Sparkline";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { TableTronquee } from "@/components/client/TableTronquee";
 import { VueTableau } from "@/components/ui/VueTableau";
+import { Vide } from "@/components/ui/Vide";
 import {
   ESPACE_FINE,
+  VIDE,
   formatDateFr,
   formatEuros,
   formatNombre,
@@ -62,7 +64,7 @@ import { LienExportCsv } from "@/components/ui/LienExportCsv";
 const CHEMIN = "/marches/";
 const TITRE = "Commande publique";
 const DESCRIPTION =
-  "Marchés publics notifiés et appels d’offres en cours : montants, attributaires, répartition par département — DECP consolidées et BOAMP, données datées.";
+  "Marchés publics notifiés et appels d’offres en cours : montants, attributaires, répartition par département. DECP consolidées et BOAMP, données datées.";
 
 export const metadata: Metadata = metadonneesPage({
   chemin: CHEMIN,
@@ -86,7 +88,7 @@ const BALISAGE = jsonLdPage({
  * `null` (quantile non calculable) ne devient jamais 0 : il s'affiche « — ».
  */
 function formatJours(v: number | null): string {
-  if (v === null) return "—";
+  if (v === null) return VIDE;
   return `${formatNombre(v)}${ESPACE_FINE}${Math.abs(v) < 2 ? "jour" : "jours"}`;
 }
 
@@ -140,7 +142,7 @@ function SectionAdlc({ donnees }: { donnees: SanctionsAdlc }) {
       <div id="adlc" className="scroll-mt-32">
         <Card
           titre="Amendes prononcées par l'Autorité de la concurrence"
-          sousTitre={`Sanctions financières publiées depuis 2009, datées du ${formatDateFr(meta.date_donnees)} par la dernière décision — avant appels et recours.`}
+          sousTitre={`Sanctions financières publiées depuis 2009, datées du ${formatDateFr(meta.date_donnees)} par la dernière décision, avant appels et recours.`}
           droite={badge}
         >
           <div className="flex flex-col gap-4">
@@ -174,7 +176,7 @@ function SectionAdlc({ donnees }: { donnees: SanctionsAdlc }) {
                 {
                   label: "Décisions",
                   valeur: formatNombre(nbDecisions),
-                  perimetre: `une ligne par décision, ${anneeMin}–${anneeMax}`,
+                  perimetre: `une ligne par décision, de ${anneeMin} à ${anneeMax}`,
                 },
               ]}
             />
@@ -186,7 +188,7 @@ function SectionAdlc({ donnees }: { donnees: SanctionsAdlc }) {
             )}
             {decisionsAnnee.length > 0 && (
               <p className="text-xs leading-relaxed text-ink-muted">
-                Décisions de {anneeMax}, dans l&apos;ordre de la date — ce
+                Décisions de {anneeMax}, dans l&apos;ordre de la date. Ce
                 n&apos;est pas un classement.
               </p>
             )}
@@ -248,7 +250,7 @@ export default async function PageMarches() {
           Marchés publics
         </h1>
         <div className="max-w-2xl rounded-xl border border-card-border bg-card p-5 text-sm text-ink-muted">
-          La base locale n’est pas encore construite — lancer{" "}
+          La base locale n’est pas encore construite. Lancer{" "}
           <code className="rounded bg-raised px-1.5 py-0.5">make ingest</code>{" "}
           pour ingérer les sources (DECP, BOAMP, APProch).
         </div>
@@ -455,11 +457,11 @@ export default async function PageMarches() {
             valeur: formatNombre(kpis.nbMarches12m),
             tendance: tendanceNb,
             perimetre:
-              "notification initiale, 12 derniers mois — ce n’est pas le stock total ; courbe : mois civils clos",
+              "notification initiale, 12 derniers mois. Ce n’est pas le stock total. Courbe : mois civils clos",
           },
           {
             label: "Montant notifié (12 mois, écrêté)",
-            valeur: kpis.montant12m !== null ? <Money valeur={kpis.montant12m} /> : "—",
+            valeur: kpis.montant12m !== null ? <Money valeur={kpis.montant12m} /> : <Vide />,
             montantVedette: true,
             tendance: tendanceMontant,
             perimetre: perimetreMontantNotifie(
@@ -468,11 +470,11 @@ export default async function PageMarches() {
           },
           {
             label: "Marchés notifiés (30 jours)",
-            valeur: kpis.nbMarches30j !== null ? formatNombre(kpis.nbMarches30j) : "—",
+            valeur: kpis.nbMarches30j !== null ? formatNombre(kpis.nbMarches30j) : <Vide />,
             // Même 6 544 que la tuile de l'accueil : les deux bornes disent
             // désormais la même chose, stock ET latence. Sans cela une page
             // prévenait d'un défaut dont l'autre ne prévenait pas.
-            perimetre: `notification initiale, 30 jours jusqu’au ${meta.s1 ? formatDateFr(meta.s1.date_donnees) : "—"} (date des données DECP) — ce n’est pas le stock total ; publication légale jusqu’à 2 mois, fenêtre incomplète`,
+            perimetre: `notification initiale, 30 jours jusqu’au ${meta.s1 ? formatDateFr(meta.s1.date_donnees) : VIDE} (date des données DECP). Ce n’est pas le stock total. Publication légale jusqu’à 2 mois, fenêtre incomplète`,
           },
           // Les deux tuiles qui suivent NE VIENNENT PAS des DECP. La seule
           // pastille servie au-dessus du bandeau (`badgeS1`, chapeau) est celle
@@ -492,15 +494,15 @@ export default async function PageMarches() {
             // tandis que `meta.s2.date_donnees` date la SOURCE. Elles coïncident
             // aujourd'hui ; le jour où le BOAMP prendra du retard, elles non.
             perimetre: meta.s2
-              ? `annonces BOAMP non annulées, date limite encore ouverte — instantané BOAMP du ${formatDateFr(meta.s2.date_donnees)}, re-filtré à la construction ; pas un flux 30 j`
-              : "annonces BOAMP non annulées, date limite encore ouverte — stock du jour, pas un flux 30 j",
+              ? `annonces BOAMP non annulées, date limite encore ouverte. Instantané BOAMP du ${formatDateFr(meta.s2.date_donnees)}, re-filtré à la construction, pas un flux 30 j`
+              : "annonces BOAMP non annulées, date limite encore ouverte. Stock du jour, pas un flux 30 j",
           },
           {
             label: "Achats annoncés (APProch)",
             valeur: formatNombre(kpis.marchesAVenir),
             perimetre: meta.s9
-              ? `projets à publication prévue — stock APProch au ${formatDateFr(meta.s9.date_donnees)}, pas une fenêtre de 12 mois`
-              : "projets à publication prévue — stock du jour, pas une fenêtre de 12 mois",
+              ? `projets à publication prévue, stock APProch au ${formatDateFr(meta.s9.date_donnees)}, pas une fenêtre de 12 mois`
+              : "projets à publication prévue, stock du jour, pas une fenêtre de 12 mois",
           },
         ]}
       />
@@ -511,7 +513,7 @@ export default async function PageMarches() {
       <Card
         id="montants-par-departement"
         titre="Montants par département"
-        sousTitre="Marchés notifiés sur 12 mois (notification initiale) — montants écrêtés, acheteurs à département connu"
+        sousTitre="Marchés notifiés sur 12 mois (notification initiale), montants écrêtés, acheteurs à département connu"
         droite={badgeS1}
       >
         {/* Carte = outil (22 rem), tableau = scan. grid-cols-1 explicite :
@@ -524,7 +526,7 @@ export default async function PageMarches() {
               format="euros"
               legendeTitre="Montant notifié (12 mois)"
               ariaLabel="Carte de France des montants de marchés publics notifiés par département sur 12 mois"
-              messageAbsent="Fond de carte indisponible (data/geo/departements.geojson manquant) — les valeurs restent lisibles dans le tableau ci-contre."
+              messageAbsent="Fond de carte indisponible (data/geo/departements.geojson manquant). Les valeurs restent lisibles dans le tableau ci-contre."
             />
             <p className="mt-2 text-xs leading-relaxed text-ink-muted">
               « Donnée manquante » = aucun montant connu pour le département
@@ -565,19 +567,19 @@ export default async function PageMarches() {
           <p>
             Un marché est daté de sa notification initiale, pas de son
             dernier avenant. Les totaux «&nbsp;12 mois&nbsp;» et
-            «&nbsp;30 jours&nbsp;» portent sur cette date ; les montants
+            «&nbsp;30 jours&nbsp;» portent sur cette date. Les montants
             et les titulaires affichés sont ceux de la version courante.
             Les montants agrégés sont écrêtés à 100&nbsp;M€ par marché
-            avant sommation ; un accord-cadre y entre pour son maximum,
-            pas pour le dépensé. Un tiret «&nbsp;—&nbsp;» n’est pas un
-            zéro.
+            avant sommation. Un accord-cadre y entre pour son maximum,
+            pas pour le dépensé. La mention «&nbsp;n.d.&nbsp;» (non
+            disponible) n’est pas un zéro.
           </p>
         }
         provenance={
           <p>
             Données essentielles de la commande publique (DECP),
             consolidées par le projet communautaire decp-processing
-            (Colin Maudry) ; appels d’offres en cours du BOAMP ; achats
+            (Colin Maudry), appels d’offres en cours du BOAMP et achats
             annoncés d’APProch. La publication légale peut prendre jusqu’à
             deux mois : les fenêtres récentes sont incomplètes.
           </p>
@@ -587,7 +589,7 @@ export default async function PageMarches() {
             Cette page ne dit pas si un marché a été exécuté, ni s’il a été
             payé, ni s’il était le mieux-disant. Un identifiant qui n’est
             pas un SIRET de 14 chiffres est écarté des classements et
-            compté à part — il n’est pas complété d’un zéro de tête. Le
+            compté à part : il n’est pas complété d’un zéro de tête. Le
             classement s’arrête à l’entreprise : il ne remonte pas au
             groupe.
           </p>
@@ -597,8 +599,8 @@ export default async function PageMarches() {
       <section className="flex flex-col gap-2">
         <p className="text-xs leading-relaxed text-ink-muted">
           Méthode : montants agrégés écrêtés à 100&nbsp;M€ par marché pour
-          neutraliser les saisies aberrantes ; les montants non renseignés
-          restent exclus des sommes — aucune valeur n’est inventée.
+          neutraliser les saisies aberrantes. Les montants non renseignés
+          restent exclus des sommes : aucune valeur n’est inventée.
         </p>
         {qm && totalQm !== null && (
           <div
@@ -623,7 +625,7 @@ export default async function PageMarches() {
                 </strong>{" "}
                 dépassent le plafond de {formatEuros(qm.plafond)} et sont
                 comptés à ce plafond. Ils apportent{" "}
-                {qm.montant_ecretes !== null ? formatEuros(qm.montant_ecretes) : "—"}
+                {qm.montant_ecretes !== null ? formatEuros(qm.montant_ecretes) : <Vide />}
                 {partEcretee !== null && <>, soit {formatPct(partEcretee)} du total</>} :
                 cette part est faite de valeurs de substitution, leur montant
                 réel n’est pas connu.
@@ -634,7 +636,7 @@ export default async function PageMarches() {
                 </strong>{" "}
                 portent le drapeau « montant signalé » (anomalie signalée à la
                 source, ou montant au-delà du plafond) et apportent{" "}
-                {qm.montant_suspects !== null ? formatEuros(qm.montant_suspects) : "—"}
+                {qm.montant_suspects !== null ? formatEuros(qm.montant_suspects) : <Vide />}
                 {partSuspecte !== null && <>, soit {formatPct(partSuspecte)} du total</>}.
                 {ds !== null && (
                   <>
@@ -654,7 +656,7 @@ export default async function PageMarches() {
                         pour{" "}
                         {ds.montantSuspectsSource !== null
                           ? formatEuros(ds.montantSuspectsSource)
-                          : "—"}
+                          : <Vide />}
                         . C’est là, et seulement là, que porte l’incertitude
                         sur le total.
                       </li>
@@ -669,11 +671,11 @@ export default async function PageMarches() {
                         : c’est le montant corrigé qui est compté, pour{" "}
                         {ds.montantAberrants !== null
                           ? formatEuros(ds.montantAberrants)
-                          : "—"}
+                          : <Vide />}
                         {partAberrants !== null && (
                           <>, soit {formatPct(partAberrants, 2)} du total</>
                         )}
-                        . Le drapeau garde la trace de la correction ; il ne dit
+                        . Le drapeau garde la trace de la correction, il ne dit
                         pas que le chiffre affiché serait faux.
                       </li>
                       <li>
@@ -685,7 +687,7 @@ export default async function PageMarches() {
                         plafond. Ils sont comptés au plafond, pour{" "}
                         {ds.montantHorsPlafond !== null
                           ? formatEuros(ds.montantHorsPlafond)
-                          : "—"}
+                          : <Vide />}
                         .
                       </li>
                     </ul>
@@ -696,14 +698,14 @@ export default async function PageMarches() {
                 En les écartant tous, il reste{" "}
                 {qm.montant_hors_suspects !== null
                   ? formatEuros(qm.montant_hors_suspects)
-                  : "—"}
+                  : <Vide />}
                 . À lire comme une{" "}
                 <strong className="font-medium text-ink">borne basse</strong>, et
                 non comme le montant réel : le drapeau « montant signalé » n’a pas été
                 vérifié marché par marché, il écarte donc aussi des montants
                 exacts
                 {ds !== null && (
-                  <> — à commencer par les {formatNombre(ds.nbAberrants)} déjà
+                  <>, à commencer par les {formatNombre(ds.nbAberrants)} déjà
                   redressés à la source</>
                 )}
                 .
@@ -711,7 +713,7 @@ export default async function PageMarches() {
               <li>
                 Sans aucun écrêtage, la somme brute des montants déclarés
                 atteindrait{" "}
-                {qm.montant_brut !== null ? formatEuros(qm.montant_brut) : "—"} —
+                {qm.montant_brut !== null ? formatEuros(qm.montant_brut) : <Vide />},
                 ce que le plafond sert précisément à ne pas afficher.
               </li>
               <li>
@@ -727,7 +729,7 @@ export default async function PageMarches() {
       {/* ---------------------------------------------------------- */}
       <Card
         titre="Série mensuelle"
-        sousTitre={`36 derniers mois civils, chaque marché rangé au mois de sa notification initiale (un avenant ne le redate pas) — ${incompletude}`}
+        sousTitre={`36 derniers mois civils, chaque marché rangé au mois de sa notification initiale (un avenant ne le redate pas), et ${incompletude}`}
         droite={badgeS1}
       >
         <SerieMensuelleMarches serie={serieMensuelle} />
@@ -749,8 +751,8 @@ export default async function PageMarches() {
             <strong className="font-medium text-ink">
               {formatNombre(qp.synthese.nb_retenus)} marchés
             </strong>{" "}
-            — ceux dont la notification et la première publication sont l’une
-            et l’autre connues et cohérentes — sur les{" "}
+            (ceux dont la notification et la première publication sont l’une
+            et l’autre connues et cohérentes) sur les{" "}
             {formatNombre(qp.synthese.nb_marches_source)} marchés que compte la
             source.
             {qp.synthese.date_observation_max !== null && (
@@ -778,7 +780,7 @@ export default async function PageMarches() {
           <p className="mt-3 max-w-3xl text-xs leading-relaxed text-ink-muted">
             Un quart des marchés retenus sont publiés en{" "}
             {formatJours(qp.synthese.delai_q1)} ou moins et la moitié en{" "}
-            {formatJours(qp.synthese.delai_median)} ou moins ; un quart dépasse{" "}
+            {formatJours(qp.synthese.delai_median)} ou moins. Un quart dépasse{" "}
             {formatJours(qp.synthese.delai_q3)} et un dixième dépasse{" "}
             {formatJours(qp.synthese.delai_d9)}. C’est cette queue longue qui
             commande la fenêtre de la ventilation par acheteur ci-dessous : une
@@ -820,8 +822,8 @@ export default async function PageMarches() {
                 {anneesProvisoires.length > 0 && (
                   <>
                     {" "}
-                    Les colonnes grises suivies d’un astérisque —{" "}
-                    {anneesProvisoires.map((a) => a.annee).join(", ")} — sont{" "}
+                    Les colonnes grises suivies d’un astérisque (
+                    {anneesProvisoires.map((a) => a.annee).join(", ")}) sont{" "}
                     <strong className="font-medium text-ink">provisoires</strong>{" "}
                     : leur dénominateur est incomplet, car les marchés notifiés
                     ces années-là et restés non publiés à ce jour n’y figurent
@@ -831,7 +833,7 @@ export default async function PageMarches() {
                   </>
                 )}
               </p>
-              <VueTableau resume="Vue tableau — par année de notification">
+              <VueTableau resume="Vue tableau : par année de notification">
                 <TableAnneesPublication lignes={qp.annees} />
               </VueTableau>
             </div>
@@ -843,7 +845,7 @@ export default async function PageMarches() {
               </h3>
               <p className="mb-3 text-xs text-ink-muted">
                 Marchés notifiés de {qp.synthese.cohorte_min} à{" "}
-                {qp.synthese.cohorte_max} — cohortes closes seules.
+                {qp.synthese.cohorte_max}, cohortes closes seules.
               </p>
               <BarListIle
                 items={acheteursChiffres.map((a) => ({
@@ -855,12 +857,12 @@ export default async function PageMarches() {
               />
               <p className="mt-2 text-xs leading-relaxed text-ink-muted">
                 Part des marchés publiés dans le délai légal, par catégorie
-                d’acheteur ; barres proportionnelles au taux le plus élevé de
+                d’acheteur. Barres proportionnelles au taux le plus élevé de
                 la liste. L’écart d’une catégorie à l’autre décrit une pratique
                 de publication : il ne dit rien des raisons du retard, et cette
                 donnée seule ne qualifie aucun manquement.
               </p>
-              <VueTableau resume="Vue tableau — par catégorie d’acheteur">
+              <VueTableau resume="Vue tableau : par catégorie d’acheteur">
                 <TableCompacte
                   colonnes={[
                     { cle: "categorie", entete: "Catégorie d’acheteur" },
@@ -902,7 +904,7 @@ export default async function PageMarches() {
                 </strong>{" "}
                 de la source n’ont aucune date de première publication. Ils
                 manquent au numérateur comme au dénominateur de chaque taux, et
-                y seraient hors délai — c’est ce qui fait de tous les taux de
+                y seraient hors délai. C’est ce qui fait de tous les taux de
                 cette section des bornes hautes.
               </li>
               <li>
@@ -948,9 +950,9 @@ export default async function PageMarches() {
                 {anneesProvisoires.length > 0 && (
                   <>
                     {" "}
-                    ; les cohortes{" "}
+                    (les cohortes{" "}
                     {anneesProvisoires.map((a) => a.annee).join(", ")} restent
-                    provisoires et n’y entrent pas
+                    provisoires et n’y entrent pas)
                   </>
                 )}
                 .
@@ -965,7 +967,7 @@ export default async function PageMarches() {
       {/* ---------------------------------------------------------- */}
       <Card
         titre="Principaux acheteurs et titulaires"
-        sousTitre="12 derniers mois (notification initiale), par entreprise (SIREN) — classement par montant notifié écrêté, hors montants signalés (affichés à part)"
+        sousTitre="12 derniers mois (notification initiale), par entreprise (SIREN). Classement par montant notifié écrêté, hors montants signalés (affichés à part)"
         droite={badgeS1}
       >
         {/* grid-cols-1 explicite : piste minmax(0,1fr) — sans elle, la piste
@@ -979,7 +981,7 @@ export default async function PageMarches() {
               items={donnees.topAcheteurs.map((a) => {
                 const href = hrefAnnuaire(a) ?? undefined;
                 return {
-                  libelle: a.nom ?? a.siren ?? "—",
+                  libelle: a.nom ?? a.siren ?? VIDE,
                   valeur: a.montant_hors_suspects,
                   href,
                   hrefSource: href ? "Sirene" : undefined,
@@ -995,13 +997,13 @@ export default async function PageMarches() {
                 comptés à part :{" "}
                 {formatNombre(qa.nb_marches_ecartes)} marchés sur{" "}
                 {formatNombre(qa.nb_marches_avec_acheteur)}, portant{" "}
-                {qa.montant_ecarte !== null ? formatEuros(qa.montant_ecarte) : "—"},
+                {qa.montant_ecarte !== null ? formatEuros(qa.montant_ecarte) : <Vide />},
                 sous {formatNombre(qa.nb_identifiants_ecartes)} valeurs
                 d’identifiant distinctes
                 {formesIdentifiantsEcartes && formesIdentifiantsEcartes.length > 0 ? (
                   <>
-                    {" "}
-                    — {formesIdentifiantsEcartes.map((f, i) => (
+                    &nbsp;:{" "}
+                    {formesIdentifiantsEcartes.map((f, i) => (
                       <span key={f.classe}>
                         {i > 0 ? (i === formesIdentifiantsEcartes.length - 1 ? " et " : ", ") : ""}
                         {f.libelle} ({formatNombre(f.nb_identifiants)},{" "}
@@ -1015,7 +1017,7 @@ export default async function PageMarches() {
                 tête.
               </p>
             )}
-            <VueTableau resume="Vue tableau — top acheteurs">
+            <VueTableau resume="Vue tableau : top acheteurs">
               {/* montant_total (suspects compris) n'est pas affiché : il ne voyage pas. */}
               <TableTopAcheteurs lignes={sansChamp(donnees.topAcheteurs, "montant_total")} />
             </VueTableau>
@@ -1029,7 +1031,7 @@ export default async function PageMarches() {
               items={donnees.topTitulaires.map((t) => {
                 const href = hrefAnnuaire(t) ?? undefined;
                 return {
-                  libelle: t.nom ?? t.siren ?? "—",
+                  libelle: t.nom ?? t.siren ?? VIDE,
                   valeur: t.montant_hors_suspects,
                   href,
                   hrefSource: href ? "Sirene" : undefined,
@@ -1042,7 +1044,7 @@ export default async function PageMarches() {
               Montant d’un marché multi-titulaires réparti à parts égales
               entre co-titulaires.
             </p>
-            <VueTableau resume="Vue tableau — top titulaires">
+            <VueTableau resume="Vue tableau : top titulaires">
               <TableTopTitulaires lignes={sansChamp(donnees.topTitulaires, "montant_total")} />
             </VueTableau>
             <LienExportCsv definition={CSV_TOP_TITULAIRES} />
@@ -1055,13 +1057,13 @@ export default async function PageMarches() {
           </h3>
           <p className="text-xs leading-relaxed text-ink-secondary">
             Une ligne est une{" "}
-            <strong className="font-medium text-ink">entreprise</strong> — une
+            <strong className="font-medium text-ink">entreprise</strong>, une
             personne morale, identifiée par son{" "}
             <strong className="font-medium text-ink">SIREN</strong>. Les marchés
             de tous ses établissements sont regroupés sur cette ligne unique, et
             la colonne «&nbsp;Établissements&nbsp;» dit combien d’établissements
             distincts de cette entreprise figurent dans les marchés de la
-            période — et non combien elle en compte. Le nom affiché est la
+            période, et non combien elle en compte. Le nom affiché est la
             dénomination du répertoire Sirene quand le SIREN y figure, sinon le
             nom déclaré dans les données de marché.
           </p>
@@ -1083,7 +1085,7 @@ export default async function PageMarches() {
             entre parenthèses, mais
             ne font monter personne dans le classement. Une entreprise dont
             tous les montants de la période sont signalés n’y est donc pas
-            rangée ; ses marchés figurent dans le total signalé de la page.
+            rangée, et ses marchés figurent dans le total signalé de la page.
           </p>
           {qt && (
             <p className="mt-2 text-xs leading-relaxed text-ink-secondary">
@@ -1097,12 +1099,12 @@ export default async function PageMarches() {
               {formatNombre(qt.nb_identifiants_ecartes)} valeurs d’identifiant
               distinctes, et portent{" "}
               <strong className="font-medium text-ink">
-                {qt.montant_ecarte !== null ? formatEuros(qt.montant_ecarte) : "—"}
+                {qt.montant_ecarte !== null ? formatEuros(qt.montant_ecarte) : <Vide />}
               </strong>
               {partEcartee !== null && (
                 <>, soit {formatPct(partEcartee)} du montant des titulaires</>
-              )}{" "}
-              — un montant que ce classement n’attribue à aucune entreprise.
+              )}
+              , un montant que ce classement n’attribue à aucune entreprise.
             </p>
           )}
           {qt && (
@@ -1137,12 +1139,12 @@ export default async function PageMarches() {
           ariaLabel="Répartition des marchés notifiés sur 12 mois par procédure de passation"
         />
         <p className="mt-3 text-xs leading-relaxed text-ink-muted">
-          « Non renseigné » = procédure absente de la déclaration source ;
+          « Non renseigné » = procédure absente de la déclaration source.
           «&nbsp;Autres procédures&nbsp;» regroupe les{" "}
           {formatNombre(Math.max(nommees.length - 4, 0))} procédures les moins
-          fréquentes — détail complet dans la vue tableau.
+          fréquentes (détail complet dans la vue tableau).
         </p>
-        <VueTableau resume="Vue tableau — toutes les procédures">
+        <VueTableau resume="Vue tableau : toutes les procédures">
           <TableProcedures lignes={procedures} total={totalProcedures} />
         </VueTableau>
       </Card>
@@ -1157,8 +1159,8 @@ export default async function PageMarches() {
       >
         <TableDerniersMarches lignes={sansChamp(donnees.derniersMarches, "rang")} />
         <p className="mt-3 text-xs leading-relaxed text-ink-muted">
-          Montants retenus tels que déclarés (non écrêtés dans ce détail) ;
-          « max » signale un accord-cadre (montant = maximum) ; « signalé » =
+          Montants retenus tels que déclarés (non écrêtés dans ce détail).
+          « max » signale un accord-cadre (montant = maximum), « signalé » =
           anomalie signalée à la source ou montant &gt; 100&nbsp;M€, écrêté
           des agrégats.
         </p>
@@ -1170,7 +1172,7 @@ export default async function PageMarches() {
       <div id="appels-offres" className="scroll-mt-32">
         <Card
           titre="Appels d’offres en cours"
-          sousTitre="BOAMP — instantané quotidien, re-filtré à chaque construction du site (annonces annulées et échéances passées écartées)"
+          sousTitre="BOAMP : instantané quotidien, re-filtré à chaque construction du site (annonces annulées et échéances passées écartées)"
           droite={
             meta.s2 && (
               <FreshnessBadge
@@ -1196,14 +1198,14 @@ export default async function PageMarches() {
               (toutes natures : appels d’offres, attributions, rectificatifs)
               {donnees.annoncesParJour.length > 0 && (
                 <span className="text-ink-muted">
-                  {" "}
-                  — du {formatDateFr(donnees.annoncesParJour[0].jour)} au{" "}
+                  
+                  , du {formatDateFr(donnees.annoncesParJour[0].jour)} au{" "}
                   {formatDateFr(donnees.annoncesParJour[donnees.annoncesParJour.length - 1].jour)}
                 </span>
               )}
             </p>
           </div>
-          <VueTableau resume="Vue tableau — annonces par jour (30 j)">
+          <VueTableau resume="Vue tableau : annonces par jour (30 j)">
             <TableCompacte
               hauteurMax="280px"
               colonnes={[
@@ -1237,7 +1239,7 @@ export default async function PageMarches() {
       {/* ---------------------------------------------------------- */}
       <Card
         titre="Achats publics annoncés"
-        sousTitre="APProch (DAE/AIFE) — stock du jour, projets d’achats de l’État à publication prévue"
+        sousTitre="APProch (DAE/AIFE) : stock du jour, projets d’achats de l’État à publication prévue"
         droite={
           meta.s9 && (
             <FreshnessBadge
@@ -1258,7 +1260,7 @@ export default async function PageMarches() {
           le SIREN de l’acheteur : le nom affiché est celui du référentiel des
           entités, ou à défaut la dénomination légale du répertoire Sirene.
           Quand aucun des deux ne nomme le SIREN, c’est le SIREN qui est
-          affiché — aucun nom n’est reconstitué. Les montants sont des
+          affiché : aucun nom n’est reconstitué. Les montants sont des
           tranches indicatives en texte, non sommables.
         </p>
       </Card>
