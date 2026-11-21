@@ -595,7 +595,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
                 {formatNombre(decomptes.sans)}
               </p>
               <DataTable
-                legende="Participation aux scrutins publics"
+                legende="Positions de vote aux scrutins récents"
                 colonnes={colonnesVotes}
                 lignes={votes}
                 cleLigne={(l) => l.scrutin_uid}
@@ -702,7 +702,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
                 {formatNombre(decomptesSenat.sans)}
               </p>
               <DataTable
-                legende="Participation aux scrutins publics du Sénat"
+                legende="Positions de vote aux scrutins récents du Sénat"
                 colonnes={colonnesVotes}
                 lignes={votes_senat}
                 cleLigne={(l) => l.scrutin_uid}
