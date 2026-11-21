@@ -153,12 +153,13 @@ export default async function PageAlertes() {
             Une alerte reprend un constat déjà formulé par une autorité, ou
             un signal d’attention tiré des sources, avec sa règle et sa
             base légale. Ce n’est pas un jugement du site. Les constats
-            officiels de la HATVP et les défauts AGORA portent un nom. Un
-            compte de campagne rejeté par la CNCCFP ne porte un nom que si
-            la personne a une fiche d’élu sur ce site, avec la réserve
-            «&nbsp;décision non définitive&nbsp;: le juge de l’élection
-            statue&nbsp;». Les comptes approuvés après réformation et les
-            autres rejets sont comptés sans nom sur la page Financement.
+            officiels de la HATVP et les défauts AGORA portent un nom. Les
+            comptes de campagne rejetés ou approuvés après réformation par
+            la CNCCFP ne sont pas des alertes&nbsp;: ils sont comptés sans
+            nom sur la page Financement. En cas de rejet, la CNCCFP saisit
+            le juge de l’élection, le Conseil constitutionnel pour les
+            législatives, dont les décisions sont publiées sur
+            conseil-constitutionnel.fr.
             Les déclarations HATVP au statut «&nbsp;En cours&nbsp;» plus
             de 2&nbsp;mois après l’entrée en fonction sont des comptes,
             jamais un nom ni un groupe de moins de 3&nbsp;personnes. Le
