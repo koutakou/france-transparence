@@ -66,7 +66,7 @@ import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 const CHEMIN = "/donnees-personnelles/";
 const TITRE = "Données personnelles";
 const DESCRIPTION =
-  "Visiteurs : aucun cookie ni traceur, mais des journaux de serveur — finalités, base légale, durées. Personnes figurant dans les données publiées : information de l'article 14 du RGPD. Droits et réclamation CNIL.";
+  "Visiteurs : aucun cookie ni traceur, mais des journaux de serveur, avec leurs finalités, leur base légale et leurs durées. Personnes figurant dans les données publiées : information de l'article 14 du RGPD. Droits et réclamation CNIL.";
 
 export const metadata: Metadata = metadonneesPage({
   chemin: CHEMIN,
@@ -114,10 +114,10 @@ export default function PageDonneesPersonnelles() {
         </p>
         <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm text-ink-secondary">
           <li>
-            <strong className="text-ink">A. les visiteurs du site</strong> —
+            <strong className="text-ink">A. les visiteurs du site</strong> :
             aucun cookie ni traceur, mais des journaux tenus par le serveur web
             (information prévue par l&apos;article 13 du règlement (UE)
-            2016/679, dit RGPD) ;
+            2016/679, dit RGPD).
           </li>
           <li>
             <strong className="text-ink">
@@ -149,7 +149,7 @@ export default function PageDonneesPersonnelles() {
             l&apos;hébergeur, qui répond des journaux décrits ci-dessous.
           </p>
           <p>
-            Il est joignable par e-mail à {contactEmail} — une demande qui
+            Il est joignable par e-mail à {contactEmail}. Une demande qui
             concerne une personne n&apos;a pas à être rendue publique.
           </p>
         </div>
@@ -178,7 +178,7 @@ export default function PageDonneesPersonnelles() {
             l&apos;heure, l&apos;adresse de la page demandée, le code de
             réponse, le volume transmis, la page d&apos;origine éventuelle et
             l&apos;identifiant du navigateur (<em>User-Agent</em>). Une adresse
-            IP est une donnée à caractère personnel ; ces journaux relèvent donc
+            IP est une donnée à caractère personnel, ces journaux relèvent donc
             du RGPD. Il y en a{" "}
             <strong className="text-ink">deux, séparés à dessein</strong> :
           </p>
@@ -276,16 +276,16 @@ export default function PageDonneesPersonnelles() {
             l&apos;autre.
           </p>
           <p>
-            <strong className="text-ink">Destinataires</strong> —{" "}
+            <strong className="text-ink">Destinataires</strong> :{" "}
             <strong className="text-ink">aucun</strong>. Les journaux ne quittent
             pas le serveur : ils ne sont ni sauvegardés à l&apos;extérieur, ni
             transmis à un tiers, ni croisés avec un autre fichier. Seul
             l&apos;éditeur y accède, par une connexion d&apos;administration.
             L&apos;hébergeur fournit la machine et n&apos;exploite pas ces
             données pour son compte. Rien de tout cela n&apos;est transféré hors
-            de l&apos;Union européenne ; seuls les courriels envoyés à
+            de l&apos;Union européenne. Seuls les courriels envoyés à
             l&apos;adresse de contact ci-dessus transitent par la messagerie
-            Proton, en Suisse — pays reconnu comme offrant un niveau de
+            Proton, en Suisse, pays reconnu comme offrant un niveau de
             protection adéquat par la Commission européenne.
           </p>
           <p>
@@ -293,7 +293,7 @@ export default function PageDonneesPersonnelles() {
               Aucun profilage, aucune décision automatisée à l&apos;égard
               d&apos;une personne
             </strong>{" "}
-            — les journaux ne servent jamais à suivre un individu ni à établir un
+            : les journaux ne servent jamais à suivre un individu ni à établir un
             profil. Les statistiques produites sont agrégées et ne contiennent
             aucune adresse de visiteur. Le seul traitement automatisé est le blocage
             temporaire d&apos;une adresse qui attaque le serveur.
@@ -307,14 +307,14 @@ export default function PageDonneesPersonnelles() {
       >
         <div className="flex flex-col gap-3 text-sm leading-relaxed text-ink-secondary">
           <p>
-            <strong className="text-ink">Finalité</strong> — l&apos;information
+            <strong className="text-ink">Finalité</strong> : l&apos;information
             du public sur la vie publique : l&apos;usage de l&apos;argent
             public, les mandats électifs, le lobbying et le financement de la
             vie politique.
           </p>
           <p>
-            <strong className="text-ink">Base légale</strong> —
-            l&apos;intérêt légitime (art. 6(1)(f) RGPD) : les données
+            <strong className="text-ink">Base légale</strong> :
+            l&apos;intérêt légitime (art. 6(1)(f) RGPD). Les données
             proviennent de publications rendues obligatoires par la loi. Leur
             réutilisation s&apos;inscrit dans le cadre prévu pour les données
             personnelles figurant dans des documents officiels : article 86 du
@@ -403,25 +403,25 @@ export default function PageDonneesPersonnelles() {
           */}
           <p>
             <strong className="text-ink">Catégories de données publiées</strong>{" "}
-            : nom et prénom ; <strong className="text-ink">date de
-            naissance</strong> et âge ; sexe ; profession ou catégorie
-            socio-professionnelle ; mandats, fonctions et dates de mandat ;
-            circonscription ou collectivité de rattachement ; groupe et
-            appartenance politiques ; votes et activités parlementaires ;
+            : nom et prénom, <strong className="text-ink">date de
+            naissance</strong> et âge, sexe, profession ou catégorie
+            socio-professionnelle, mandats, fonctions et dates de mandat,
+            circonscription ou collectivité de rattachement, groupe et
+            appartenance politiques, votes et activités parlementaires,
             existence et date des déclarations HATVP ainsi que les constats
-            publiés par elle ;{" "}
+            publiés par elle,{" "}
             <strong className="text-ink">
               le contenu des déclarations d&apos;intérêts publiées par la HATVP
             </strong>{" "}
-            — mandats et fonctions électives, participations aux organes
+            (mandats et fonctions électives, participations aux organes
             dirigeants d&apos;un organisme, participations financières directes
             dans le capital d&apos;une société, activités professionnelles des
             cinq dernières années, activités de consultant, fonctions bénévoles
-            et observations —, ainsi que les{" "}
+            et observations), ainsi que les{" "}
             <strong className="text-ink">
               montants de rémunération déclarés, année par année
             </strong>{" "}
-            qui y figurent, reproduits mot pour mot et datés ; montants déclarés
+            qui y figurent, reproduits mot pour mot et datés, et les montants déclarés
             dans les comptes de partis et de campagne. Aucune coordonnée privée n&apos;est publiée : ni
             adresse postale personnelle, ni téléphone, ni adresse
             électronique, ni donnée relevant de l&apos;article 9 du RGPD.
@@ -448,36 +448,36 @@ export default function PageDonneesPersonnelles() {
               Représentants d&apos;intérêts inscrits au registre de l&apos;Union
               européenne
             </strong>{" "}
-            — depuis le 20/08/2026, le site republie les organisations inscrites
+            : depuis le 20/08/2026, le site republie les organisations inscrites
             au registre de transparence commun au Parlement européen et à la
             Commission : raison sociale, acronyme, catégorie, ville du siège,
             fourchette de coûts déclarée. Les personnes accréditées auprès du
             Parlement ne sont jamais reprises, et la catégorie « travailleurs
-            indépendants » du registre est exclue de toute liste nominative —
-            ses membres ne sont que dénombrés. Cette exclusion suit la
+            indépendants » du registre est exclue de toute liste nominative.
+            Ses membres ne sont que dénombrés. Cette exclusion suit la
             classification établie par l&apos;Union : quelques consultants
             exerçant en nom propre peuvent donc y échapper si le registre les a
             classés parmi les cabinets de conseil.{" "}
             <strong className="text-ink">
               Si vous êtes dans ce cas, écrivez à {contactEmail} : votre
               inscription sera retirée des listes nominatives du site
-            </strong>{" "}
-            — sans que cela change quoi que ce soit au registre officiel, qui
+            </strong>
+            , sans que cela change quoi que ce soit au registre officiel, qui
             reste seul maître de ce qu&apos;il publie. Le site republie toujours
             moins que lui : ni code postal, ni effectifs, ni dates
             d&apos;inscription, ni accréditations.
           </p>
           <p>
             <strong className="text-ink">Avis et conseils de la CADA</strong>{" "}
-            — cette source, ajoutée le même jour, n&apos;apporte{" "}
+            : cette source, ajoutée le même jour, n&apos;apporte{" "}
             <strong className="text-ink">aucune donnée nominative</strong>{" "}
             dans la base ni sur les pages : seuls des dénombrements par
             administration, année et sens de l&apos;avis y sont versés. Le
             texte des décisions, qui nomme des responsables publics dans ses
             motifs, n&apos;est jamais versé dans la base ni servi. Une copie
-            datée du fichier amont — qui contient ce texte — est conservée
+            datée du fichier amont, qui contient ce texte, est conservée
             sur la machine, hors du cache de téléchargement, dans la limite
-            de trois générations distinctes ; le site ne la sert pas.
+            de trois générations distinctes. Le site ne la sert pas.
           </p>
           {/*
             Troisième occasion de commettre la même faute, évitée cette fois :
@@ -492,7 +492,7 @@ export default function PageDonneesPersonnelles() {
             <strong className="text-ink">
               Répertoire Sirene des entreprises (INSEE)
             </strong>{" "}
-            — le site rattache aux identifiants d&apos;entreprise déjà présents
+            : le site rattache aux identifiants d&apos;entreprise déjà présents
             en base (titulaires de marchés, bénéficiaires de subventions,
             représentants d&apos;intérêts, collectivités) leur catégorie
             juridique, leur secteur d&apos;activité, leur tranche
@@ -503,8 +503,8 @@ export default function PageDonneesPersonnelles() {
               Le répertoire décrit aussi des entrepreneurs individuels, dont il
               publie le nom, les prénoms, le pseudonyme et le sexe : rien de
               tout cela n&apos;est ingéré
-            </strong>{" "}
-            — une entreprise en nom propre entre avec son activité et son état,
+            </strong>
+            . Une entreprise en nom propre entre avec son activité et son état,
             jamais avec l&apos;identité de la personne. Les unités que
             l&apos;INSEE signale comme non diffusibles, parce que leur
             titulaire s&apos;est opposé à la diffusion, sont écartées
@@ -514,7 +514,7 @@ export default function PageDonneesPersonnelles() {
             <strong className="text-ink">
               Ce que la source contient et que le site ne publie pas
             </strong>{" "}
-            — le contenu des déclarations de situation patrimoniale (biens
+            : le contenu des déclarations de situation patrimoniale (biens
             immobiliers, comptes bancaires, valeurs mobilières, assurances-vie,
             véhicules, emprunts) n&apos;est jamais repris : sa divulgation est
             punie par l&apos;article LO 135-2 du code électoral. Ne sont pas
@@ -524,8 +524,8 @@ export default function PageDonneesPersonnelles() {
             aucun mandat.
           </p>
           <p>
-            La liste complète des sources — producteur, URL amont, licence,
-            date des données, date d&apos;ingestion — est publiée sur la page{" "}
+            La liste complète des sources (producteur, URL amont, licence,
+            date des données, date d&apos;ingestion) est publiée sur la page{" "}
             <Link href="/donnees" className={LIEN}>
               Données
             </Link>
@@ -534,10 +534,10 @@ export default function PageDonneesPersonnelles() {
             encore servie : les 100 derniers scrutins nominaux (Assemblée et
             Sénat), les 30 derniers JO, les 30 derniers jours d&apos;annonces
             BOAMP. Les lignes qui sortent de cette fenêtre restent dans la
-            base, dans des tables d&apos;archive que le site ne sert pas —
+            base, dans des tables d&apos;archive que le site ne sert pas :
             votes nominatifs des élus, textes du JO y compris les mesures
             nominatives, annonces de marchés. Cette conservation locale
-            commence le jour où la ligne sort de la fenêtre ; elle ne
+            commence le jour où la ligne sort de la fenêtre. Elle ne
             reconstitue pas les lignes déjà purgées avant la mise en service
             de ces tables, et elle ne crée pas de page d&apos;archives. Le
             serveur conserve aussi des copies datées de quatre fichiers amont,
@@ -549,7 +549,7 @@ export default function PageDonneesPersonnelles() {
             n&apos;est prise que si le contenu a changé. Sont conservées au
             plus 14 générations distinctes pour les scrutins, 14 pour Dosleg,
             3 pour la CADA, 30 pour Datan. Ces copies restent sur la même
-            machine, hors du cache de téléchargement ; elles ne sont ni dans
+            machine, hors du cache de téléchargement. Elles ne sont ni dans
             le dépôt public, ni servies, et elles ne créent pas de page
             d&apos;archives. Le répertoire Sirene n&apos;en fait pas partie.
           </p>
@@ -557,7 +557,7 @@ export default function PageDonneesPersonnelles() {
             <strong className="text-ink">
               Aucun transfert, aucun enrichissement
             </strong>{" "}
-            — les données ne sont ni transmises à des tiers, ni croisées avec
+            : les données ne sont ni transmises à des tiers, ni croisées avec
             des données non publiques, ni enrichies hors sources publiques
             officielles.
           </p>
@@ -570,7 +570,7 @@ export default function PageDonneesPersonnelles() {
             <strong className="text-ink">
               Si vous figurez dans les données publiées
             </strong>{" "}
-            (volet B) — vous disposez des droits d&apos;accès (art. 15 RGPD), de
+            (volet B) : vous disposez des droits d&apos;accès (art. 15 RGPD), de
             rectification (art. 16) et d&apos;opposition (art. 21), dans les
             limites que la liberté d&apos;information apporte au droit à
             l&apos;effacement (art. 17(3)(a)).
@@ -595,7 +595,7 @@ export default function PageDonneesPersonnelles() {
             ses voisins de réseau.
           </p>
           <p>
-            <strong className="text-ink">Comment exercer ces droits</strong> —
+            <strong className="text-ink">Comment exercer ces droits</strong> :
             les demandes se font par e-mail à {contactEmail}, et sont
             traitées sous un mois (art. 12(3) RGPD). Rien n&apos;oblige à
             passer par un canal public pour exercer un droit.
@@ -615,7 +615,7 @@ export default function PageDonneesPersonnelles() {
             .
           </p>
           <p>
-            <strong className="text-ink">Période électorale</strong> — les
+            <strong className="text-ink">Période électorale</strong> : les
             demandes de rectification émanant de candidats ou de leurs
             représentants sont traitées en priorité, sous 48 heures.
           </p>

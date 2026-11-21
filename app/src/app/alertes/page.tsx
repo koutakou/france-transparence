@@ -8,6 +8,7 @@ import { CSV_ALERTES } from "@/lib/exports-csv";
 import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { JsonLd } from "@/components/JsonLd";
 import { StatStrip } from "@/components/ui/StatStrip";
+import { Vide } from "@/components/ui/Vide";
 import { formatDateFr, formatNombre } from "@/lib/format";
 import {
   getAlertesDomaines,
@@ -37,7 +38,7 @@ import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 const CHEMIN = "/alertes/";
 const TITRE = "Alertes transparence";
 const DESCRIPTION =
-  "Constats sourcés : déclarations HATVP non déposées, comptes de campagne rejetés, lobbying non déclaré — chaque alerte avec sa règle et sa base légale.";
+  "Constats sourcés : déclarations HATVP non déposées, comptes de campagne rejetés, lobbying non déclaré. Chaque alerte avec sa règle et sa base légale.";
 
 export const metadata: Metadata = metadonneesPage({
   chemin: CHEMIN,
@@ -64,7 +65,7 @@ export default async function PageAlertes() {
           Alertes transparence
         </h1>
         <div className="max-w-2xl rounded-xl border border-card-border bg-card p-5 text-sm text-ink-muted">
-          La base locale n’est pas encore construite — lancer{" "}
+          La base locale n’est pas encore construite. Lancer{" "}
           <code className="rounded bg-raised px-1.5 py-0.5">make ingest</code> pour
           ingérer les sources et calculer les alertes.
         </div>
@@ -93,7 +94,7 @@ export default async function PageAlertes() {
           <p className="mt-2 text-sm text-ink-secondary">
             {formatNombre(stats.total)} alertes calculées à l’ingestion
             (dernier calcul&nbsp;:{" "}
-            {stats.derniereDateCalcul ? formatDateFr(stats.derniereDateCalcul) : "—"}
+            {stats.derniereDateCalcul ? formatDateFr(stats.derniereDateCalcul) : <Vide />}
             ).
           </p>
         </div>
@@ -190,7 +191,7 @@ export default async function PageAlertes() {
 
       <Card
         titre="Répartition par domaine"
-        sousTitre="Le préfixe du type d’alerte porte son domaine — valeurs exactes affichées"
+        sousTitre="Le préfixe du type d’alerte porte son domaine, valeurs exactes affichées"
       >
         <BarList
           items={domaines.map((d) => ({ libelle: d.domaine, valeur: d.nb }))}

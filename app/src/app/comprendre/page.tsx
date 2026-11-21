@@ -161,9 +161,9 @@ const GLOSSAIRE: EntreeGlossaire[] = [
     def: (
       <>
         L’acheteur est la personne morale qui passe le marché (État,
-        collectivité, établissement public…). Le titulaire est celle qui
+        collectivité, établissement public, etc.). Le titulaire est celle qui
         l’exécute. Un marché a un seul acheteur et peut avoir plusieurs
-        co-titulaires ; le montant est alors réparti à parts égales, la source
+        co-titulaires. Le montant est alors réparti à parts égales, la source
         ne le ventilant pas.
       </>
     ),
@@ -226,7 +226,7 @@ const GLOSSAIRE: EntreeGlossaire[] = [
       <>
         Établissement public de coopération intercommunale : un groupement
         de communes (métropole, communauté d’agglomération, communauté de
-        communes…). Les dépenses qu’il porte n’entrent pas dans les comptes
+        communes, etc.). Les dépenses qu’il porte n’entrent pas dans les comptes
         du budget principal d’une commune.
       </>
     ),
@@ -238,7 +238,7 @@ const GLOSSAIRE: EntreeGlossaire[] = [
       <>
         Commission nationale des comptes de campagne et des financements
         politiques. Elle publie les comptes des partis et les comptes de
-        campagne. Ce site les republie ; il n’estime pas ce qui n’y figure
+        campagne. Ce site les republie, il n’estime pas ce qui n’y figure
         pas.
       </>
     ),
@@ -261,7 +261,7 @@ const GLOSSAIRE: EntreeGlossaire[] = [
     def: (
       <>
         Le budget voté par l’assemblée de la collectivité pour ses compétences
-        propres. Les budgets annexes (eau, transports, régies…) n’y sont pas.
+        propres. Les budgets annexes (eau, transports, régies, etc.) n’y sont pas.
         Tous les montants de finances locales de ce site portent sur le budget
         principal seul.
       </>
@@ -301,7 +301,7 @@ const GLOSSAIRE: EntreeGlossaire[] = [
         l’exécution mensuelle sur{" "}
         <LienPage href="/depenses/">Dépenses</LienPage> et{" "}
         <LienPage href="/recettes/">Recettes</LienPage>
-        ; la répartition par mission de 2025 est celle du PLF, pas de la
+        . La répartition par mission de 2025 est celle du PLF, pas de la
         LFI. Une LFI 2025 par mission est publiée à côté, dans le budget
         vert, en crédits budgétaires. La LFI 2026 n’est pas publiée en
         données.
@@ -316,7 +316,7 @@ const GLOSSAIRE: EntreeGlossaire[] = [
         Annexe au PLF qui ventile les crédits par mission, programme et
         action, y compris un marquage environnemental. Sur ce site, c’est
         aussi la source d’une LFI 2025 par mission, en crédits budgétaires,
-        et de la répartition 2026 — la LFI 2026 n’étant pas publiée en
+        et de la répartition 2026, la LFI 2026 n’étant pas publiée en
         données.
       </>
     ),
@@ -533,8 +533,8 @@ const GLOSSAIRE: EntreeGlossaire[] = [
       <>
         Licence de réutilisation des informations publiques (Etalab). La
         plupart des sources de ce site la portent, pas toutes : d’autres
-        relèvent d’un régime distinct — décision 2011/833/UE, publications
-        officielles hors open data. Le Journal officiel «&nbsp;Lois et
+        relèvent d’un régime distinct (décision 2011/833/UE, publications
+        officielles hors open data). Le Journal officiel «&nbsp;Lois et
         décrets&nbsp;» (métadonnées) est sous Licence Ouverte. La licence
         exacte, source par source, est sur la page{" "}
         <LienPage href="/donnees/">Données</LienPage>.
@@ -670,7 +670,7 @@ export default function PageComprendre() {
               règle, pas forcément sur le même jour de coupe.
             </li>
             <li>
-              <strong className="font-medium text-ink">Le tiret «&nbsp;—&nbsp;».</strong>{" "}
+              <strong className="font-medium text-ink">La mention «&nbsp;n.d.&nbsp;».</strong>{" "}
               Ce n’est pas un zéro. C’est une valeur absente, un
               dénominateur manquant, ou un calcul impossible. Un zéro, lui,
               est écrit 0, et c’est une mesure.
@@ -704,7 +704,7 @@ export default function PageComprendre() {
           <p>
             Ce site date ses lectures. Une lecture remplacée n’est pas
             effacée : elle reste ici, avec ce qui la remplace. Un chiffre
-            vivant n’entre pas dans ce journal — les valeurs restent sur
+            vivant n’entre pas dans ce journal : les valeurs restent sur
             chaque module, avec leur date et leur source. Une incohérence
             de la source amont n’est pas corrigée en silence : elle est
             constatée et documentée, sauf si la source l’a elle-même
@@ -731,7 +731,7 @@ export default function PageComprendre() {
           <ul className="list-disc space-y-3 pl-5">
             <li>
               <strong className="font-medium text-ink">
-                21 août 2026 — Date d’un marché.
+                21 août 2026 : date d’un marché.
               </strong>{" "}
               Un marché se date de sa notification initiale. À la source,
               la ligne d’un avenant porte comme date de notification la
@@ -742,7 +742,7 @@ export default function PageComprendre() {
             </li>
             <li>
               <strong className="font-medium text-ink">
-                21 août 2026 — Unité d’un titulaire ou d’un acheteur.
+                21 août 2026 : unité d’un titulaire ou d’un acheteur.
               </strong>{" "}
               Le classement groupe par entreprise (SIREN), pas par
               établissement (SIRET). Classer par SIRET émiette une
@@ -752,7 +752,7 @@ export default function PageComprendre() {
             </li>
             <li>
               <strong className="font-medium text-ink">
-                21 août 2026 — Identifiants non conformes.
+                21 août 2026 : identifiants non conformes.
               </strong>{" "}
               Un identifiant qui n’est pas un SIRET de 14 chiffres est
               écarté des classements et compté à part. Un numéro à 13
@@ -760,7 +760,7 @@ export default function PageComprendre() {
             </li>
             <li>
               <strong className="font-medium text-ink">
-                22 août 2026 — Un chiffre borné porte sa borne.
+                22 août 2026 : un chiffre borné porte sa borne.
               </strong>{" "}
               Une restriction écrite plus bas sur la page ne compte pas.
               Fenêtre, strate, filtre de source et population exclue se
@@ -768,7 +768,7 @@ export default function PageComprendre() {
             </li>
             <li>
               <strong className="font-medium text-ink">
-                22 août 2026 — Exécution de l’État.
+                22 août 2026 : exécution de l’État.
               </strong>{" "}
               Un cumul depuis le 1<sup>er</sup> janvier, arrêté au dernier
               mois publié, n’est pas l’année. Le dernier mois publié l’est
@@ -776,7 +776,7 @@ export default function PageComprendre() {
             </li>
             <li>
               <strong className="font-medium text-ink">
-                22 août 2026 — PLF, LFI, exécution.
+                22 août 2026 : PLF, LFI, exécution.
               </strong>{" "}
               La répartition par mission de 2025 affichée est celle du PLF,
               pas de la LFI. Une LFI 2025 par mission est publiée dans le
@@ -785,7 +785,7 @@ export default function PageComprendre() {
             </li>
             <li>
               <strong className="font-medium text-ink">
-                22 août 2026 — Licences.
+                22 août 2026 : licences.
               </strong>{" "}
               Les sources ne portent pas toutes la Licence Ouverte, ni
               toutes la même version. La licence exacte, source par source,
@@ -793,7 +793,7 @@ export default function PageComprendre() {
             </li>
             <li>
               <strong className="font-medium text-ink">
-                22 août 2026 — Stock, solde, déficit.
+                22 août 2026 : stock, solde, déficit.
               </strong>{" "}
               L’encours Maastricht est un stock des APU. Le solde du
               budget général est un flux cumulé de l’État. Le déficit
@@ -802,7 +802,7 @@ export default function PageComprendre() {
             </li>
             <li>
               <strong className="font-medium text-ink">
-                23 août 2026 — Hors-champ de l’argent public.
+                23 août 2026 : hors-champ de l’argent public.
               </strong>{" "}
               Les prestations de protection sociale publiées par la DREES
               (tous régimes, flux annuel) sont dans le champ. Restent hors
@@ -812,7 +812,7 @@ export default function PageComprendre() {
             </li>
             <li>
               <strong className="font-medium text-ink">
-                23 août 2026 — Noms dans les alertes.
+                23 août 2026 : noms dans les alertes.
               </strong>{" "}
               Les constats de la HATVP, les décisions de la CNCCFP et les
               défauts AGORA portent un nom. Les retards HATVP
@@ -820,7 +820,7 @@ export default function PageComprendre() {
             </li>
             <li>
               <strong className="font-medium text-ink">
-                23 août 2026 — Participation électorale.
+                23 août 2026 : participation électorale.
               </strong>{" "}
               L’agrégat des tuiles est la somme des départements et
               collectivités de ce scrutin, pas un total France du
@@ -828,7 +828,7 @@ export default function PageComprendre() {
             </li>
             <li>
               <strong className="font-medium text-ink">
-                23 août 2026 — Croisement lobbying / marchés.
+                23 août 2026 : croisement lobbying / marchés.
               </strong>{" "}
               Le croisement porte sur 24 mois de détail DECP, pas sur la
               fenêtre 12 mois du classement de la page Marchés, et
@@ -836,7 +836,7 @@ export default function PageComprendre() {
             </li>
             <li>
               <strong className="font-medium text-ink">
-                24 août 2026 — Recettes non fiscales du PLF.
+                24 août 2026 : recettes non fiscales du PLF.
               </strong>{" "}
               Le détail des recettes non fiscales est celui du projet de
               loi de finances (État A, recettes brutes), pas de
@@ -845,7 +845,7 @@ export default function PageComprendre() {
             </li>
             <li>
               <strong className="font-medium text-ink">
-                25 août 2026 — Dépenses des ODAC (INSEE).
+                25 août 2026 : dépenses des ODAC (INSEE).
               </strong>{" "}
               Le tableau 3.204 (secteur ESA S13112) est une lecture
               distincte des totaux par sous-secteur (S50) et de la
@@ -855,7 +855,7 @@ export default function PageComprendre() {
             </li>
             <li>
               <strong className="font-medium text-ink">
-                11 novembre 2026 — Total des recettes nettes de l’État.
+                11 novembre 2026 : total des recettes nettes de l’État.
               </strong>{" "}
               À chaque ingestion, le site vérifie que quatre totaux de la
               situation mensuelle DGFiP (recettes nettes, recettes
@@ -919,7 +919,7 @@ export default function PageComprendre() {
             d’offres encore ouverts viennent du BOAMP (bulletin officiel des
             annonces de marchés publics). Les achats que l’acheteur annonce
             sans encore les lancer viennent d’APProch. Un appel d’offres n’est
-            pas un marché notifié ; un achat annoncé n’est pas un appel
+            pas un marché notifié, et un achat annoncé n’est pas un appel
             d’offres.
           </p>
           <p>
@@ -947,7 +947,7 @@ export default function PageComprendre() {
             titulaire qui n’est pas un SIRET de 14 chiffres est écarté du
             classement : valeurs illisibles, numéros étrangers, SIREN nus,
             SIREN avec espaces, numéros à 13 chiffres. Un numéro à 13 chiffres
-            n’est pas complété d’un zéro de tête — rien ne prouve que le zéro
+            n’est pas complété d’un zéro de tête : rien ne prouve que le zéro
             manque en tête. Ces identifiants sont comptés, pas classés.
           </p>
           <p>
@@ -968,7 +968,7 @@ export default function PageComprendre() {
             groupes et les scrutins publics nominaux. Le ministère de
             l’Intérieur tient le répertoire national des élus, mandat par
             mandat. La HATVP publie les déclarations d’intérêts et
-            d’activités des responsables concernés ; le contenu des
+            d’activités des responsables concernés. Le contenu des
             déclarations de patrimoine consultables en préfecture n’est pas
             en open data. Voir{" "}
             <LienPage href="/elus/">Élus &amp; institutions</LienPage>.
@@ -976,7 +976,7 @@ export default function PageComprendre() {
           <p>
             Une fiche nominative n’existe que pour les mandats nationaux et
             les exécutifs départementaux et régionaux. Les maires sont
-            recensés ; ils n’ont pas de page dédiée. La tuile des maires
+            recensés, mais ils n’ont pas de page dédiée. La tuile des maires
             porte les mandats maire du répertoire, pas tout le répertoire.
             Le stock «&nbsp;élus en base&nbsp;» n’est pas une fiche par
             personne. Les conseillers municipaux du RNE sont tenus en
@@ -1072,7 +1072,7 @@ export default function PageComprendre() {
             qui les publie. Ces comptes recouvrent les dons, les cotisations
             d’adhérents et d’élus, l’aide publique, les contributions reçues
             et les autres produits. L’aide publique est fixée par décret, en
-            deux fractions ; le montant du décret et celui inscrit aux
+            deux fractions. Le montant du décret et celui inscrit aux
             comptes déposés ne portent pas sur le même exercice. Voir{" "}
             <LienPage href="/financement/">Financement</LienPage>.
           </p>
@@ -1158,8 +1158,8 @@ export default function PageComprendre() {
             valeur faciale, des administrations publiques (secteur ESA S13 :
             État, Odac, administrations publiques locales, administrations de
             sécurité sociale), arrêté en fin de trimestre. Ce n’est pas un
-            flux. L’unité native Eurostat est le million d’euros (MIO_EUR) ;
-            le milliard affiché est ce million divisé par 1&nbsp;000 — pas
+            flux. L’unité native Eurostat est le million d’euros (MIO_EUR).
+            Le milliard affiché est ce million divisé par 1&nbsp;000, et non
             l’euro des situations DGFiP divisé par un milliard. Un trimestre
             peut porter le drapeau provisoire (p). Un delta d’un trimestre
             sur l’autre n’est ni «&nbsp;bon&nbsp;» ni «&nbsp;mauvais&nbsp;».
@@ -1193,9 +1193,9 @@ export default function PageComprendre() {
             sociale). L’indicateur s’appelle B9 : un nombre négatif est un
             besoin (déficit), un nombre positif une capacité (excédent).
             C’est un flux d’année civile, pas un stock. L’unité native
-            Eurostat est le million d’euros (MIO_EUR) ; le milliard affiché
+            Eurostat est le million d’euros (MIO_EUR). Le milliard affiché
             est ce million divisé par 1&nbsp;000. Le pourcentage du PIB
-            vient de la même série, lu à part ; il n’est comparé à aucun
+            vient de la même série, lu à part. Il n’est comparé à aucun
             seuil. Un delta d’une année sur l’autre n’est ni «&nbsp;bon&nbsp;»
             ni «&nbsp;mauvais&nbsp;». Voir{" "}
             <LienPage href="/depenses/#deficit-maastricht">Dépenses</LienPage>.
@@ -1230,7 +1230,7 @@ export default function PageComprendre() {
             publiques locales et les administrations de sécurité sociale.
             C’est un flux d’année civile, pas un cumul depuis le
             1<sup>er</sup> janvier, pas un stock. L’unité native Eurostat
-            est le million d’euros (MIO_EUR) ; le milliard affiché est ce
+            est le million d’euros (MIO_EUR). Le milliard affiché est ce
             million divisé par 1&nbsp;000. Le pourcentage du PIB vient de
             la même série. Un delta d’une année sur l’autre n’est ni
             «&nbsp;bon&nbsp;» ni «&nbsp;mauvais&nbsp;». Voir{" "}
@@ -1267,10 +1267,10 @@ export default function PageComprendre() {
             (services généraux, défense, ordre public, affaires
             économiques, environnement, logements, santé, loisirs-culture-culte,
             enseignement, protection sociale) recomposent le total, dans
-            l’ordre du producteur — ce n’est pas un classement. C’est un
+            l’ordre du producteur. Ce n’est pas un classement. C’est un
             flux d’année civile, pas un cumul depuis le
             1<sup>er</sup> janvier, pas un stock. L’unité native Eurostat
-            est le million d’euros (MIO_EUR) ; le milliard affiché est ce
+            est le million d’euros (MIO_EUR). Le milliard affiché est ce
             million divisé par 1&nbsp;000. Le pourcentage du PIB vient de
             la même série et n’est pas additif. Un delta d’une année sur
             l’autre n’est ni «&nbsp;bon&nbsp;» ni «&nbsp;mauvais&nbsp;». Voir{" "}
@@ -1295,7 +1295,7 @@ export default function PageComprendre() {
             n’est pas la dépense de l’État seul (S13111), ni celle de l’administration centrale (S1311). Ce n’est pas
             les prestations de protection sociale DREES (S45, tous
             régimes). Ce n’est pas un montant par habitant. Les groupes
-            (GF0101…) ne sont pas ingérés : ils recouvrent les
+            (GF0101, etc.) ne sont pas ingérés : ils recouvrent les
             divisions. taxag n’est pas ingéré. Les prélèvements
             obligatoires officiels sont le tableau INSEE 3.216 (S50),
             pas taxag. Ce n’est pas la décomposition INSEE par
@@ -1314,7 +1314,7 @@ export default function PageComprendre() {
             publiques locales et les administrations de sécurité sociale.
             C’est un flux d’année civile, pas un cumul depuis le
             1<sup>er</sup> janvier, pas un stock. L’unité native Eurostat
-            est le million d’euros (MIO_EUR) ; le milliard affiché est ce
+            est le million d’euros (MIO_EUR). Le milliard affiché est ce
             million divisé par 1&nbsp;000. Le pourcentage du PIB vient de
             la même série. Un delta d’une année sur l’autre n’est ni
             «&nbsp;bon&nbsp;» ni «&nbsp;mauvais&nbsp;». Voir{" "}
@@ -1444,7 +1444,7 @@ export default function PageComprendre() {
             recouvrables ainsi que des crédits d’impôts (définition
             INSEE, tableau 3.216). Le taux est ce montant rapporté au
             PIB. C’est un flux d’année civile. L’unité native est le
-            milliard d’euros ; le pourcentage du PIB vient de la même
+            milliard d’euros. Le pourcentage du PIB vient de la même
             table. Un delta d’une année sur l’autre n’est ni
             «&nbsp;bon&nbsp;» ni «&nbsp;mauvais&nbsp;». Voir{" "}
             <LienPage href="/recettes/#prelevements-obligatoires">Recettes</LienPage>.
@@ -1478,8 +1478,8 @@ export default function PageComprendre() {
             moins le total du passif hors situation nette (II). C’est un
             stock, pas un flux, pas un cumul depuis le 1<sup>er</sup>{" "}
             janvier. La pièce mélange des colonnes en euros et des
-            colonnes en millions d’euros ; le site convertit tout en euros
-            puis affiche des milliards (euro divisé par un milliard) — pas
+            colonnes en millions d’euros. Le site convertit tout en euros
+            puis affiche des milliards (euro divisé par un milliard), et non
             le million d’euros Eurostat divisé par 1&nbsp;000. Un delta d’une
             année sur l’autre n’est ni «&nbsp;bon&nbsp;» ni
             «&nbsp;mauvais&nbsp;». Voir{" "}
@@ -1514,7 +1514,7 @@ export default function PageComprendre() {
             Les prestations de protection sociale sont le flux annuel des
             prestations versées, tous régimes, publié par la DREES. Ce n’est
             pas le budget de l’État, ni un agrégat ESA des APU, ni le
-            bilan patrimonial. L’unité native est le million d’euros ; le
+            bilan patrimonial. L’unité native est le million d’euros. Le
             milliard affiché est ce million divisé par 1&nbsp;000. Les
             montants sont en euros courants. Un delta d’une année sur
             l’autre n’est ni «&nbsp;bon&nbsp;» ni «&nbsp;mauvais&nbsp;».
@@ -1562,11 +1562,11 @@ export default function PageComprendre() {
             La même situation mensuelle de la DGFiP que celle des dépenses,
             nette des remboursements et dégrèvements. Cette source n’en
             publie, pour les recettes non fiscales, qu’un total. Le
-            détail est une autre source, le PLF — voir{" "}
+            détail est une autre source, le PLF (voir{" "}
             <a href="#recettes-plf" className={LIEN}>
               Recettes non fiscales du PLF
             </a>
-            .
+            ).
           </p>
           <p>
             <strong className="font-medium text-ink">Ce que ça ne dit pas.</strong>{" "}
@@ -1579,12 +1579,12 @@ export default function PageComprendre() {
             administrations n’y figurent pas. Les recettes non fiscales
             d’exécution restent un seul total : le détail ci-dessous est
             un projet, pas cette exécution. L’impôt net IRCOM (par
-            commune de résidence, année des revenus) est un autre objet —
-            voir{" "}
+            commune de résidence, année des revenus) est un autre objet
+            (voir{" "}
             <a href="#ircom" className={LIEN}>
               Impôt sur le revenu par territoire
             </a>
-            .
+            ).
           </p>
         </div>
       </Card>
@@ -1608,7 +1608,7 @@ export default function PageComprendre() {
             </code>
             {" "}
             sur data.economie.gouv.fr. Licence Ouverte 2.0. Millésime 2025,
-            jeu publié le 11 octobre 2024 — lendemain de l’enregistrement
+            jeu publié le 11 octobre 2024, lendemain de l’enregistrement
             du projet à l’Assemblée nationale (10 octobre 2024, texte
             n° 324). C’est le seul millésime que le site ingère&nbsp;:
             aucun jeu de recettes PLF 2026 ni LFI n’est ingéré à ce jour.
@@ -1673,7 +1673,7 @@ export default function PageComprendre() {
             et rendent des comptes. L’OFGL les consolide à partir des données
             DGFiP. Ce site affiche les comptes de l’ensemble des départements
             et des régions, et les agrégats communaux des communes ayant
-            rendu leurs comptes — ce n’est pas le tableau nominatif des
+            rendu leurs comptes. Ce n’est pas le tableau nominatif des
             200 communes les plus peuplées. Tous les montants
             portent sur le budget principal seul : les budgets annexes
             (eau, transports, régies) et les dépenses portées par
@@ -1820,7 +1820,7 @@ export default function PageComprendre() {
           <p>
             <strong className="font-medium text-ink">D’où ça vient.</strong>{" "}
             Dumps XML DILA du fonds DOLE (Freemium puis incréments), Licence
-            Ouverte 2.0. Producteur : DILA ; catalogue data.gouv
+            Ouverte 2.0. Producteur : DILA, catalogue data.gouv
             «&nbsp;dole-les-dossiers-legislatifs&nbsp;», organisation Premier
             ministre. Chaque dossier renvoie vers Légifrance (lien sortant).
           </p>

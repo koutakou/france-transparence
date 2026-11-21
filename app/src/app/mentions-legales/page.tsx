@@ -96,7 +96,7 @@ export default function PageMentionsLegales() {
           <p>
             En régime d&apos;édition non professionnelle, le nom du directeur
             de la publication n&apos;est pas publié (art. 93-2 de la loi
-            n° 82-652 du 29 juillet 1982 ; art. 1-1, II et III LCEN).
+            n° 82-652 du 29 juillet 1982, art. 1-1, II et III LCEN).
           </p>
         </div>
       </Card>
@@ -173,8 +173,8 @@ export default function PageMentionsLegales() {
               {CONTACT_EMAIL}
             </a>
             . C&apos;est par elle que passent les demandes qui concernent une
-            personne — rectification, opposition, exercice des droits prévus
-            par le RGPD : elles n&apos;ont pas à être rendues publiques.
+            personne (rectification, opposition, exercice des droits prévus
+            par le RGPD). Elles n&apos;ont pas à être rendues publiques.
           </p>
           <p>
             Les signalements d&apos;erreur qui ne portent sur aucune donnée
@@ -204,7 +204,7 @@ export default function PageMentionsLegales() {
       <Card titre="Licences">
         <div className="flex flex-col gap-3 text-sm leading-relaxed text-ink-secondary">
           <p>
-            <strong className="text-ink">Code source du site</strong> — publié
+            <strong className="text-ink">Code source du site</strong> : publié
             dans le dépôt{" "}
             <a
               href={REPO_URL}
@@ -217,7 +217,7 @@ export default function PageMentionsLegales() {
             , sous la licence indiquée dans ce dépôt.
           </p>
           <p>
-            <strong className="text-ink">Données</strong> — les données
+            <strong className="text-ink">Données</strong> : les données
             republiées proviennent de sources publiques officielles, plus quelques consolidations reconnues et créditées (la consolidation des
             marchés publics de Colin Maudry, les scores de Datan), chacune
             étiquetée comme telle sur la page Données.
@@ -231,9 +231,9 @@ export default function PageMentionsLegales() {
             >
               Licence Ouverte
             </a>{" "}
-            (Etalab), d&apos;autres relèvent d&apos;un régime distinct —
-            décision 2011/833/UE pour les documents de la Commission
-            européenne, publications officielles hors open data. La licence
+            (Etalab), d&apos;autres relèvent d&apos;un régime distinct
+            (décision 2011/833/UE pour les documents de la Commission
+            européenne, publications officielles hors open data). La licence
             exacte est indiquée source
             par source sur la page{" "}
             <Link href="/donnees" className={LIEN}>
