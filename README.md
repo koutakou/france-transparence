@@ -1,10 +1,30 @@
 # France Transparence
 
-Site d'information sur l'argent public et la vie politique en France, en ligne sur **https://francetransparence.fr**. Il rassemble des publications de l'État, des assemblées et des autorités indépendantes, et affiche pour chacune son producteur, sa licence et la date réelle de ses données.
+Site d'information sur l'argent public et la vie politique en France. Il rassemble des publications de l'État, des assemblées et des autorités indépendantes, et affiche pour chacune son producteur, sa licence et la date réelle de ses données.
 
-Les données viennent de **sources publiques officielles, plus quelques consolidations reconnues et créditées**. Elles sont étiquetées comme telles sur la page [`/donnees`](https://francetransparence.fr/donnees/) (voir « D'où viennent les données »).
+**Site : https://francetransparence.fr**
 
-Le site publie des données et leurs règles de calcul. Il ne porte aucun jugement sur les personnes. Un indicateur dit ce qu'il mesure, avec sa règle et sa base légale, et rien de plus.
+[![Licence du code : AGPL-3.0-or-later](https://img.shields.io/badge/licence%20du%20code-AGPL--3.0--or--later-blue)](LICENSE)
+[![CI publication](https://github.com/koutakou/france-transparence/actions/workflows/publication.yml/badge.svg)](https://github.com/koutakou/france-transparence/actions/workflows/publication.yml)
+[![Site : francetransparence.fr](https://img.shields.io/badge/site-francetransparence.fr-002395)](https://francetransparence.fr)
+
+![Accueil de francetransparence.fr : la navigation en onze onglets, la vue d'ensemble et les premiers blocs de chiffres, chacun avec la date de ses données](docs/screenshots/accueil.png)
+
+*Accueil de francetransparence.fr, le 21/11/2026.*
+
+## Sommaire
+
+- [Ce que montre le site](#ce-que-montre-le-site)
+- [Principes](#principes)
+- [Sources et méthode](#sources-et-méthode)
+- [Architecture](#architecture)
+- [Démarrage rapide](#démarrage-rapide)
+- [Tests](#tests)
+- [Contribuer](#contribuer)
+- [Signaler une erreur](#signaler-une-erreur)
+- [Sécurité](#sécurité)
+- [Licences et crédits](#licences-et-crédits)
+- [Documentation](#documentation)
 
 ## Ce que montre le site
 
@@ -28,9 +48,17 @@ Hors navigation : `/alertes` (indicateurs calculés, chacun avec sa règle), `/c
 
 Les volumes (nombre d'élus, de marchés, de textes) changent à chaque ingestion. Ils ne sont pas recopiés ici : la seule valeur qui fait foi est celle que le site affiche, avec la date de ses données.
 
-## D'où viennent les données
+## Principes
 
-**44 sources**, une ligne chacune dans la table `meta_sources` de la base et dans le catalogue de [`/donnees`](https://francetransparence.fr/donnees/), reconstruit à chaque publication. Le référentiel (périmètre, pièges, limites de chaque source) est [docs/SOURCES.md](docs/SOURCES.md).
+- **Des sources publiques officielles, plus quelques consolidations reconnues et créditées.** C'est la promesse affichée sur [`/donnees`](https://francetransparence.fr/donnees/), qui étiquette comme telles les sources qui ne sont pas des publications officielles directes (voir [Sources et méthode](#sources-et-méthode)).
+- **La date réelle des données.** Chaque page dit la date de ses données, pas seulement celle de la construction du site. Rien n'est mis à jour « en direct » : aucune source publique ne le permet.
+- **La règle affichée.** Un indicateur dit ce qu'il mesure, avec sa règle et sa base légale, et rien de plus.
+- **Aucun jugement sur les personnes.** Le site publie des données et leurs règles de calcul.
+- **Aucun cookie ni traceur.** Les journaux du serveur et leurs durées sont décrits sur [/donnees-personnelles](https://francetransparence.fr/donnees-personnelles/).
+
+## Sources et méthode
+
+**44 sources** au 21/11/2026, une ligne chacune dans la table `meta_sources` de la base et dans le catalogue de [`/donnees`](https://francetransparence.fr/donnees/), reconstruit à chaque publication. Le référentiel (périmètre, pièges, limites de chaque source) est [docs/SOURCES.md](docs/SOURCES.md).
 
 Producteurs principaux : DILA (Journal officiel, BOAMP, dossiers législatifs), Assemblée nationale, Sénat, HATVP, ministère de l'Intérieur (Répertoire national des élus), DGFiP, OFGL, CNCCFP, CADA, INSEE, DREES, Eurostat, Autorité de la concurrence, registre de transparence de l'Union européenne.
 
@@ -42,24 +70,47 @@ Trois sources portent une étiquette particulière : deux consolidations non off
 | S7-DATAN | Consolidation reconnue, non officielle | Scores calculés par l'association Datan à partir des données de l'Assemblée nationale, affichés à côté du taux calculé par le site |
 | S31 | Officielle, recopiée à la main | Chiffres recopiés de documents officiels (textes, rapports, PDF publics), sans jeu de données ouvert lisible par machine, chacun cité avec son adresse |
 
-Rien n'est mis à jour « en direct » : aucune source publique ne le permet. Chaque page dit la date de ses données, et la fraîcheur de chaque source est mesurée contre un seuil (`app/src/lib/fraicheur.ts`).
+La fraîcheur de chaque source est mesurée contre un seuil propre à la source (`app/src/lib/fraicheur.ts`).
 
-## Comment c'est construit et publié
+![Page Données de francetransparence.fr : la promesse sur les sources, l'état de fraîcheur et le catalogue, avec l'étiquette de la source S1](docs/screenshots/donnees.png)
+
+*Page Données de francetransparence.fr, le 21/11/2026.*
+
+### Limites connues
+
+Chaque page dit ses limites, et [`/comprendre`](https://francetransparence.fr/comprendre/) les rassemble. Les principales :
+
+- Les montants d'accords-cadres sont des maximums contractuels, pas des paiements. Le site écrit « marchés notifiés », jamais « dépensé ».
+- Les données essentielles des marchés publics (DECP) arrivent avec une latence légale de publication qui peut atteindre deux mois.
+- Les notes de frais des parlementaires ne sont pas publiées et ne relèvent pas du droit d'accès aux documents administratifs. `/frais` montre les barèmes et les contrôles publiés, avec leurs textes.
+- Le budget de l'État est publié chaque mois avec environ six semaines de décalage.
+- L'outre-mer n'est pas rendu sur la carte, mais il figure dans les tableaux et les agrégats.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    S["Sources publiques<br/>des producteurs"] --> P["pipelines/<br/>Python"]
+    P --> R["data/raw/<br/>fichiers bruts en cache"]
+    P --> D[("data/france.db<br/>SQLite")]
+    D --> A["app/<br/>Next.js, export statique"]
+    A --> N["nginx<br/>francetransparence.fr"]
+```
 
 1. `pipelines/` (Python) télécharge les sources dans `data/raw/` et les transforme. Chaque pipeline est une cible `make ingest-<nom>`. La liste fait autorité dans la variable `PIPELINES` du `Makefile` (`make pipelines` l'affiche).
 2. Tout aboutit dans une seule base SQLite, `data/france.db`, qui n'est pas versionnée. Chaque ingestion réussie écrit sa ligne dans `meta_sources` (date des données, licence, fréquence).
 3. L'application Next.js (`app/`) lit cette base en lecture seule et produit un **export statique** (`FT_EXPORT=1`) : toutes les pages sont écrites au build, sans appel réseau à l'exécution.
 4. En production, **nginx sert cet export**. Aucun processus Node ne tourne.
 
-**Publication.** Le serveur reconstruit le site chaque nuit vers 05:17, heure de Paris (minuterie systemd `ft-deploy.timer`, décalage aléatoire de 10 minutes au plus). Le script `ft-deploy` met le dépôt à jour, vérifie l'identité de déploiement, ingère toutes les sources, joue les tests, construit l'export, le contrôle, puis bascule le lien `current` vers la nouvelle version. Si une étape échoue, rien ne bascule : la version précédente reste servie et une alerte part. Ces scripts vivent sur le serveur et ne sont pas versionnés ici. Leur description publique est le [RUNBOOK](docs/deploiement/RUNBOOK.md).
+**Publication nocturne.** Le serveur reconstruit le site chaque nuit vers 05:17, heure de Paris (minuterie systemd `ft-deploy.timer`, décalage aléatoire de 10 minutes au plus). Le script `ft-deploy` met le dépôt à jour, vérifie l'identité de déploiement, ingère toutes les sources, joue les tests, construit l'export, le contrôle, puis bascule le lien `current` vers la nouvelle version. Si une étape échoue, rien ne bascule : la version précédente reste servie et une alerte part. Ces scripts vivent sur le serveur et ne sont pas versionnés ici. Leur description publique est le [RUNBOOK](docs/deploiement/RUNBOOK.md).
 
-**Validation.** La CI GitHub (`.github/workflows/publication.yml`) ne publie rien. Une exécution est programmée chaque jour à 04:45 UTC, après le cycle du serveur (le départ réel a souvent lieu plusieurs heures plus tard). Elle rejoue la chaîne complète dans une base neuve : ingestion, tests, lint, types, build, contrôles. Sur chaque proposition de fusion, elle joue les mêmes étapes avant que le code n'atteigne `main`, en réutilisant la base en cache quand l'empreinte des pipelines et de `requirements.txt` n'a pas changé. Un second workflow, `vigie.yml`, lit le site en ligne une fois par jour et ouvre une issue s'il est figé.
+**Une CI qui valide sans publier.** La CI GitHub (`.github/workflows/publication.yml`) ne publie rien. Une exécution est programmée chaque jour à 04:45 UTC, après le cycle du serveur (le départ réel a souvent lieu plusieurs heures plus tard). Elle rejoue la chaîne complète dans une base neuve : ingestion, tests, lint, types, build, contrôles. Sur chaque proposition de fusion, elle joue les mêmes étapes avant que le code n'atteigne `main`, en réutilisant la base en cache quand l'empreinte des pipelines et de `requirements.txt` n'a pas changé. Un second workflow, `vigie.yml`, lit le site en ligne une fois par jour et ouvre une issue s'il est figé.
 
 L'ancienne adresse GitHub Pages ne porte plus qu'une page de redirection vers le domaine (`pages-redirection/`).
 
-## Reproduire en local
+## Démarrage rapide
 
-Prérequis : Python 3.14 (celui du `Makefile`, de la CI et du serveur), Node.js 24 ou plus (celui de la CI), `make`. Tant que le job `tests-python-3-10` existe, le code des pipelines et `requirements.txt` doivent rester compatibles avec Python 3.10 (voir l'en-tête de `requirements.txt`). Ce job n'est pas un check requis : vérifier son résultat sur chaque proposition de fusion.
+Prérequis : Python 3.14 (celui du `Makefile`, de la CI et du serveur), Node.js 24 ou plus (celui de la CI), `make`.
 
 ```bash
 make venv          # crée .venv avec les versions figées de requirements.txt
@@ -68,7 +119,7 @@ make app-install   # installe les dépendances de app/
 make dev           # http://localhost:3620
 ```
 
-`make ingest` télécharge beaucoup et prend du temps (plus de 1 Go de fichiers bruts, mesuré le 24/08/2026) : les fichiers bruts restent en cache dans `data/raw/`, et la commande se rejoue sans risque. Un seul pipeline : `make ingest-<nom>`.
+`make ingest` télécharge beaucoup et prend du temps (plus de 1 Go de fichiers bruts, mesuré le 24/08/2026). Les fichiers bruts restent en cache dans `data/raw/`, et la commande se rejoue sans risque. Un seul pipeline : `make ingest-<nom>`.
 
 La forme servie en production se reproduit ainsi :
 
@@ -87,38 +138,40 @@ make test                                         # pipelines, suite pytest comp
 cd app && npm test && npm run lint && npm run typecheck
 ```
 
-Les tests de transformation tournent hors ligne sur des fixtures figées dans `pipelines/tests/fixtures/`. La CI joue aussi les tests des pipelines sous Python 3.10 (job `tests-python-3-10`).
+Les tests de transformation tournent hors ligne sur des fixtures figées dans `pipelines/tests/fixtures/`.
 
-## Limites connues
+Tant que le job `tests-python-3-10` existe, le code des pipelines et `requirements.txt` doivent rester compatibles avec Python 3.10 (voir l'en-tête de `requirements.txt`). La CI joue les tests des pipelines sous Python 3.10 dans ce job. Ce n'est pas un check requis : vérifier son résultat sur chaque proposition de fusion.
 
-Chaque page dit ses limites, et [`/comprendre`](https://francetransparence.fr/comprendre/) les rassemble. Les principales :
+## Contribuer
 
-- Les montants d'accords-cadres sont des maximums contractuels, pas des paiements. Le site écrit « marchés notifiés », jamais « dépensé ».
-- Les données essentielles des marchés publics (DECP) arrivent avec une latence légale de publication qui peut atteindre deux mois.
-- Les notes de frais des parlementaires ne sont pas publiées et ne relèvent pas du droit d'accès aux documents administratifs. `/frais` montre les barèmes et les contrôles publiés, avec leurs textes.
-- Le budget de l'État est publié chaque mois avec environ six semaines de décalage.
-- L'outre-mer n'est pas rendu sur la carte, mais il figure dans les tableaux et les agrégats.
+Du code ou une source à proposer : voir [CONTRIBUTING.md](CONTRIBUTING.md), qui donne aussi les règles qui font refuser une contribution. Les gabarits d'issue sont dans [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/).
 
-Le site ne dépose aucun cookie et n'utilise aucun traceur. Les journaux du serveur et leurs durées sont décrits sur [/donnees-personnelles](https://francetransparence.fr/donnees-personnelles/).
+## Signaler une erreur
 
-## Licences
+- **Une donnée affichée est fausse** : ouvrir une issue avec le gabarit « Erreur dans une donnée affichée », en joignant la source officielle. Aucune donnée ne vit dans le dépôt : la correction passe par le pipeline, ou par un signalement au producteur si c'est l'amont qui se trompe.
+- **Une demande qui vous concerne personnellement** : jamais par issue publique, mais par le canal indiqué sur [/donnees-personnelles](https://francetransparence.fr/donnees-personnelles/).
+
+## Sécurité
+
+Une faille de sécurité se signale en privé, jamais par issue publique : voir [SECURITY.md](SECURITY.md).
+
+## Licences et crédits
 
 - **Code** : AGPL-3.0-or-later ([LICENSE](LICENSE)).
 - **Données** : chaque source garde la licence de son producteur, pour l'essentiel la Licence Ouverte 2.0 (Etalab). La licence de chaque source est affichée sur `/donnees`. S31 n'a pas de licence ouverte : ce sont des chiffres cités de documents officiels. Détails : [LICENSES.md](LICENSES.md).
 - **Crédits** : consolidation DECP par le projet `decp-processing` de Colin Maudry, scores de l'association Datan, fonds de carte france-geojson (Grégoire David) et contours Etalab.
 
-## Signaler une erreur, contribuer
-
-- **Une donnée affichée est fausse** : ouvrir une issue avec le gabarit « Erreur dans une donnée affichée », en joignant la source officielle. Aucune donnée ne vit dans le dépôt : la correction passe par le pipeline, ou par un signalement au producteur si c'est l'amont qui se trompe.
-- **Une demande qui vous concerne personnellement** : jamais par issue publique, par le canal indiqué sur [/donnees-personnelles](https://francetransparence.fr/donnees-personnelles/).
-- **Une faille de sécurité** : en privé, voir [SECURITY.md](SECURITY.md).
-- **Du code, une source à proposer** : [CONTRIBUTING.md](CONTRIBUTING.md), qui donne aussi les règles qui font refuser une contribution.
-
 ## Documentation
 
-- [STATUS.md](STATUS.md) : état courant. [JOURNAL.md](JOURNAL.md) : décisions datées.
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) : flux de données et invariants. [docs/SCHEMA-DB.md](docs/SCHEMA-DB.md) : schéma de la base.
-- [docs/deploiement/RUNBOOK.md](docs/deploiement/RUNBOOK.md) : exploitation du serveur. [docs/deploiement/DECISION.md](docs/deploiement/DECISION.md) : choix d'hébergement.
-- [docs/ACTIONS-HUMAINES.md](docs/ACTIONS-HUMAINES.md) : ce qui demande un geste sur le serveur ou sur GitHub.
-- [docs/REDIRECTIONS-ELUS.md](docs/REDIRECTIONS-ELUS.md) : redirections des fiches d'élus fusionnées.
-- [docs/RAPPORT-MISSION.md](docs/RAPPORT-MISSION.md) : journal de construction des 19 et 20/08/2026, daté et non réécrit.
+| Document | Contenu |
+|---|---|
+| [STATUS.md](STATUS.md) | État courant |
+| [JOURNAL.md](JOURNAL.md) | Décisions datées |
+| [docs/SOURCES.md](docs/SOURCES.md) | Référentiel des sources : périmètre, pièges, limites |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Flux de données et invariants |
+| [docs/SCHEMA-DB.md](docs/SCHEMA-DB.md) | Schéma de la base |
+| [docs/deploiement/RUNBOOK.md](docs/deploiement/RUNBOOK.md) | Exploitation du serveur |
+| [docs/deploiement/DECISION.md](docs/deploiement/DECISION.md) | Choix d'hébergement |
+| [docs/ACTIONS-HUMAINES.md](docs/ACTIONS-HUMAINES.md) | Ce qui demande un geste sur le serveur ou sur GitHub |
+| [docs/REDIRECTIONS-ELUS.md](docs/REDIRECTIONS-ELUS.md) | Redirections des fiches d'élus fusionnées |
+| [docs/RAPPORT-MISSION.md](docs/RAPPORT-MISSION.md) | Journal de construction des 19 et 20/08/2026, daté et non réécrit |
