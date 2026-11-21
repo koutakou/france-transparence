@@ -336,11 +336,12 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
     {
       cle: "titre",
       entete: "Scrutin",
-      // Pas d'attribut title : il doublerait le titre complet dans le HTML
-      // ET le payload RSC (~13 Ko/fiche) — le texte intégral reste dans le
-      // nœud texte, seul l'affichage est tronqué (ellipse CSS).
+      // Le titre passe à la ligne au lieu d'être coupé par une ellipse : le
+      // texte entier se lit à l'écran comme au lecteur d'écran. Pas d'attribut
+      // title, qui doublerait le titre dans le HTML et le payload RSC
+      // (environ 13 Ko par fiche).
       rendu: (l) =>
-        l.titre ? <span className="block max-w-[34rem] truncate">{l.titre}</span> : <Vide />,
+        l.titre ? <span className="block max-w-[34rem] break-words">{l.titre}</span> : <Vide />,
     },
     {
       cle: "position",

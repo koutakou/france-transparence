@@ -318,7 +318,7 @@ function AvisCadaParAdministration({ data }: { data: AvisCadaData }) {
                   key={`${m.sens}-${m.motivation ?? ""}`}
                   className="flex items-baseline justify-between gap-3 border-b border-card-border py-1.5 last:border-0"
                 >
-                  <span className="min-w-0 truncate text-ink-secondary">
+                  <span className="min-w-0 break-words text-ink-secondary">
                     {m.sens}
                     {m.motivation ? ` · ${m.motivation}` : ""}
                   </span>
@@ -348,7 +348,7 @@ function AvisCadaParAdministration({ data }: { data: AvisCadaData }) {
                 key={c.categorie}
                 className="flex items-baseline justify-between gap-4 border-b border-card-border py-1.5 last:border-0"
               >
-                <span className="min-w-0 truncate text-ink-secondary">
+                <span className="min-w-0 break-words text-ink-secondary">
                   {CATEGORIES_CADA[c.categorie] ?? c.categorie}
                 </span>
                 <span className="shrink-0 text-[12px] text-ink-muted [font-variant-numeric:tabular-nums]">
