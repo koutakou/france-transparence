@@ -13,6 +13,7 @@ import { KpiTile } from "@/components/ui/KpiTile";
 import { NoteRupturesPerimetre } from "@/components/ui/NoteRupturesPerimetre";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { VueTableau } from "@/components/ui/VueTableau";
+import { Vide } from "@/components/ui/Vide";
 import { ESPACE_FINE, formatDateFr, formatNombre } from "@/lib/format";
 import {
   getAgregatApu,
@@ -52,7 +53,7 @@ import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 const CHEMIN = "/recettes/";
 const TITRE = "Recettes de l'État";
 const DESCRIPTION =
-  "Recettes nettes du budget général de l'État (DGFiP, situations mensuelles) : recettes fiscales par grand impôt, recettes non fiscales, fonds de concours — séries depuis 2013. Le détail des non fiscales est celui du PLF, projet, pas l'exécution. L'impôt sur le revenu par territoire (IRCOM) est un autre objet : impôt net sur rôle, année des revenus.";
+  "Recettes nettes du budget général de l'État (DGFiP, situations mensuelles) : recettes fiscales par grand impôt, recettes non fiscales, fonds de concours. Séries depuis 2013. Le détail des non fiscales est celui du PLF, projet, pas l'exécution. L'impôt sur le revenu par territoire (IRCOM) est un autre objet : impôt net sur rôle, année des revenus.";
 
 export const metadata: Metadata = metadonneesPage({
   chemin: CHEMIN,
@@ -121,7 +122,7 @@ export default async function PageRecettes() {
           Recettes de l&apos;État
         </h1>
         <div className="max-w-2xl rounded-xl border border-card-border bg-card p-5 text-sm text-ink-muted">
-          La base locale n&apos;est pas encore construite — lancer{" "}
+          La base locale n&apos;est pas encore construite. Lancer{" "}
           <code className="rounded bg-raised px-1.5 py-0.5">make ingest</code>{" "}
           pour ingérer les sources budgétaires.
         </div>
@@ -144,7 +145,7 @@ export default async function PageRecettes() {
     <FreshnessBadge
       dateDonnees={source.date_donnees}
       sourceId={source.source_id}
-      source="DGFiP — situations mensuelles"
+      source="DGFiP : situations mensuelles"
       frequence={source.frequence}
       url={source.url}
       mention={mentionProvisoire}
@@ -204,8 +205,8 @@ export default async function PageRecettes() {
             Recettes de l&apos;État
           </h1>
           <p className="mt-2 text-sm text-ink-secondary">
-            Recettes nettes du budget général — nettes des remboursements et
-            dégrèvements d&apos;impôts —, cumuls depuis le 1er janvier.
+            Recettes nettes du budget général (nettes des remboursements et
+            dégrèvements d&apos;impôts), cumuls depuis le 1er janvier.
             Dernière situation DGFiP&nbsp;: {formatDateFr(kpis.dateFinMois)}{" "}
             (cinq à sept semaines de latence).
           </p>
@@ -221,7 +222,7 @@ export default async function PageRecettes() {
             valeur: <MontantMd valeur={kpis.totalNettes} />,
             montantVedette: true,
             perimetre: kpis.ruptureTotal
-              ? `${PERIMETRE_BG} — ${bornePerimetreRompu(kpis.ruptureTotal)}`
+              ? `${PERIMETRE_BG}, ${bornePerimetreRompu(kpis.ruptureTotal)}`
               : PERIMETRE_BG,
             delta: deltaTotal === null ? undefined : { valeur: deltaTotal, vs: vsN1 },
           },
@@ -232,7 +233,7 @@ export default async function PageRecettes() {
                   label: "Recettes fiscales nettes",
                   valeur: <MontantMd valeur={kpis.fiscalesNettes} />,
                   perimetre: kpis.ruptureFiscales
-                    ? `${PERIMETRE_BG} — ${bornePerimetreRompu(kpis.ruptureFiscales)}`
+                    ? `${PERIMETRE_BG}, ${bornePerimetreRompu(kpis.ruptureFiscales)}`
                     : PERIMETRE_BG,
                   delta: deltaFiscales === null ? undefined : { valeur: deltaFiscales, vs: vsN1 },
                 },
@@ -250,7 +251,7 @@ export default async function PageRecettes() {
                   // qu'il se nomme — même partage que celui déjà servi sur
                   // /comprendre : « n'est pas la source S13 de ce site ».
                   perimetre:
-                    "exécution de la source S13 (situations mensuelles DGFiP), un seul total — le détail du PLF (projet) est plus bas",
+                    "exécution de la source S13 (situations mensuelles DGFiP), un seul total. Le détail du PLF (projet) est plus bas",
                   delta:
                     deltaNonFiscales === null ? undefined : { valeur: deltaNonFiscales, vs: vsN1 },
                 },
@@ -269,8 +270,8 @@ export default async function PageRecettes() {
       />
       <p className="text-xs leading-relaxed text-ink-muted">
         {kpis.ruptureTotal?.cote === "mois"
-          ? `Les fonds de concours et attributions de produits sont une ligne propre : les autres mois, le total des recettes nettes publié par la DGFiP ne les contient pas ; celui du ${formatDateFr(kpis.dateFinMois)} a un autre périmètre (ci-dessus). On ne les y additionne pas.`
-          : "Les fonds de concours et attributions de produits sont une ligne propre, hors du total des recettes nettes — on ne les y additionne pas."}
+          ? `Les fonds de concours et attributions de produits sont une ligne propre : les autres mois, le total des recettes nettes publié par la DGFiP ne les contient pas, celui du ${formatDateFr(kpis.dateFinMois)} a un autre périmètre (ci-dessus). On ne les y additionne pas.`
+          : "Les fonds de concours et attributions de produits sont une ligne propre, hors du total des recettes nettes. On ne les y additionne pas."}
       </p>
 
       {/* Cumuls mensuels et décomposition par impôt, côte à côte dès xl */}
@@ -279,7 +280,7 @@ export default async function PageRecettes() {
           {serie && serie.annees.length > 0 && (
             <Card
               titre="Recettes nettes cumulées par mois"
-              sousTitre="Budget général, nettes des remboursements et dégrèvements — cumul depuis le 1er janvier, en Md€"
+              sousTitre="Budget général, nettes des remboursements et dégrèvements, cumul depuis le 1er janvier, en Md€"
               droite={badge}
             >
               <LineChartIle
@@ -303,7 +304,7 @@ export default async function PageRecettes() {
           {detail && (
             <Card
               titre="Recettes fiscales nettes par grand impôt"
-              sousTitre={`Cumul au ${formatDateFr(detail.dateFinMois)} depuis le 1er janvier — les cinq lignes publiées par la DGFiP`}
+              sousTitre={`Cumul au ${formatDateFr(detail.dateFinMois)} depuis le 1er janvier : les cinq lignes publiées par la DGFiP`}
               droite={badge}
             >
               {detail.totalFiscales !== null && (
@@ -341,7 +342,7 @@ export default async function PageRecettes() {
                         cumul: number;
                         cumulN1: number | null;
                         variation: number | null;
-                      }) => (l.variation === null ? "—" : <DeltaPct valeur={l.variation} />),
+                      }) => (l.variation === null ? <Vide /> : <DeltaPct valeur={l.variation} />),
                     },
                   ]}
                   lignes={detail.impots.map((i) => ({
@@ -380,12 +381,12 @@ export default async function PageRecettes() {
 
           <Card
             titre={`Recettes non fiscales prévues au PLF ${nonFiscalesPlf.annee}`}
-            sousTitre="projet de loi, État A, recettes brutes — distinct du total d'exécution de la situation mensuelle"
+            sousTitre="projet de loi, État A, recettes brutes, distinct du total d'exécution de la situation mensuelle"
             droite={
               <FreshnessBadge
                 dateDonnees={nonFiscalesPlf.meta.date_donnees}
                 sourceId={nonFiscalesPlf.meta.source_id}
-                source="Direction du Budget — État A du PLF"
+                source="Direction du Budget : État A du PLF"
                 frequence={nonFiscalesPlf.meta.frequence}
                 url={nonFiscalesPlf.meta.url}
                 mention="PLF"
@@ -458,12 +459,12 @@ export default async function PageRecettes() {
 
           <Card
             titre={`Impôt sur le revenu par territoire (IRCOM, revenus ${ircom.annee})`}
-            sousTitre="impôt net sur rôle des foyers fiscaux, par commune de résidence — distinct de l'IR de caisse de la situation mensuelle"
+            sousTitre="impôt net sur rôle des foyers fiscaux, par commune de résidence, distinct de l'IR de caisse de la situation mensuelle"
             droite={
               <FreshnessBadge
                 dateDonnees={ircom.meta.date_donnees}
                 sourceId={ircom.meta.source_id}
-                source="DGFiP — IRCOM"
+                source="DGFiP : IRCOM"
                 frequence={ircom.meta.frequence}
                 url={ircom.meta.url}
               />
@@ -551,7 +552,7 @@ export default async function PageRecettes() {
             <p>
               Les montants sont des cumuls depuis le 1er janvier, nets des
               remboursements et dégrèvements. Les mois de l’année en cours
-              sont provisoires jusqu’à la clôture. Un tiret «&nbsp;—&nbsp;»
+              sont provisoires jusqu’à la clôture. La mention «&nbsp;n.d.&nbsp;»
               n’est pas un zéro.
             </p>
           }
@@ -584,7 +585,7 @@ export default async function PageRecettes() {
       {longues && anneesCompletes.length > 0 && (
         <Card
           titre="Recettes nettes par année depuis 2013"
-          sousTitre="Cumul au 31 décembre de chaque année complète, en Md€ — recettes nettes des remboursements et dégrèvements"
+          sousTitre="Cumul au 31 décembre de chaque année complète, en Md€, recettes nettes des remboursements et dégrèvements"
           droite={badge}
         >
           <LineChartIle
@@ -605,7 +606,7 @@ export default async function PageRecettes() {
               },
             ]}
             format={formatMd(0)}
-            ariaLabel={`Recettes nettes annuelles du budget général, ${labelsAnnees[0]}–${labelsAnnees[labelsAnnees.length - 1]}`}
+            ariaLabel={`Recettes nettes annuelles du budget général, de ${labelsAnnees[0]} à ${labelsAnnees[labelsAnnees.length - 1]}`}
           />
           <VueTableau>
             <TableCompacte
@@ -656,12 +657,12 @@ export default async function PageRecettes() {
 
           <Card
             titre="Recettes des APU (ESA)"
-            sousTitre="Total des recettes des administrations publiques, flux d'année civile — distinct des recettes nettes du budget général"
+            sousTitre="Total des recettes des administrations publiques, flux d'année civile, distinct des recettes nettes du budget général"
             droite={
               <FreshnessBadge
                 dateDonnees={recettesApu.meta.date_donnees}
                 sourceId={recettesApu.meta.source_id}
-                source="Eurostat — gov_10a_main"
+                source="Eurostat : gov_10a_main"
                 frequence={recettesApu.meta.frequence}
                 url={recettesApu.meta.url}
               />
@@ -711,14 +712,14 @@ export default async function PageRecettes() {
             <p className="mt-3 text-xs text-ink-muted">
               TR n&apos;est pas un montant «&nbsp;net DGFiP&nbsp;»&nbsp;: c&apos;est le
               flux annuel des recettes des administrations publiques, distinct
-              du budget général — voir{" "}
+              du budget général (voir{" "}
               <Link
                 href="/comprendre/#recettes-apu-esa"
                 className="underline decoration-[var(--viz-grid)] underline-offset-2 transition-colors hover:decoration-current"
               >
                 Comprendre
               </Link>
-              .
+              ).
             </p>
           </Card>
         </div>
@@ -737,12 +738,12 @@ export default async function PageRecettes() {
 
           <Card
             titre="Prélèvements obligatoires (INSEE)"
-            sousTitre="Impôts et cotisations sociales des APU et des institutions de l'UE — distinct du total TR Eurostat et de taxag"
+            sousTitre="Impôts et cotisations sociales des APU et des institutions de l'UE, distinct du total TR Eurostat et de taxag"
             droite={
               <FreshnessBadge
                 dateDonnees={prelevements.meta.date_donnees}
                 sourceId={prelevements.meta.source_id}
-                source="INSEE — comptes nationaux"
+                source="INSEE : comptes nationaux"
                 frequence={prelevements.meta.frequence}
                 url={prelevements.meta.url}
               />
