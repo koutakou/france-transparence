@@ -971,7 +971,12 @@ def archiver_et_purger_jorf(conn, debut_fenetre: str, archive_le: str) -> int:
 
 
 def reconstruire_agregats(conn) -> None:
-    """Reconstruit les deux tables d'agrégats depuis jorf_textes (déterministe)."""
+    """Reconstruit les deux tables d'agrégats depuis jorf_textes (déterministe).
+
+    Ne valide rien : les agrégats restent dans la transaction du cycle, que
+    l'écriture de la ligne S3 de meta_sources valide en une seule fois. Un
+    échec entre les deux ne laisse donc en base ni textes ni agrégats sans
+    meta à jour."""
     conn.execute("DELETE FROM jorf_par_jour_nature")
     conn.execute(
         """
@@ -990,7 +995,6 @@ def reconstruire_agregats(conn) -> None:
         GROUP BY ministere
         """
     )
-    conn.commit()
 
 
 # ---------------------------------------------------------------------------

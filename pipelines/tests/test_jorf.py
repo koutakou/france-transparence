@@ -4,6 +4,7 @@ Fixtures : XML réels extraits du tarball DILA JORFSIMPLE_20260819-003035.tar.gz
 (JORF n°0192 du 19 août 2026) — aucune donnée fabriquée.
 """
 
+import gc
 import hashlib
 import io
 import tarfile
@@ -434,6 +435,36 @@ def test_archive_illisible_apres_une_bonne_ne_laisse_rien_en_base(
     assert c.execute("SELECT count(*) FROM jorf_textes").fetchone()[0] == 0
     assert c.execute(
         "SELECT count(*) FROM meta_sources WHERE source_id = 'S3'").fetchone()[0] == 0
+    c.close()
+
+
+def test_echec_entre_agregats_et_meta_ne_laisse_rien_en_base(
+        monkeypatch, tmp_path, mini_tarball):
+    """Relecture de la PR 172 : reconstruire_agregats() validait la
+    transaction avant l'écriture de la ligne S3. Une erreur entre les deux
+    laissait en base les textes et les agrégats sans meta_sources à jour.
+    Le cycle se valide désormais une seule fois, à la fin."""
+    chemin_db = tmp_path / "jorf.db"
+    monkeypatch.setenv("FT_DB_PATH", str(chemin_db))
+
+    class _Session:
+        def get(self, url, timeout=None):
+            return _Reponse('<a href="JORFSIMPLE_20260819-003035.tar.gz">')
+
+    def _panne(*a, **k):
+        raise RuntimeError("panne simulée après les agrégats")
+
+    monkeypatch.setattr(ingest_jorf, "session_http", lambda *a, **k: _Session())
+    monkeypatch.setattr(ingest_jorf, "telecharger", lambda url, dest, **k: mini_tarball)
+    monkeypatch.setattr(ingest_jorf, "note_fenetre", _panne)
+    with pytest.raises(RuntimeError, match="panne simulée"):
+        ingest_jorf.main([])
+    gc.collect()  # la connexion abandonnée par main() annule sa transaction
+
+    c = db.connexion(chemin_db)
+    for table in ("jorf_textes", "jorf_par_jour_nature",
+                  "jorf_nominations_ministere", "meta_sources"):
+        assert c.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0, table
     c.close()
 
 
