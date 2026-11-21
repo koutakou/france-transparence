@@ -134,7 +134,7 @@ log = obtenir_logger("ingest_hatvp_declarations")
 ID_SOURCE = "S15"
 NOM_SOURCE = "HATVP — contenu des déclarations d'intérêts (declarations.xml)"
 URL_DECLARATIONS = "https://www.hatvp.fr/livraison/merge/declarations.xml"
-LICENCE = "Licence Ouverte (version non précisée par le producteur)"
+LICENCE = "Licence Ouverte (version non vérifiée)"
 
 # Cadence : data.gouv.fr annonce « punctual » pour cette ressource, ce qui ne
 # calibre aucun seuil de fraîcheur. Le fait observable dit autre chose : le

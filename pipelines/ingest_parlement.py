@@ -1227,7 +1227,7 @@ def ingerer_amo10(conn, session: requests.Session) -> None:
         conn, source_id="S5-AMO10",
         nom="AN — députés, mandats, organes actifs (AMO10) ; fins de mandat "
             "des sortants (AMO20)",
-        url=URL_AMO10, licence="Licence Ouverte (version non précisée par le producteur)", frequence="quotidienne",
+        url=URL_AMO10, licence="Licence Ouverte (version non vérifiée)", frequence="quotidienne",
         date_donnees=date_donnees, lignes=len(acteurs),
         notes=(f"législature {LEGISLATURE} ; {len(effectifs)} groupes ; "
                "AMO50 proscrit (figé au 11/07/2024) ; lien HATVP fourni par "
@@ -1379,7 +1379,7 @@ def ingerer_scrutins(conn, session: requests.Session) -> None:
     db.upsert_meta(
         conn, source_id="S5-SCRUTINS",
         nom="AN — scrutins publics et votes nominaux",
-        url=URL_SCRUTINS, licence="Licence Ouverte (version non précisée par le producteur)",
+        url=URL_SCRUTINS, licence="Licence Ouverte (version non vérifiée)",
         frequence="quotidienne", date_donnees=dernier["date_scrutin"],
         lignes=len(metas),
         notes=(f"dernier scrutin n° {dernier['numero']} du "
@@ -1742,7 +1742,7 @@ def ingerer_senat(conn, session: requests.Session) -> str | None:
     db.upsert_meta(
         conn, source_id="S6-ODSEN",
         nom="Sénat — sénateurs en exercice (ODSEN_GENERAL + export_sens elusen)",
-        url=URL_ODSEN_GENERAL, licence="Licence Ouverte (version non précisée par le producteur)",
+        url=URL_ODSEN_GENERAL, licence="Licence Ouverte (version non vérifiée)",
         frequence="quotidienne", date_donnees=date_donnees,
         lignes=len(actifs),
         notes=("ISO-8859-1, lignes % sautées ; date de début du mandat en "
@@ -1948,7 +1948,7 @@ def ingerer_dosleg(conn, session: requests.Session) -> None:
     db.upsert_meta(
         conn, source_id="S6-DOSLEG",
         nom="Sénat — scrutins publics et votes nominaux (Dosleg scr + votsen)",
-        url=URL_DOSLEG, licence="Licence Ouverte (version non précisée par le producteur)",
+        url=URL_DOSLEG, licence="Licence Ouverte (version non vérifiée)",
         frequence="quotidienne", date_donnees=dernier["date_scrutin"],
         lignes=len(scrutins),
         notes=(
@@ -2029,7 +2029,7 @@ def ingerer_datan(conn, session: requests.Session) -> None:
         nom="Datan — scores participation/loyauté/majorité des députés",
         url="https://www.data.gouv.fr/datasets/deputes-actifs-de-lassemblee-"
             "nationale-informations-et-statistiques",
-        licence="Licence Ouverte (version non précisée par le producteur)", frequence="quotidienne",
+        licence="Licence Ouverte (version non vérifiée)", frequence="quotidienne",
         date_donnees=date_maj, lignes=len(lignes),
         notes=(f"{apparies}/{len(lignes)} députés appariés par id PA… ; "
                "scores Datan à créditer à l'affichage ; le taux calculé "

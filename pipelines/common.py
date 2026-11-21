@@ -47,9 +47,11 @@ USER_AGENT = "FranceTransparence/1.0 (projet open data personnel)"
 # Version 2.0 : seulement quand le producteur l'affiche (data.gouv « lov2 »,
 # SPDX « etalab-2.0 », mention « 2.0 » sur la page). Sinon (data.gouv
 # « fr-lo », mention « Licence Ouverte » seule), la version n'est pas
-# inventée.
+# inventée, et le libellé ne prête rien au producteur : « fr-lo » renvoie
+# sur data.gouv au PDF Licence_Ouverte.pdf de 2014, sans version écrite
+# dans la fiche (relevé du 21/11/2026 sur les jeux JORF et RefOrgaAdminEtat).
 LICENCE_OUVERTE_2 = "Licence Ouverte 2.0"
-LICENCE_OUVERTE_SANS_VERSION = "Licence Ouverte (version non précisée par le producteur)"
+LICENCE_OUVERTE_SANS_VERSION = "Licence Ouverte (version non vérifiée)"
 LICENCES_CANONIQUES = frozenset({
     LICENCE_OUVERTE_2,
     LICENCE_OUVERTE_SANS_VERSION,

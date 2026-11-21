@@ -1645,7 +1645,7 @@ export default function PageComprendre() {
               limpot-sur-le-revenu-par-collectivite-territoriale-ircom
             </code>
             {" "}
-            sur data.gouv.fr. Licence Ouverte (version non précisée par le producteur).{" "}
+            sur data.gouv.fr. Licence Ouverte (version non vérifiée).{" "}
             {anneeRevenusIrcom
               ? `Millésime servi : revenus ${anneeRevenusIrcom}, déclarés en ${anneeRevenusIrcom + 1} (campagne IRCOM ${anneeRevenusIrcom + 1}).`
               : "Millésime servi : l’année des revenus que donne la date des données sur la page Recettes."}
