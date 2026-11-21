@@ -634,14 +634,14 @@ def ecrire_db(conn: sqlite3.Connection, agr: Agregats,
     if versement is not None:
         retard_mois = round((versement - derniere_seance).days / 30.44)
         phrase_retard = (
-            f"Retard de versement : dernière séance publiée le "
+            f"Écart de publication : dernière séance publiée le "
             f"{derniere_seance.strftime('%d/%m/%Y')} alors que le jeu a été modifié "
-            f"le {versement.strftime('%d/%m/%Y')} — soit {retard_mois} mois ; "
+            f"le {versement.strftime('%d/%m/%Y')}, soit {retard_mois} mois d'écart ; "
             f"les derniers millésimes sont donc incomplets par construction."
         )
     else:
         phrase_retard = ("Date de versement amont indisponible : "
-                         "le retard n'est pas mesurable ce jour.")
+                         "l'écart de publication n'est pas mesurable ce jour.")
 
     par_categorie = Counter(a[2] for a in administrations)
     classees = sum(v for c, v in par_categorie.items() if c != "autre")

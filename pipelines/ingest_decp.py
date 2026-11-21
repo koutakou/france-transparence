@@ -1649,7 +1649,7 @@ def main() -> int:
                 f"part ; fenêtres : détail {MOIS_DETAIL} "
                 f"mois, agrégats {MOIS_AGGREGATS} mois, série {MOIS_SERIE} "
                 f"mois ; agrégats écrêtés à {PLAFOND_ECRETAGE_EUR:.0f} € "
-                f"({stats['nb_suspects']} marchés suspects marqués) ; montants "
+                f"({stats['nb_suspects']} marchés au montant signalé) ; montants "
                 f"d'accords-cadres = maximums ; latence légale de publication "
                 f"jusqu'à 2 mois ; {stats['lignes_parquet']} lignes au parquet"
             ),

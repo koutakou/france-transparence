@@ -194,7 +194,7 @@ FAITS: list[dict] = [
          institution="Assemblée nationale et Sénat",
          source_nom=SRC_AN_SITUATION, source_url=URL_AN_SITUATION,
          date_source="2026-01",
-         notes="Valeur au 01/01/2024, toujours en vigueur en 2026 ; identique députés/sénateurs."),
+         notes="Valeur au 01/01/2024, en vigueur à la date de la fiche consultée (janvier 2026) ; identique députés/sénateurs."),
     dict(id="ip-base", assiette="brut", categorie="indemnites_parlementaires",
          libelle="Indemnité de base", valeur=5931.95, unite="euros_par_mois",
          periode="2026", institution="Assemblée nationale et Sénat",

@@ -94,8 +94,13 @@ PAGE_DEST = ("https://data.economie.gouv.fr/explore/dataset/"
 PAGE_ASSOS = ("https://data.economie.gouv.fr/explore/dataset/plf25-donnees-de-l-"
               "annexe-jaune-effort-financier-de-l-etat-en-faveur-des-associations/")
 
-ETIQUETTE_2026 = ("PLF 2026 déposé le 14/10/2025 — pas la LFI promulguée le "
-                  "19/02/2026 (jamais publiée en données)")
+# Catalogue data.economie.gouv.fr interrogé le 21/11/2026 (`search("lfi")`,
+# `search("2026")`, `search("destination")`) : aucun jeu LFI 2026, ni PLF ou
+# LFI 2026 par destination ; seul plf-2026-budget-vert. La date de
+# vérification fait partie du texte : une négation sur l'amont vieillit.
+ETIQUETTE_2026 = ("PLF 2026 déposé le 14/10/2025, pas la LFI promulguée le "
+                  "19/02/2026 (non publiée en données sur data.economie.gouv.fr "
+                  "au 21/11/2026)")
 ETIQUETTE_2025 = "PLF 2025 déposé en octobre 2024 — projet, pas la LFI 2025 votée"
 ANNEE_VERSEMENT_ASSOS = 2023  # millésime du jaune PLF 2025 (colonne source objet_2023)
 
@@ -467,7 +472,8 @@ def main() -> int:
             lignes=len(dests),
             notes="PLF 2025 déposé en octobre 2024 (données publiées le "
                   "11/10/2024) — projet de loi, pas la LFI votée ; aucun "
-                  "équivalent PLF/LFI 2026 en données ; montants BG bruts.",
+                  "équivalent PLF/LFI 2026 publié en données sur "
+                  "data.economie.gouv.fr au 21/11/2026 ; montants BG bruts.",
         )
         db.upsert_meta(
             conn, source_id="S23",

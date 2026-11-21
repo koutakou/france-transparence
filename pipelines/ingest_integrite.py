@@ -207,7 +207,7 @@ PART_ENTREE_COLLECTIVE = 0.25
 
 REGLE_A1_NON_DEPOSEE = (
     "Constat officiel HATVP repris tel quel : statut natif « Déclaration non "
-    "déposée » dans liste.csv. Seuls cas nominatifs de l'alerte A1 (les dossiers "
+    "déposée » dans liste.csv. Seuls cas nominatifs de cette alerte (les dossiers "
     "« En cours » ne sont publiés qu'en agrégats)."
 )
 
@@ -1891,15 +1891,16 @@ def main() -> int:
             frequence="hebdomadaire", date_donnees=date_hatvp, lignes=len(dossiers),
             notes=f"statuts : {statuts[STATUT_EN_COURS]} « En cours », "
                   f"{statuts[STATUT_NON_DEPOSEE]} « Déclaration non déposée » ; "
-                  "alerte A1 recalculée à chaque run (garde-fous SOURCES.md §4)")
+                  "décompte recalculé à chaque cycle (méthode : "
+                  "https://francetransparence.fr/comprendre/#elus)")
         db.upsert_meta(
             conn, source_id="S17",
             nom="Répertoire national des élus (RNE, ministère de l'Intérieur)",
             url=URL_RNE_PAGE, licence="Licence Ouverte 2.0",
             frequence="trimestrielle", date_donnees=date_rne, lignes=nb_mandats_ingeres,
-            notes=f"mandats ingérés dans elus : députés, sénateurs, maires, présidents "
+            notes=f"mandats ingérés : députés, sénateurs, maires, présidents "
                   f"d'exécutifs ; {total_cm} conseillers municipaux agrégés par "
-                  "département (rne_cm_agregats), non ingérés nominativement")
+                  "département, non ingérés nominativement")
         conn.commit()
         log.info("P7 terminé : %d dossiers HATVP, %d mandats RNE, %d alertes A1",
                  len(dossiers), nb_mandats_ingeres, resume["nb_alertes"])

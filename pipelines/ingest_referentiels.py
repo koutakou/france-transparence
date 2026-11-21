@@ -375,7 +375,7 @@ def meta_s27_geo_api(nb_compares: int, nb_ecarts: int) -> dict[str, str]:
     return {
         "date_donnees": EN_VIGUEUR_POPULATIONS,
         "notes": debut + " ; centroïdes des communes > 50 000 hab."
-                 " pour ref_villes ; population de Mayotte par somme"
+                 " pour les points des villes ; population de Mayotte par somme"
                  " communale (absente du CSV INSEE).",
     }
 
@@ -1034,7 +1034,7 @@ def main() -> int:
                 date_donnees=date_donnees_annuaire(prefectures),
                 lignes=nb_prefectures,
                 notes="Fiches pivot 'prefecture' : lat/lon du bâtiment pour"
-                      " les points préfecture de ref_villes. Codes"
+                      " les points préfecture des cartes. Codes"
                       " d'arrondissement (Lyon 3e, Marseille 3e) ramenés à la"
                       " commune ; Paris n'a aucune fiche sous ce pivot"
                       " (préfecture de police à part) → Paris reste une"
