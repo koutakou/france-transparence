@@ -56,7 +56,10 @@ du site.
 ## 2. Installer et vérifier
 
 Prérequis : Python 3.14, Node.js 24 ou plus, `make` (voir le
-[README](README.md), qui fait foi pour le démarrage rapide).
+[README](README.md), qui fait foi pour le démarrage rapide). Le code des
+pipelines et `requirements.txt` restent compatibles avec Python 3.10 tant que
+le job `tests-python-3-10` existe. Ce job n'est pas un check requis : vérifier
+son résultat.
 
 ```bash
 make venv         # crée .venv avec les versions figées de requirements.txt
@@ -125,7 +128,7 @@ solide que ce qu'il prétend.
    absent reste NULL en base, et l'interface dit « non publié » ou « non
    disponible ».
 2. **Aucune source portant une clause de partage à l'identique n'est ingérée**
-   (ODbL, CC BY-SA…). Chaque source garde la licence de son producteur,
+   (ODbL, CC BY-SA, etc.). Chaque source garde la licence de son producteur,
    affichée sur `/donnees` ([LICENSES.md](LICENSES.md)). Mêler dans la même
    base une source share-alike imposerait sa clause à tout ce qui en dérive.
    Une telle source peut être **citée et liée**, jamais ingérée.

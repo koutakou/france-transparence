@@ -63,14 +63,14 @@ Faits relevés sur le serveur le 20 et le 21/11/2026. L'incident lui-même est d
 3. **Seuils de fraîcheur** : les cinq seuils recalibrés le 11/11 sont reportés dans `/etc/france-transparence/fraicheur.conf` depuis le 20/11 (section « Seuils de fraîcheur » ci-dessous). Sauvegarde en `.20261120-avant-seuils`.
 4. **Sauvegarde nocturne de la base**, en échec silencieux du 10 au 20/11. La base est en mode WAL, et `ProtectSystem=strict` de l'unité `ft-sauvegarde` empêchait de créer le fichier `-shm` à côté d'elle. Corrigé par le complément `/etc/systemd/system/ft-sauvegarde.service.d/30-base-wal.conf`. Sauvegarde du 20/11 à 22:34 vérifiée, sauvegardes locale et distante du 21/11 en succès.
 5. **Venv du serveur : Python 3.14.10**, et non 3.10 comme le dépôt le supposait par prudence (section « Venv du serveur », ci-dessous). Rien n'a été changé dans la venv. Ce que cela permet est à décider (« Reste à faire », point 2).
-6. **Base de `ft-deploy` : elle persiste d'un cycle à l'autre.** Tranché le 21/11 (section « `ft-deploy` ingère-t-il… », ci-dessous) : les secours `jorf`, `dole` et ODSEN sont effectifs sur le serveur.
+6. **Base de `ft-deploy` : elle persiste d'un cycle à l'autre.** Tranché le 21/11 (section « `ft-deploy` ingère-t-il dans une base neuve ou dans la base du dernier cycle ? », ci-dessous) : les secours `jorf`, `dole` et ODSEN sont effectifs sur le serveur.
 7. **Redirections 301 d'élus** : posées le 20/11 (`/root/poser-301-d22.sh`), 23/23 au contrôle du cycle du 21/11.
 8. **`security.txt`** : le fichier posé à la main est retiré. Celui qui est servi est celui du build, qui commence par `Contact: mailto:`.
 9. **Gardes de la CI dans `ft-deploy`** (section du 15/10/2026, Serveur, point 3). `npm test` est bloquant, juste après `npm ci`. Le budget de poids avertit seulement, après le build : ligne au journal du cycle et `ft-alerte poids-pages alerte`. Les fiches sont comptées sans `annuaire` dans `ft-deploy` et `ft-etat`. Au cycle du 21/11 : 233 tests sur 233, page la plus lourde à 469 Ko pour un plafond de 500 Ko, 1 027 fiches. Sauvegardes : `/root/ft-deploy.20261120-gardes-ci` et `/root/ft-etat.20261120-annuaire`.
 10. **nginx** (même section, points 4 et 9). `Cache-Control: no-cache` sur `/data/marches/ao.json`, `/data/marches/ao-toutes/*.json` et `/data/accueil/ao-cloture/*.json`. Page 404 du site à la place du 403 brut sur `/api/` et `/data/`. `http://francetransparence.fr/elus` redirigé en un seul saut. `interest-cohort` retiré de `Permissions-Policy`. Sauvegardes : `/root/*avant-points4-9-20261120`.
 11. **Brotli** (même section, point 6) : non fait. Aucun module brotli n'est empaqueté pour la version de nginx installée, et la décision exclut la compilation comme l'ajout d'un dépôt.
 12. **Conservation des journaux** (même section, point 8) : conforme à `/donnees-personnelles`. `access.log` couvre 52 jours, `audience.log` remonte au 20/08, le repli sur `access.log` est implémenté, et `/var/log/nginx` est hors de la sauvegarde distante. Les journées du 05/09 et du 06/10 sont partielles parce qu'elles ont été ingérées en cours de journée, pas faute de journaux.
-13. **Accès SSH de l'administration.** La règle `LIMIT` d'ufw sur le port 22 bloquait les connexions rapprochées. Une règle qui autorise le port 22 depuis l'adresse du poste d'administration est placée en tête, avant la règle `LIMIT`. La même adresse figure dans `ignoreip` de la seule prison `sshd` de fail2ban (`jail.local`). Toute autre adresse reste soumise à la limite et au bannissement. **Si l'adresse du poste change, ces deux lignes sont à mettre à jour**, sans quoi la limite et le bannissement s'appliquent de nouveau à l'administration.
+13. **Accès d'administration** ajusté le 20/11 (pare-feu et fail2ban). Le détail est tenu hors du dépôt.
 
 ### Reste à faire
 
@@ -85,11 +85,10 @@ Faits relevés sur le serveur le 20 et le 21/11/2026. L'incident lui-même est d
    sudo /usr/bin/flock /run/ft-audience-serie.lock /usr/local/bin/ft-audience-serie --jour 2026-09-05
    sudo /usr/bin/flock /run/ft-audience-serie.lock /usr/local/bin/ft-audience-serie --jour 2026-10-06
    ```
-   Attendu : `complet=1` pour les deux jours. Supprimer ensuite les deux copies de la série gardées avant la pose du 20/11 (`/var/lib/france-transparence/audience/serie.20261120-avant-audit.sqlite` et `serie.20261120-robustesse.sqlite`), qui contiennent encore des clés à adresse IPv4, et le dossier de travail `/root/ftaud/`.
-4. **Droit sudo temporaire** accordé pour l'intervention du 20/11 (fichier sous `/etc/sudoers.d/`) : à retirer une fois les travaux finis.
-5. **Libellés de `ft-localiser`** : les lignes `ORPHELIN` et `OK` du contrôle 8 nomment encore `donnees.ts` alors qu'il lit `fraicheur.ts`. Sans effet sur le verdict, à corriger au prochain passage dans le script.
-6. **Cycle du 22/11** : vérifier dans `deploiement.log` que `npm ci` installe better-sqlite3 13.2 (Dependabot #152).
-7. **Bloc `www`**, facultatif : `https://www.francetransparence.fr/elus` fait encore deux sauts (vers l'apex, puis vers la barre finale). Le correctif du bloc `:80` s'y applique.
+   Attendu : `complet=1` pour les deux jours. Supprimer ensuite les copies de travail de la série gardées pendant la pose du 20/11.
+4. **Fin d'intervention** : retirer les droits temporaires accordés pour l'intervention du 20/11.
+5. **Cycle du 22/11** : vérifier dans `deploiement.log` que `npm ci` installe better-sqlite3 13.2 (Dependabot #152).
+6. **Bloc `www`**, facultatif : `https://www.francetransparence.fr/elus` fait encore deux sauts (vers l'apex, puis vers la barre finale). Le correctif du bloc `:80` s'y applique.
 
 ## 11/11/2026 — Venv du serveur : dépendances figées
 
@@ -110,7 +109,7 @@ Faits relevés sur le serveur le 20 et le 21/11/2026. L'incident lui-même est d
 
 ## 11/11/2026 — Journal officiel : ce que donnera le premier cycle du serveur, et ce qu'il faut y lire
 
-Le 08/11/2026 la DILA a renouvelé son dépôt JORFSIMPLE et en a retiré toutes les livraisons antérieures : le 11/11 il ne proposait plus que deux éditions quotidiennes (10/11 et 11/11). Cette section supposait que `ft-deploy` ingère chaque nuit dans une base neuve. **Rectifié le 21/11/2026 : la base du serveur persiste d'un cycle à l'autre** (section « `ft-deploy` ingère-t-il… », ci-dessous). `jorf_textes_archive` y porte des lignes archivées depuis le 26/08, et la réintégration décrite en fin de section joue donc sur le serveur.
+Le 08/11/2026 la DILA a renouvelé son dépôt JORFSIMPLE et en a retiré toutes les livraisons antérieures : le 11/11 il ne proposait plus que deux éditions quotidiennes (10/11 et 11/11). Cette section supposait que `ft-deploy` ingère chaque nuit dans une base neuve. **Rectifié le 21/11/2026 : la base du serveur persiste d'un cycle à l'autre** (section « `ft-deploy` ingère-t-il dans une base neuve ou dans la base du dernier cycle ? », ci-dessous). `jorf_textes_archive` y porte des lignes archivées depuis le 26/08, et la réintégration décrite en fin de section joue donc sur le serveur.
 
 Le correctif du 11/11 fait trois choses : un index sans livraison nocturne ne tue plus le cycle ; chaque nocturne téléchargée est copiée, avec son empreinte SHA-256, dans un coffre hors de `data/raw` ; une livraison que l'index ne liste plus est relue depuis une copie locale vérifiée (coffre, ou `data/raw/jorf` si le fichier y est encore). Poids mesuré : 4,7 Mo pour 30 nocturnes, rétention de 60 jours, soit de l'ordre de 10 Mo.
 
