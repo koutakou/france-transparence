@@ -894,6 +894,45 @@ def regrouper_sous_seuil(par_mandat: dict[str, list[dict]],
     return cellules, personnes_reste
 
 
+def _cle_dossier_hatvp(d: dict) -> str:
+    """Clé lisible d'un dossier : `classement`, la clé personne que liste.csv
+    publie sur chaque ligne (« GÂTÉ Sylvie23162 » → « gate-sylvie23162 »).
+
+    POURQUOI pas le bout de `url_dossier` : l'URL peut manquer, puis être
+    publiée plus tard. L'identifiant changeait alors, et l'alerte prenait
+    une nouvelle date de détection (`db.remplacer_alertes`). `classement` ne
+    dépend pas de l'URL. Repli sur le nom quand il manque.
+    """
+    brut = (d.get("classement") or "").strip() or f"{d['nom']} {d['prenom']}"
+    return normaliser_texte(brut).replace(" ", "-")
+
+
+def identifiants_non_deposees(nominatives: list[dict]) -> list[str]:
+    """Identifiants des alertes A1-ND, un par dossier et dans le même ordre.
+
+    Forme ordinaire : `A1-ND-{classement}-{type_document}`. Deux dossiers
+    qui la partagent (deux mandats d'une même personne, ou deux homonymes
+    sans `classement`) faisaient échouer l'insertion sur la clé primaire, et
+    tomber le pipeline. Chacun reçoit alors en suffixe l'empreinte de sa
+    ligne liste.csv entière. `dedoublonner_hatvp` a écarté les lignes
+    identiques : deux dossiers distincts ont deux empreintes distinctes,
+    quel que soit leur ordre de lecture. Le cas ordinaire garde un
+    identifiant qui ne dépend que de la personne et du type de document.
+    """
+    bases = [f"A1-ND-{_cle_dossier_hatvp(d)}-{d['type_document']}" for d in nominatives]
+    nombre = Counter(bases)
+    ids = []
+    for base, d in zip(bases, nominatives):
+        if nombre[base] == 1:
+            ids.append(base)
+            continue
+        ligne = "\x1f".join(str(d.get(c) or "") for c in COLONNES_HATVP)
+        ids.append(f"{base}-{hashlib.sha256(ligne.encode('utf-8')).hexdigest()[:10]}")
+    if len(set(ids)) != len(ids):
+        raise RuntimeError("A1 : deux dossiers HATVP identiques après dédoublonnage")
+    return ids
+
+
 def construire_alertes(nominatives: list[dict], en_cours: list[dict],
                        aujourd_hui: date, date_hatvp: str, date_rne: str) -> list[tuple]:
     """Lignes prêtes pour la table alertes. Nominatif = non déposées SEULEMENT.
@@ -906,11 +945,10 @@ def construire_alertes(nominatives: list[dict], en_cours: list[dict],
     date_calcul = aujourd_hui.isoformat()
     regle_en_cours = REGLE_A1_EN_COURS.format(date_rne=date_rne)
     lignes: list[tuple] = []
-    for d in nominatives:
-        slug = (d["url_dossier"].rstrip("/").rsplit("/", 1)[-1]
-                or normaliser_texte(f"{d['nom']} {d['prenom']}").replace(" ", "-"))
+    ids_nd = identifiants_non_deposees(nominatives)
+    for d, ident in zip(nominatives, ids_nd):
         lignes.append((
-            f"A1-ND-{slug}-{d['type_document']}",
+            ident,
             TYPE_ALERTE_NON_DEPOSEE,
             "haute",
             f"Déclaration non déposée (constat officiel HATVP) : "
