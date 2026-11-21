@@ -772,8 +772,10 @@ def ingerer_tarball(chemin_tar: Path, conn) -> tuple[int, list[str]]:
         chemin_tar.name, len(hors_livraison), plancher, plafond,
         f" : {', '.join(hors_livraison)}" if hors_livraison else "",
     )
+    # Pas de commit ici : main() ne valide qu'une fois toutes les archives
+    # lues, pour qu'une archive illisible ne laisse pas en base les textes
+    # des livraisons précédentes sans fenêtre ni meta_sources à jour.
     conn.executemany(_UPSERT, lignes)
-    conn.commit()
     return len(lignes), dates_jo
 
 
@@ -1169,6 +1171,7 @@ def main(argv: list[str] | None = None) -> int:
             n, dates_jo = ingerer_tarball(chemin, conn)
         except (tarfile.TarError, ET.ParseError, OSError) as exc:
             log.error("archive illisible %s: %s", nom, exc)
+            conn.rollback()
             conn.close()
             return 1
         total += n
@@ -1177,6 +1180,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if not toutes_dates:
         log.error("aucun JO ingéré : rien à publier")
+        conn.rollback()
         conn.close()
         return 1
 

@@ -414,6 +414,29 @@ def test_fenetre_bornee_malgre_un_correctif_a_l_index(
     c.close()
 
 
+def test_archive_illisible_apres_une_bonne_ne_laisse_rien_en_base(
+        monkeypatch, tmp_path, mini_tarball):
+    """Audit du 21/11/2026 : chaque livraison était validée à part. Une
+    archive illisible APRÈS une bonne laissait en base persistante les
+    textes de la première, sans fenêtre ni meta_sources à jour. Le cycle
+    échoue désormais sans aucune écriture."""
+    illisible = tmp_path / "JORFSIMPLE_20260820-003012.tar.gz"
+    illisible.write_bytes(b"pas une archive gzip")
+    index = (
+        '<a href="JORFSIMPLE_20260819-003035.tar.gz">'
+        '<a href="JORFSIMPLE_20260820-003012.tar.gz">'
+    )
+    code, c = _jouer_main(monkeypatch, tmp_path, index, {
+        "JORFSIMPLE_20260819-003035.tar.gz": mini_tarball,
+        "JORFSIMPLE_20260820-003012.tar.gz": illisible,
+    })
+    assert code == 1
+    assert c.execute("SELECT count(*) FROM jorf_textes").fetchone()[0] == 0
+    assert c.execute(
+        "SELECT count(*) FROM meta_sources WHERE source_id = 'S3'").fetchone()[0] == 0
+    c.close()
+
+
 def test_cycle_signale_une_nocturne_en_retard(monkeypatch, tmp_path, mini_tarball, caplog):
     """main() : le JO du 19/08 est ingéré, la livraison de 06h12 du 20/08
     (cas construit) est écartée ET nommée au journal du cycle."""
