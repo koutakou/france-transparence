@@ -266,7 +266,7 @@ export function AlertesListe({
             Gravité
           </span>
           <Pilule actif={gravite === undefined} surClic={() => appliquer({ gravite: undefined })}>
-            Toutes ({formatNombre(total)})
+            Toutes
           </Pilule>
           {parGravite.map((g) => (
             <Pilule

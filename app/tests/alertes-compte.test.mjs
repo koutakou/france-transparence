@@ -35,4 +35,7 @@ test("la page /alertes passe les synthèses à la liste, qui s'en sert pour son 
   const liste = readFileSync(new URL("../src/components/client/AlertesListe.tsx", import.meta.url), "utf8");
   assert.match(liste, /libelleCompteAlertes\(totalFiltre, synthesesFiltre,/);
   assert.doesNotMatch(liste, /alerte\$\{totalFiltre > 1/);
+  // La pilule « Toutes » ne porte plus de nombre : 280 lignes sous une
+  // tuile à 279 alertes (contre-relecture de la PR 171).
+  assert.doesNotMatch(liste, /Toutes \(\{formatNombre\(total\)\}\)/);
 });

@@ -387,7 +387,7 @@ export default async function PageDepenses() {
             crédits par mission sont le PLF 2026, pas la LFI, sur le
             périmètre des dépenses de l’État (PDE) retenu par le budget
             vert, pas l’ensemble des crédits du PLF : les montants par
-            mission peuvent y être inférieurs à leurs crédits au PLF. La destination
+            mission peuvent y être inférieurs à l’ensemble de leurs crédits au PLF. La destination
             2025 est le PLF 2025 (projet, CP bruts, pas les dépenses nettes).
             Un delta n’est ni «&nbsp;bon&nbsp;» ni «&nbsp;mauvais&nbsp;» : il
             est affiché neutre.
