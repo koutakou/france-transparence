@@ -640,7 +640,7 @@ def _exporter(where: str, select: str, dest: str) -> list[dict]:
             with open(chemin, encoding="utf-8") as f:
                 donnees = json.load(f)
             break
-        except json.JSONDecodeError as erreur:
+        except (json.JSONDecodeError, UnicodeDecodeError) as erreur:
             if not pauses:
                 raise
             pause = pauses.pop(0)
