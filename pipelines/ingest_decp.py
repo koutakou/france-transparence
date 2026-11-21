@@ -735,6 +735,14 @@ def transformer(
     )
 
     # Vue « 12 derniers mois » avec montant écrêté (base de tous les agrégats).
+    # Fenêtre ARRÊTÉE À LA DATE DES DONNÉES, comme le « 30 jours » de l'UI
+    # (max(decp_marches.date_notification)), et non au jour de l'ingestion :
+    # ancrée sur date_ref, elle couvrait 364 jours le 21/11/2026 (données au
+    # 20/11, coupe au 22/11/2025) et perdait 1 118 marchés. Base vide : date_ref.
+    fin_12m = duck.execute(
+        "SELECT max(date_notification) FROM t_marches"
+    ).fetchone()[0] or p["date_ref"]
+    p["fin_12m"] = fin_12m
     duck.execute(
         f"""
         CREATE TEMP VIEW recents AS
@@ -742,7 +750,7 @@ def transformer(
                {_SQL_ECRETE.format(col='montant_retenu', plafond=p['plafond'])} AS montant_ecrete,
                coalesce(montant_retenu > {p['plafond']}, FALSE)                 AS ecrete
         FROM t_marches
-        WHERE date_notification > CAST(DATE '{p['date_ref']}' - INTERVAL {MOIS_AGGREGATS} MONTH AS VARCHAR)
+        WHERE date_notification > CAST(DATE '{p['fin_12m']}' - INTERVAL {MOIS_AGGREGATS} MONTH AS VARCHAR)
         """
     )
 
@@ -960,8 +968,8 @@ def transformer(
     # quelle part vient d'un plafond arbitraire ou d'un montant marqué
     # suspect. Ces parts sont calculées ICI, dans le pipeline, parce que la
     # coupe des 12 mois n'est stockée nulle part en base : elle dépend de
-    # date_ref (jour de l'ingestion), et max(date_notification) — antérieur
-    # de quelques jours — la retrouverait décalée. Une seule ligne (id = 1).
+    # max(date_notification) de t_marches, calculé une fois plus haut, et
+    # aucune table servie ne la porte. Une seule ligne (id = 1).
     duck.execute(
         f"""
         CREATE TEMP TABLE t_qualite_montants AS
@@ -983,8 +991,8 @@ def transformer(
     # Qualité du regroupement par entreprise : ce que le classement retient et
     # ce qu'il écarte, sur la MÊME fenêtre 12 mois. Calculée ICI, dénominateurs
     # compris, pour la raison qui vaut déjà pour t_qualite_montants : la coupe
-    # des 12 mois dépend du jour d'ingestion et n'est stockée nulle part en
-    # base, une requête d'affichage ne saurait pas la retrouver.
+    # des 12 mois n'est stockée nulle part en base, une requête d'affichage ne
+    # saurait pas la retrouver.
     # TOUS les compteurs de lignes sortent d'un SEUL parcours de
     # t_titulaires_lignes, avec des filtres complémentaires : la table est donc
     # cohérente PAR CONSTRUCTION — nb_lignes = identifiables + écartées, et de
@@ -1243,6 +1251,7 @@ def transformer(
         "lignes_parquet": lignes_parquet,
         "nb_marches": nb_marches,
         "date_max": date_max,
+        "fin_fenetre_12m": p["fin_12m"],
         "nb_suspects": nb_suspects,
     }
     return duck, stats

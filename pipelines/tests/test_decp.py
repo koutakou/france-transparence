@@ -25,7 +25,7 @@ import json
 import math
 import re
 import sqlite3
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
@@ -526,15 +526,22 @@ def test_la_serie_mensuelle_range_le_marche_dans_son_mois_dorigine(resultat):
     assert sum(mois.values()) == total == 42
 
 
-def test_les_fenetres_portent_sur_la_date_de_notification_initiale():
+def test_les_fenetres_portent_sur_la_date_de_notification_initiale(tmp_path):
     """Les coupes 24 et 12 mois se font sur la date d'origine.
 
     Même fixture, autre date de référence — la transformation est pure et
     rejouable. Au 01/05/2027, le marché notifié le 17/04/2026 est sorti des
     12 derniers mois, alors que la date de son avenant (03/06/2026) y serait
     encore : il ne doit plus peser dans les agrégats.
+    La fenêtre 12 mois s'arrête à la date des données : un marché de la
+    fenêtre (notifié le 28/07/2026) est redaté au 01/05/2027 pour qu'elles
+    aillent jusqu'au jour de référence.
     """
-    duck, _ = ingest_decp.transformer(FIXTURE, date(2027, 5, 1))
+    chemin = _fixture_modifiee(
+        tmp_path / "decp_mai_2027.parquet",
+        {"432766947000192026S01582_60424120": ("2027-05-01", "2027-05-01")},
+    )
+    duck, _ = ingest_decp.transformer(chemin, date(2027, 5, 1))
     try:
         assert duck.execute(
             f"SELECT date_notification FROM t_marches WHERE uid = '{UID_DOUBLONS}'"
@@ -2524,3 +2531,47 @@ def test_toutes_les_tables_du_schema_sont_cablees_donc_couvertes_par_le_filet():
         re.findall(r"CREATE TABLE IF NOT EXISTS (\w+)", ingest_decp._SCHEMA)
     )
     assert declarees == set(ingest_decp._TABLES)
+
+
+def test_fenetre_12_mois_arretee_a_la_date_des_donnees(tmp_path):
+    """Les agrégats 12 mois s'arrêtent à la date des données, pas au jour
+    de l'ingestion, comme le « 30 jours » de l'UI.
+
+    Le 21/11/2026, données au 20/11 : la coupe au 22/11/2025 couvrait 364
+    jours et perdait 1 118 marchés. Ici, un marché est redaté au premier
+    jour de la fenêtre arrêtée à la date des données, et le pipeline joué
+    trois jours après cette date : ancrée au jour d'ingestion, la fenêtre
+    l'écartait.
+    """
+    import duckdb
+
+    duck0, stats0 = ingest_decp.transformer(FIXTURE, DATE_REF)
+    duck0.close()
+    fin = stats0["date_max"]
+    calc = duckdb.connect()
+    debut, publication = calc.execute(
+        f"SELECT CAST(DATE '{fin}' - INTERVAL 12 MONTH + INTERVAL 1 DAY AS DATE), "
+        f"CAST(DATE '{fin}' - INTERVAL 12 MONTH + INTERVAL 5 DAY AS DATE)"
+    ).fetchone()
+    calc.close()
+    chemin = _fixture_modifiee(
+        tmp_path / "decp_fenetre.parquet",
+        {UID_SANS_MONTANT: (debut.isoformat(), publication.isoformat())},
+    )
+    date_ref = date.fromisoformat(fin) + timedelta(days=3)
+    duck, stats = ingest_decp.transformer(chemin, date_ref)
+    try:
+        assert stats["date_max"] == fin
+        assert stats["fin_fenetre_12m"] == fin
+        assert duck.execute(
+            f"SELECT count(*) FROM recents WHERE uid = '{UID_SANS_MONTANT}'"
+        ).fetchone()[0] == 1
+        # Rien au-delà de 12 mois avant la date des données.
+        assert duck.execute(
+            f"SELECT count(*) FROM recents WHERE date_notification < '{debut.isoformat()}'"
+        ).fetchone()[0] == 0
+        assert duck.execute(
+            "SELECT nb_marches FROM t_qualite_montants"
+        ).fetchone()[0] == duck.execute("SELECT count(*) FROM recents").fetchone()[0]
+    finally:
+        duck.close()

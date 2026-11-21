@@ -512,15 +512,32 @@ type Db = NonNullable<ReturnType<typeof getDb>>;
 const DECALAGES_FENETRE = ["+0 day", "-1 day", "+1 day"] as const;
 
 /**
+ * Fins candidates de la fenêtre 12 mois du pipeline, dans l'ordre d'essai.
+ * Depuis le 21/11/2026, le pipeline l'arrête à la date des données
+ * (max(date_notification), écrite en `date_donnees` de S1), comme le
+ * « 30 jours ». Une base écrite avant l'ancrait au jour d'ingestion : ces
+ * candidats-là restent essayés, à un jour près.
+ */
+export function ancresFenetre(s1: MetaSource | undefined): { jour: string; decalage: string }[] {
+  const ancres: { jour: string; decalage: string }[] = [];
+  const donnees = s1?.date_donnees?.slice(0, 10);
+  if (donnees) ancres.push({ jour: donnees, decalage: "+0 day" });
+  const ingestion = s1?.date_ingestion?.slice(0, 10);
+  if (ingestion) {
+    for (const decalage of DECALAGES_FENETRE) ancres.push({ jour: ingestion, decalage });
+  }
+  return ancres;
+}
+
+/**
  * Décompose le drapeau `montant_suspect` sur la fenêtre 12 mois exacte de
  * `decp_qualite_montants`.
  *
- * POURQUOI ce détour : la coupe des 12 mois n'est stockée nulle part en base
- * (le pipeline la calcule à partir du jour d'ingestion, cf. ingest_decp.py) ;
- * `MAX(date_notification)`, antérieur de quelques jours, la retrouverait
- * décalée. On repart donc du jour d'ingestion de la source S1, à ± 1 jour
- * près (`date_ingestion` est horodaté UTC quand la fenêtre est calculée en
- * heure locale : une ingestion de nuit décale la date d'un jour).
+ * POURQUOI ce détour : la coupe des 12 mois n'est stockée nulle part en base.
+ * Le pipeline l'arrête à la date des données de S1 (cf. ingest_decp.py), et
+ * une base plus ancienne au jour d'ingestion, à ± 1 jour près
+ * (`date_ingestion` est horodaté UTC quand la fenêtre est calculée en heure
+ * locale). `ancresFenetre` essaie ces fins dans cet ordre.
  *
  * Le candidat n'est retenu QUE s'il reconstitue à l'unité près le nombre de
  * marchés ET le nombre de suspects déjà publiés par `decp_qualite_montants`,
@@ -569,12 +586,12 @@ function chargerDecompositionSuspects(
   qualite: QualiteMontants | null,
   s1: MetaSource | undefined,
 ): DecompositionSuspects | null {
-  const jour = s1?.date_ingestion?.slice(0, 10);
-  if (!qualite || !jour) return null;
+  const ancres = ancresFenetre(s1);
+  if (!qualite || ancres.length === 0) return null;
 
   const requete = db.prepare(SQL_DECOMPOSITION_SUSPECTS);
 
-  for (const decalage of DECALAGES_FENETRE) {
+  for (const { jour, decalage } of ancres) {
     const l = requete.get({ plafond: qualite.plafond, jour, decalage }) as {
       nb_fenetre: number;
       nb_suspects: number;
@@ -641,8 +658,8 @@ function chargerFormesIdentifiantsEcartes(
   qualite: QualiteAcheteurs | null,
   s1: MetaSource | undefined,
 ): FormeIdentifiantEcarte[] | null {
-  const jour = s1?.date_ingestion?.slice(0, 10);
-  if (!qualite || !jour || qualite.nb_identifiants_ecartes === 0) return null;
+  const ancres = ancresFenetre(s1);
+  if (!qualite || ancres.length === 0 || qualite.nb_identifiants_ecartes === 0) return null;
 
   const requete = db.prepare(
     `SELECT acheteur_siret AS id, COUNT(*) AS n
@@ -657,7 +674,7 @@ function chargerFormesIdentifiantsEcartes(
       WHERE date_notification > date(:jour, :decalage, '-12 months')`,
   );
 
-  for (const decalage of DECALAGES_FENETRE) {
+  for (const { jour, decalage } of ancres) {
     const nFenetre = (compteFenetre.get({ jour, decalage }) as { n: number }).n;
     const lignes = requete.all({ jour, decalage }) as { id: string; n: number }[];
     const nbMarches = lignes.reduce((s, l) => s + l.n, 0);
