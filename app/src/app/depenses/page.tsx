@@ -319,7 +319,10 @@ export default async function PageDepenses() {
               cleLigne={(l) => String(l.mois)}
             />
           </VueTableau>
-          <LienExportCsv definition={CSV_BUDGET_MENSUEL} />
+          <LienExportCsv
+            definition={CSV_BUDGET_MENSUEL}
+            perimetre="toute la série mensuelle publiée, dépenses et recettes, pas seulement les trois années de ce tableau"
+          />
           <NoteRupturesPerimetre omises={serie.omises} />
         </Card>
       )}

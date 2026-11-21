@@ -260,7 +260,10 @@ export default async function PageElus() {
             departements={departementsDeputes}
           />
           <SansScript affiches={Math.min(PREMIER_ECRAN, deputes.length)} total={deputes.length} quoi="députés" />
-          <LienExportCsv definition={CSV_ELUS} />
+          <LienExportCsv
+            definition={CSV_ELUS}
+            perimetre="le répertoire complet des élus (identifiants publics et types de mandats), pas les colonnes de ce tableau"
+          />
           <div className="mt-3 flex flex-col gap-1 text-[11px] leading-relaxed text-ink-muted">
             <p>
               ¹ Calcul France Transparence : votes exprimés / scrutins publics de l’AN des 365
@@ -406,7 +409,10 @@ export default async function PageElus() {
             departements={departementsSenat}
           />
           <SansScript affiches={Math.min(PREMIER_ECRAN, senateurs.length)} total={senateurs.length} quoi="sénateurs" />
-          <LienExportCsv definition={CSV_ELUS} />
+          <LienExportCsv
+            definition={CSV_ELUS}
+            perimetre="le répertoire complet des élus (identifiants publics et types de mandats), pas les colonnes de ce tableau"
+          />
           <p className="mt-3 text-[11px] leading-relaxed text-ink-muted">
             ¹ Calcul France Transparence : votes exprimés (pour, contre, abstention) / scrutins
             publics du Sénat des 365 derniers jours où le Sénat liste le sénateur (« non-votant »
