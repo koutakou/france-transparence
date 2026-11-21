@@ -37,6 +37,40 @@ export function lireTriParlementaires(valeur: string | null | undefined): TriPar
 }
 
 /**
+ * Tri réellement appliqué. Le tri par groupe exige la liste complète : sur
+ * les seules premières lignes alphabétiques embarquées (chargement en cours,
+ * fragment indisponible), il ferait croire à un groupe complet. L’ordre par
+ * nom est alors gardé.
+ */
+export function triApplicable(
+  tri: TriParlementaires,
+  listeComplete: boolean,
+): TriParlementaires {
+  return tri === "groupe" && !listeComplete ? "nom" : tri;
+}
+
+/** Paramètres d’URL des tableaux de parlementaires (groupe, département, tri). */
+export const PARAMS_URL_PARLEMENTAIRES = {
+  deputes: { groupe: "gd", departement: "dd", tri: "td" },
+  senateurs: { groupe: "gs", departement: "ds", tri: "ts" },
+} as const;
+
+/**
+ * « Réinitialiser » : filtres vidés, tri par nom, et les trois paramètres
+ * effacés de l’URL.
+ */
+export function reinitialisationParlementaires(variante: keyof typeof PARAMS_URL_PARLEMENTAIRES): {
+  surcharge: { groupe: string; departement: string; tri: TriParlementaires };
+  url: Record<string, null>;
+} {
+  const p = PARAMS_URL_PARLEMENTAIRES[variante];
+  return {
+    surcharge: { groupe: "", departement: "", tri: "nom" },
+    url: { [p.groupe]: null, [p.departement]: null, [p.tri]: null },
+  };
+}
+
+/**
  * Copie triée. Par groupe : groupe dans l’ordre alphabétique français, sans
  * groupe en dernier, puis nom et prénom.
  */

@@ -13,6 +13,8 @@ import {
 import {
   TRIS_PARLEMENTAIRES,
   lireTriParlementaires,
+  reinitialisationParlementaires,
+  triApplicable,
   trierParlementaires,
 } from "../src/lib/tri.ts";
 
@@ -43,10 +45,44 @@ test("tri par groupe : groupe, puis nom, sans groupe en dernier", () => {
   assert.equal(lignes[0].nom, "Martin");
 });
 
-test("la table des parlementaires ne trie que par nom ou par groupe", () => {
-  const source = lire("components/client/TableParlementaires.tsx");
-  assert.match(source, /trierParlementaires\(/);
-  assert.doesNotMatch(source, /sort\(/);
+test("tri des parlementaires : un taux dans la ligne ne change jamais l'ordre", () => {
+  // Même noms et groupes, taux inversés : l'ordre est identique, par nom
+  // comme par groupe. Seuls le nom et le groupe comptent.
+  const base = [
+    { nom: "Durand", prenom: "A", g: "LFI", taux: 12 },
+    { nom: "Abad", prenom: "B", g: "RN", taux: 98 },
+    { nom: "Abad", prenom: "A", g: "RN", taux: 40 },
+    { nom: "Colin", prenom: "C", g: "LFI", taux: 77 },
+  ];
+  const inverse = base.map((l) => ({ ...l, taux: 100 - l.taux }));
+  for (const tri of ["nom", "groupe"]) {
+    const ordre = (lignes) =>
+      trierParlementaires(lignes, tri, (l) => l.g).map((l) => `${l.nom} ${l.prenom}`);
+    assert.deepEqual(ordre(base), ordre(inverse), tri);
+    assert.deepEqual(ordre(base), ordre([...base].reverse()), `${tri} : stable selon l'entrée`);
+  }
+  const ordre = (tri) =>
+    trierParlementaires(base, tri, (l) => l.g).map((l) => `${l.nom} ${l.prenom}`);
+  assert.deepEqual(ordre("nom"), ["Abad A", "Abad B", "Colin C", "Durand A"]);
+  assert.deepEqual(ordre("groupe"), ["Colin C", "Durand A", "Abad A", "Abad B"]);
+});
+
+test("sans la liste complète, le tri par groupe n'est pas appliqué aux premières lignes", () => {
+  assert.equal(triApplicable("groupe", false), "nom");
+  assert.equal(triApplicable("groupe", true), "groupe");
+  assert.equal(triApplicable("nom", false), "nom");
+});
+
+test("réinitialiser remet le tri par nom et efface td et ts de l'URL", () => {
+  assert.deepEqual(reinitialisationParlementaires("deputes"), {
+    surcharge: { groupe: "", departement: "", tri: "nom" },
+    url: { gd: null, dd: null, td: null },
+  });
+  assert.deepEqual(reinitialisationParlementaires("senateurs").url, {
+    gs: null,
+    ds: null,
+    ts: null,
+  });
 });
 
 test("les réserves disent ce que le taux ne mesure pas", () => {
