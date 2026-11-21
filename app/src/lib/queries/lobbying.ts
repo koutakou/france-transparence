@@ -300,7 +300,15 @@ export function getDonneesLobbying(): DonneesLobbying | null {
   // catégories d'un même groupe : le pipeline compte désormais les activités
   // distinctes par groupe. Faute de sa table, les catégories sources sont
   // servies telles quelles, sans regroupement.
-  const institutionsRegroupees = tablePresente(db, "lobby_agg_groupes_institutions");
+  // Table présente mais vide (première écriture interrompue sur une base
+  // persistante) : même repli que sans table (relecture de la PR 171).
+  const institutionsRegroupees =
+    tablePresente(db, "lobby_agg_groupes_institutions") &&
+    (
+      db.prepare("SELECT COUNT(*) AS n FROM lobby_agg_groupes_institutions").get() as {
+        n: number;
+      }
+    ).n > 0;
   const institutions = db
     .prepare(
       institutionsRegroupees

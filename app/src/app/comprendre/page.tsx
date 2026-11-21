@@ -320,7 +320,8 @@ const GLOSSAIRE: EntreeGlossaire[] = [
         données. Son champ, selon la notice du jeu de données, est le
         périmètre des dépenses de l’État (PDE), soit 501&nbsp;Md€ en 2026
         pour les crédits budgétaires et les taxes affectées plafonnées. Ce
-        n’est pas l’ensemble des crédits du PLF, et ses deux lignes de
+        n’est pas l’ensemble des crédits du PLF : les montants par mission
+        peuvent y être inférieurs à leurs crédits au PLF, et ses deux lignes de
         prélèvements sur recettes (collectivités territoriales, Union
         européenne) ne sont pas des missions.
       </>

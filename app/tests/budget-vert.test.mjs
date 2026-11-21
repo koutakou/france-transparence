@@ -79,6 +79,10 @@ test("accueil et /depenses écartent la même liste de prélèvements", () => {
 test("le périmètre servi est celui que dit la notice, sans total du PLF", () => {
   assert.match(PERIMETRE_BUDGET_VERT, /périmètre des dépenses de l’État \(PDE\)/);
   assert.match(PERIMETRE_BUDGET_VERT, /pas l’ensemble des crédits du PLF/);
+  // Relecture de la PR 171 : chaque mission y est aussi plus basse
+  // (Enseignement scolaire 64,3 Md€ contre 88,8 au PLF 2025), pas seulement
+  // des missions absentes. La cause n'est pas dans la notice : non écrite.
+  assert.match(PERIMETRE_BUDGET_VERT, /montants par mission peuvent y être inférieurs/);
 });
 
 test("accueil et /depenses disent le périmètre, et plus aucun « total toutes missions »", () => {

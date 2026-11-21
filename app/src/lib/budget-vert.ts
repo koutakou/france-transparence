@@ -14,7 +14,7 @@
 
 /** Périmètre servi à côté de chaque chiffre tiré de `budget_vert`. */
 export const PERIMETRE_BUDGET_VERT =
-  "périmètre des dépenses de l’État (PDE) retenu par la notice du budget vert, pas l’ensemble des crédits du PLF";
+  "périmètre des dépenses de l’État (PDE) retenu par la notice du budget vert, pas l’ensemble des crédits du PLF : les montants par mission peuvent y être inférieurs à leurs crédits au PLF";
 
 /**
  * Libellés de `budget_vert.mission` qui ne sont pas des missions mais des
