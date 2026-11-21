@@ -20,3 +20,6 @@ data/amont/
 data/france.db
 
 .claude/
+
+# Réécrit par next dev à chaque lancement, propre à la machine de travail
+app/AGENTS.md
