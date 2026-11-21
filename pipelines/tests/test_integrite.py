@@ -1787,6 +1787,42 @@ def test_url_dossier_bien_forme_donne_la_fiche():
     assert p7.url_fiche_hatvp("") is None and p7.url_fiche_hatvp(None) is None
 
 
+def test_url_fiche_ecrite_par_ecrire(tmp_path, dossiers):
+    """Relecture de la PR 172 : la colonne `url_fiche` que le vrai `ecrire()`
+    pose dans hatvp_declarations. Bien formé, la fiche nominative. Mal formé,
+    aucune URL de fiche : la fiche d'élu renvoie à la liste par `hatvp_url`,
+    pas par cette colonne. Elle sert de clé de jointure aux déclarations d'une
+    fiche (`url_fiche IN (hatvp_url)`) : y écrire l'URL de la liste
+    rattacherait les déclarations de tous les chemins mal formés à chaque
+    élu renvoyé à la liste."""
+    bien = _dossier(nom="GÂTÉ", prenom="Sylvie", type_document="dia",
+                    url_dossier="/pages_nominatives/gate-sylvie-23162")
+    mal = _dossier(nom="CAPITANIO", prenom="Olivier", type_document="dia",
+                   url_dossier="/pages_nominatives/capitanio-olivier[")
+    conn = db.init_db(chemin=tmp_path / "url-fiche.db")
+    try:
+        p7.ecrire(conn, dossiers + [bien, mal], charger_rne(),
+                  {"cm": FIXTURES / "rne_cm_extrait.csv"},
+                  AUJOURD_HUI, "2026-08-14", "2026-08-11")
+        par_chemin = dict(conn.execute(
+            "SELECT url_dossier, url_fiche FROM hatvp_declarations"
+            " WHERE url_dossier IN (?, ?)",
+            (bien["url_dossier"], mal["url_dossier"])).fetchall())
+        assert par_chemin == {
+            bien["url_dossier"]: "https://www.hatvp.fr/pages_nominatives/gate-sylvie-23162",
+            mal["url_dossier"]: None,
+        }
+        assert conn.execute(
+            "SELECT count(*) FROM hatvp_declarations WHERE url_fiche = ?",
+            (p7.URL_HATVP_LISTE,)).fetchone()[0] == 0
+        # Les autres lignes de la fixture : jamais une URL hors fiche nominative.
+        for (url,) in conn.execute(
+                "SELECT url_fiche FROM hatvp_declarations WHERE url_fiche IS NOT NULL"):
+            assert url.startswith(p7.URL_HATVP_SITE + "/pages_nominatives/"), url
+    finally:
+        conn.close()
+
+
 def test_dedoublonner_hatvp_ecarte_les_lignes_strictement_identiques():
     a = _dossier(nom="DUPONT", prenom="Jean", type_document="DI", date_depot="2025-01-02")
     b = dict(a)                                   # doublon strict
