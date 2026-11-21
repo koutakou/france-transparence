@@ -199,3 +199,58 @@ for (const [fichier, motif, pourquoi] of INTERDITS) {
     assert.doesNotMatch(lire(fichier), motif);
   });
 }
+
+// Audit des pages du 20/11/2026, R4 : « jamais publiée en données »,
+// « jamais suivie », « toujours en vigueur en 2026 » deviennent faux sans que
+// personne ne relise la phrase. Une négation ou une permanence affirmée sur
+// l'amont porte la date de sa vérification (JJ/MM/AAAA) dans les 80
+// caractères qui suivent. Même règle côté pipelines :
+// pipelines/tests/test_textes_servis.py.
+const QUI_VIEILLISSENT = /jamais publiée|jamais suivie|toujours en vigueur|aucun équivalent/gi;
+const DATE_FR = /\d{2}\/\d{2}\/\d{4}/;
+
+function sources(dossier) {
+  const out = [];
+  for (const nom of fs.readdirSync(dossier, { withFileTypes: true })) {
+    const p = new URL(nom.name + (nom.isDirectory() ? "/" : ""), dossier);
+    if (nom.isDirectory()) out.push(...sources(p));
+    else if (/\.tsx?$/.test(nom.name)) out.push(p);
+  }
+  return out;
+}
+
+/** Texte servi : commentaires retirés (les notes de code ne vieillissent pas
+ *  à l'écran). */
+const sansCommentaires = (s) =>
+  s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'\w])\/\/.*$/gm, "$1");
+
+function affirmationsNonDatees(texte) {
+  const s = texte.replace(/\s+/g, " ");
+  const fautes = [];
+  for (const m of s.matchAll(QUI_VIEILLISSENT)) {
+    const suite = s.slice(m.index + m[0].length, m.index + m[0].length + 80);
+    if (!DATE_FR.test(suite)) fautes.push(m[0]);
+  }
+  return fautes;
+}
+
+test("R4 : le contrôle voit une négation non datée et laisse passer une négation datée", () => {
+  assert.deepEqual(affirmationsNonDatees("pas la LFI (jamais publiée en données)"), ["jamais publiée"]);
+  assert.deepEqual(affirmationsNonDatees("Valeur au 01/01/2024, toujours en vigueur en 2026"), [
+    "toujours en vigueur",
+  ]);
+  assert.deepEqual(
+    affirmationsNonDatees("non publiée, jamais publiée en données au 21/11/2026"),
+    [],
+  );
+});
+
+test("R4 : aucune négation sur l'amont sans sa date de vérification dans src/", () => {
+  const fautes = [];
+  for (const f of sources(new URL("../src/", import.meta.url))) {
+    for (const m of affirmationsNonDatees(sansCommentaires(fs.readFileSync(f, "utf8")))) {
+      fautes.push(`${f.pathname.split("/src/")[1]} : « ${m} »`);
+    }
+  }
+  assert.deepEqual(fautes, []);
+});
