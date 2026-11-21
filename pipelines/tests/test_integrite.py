@@ -401,6 +401,26 @@ def test_ecrire_alertes_preserve_les_autres_pipelines(conn, resultat_a1):
     assert n_p7 == len(lignes)
 
 
+def test_ecrire_alertes_garde_la_date_de_detection(conn, resultat_a1):
+    """`date_fait` suit le fichier HATVP lu (il change), `date_detection` reste
+    celle du premier cycle qui a vu l'id : elle date le flux Atom."""
+    nominatives, retards, _ = resultat_a1
+    lignes = p7.construire_alertes(nominatives, retards, AUJOURD_HUI,
+                                   "2026-08-14", "2026-08-11")
+    p7.ecrire_alertes(conn, lignes, date(2026, 8, 15))
+    premier = {r["id"]: r["date_detection"] for r in conn.execute(
+        "SELECT id, date_detection FROM alertes")}
+    assert premier and set(premier.values()) == {"2026-08-15"}
+    # Cycle suivant, nouveau fichier HATVP : mêmes id, date_fait déplacée.
+    lignes2 = p7.construire_alertes(nominatives, retards, AUJOURD_HUI,
+                                    "2026-08-21", "2026-08-11")
+    p7.ecrire_alertes(conn, lignes2, date(2026, 8, 22))
+    apres = {r["id"]: (r["date_detection"], r["date_fait"]) for r in conn.execute(
+        "SELECT id, date_detection, date_fait FROM alertes")}
+    assert set(apres) == set(premier)             # identifiants stables
+    assert all(v == ("2026-08-15", "2026-08-21") for v in apres.values())
+
+
 # ---------------------------------------------------------------------------
 # elus : upsert prudent, croisement hatvp_flag
 # ---------------------------------------------------------------------------

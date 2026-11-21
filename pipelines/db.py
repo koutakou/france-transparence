@@ -13,7 +13,9 @@ Chaque pipeline crée ses propres tables métier puis appelle `upsert_meta()`.
 from __future__ import annotations
 
 import os
+import re
 import sqlite3
+from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -117,6 +119,75 @@ def assurer_date_fait_alertes(conn: sqlite3.Connection) -> None:
     colonnes = {r[1] for r in conn.execute("PRAGMA table_info(alertes)")}
     if colonnes and "date_fait" not in colonnes:
         conn.execute("ALTER TABLE alertes ADD COLUMN date_fait TEXT")
+
+
+def assurer_date_detection_alertes(conn: sqlite3.Connection) -> None:
+    """Pose la colonne `alertes.date_detection` si elle manque. Idempotent.
+
+    Migration douce de la table partagée, comme `assurer_date_fait_alertes`.
+    Les lignes déjà en base au moment de la migration restent à NULL : le
+    premier cycle qui les réécrit via `remplacer_alertes` leur donne sa date.
+    """
+    colonnes = {r[1] for r in conn.execute("PRAGMA table_info(alertes)")}
+    if colonnes and "date_detection" not in colonnes:
+        conn.execute("ALTER TABLE alertes ADD COLUMN date_detection TEXT")
+
+
+_JOUR_ISO = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def remplacer_alertes(conn: sqlite3.Connection, types: Sequence[str],
+                      colonnes: Sequence[str], lignes: Iterable[Sequence],
+                      jour_cycle: str) -> int:
+    """Remplace les alertes des `types` d'un pipeline par `lignes`, en gardant
+    leur date de détection. Seul chemin d'écriture de la table `alertes`.
+
+    `date_detection` est le jour (AAAA-MM-JJ) du premier cycle qui a vu
+    l'alerte, par son `id`. Elle est relue AVANT la purge des `types`, puis
+    réécrite telle quelle pour chaque `id` encore présent. Une alerte nouvelle
+    prend `jour_cycle`. Une alerte qui disparaît d'un cycle puis revient est
+    un fait nouveau : sa ligne a été purgée entre-temps, elle prend le jour
+    du cycle où elle revient. Une ligne antérieure à la colonne (NULL) prend
+    aussi `jour_cycle`.
+
+    Pourquoi : la base persiste d'un cycle à l'autre sur le serveur, alors que
+    `date_calcul` change à chaque cycle et que la date d'une source change à
+    chaque fichier. Seule cette date ne bouge pas, c'est elle qui date les
+    entrées du flux Atom des alertes. Une CI qui part d'une base neuve date
+    tout du jour de son cycle, ce qui est juste pour cette base.
+
+    `colonnes` nomme les colonnes des tuples de `lignes` (`id` compris,
+    `date_detection` exclue). Ne touche à aucune ligne d'un autre type : la
+    table est partagée. Ne valide pas : la transaction reste à l'appelant.
+    Retourne le nombre de lignes écrites.
+    """
+    if not _JOUR_ISO.fullmatch(jour_cycle or ""):
+        raise ValueError(f"jour_cycle attendu au format AAAA-MM-JJ : {jour_cycle!r}")
+    colonnes = list(colonnes)
+    if "id" not in colonnes or "date_detection" in colonnes:
+        raise ValueError("colonnes : `id` requise, `date_detection` posée ici")
+    types = list(types)
+    if not types:
+        raise ValueError("types : au moins un type d'alerte")
+    assurer_date_fait_alertes(conn)
+    assurer_date_detection_alertes(conn)
+    marqueurs = ",".join("?" for _ in types)
+    deja_vues = {
+        r[0]: r[1] for r in conn.execute(
+            f"SELECT id, date_detection FROM alertes WHERE type IN ({marqueurs})",
+            types)
+    }
+    conn.execute(f"DELETE FROM alertes WHERE type IN ({marqueurs})", types)
+    i_id = colonnes.index("id")
+    a_ecrire = [
+        (*ligne, deja_vues.get(ligne[i_id]) or jour_cycle) for ligne in lignes
+    ]
+    noms = ", ".join([*colonnes, "date_detection"])
+    conn.executemany(
+        f"INSERT INTO alertes ({noms}) VALUES "
+        f"({','.join('?' for _ in range(len(colonnes) + 1))})",
+        a_ecrire)
+    return len(a_ecrire)
 
 
 def instructions_sql(script: str) -> list[str]:

@@ -958,17 +958,17 @@ def construire_alertes(nominatives: list[dict], en_cours: list[dict],
     return lignes
 
 
-def ecrire_alertes(conn, lignes: list[tuple]) -> None:
+def ecrire_alertes(conn, lignes: list[tuple],
+                   aujourd_hui: date | None = None) -> None:
     """Table partagée : ne supprime QUE les types d'alerte de ce pipeline,
-    ancien type compris."""
-    db.assurer_date_fait_alertes(conn)
-    marqueurs = ",".join("?" for _ in TYPES_ALERTES_EFFACES_P7)
-    conn.execute(f"DELETE FROM alertes WHERE type IN ({marqueurs})",
-                 TYPES_ALERTES_EFFACES_P7)
-    conn.executemany(
-        "INSERT INTO alertes (id, type, gravite, titre, detail, regle, base_legale,"
-        " source_url, date_calcul, date_fait)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", lignes)
+    ancien type compris. `date_detection` (premier cycle qui a vu l'id) est
+    relue avant la purge et gardée, `aujourd_hui` date les alertes nouvelles
+    (db.remplacer_alertes)."""
+    db.remplacer_alertes(
+        conn, TYPES_ALERTES_EFFACES_P7,
+        ("id", "type", "gravite", "titre", "detail", "regle", "base_legale",
+         "source_url", "date_calcul", "date_fait"),
+        lignes, (aujourd_hui or date.today()).isoformat())
 
 
 # ---------------------------------------------------------------------------
@@ -1790,7 +1790,7 @@ def ecrire(conn, dossiers: list[dict], rne: dict, chemins: dict,
                                                frozenset(perimes))
     lignes_alertes = construire_alertes(nominatives, en_cours, aujourd_hui,
                                         date_hatvp, date_rne)
-    ecrire_alertes(conn, lignes_alertes)
+    ecrire_alertes(conn, lignes_alertes, aujourd_hui)
     log.info("A1 : %d constats nominatifs « non déposée », %d dossiers « En cours »"
              " au délai légal écoulé (agrégés en %d alertes) ; tri : %s",
              len(nominatives), len(en_cours),
