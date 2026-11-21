@@ -697,8 +697,9 @@ export default async function PageDonnees() {
           clôture de l’exercice des comptes (31 décembre). Les autres alertes
           (HATVP, lobbying, partis privés d’aide) sont datées du jour où le site
           les a détectées pour la première fois, et gardent cette date tant
-          qu’elles restent en place. Une alerte qui disparaît puis revient est
-          un fait nouveau et reçoit une nouvelle date. Une alerte qui compte
+          qu’elles restent en place. Les alertes déjà en place à l’ouverture
+          de ce flux portent la date de cette ouverture. Une alerte qui
+          disparaît puis revient reçoit la date de son retour. Une alerte qui compte
           des dossiers (agrégat) garde sa date quand son compte change&nbsp;: la
           page Alertes donne le compte du jour. Une alerte qui n’a
           aucune de ces deux dates n’est pas publiée. Son identifiant est

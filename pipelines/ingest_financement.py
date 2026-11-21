@@ -1352,7 +1352,7 @@ def calculer_alertes(conn, url_avis_2024: str | None) -> int:
                 f"FIN-PARTI-PRIVE-{dernier_ex}",
                 "financement_parti_prive_aide", "info",
                 f"Partis privés d'aide publique pour manquement (exercice {dernier_ex}) : "
-                "liste publiée uniquement en PDF au 21/11/2026",
+                "liste diffusée seulement en PDF (constat du 21/11/2026)",
                 "L'avis annuel CNCCFP listant les partis n'ayant pas respecté "
                 "leurs obligations comptables (perte de l'aide publique) est "
                 "publié au Journal officiel et diffusé sur data.gouv.fr en PDF, "
