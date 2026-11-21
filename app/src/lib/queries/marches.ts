@@ -1295,3 +1295,23 @@ export function getAoOuvertesTriees(): AoEnCours[] | null {
     .prepare(`${SQL_AO_OUVERTES} ORDER BY datetime(date_limite_reponse), idweb`)
     .all() as AoEnCours[];
 }
+
+/**
+ * Les deux classements 12 mois de /marches, tels que la page les lit (mêmes
+ * requêtes, même repli sans Sirene) : source des exports
+ * /api/marches-top-acheteurs.csv et /api/marches-top-titulaires.csv.
+ * `null` si la base est absente.
+ */
+export function getTopsMarches(): { acheteurs: TopAcheteur[]; titulaires: TopTitulaire[] } | null {
+  const db = getDb();
+  if (!db) return null;
+  const avecSirene = tablePresente(db, "sirene_unites_legales");
+  return {
+    acheteurs: db
+      .prepare(avecSirene ? SQL_TOP_ACHETEURS : SQL_TOP_ACHETEURS_SANS_SIRENE)
+      .all() as TopAcheteur[],
+    titulaires: db
+      .prepare(avecSirene ? SQL_TOP_TITULAIRES : SQL_TOP_TITULAIRES_SANS_SIRENE)
+      .all() as TopTitulaire[],
+  };
+}
