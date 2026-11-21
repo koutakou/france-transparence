@@ -1479,6 +1479,58 @@ def _fiche(conn, ident, nom, prenom, mandats):
                  (ident, nom, prenom, json.dumps(mandats)))
 
 
+def _fiche_nee(conn, ident, nom, prenom, naissance, mandats):
+    conn.execute("INSERT INTO elus (id, nom, prenom, date_naissance, mandats)"
+                 " VALUES (?, ?, ?, ?, ?)",
+                 (ident, nom, prenom, naissance, json.dumps(mandats)))
+
+
+def test_hatvp_flag_va_a_la_fiche_senat_du_depute_passe_au_senat(conn, caplog):
+    """Constat du 21/11/2026 : 8 sénateurs, anciens députés, n'avaient aucun
+    lien HATVP. Leur fiche PA retirée portait le même nom et le même prénom :
+    deux candidats, donc rien. La table des redirections dit que c'est la même
+    personne, la fiche SEN reçoit le lien. Dates de naissance différentes :
+    ce n'est pas la paire décrite, on ne départage rien."""
+    import logging
+    depute = [{"source": "AN-P9", "type": "depute", "date_fin": "2026-09-30"}]
+    senateur = [{"source": "SENAT-P9", "type": "senateur"}]
+    _fiche_nee(conn, "PA796034", "Giletti", "Frank", "1973-03-01", depute)
+    _fiche_nee(conn, "SEN-20874F", "Giletti", "Frank", "1973-03-01", senateur)
+    _fiche_nee(conn, "PA841131", "Bouquin", "Manon", "1992-06-02", depute)
+    _fiche_nee(conn, "SEN-21223D", "Bouquin", "Manon", "1990-01-01", senateur)
+    hatvp = [_dossier_hatvp("GILETTI", "Frank", "senateur", "83", "Sénateur"),
+             _dossier_hatvp("BOUQUIN", "Manon", "senateur", "21", "Sénatrice")]
+    passees = {"PA796034": "SEN-20874F", "PA841131": "SEN-21223D"}
+    with caplog.at_level(logging.INFO):
+        assert p7.croiser_hatvp_flag(conn, hatvp, passees=passees) == (1, 0)
+    liens = dict(conn.execute("SELECT id, hatvp_url FROM elus").fetchall())
+    assert liens == {"PA796034": None, "PA841131": None, "SEN-21223D": None,
+                     "SEN-20874F": "https://www.hatvp.fr/pages_nominatives/giletti-1"}
+    assert "PA796034 -> SEN-20874F" in caplog.text
+    # Sans la table : l'ancien comportement, aucun lien.
+    assert p7.croiser_hatvp_flag(conn, hatvp, passees={}) == (0, 0)
+
+
+@pytest.mark.parametrize("pa_en_premier", [True, False])
+def test_upsert_elus_pose_le_mandat_rne_sur_la_fiche_senat(conn, pa_en_premier):
+    """Constat du 21/11/2026 : `existants.setdefault` gardait la première des
+    deux fiches de même clé. La fiche PA retirée d'un député passé au Sénat
+    recevait donc les mandats RNE. Ils vont à la fiche SEN, quel que soit
+    l'ordre de lecture, et ceux d'un cycle précédent sont ôtés de la PA."""
+    fiches = [("PA1", [{"source": "AN-P9", "type": "depute"},
+                       {"source": "RNE", "type": "senateur"}]),
+              ("SEN-00001A", [{"source": "SENAT-P9", "type": "senateur"}])]
+    for ident, mandats in (fiches if pa_en_premier else fiches[::-1]):
+        _fiche_nee(conn, ident, "Valmont", "Lucien", "1971-03-14", mandats)
+    rne = _rne_un_seul("VALMONT", "Lucien", "1971-03-14")
+    p7.upsert_elus(conn, p7.preparer_personnes(rne), liste_blanche={},
+                   passees={"PA1": "SEN-00001A"})
+    sources = {i: [m["source"] for m in json.loads(m_)]
+               for i, m_ in conn.execute("SELECT id, mandats FROM elus")}
+    assert sources["PA1"] == ["AN-P9"]
+    assert sources["SEN-00001A"][0] == "SENAT-P9" and "RNE" in sources["SEN-00001A"]
+
+
 def test_hatvp_flag_refuse_un_homonyme_d_un_autre_departement(conn):
     """Constat du 15/10/2026 (cas relevé sur la base servie) : LEROY Gilles,
     maire de Courtrizy-et-Fussigny (02), recevait la fiche HATVP d'un

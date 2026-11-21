@@ -531,6 +531,48 @@ MOTIF_CLE_DECLARANT = r"hatvp-[0-9a-f]{16}"
 MOTIF_FICHE = r"PA\d+|SEN-\d{5}[A-Z]|rne-[0-9a-f]{16}"
 _DATE_COMPLETE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
+# Table des fiches retirées et de la fiche qui les remplace (source des 301).
+# Ses lignes `PA* -> SEN-*` sont les députés devenus sénateurs : la MÊME
+# personne porte deux fiches, la PA retirée (plus engendrée) et la SEN
+# publiée, sous la même clé d'état civil. Identité relue le 15/10/2026.
+CHEMIN_REDIRECTIONS_ELUS = RACINE / "deploy" / "redirections-elus.tsv"
+
+
+def charger_fiches_passees_au_senat(chemin: str | Path | None = None) -> dict[str, str]:
+    """{fiche PA retirée : fiche SEN de la même personne}, lu dans
+    `deploy/redirections-elus.tsv`.
+
+    Seules les lignes `PA* -> SEN-*` sont rendues. Les lignes `rne-*` sont
+    des doublons que P7 supprime de `elus` : elles ne sont jamais en
+    concurrence avec leur cible. Une ligne qui n'a pas trois champs non vides
+    fait échouer le chargement : une table illisible ne doit rien départager.
+    """
+    chemin = chemin or CHEMIN_REDIRECTIONS_ELUS
+    table: dict[str, str] = {}
+    with open(chemin, encoding="utf-8") as f:
+        for numero, ligne in enumerate(f, 1):
+            if not ligne.strip() or ligne.lstrip().startswith("#"):
+                continue
+            champs = [c.strip() for c in ligne.rstrip("\r\n").split("\t")]
+            if len(champs) != 3 or not all(champs):
+                raise ValueError(f"{chemin}, ligne {numero} : trois champs non vides "
+                                 f"attendus (id retiré, id conservé, personne)")
+            if (re.fullmatch(r"PA\d+", champs[0])
+                    and re.fullmatch(r"SEN-\d{5}[A-Z]", champs[1])):
+                table[champs[0]] = champs[1]
+    return table
+
+
+def departager_fiches_passees_au_senat(ids, passees: dict[str, str]) -> set[str]:
+    """Les identifiants de `ids`, moins toute fiche PA dont la fiche SEN de la
+    même personne (selon `passees`) figure AUSSI parmi `ids`.
+
+    Une PA seule, ou dont la SEN n'est pas en concurrence, est gardée : on ne
+    départage que deux fiches déjà reconnues comme une seule personne.
+    """
+    ids = set(ids)
+    return {i for i in ids if passees.get(i) not in ids}
+
 
 def date_complete(naissance: str | None) -> bool:
     """Vrai pour une date de naissance complète au format AAAA-MM-JJ."""
@@ -779,16 +821,27 @@ def extraire_declaration(declaration: ET.Element) -> dict | None:
 # ---------------------------------------------------------------------------
 
 
-def construire_index_elus(conn) -> dict[tuple[str, str, str], str]:
+def construire_index_elus(conn, passees: dict[str, str] | None = None
+                          ) -> dict[tuple[str, str, str], str]:
     """{(nom, prénom, naissance) → elus.id} pour les élus AYANT une fiche.
 
     Une clé partagée par deux élus est retirée de l'index : un homonyme né le
     même jour n'est pas tranchable, et attribuer une déclaration à la
     mauvaise personne est la faute la plus grave que ce pipeline puisse
     commettre. Mesuré le 20/08/2026 : zéro collision sur les 1 053 fiches.
+
+    Une exception, qui n'est pas un homonyme : le député devenu sénateur
+    garde sa fiche PA (retirée, plus engendrée) à côté de sa fiche SEN, sous
+    la même clé. `passees` ({PA : SEN}, par défaut `redirections-elus.tsv`)
+    dit que c'est la même personne : la clé va à la fiche SEN, la seule
+    publiée. Sans cela, les déclarations de ces sénateurs n'auraient jamais
+    été rattachées (8 paires le 21/11/2026).
     """
+    if passees is None:
+        passees = charger_fiches_passees_au_senat()
     marques = ", ".join("?" for _ in TYPES_FICHE)
     index: dict[tuple[str, str, str], str] = {}
+    porteurs: dict[tuple[str, str, str], set[str]] = defaultdict(set)
     collisions: set[tuple[str, str, str]] = set()
     for r in conn.execute(
         f"""SELECT DISTINCT e.id, e.nom, e.prenom, e.date_naissance
@@ -800,11 +853,25 @@ def construire_index_elus(conn) -> dict[tuple[str, str, str], str]:
         if not naissance:
             continue
         cle = (normaliser_identite(r["nom"]), normaliser_identite(r["prenom"]), naissance)
+        porteurs[cle].add(r["id"])
         if cle in index and index[cle] != r["id"]:
             collisions.add(cle)
         index[cle] = r["id"]
-    for cle in collisions:
-        index.pop(cle, None)
+    departagees: list[str] = []
+    for cle in sorted(collisions):
+        restants = departager_fiches_passees_au_senat(porteurs[cle], passees)
+        if len(restants) == 1:
+            index[cle] = next(iter(restants))
+            departagees.append(" + ".join(sorted(porteurs[cle] - restants))
+                               + " -> " + index[cle])
+        else:
+            index.pop(cle, None)
+    collisions = {c for c in collisions if c not in index}
+    if departagees:
+        log.info("appariement : %d clé(s) partagée(s) par une fiche de député retirée"
+                 " et la fiche de sénateur de la même personne (%s), attribuée(s) à"
+                 " la fiche de sénateur : %s", len(departagees),
+                 CHEMIN_REDIRECTIONS_ELUS.name, " | ".join(departagees))
     if collisions:
         log.warning("appariement : %d clé(s) nom+prénom+naissance partagée(s) par "
                     "plusieurs élus, écartée(s) — homonyme non tranché = non apparié",
@@ -1512,7 +1579,8 @@ def executer(chemin_db=None, max_age_heures: float | None = 6.0) -> dict:
             "SELECT date_donnees FROM meta_sources WHERE source_id = ?",
             (ID_SOURCE,)).fetchone()
         date_precedente = ligne_meta[0] if ligne_meta else None
-        index_elus = construire_index_elus(conn)
+        passees = charger_fiches_passees_au_senat()
+        index_elus = construire_index_elus(conn, passees)
         if len(index_elus) < 500:
             raise ValueError(
                 f"appariement impossible : {len(index_elus)} élus avec fiche et date "
@@ -1529,6 +1597,13 @@ def executer(chemin_db=None, max_age_heures: float | None = 6.0) -> dict:
         lignes_avant = lignes_par_rubrique_precedentes(conn)
         donnees = parcourir(chemin, index_elus, index_souple, liste_blanche)
         stats = donnees["stats"]
+        sen_passes = set(passees.values())
+        recus = Counter(e["elu_id"] for e in donnees["entetes"]
+                        if e["elu_id"] in sen_passes)
+        log.info("appariement : %d déclaration(s) rattachée(s) aux fiches de sénateur"
+                 " des députés passés au Sénat (%s) : %s", sum(recus.values()),
+                 CHEMIN_REDIRECTIONS_ELUS.name,
+                 " | ".join(f"{i} : {n}" for i, n in sorted(recus.items())) or "aucune")
         hors_liste = donnees.get("hors_liste", [])
         if hors_liste:
             log.warning(

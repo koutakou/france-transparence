@@ -368,6 +368,52 @@ def test_index_elus_restreint_aux_fiches_et_sans_homonyme(conn):
     assert (p15.normaliser_identite("Martin"), "CAMILLE", "1965-05-05") not in index
 
 
+def test_index_elus_cle_du_depute_passe_au_senat_va_a_la_fiche_senat(conn, caplog):
+    """Constat du 21/11/2026 : 8 députés devenus sénateurs le 01/10/2026
+    gardent leur fiche PA (retirée, redirigée vers la SEN par
+    `redirections-elus.tsv`) sous la même clé que leur fiche SEN. La clé était
+    écartée comme homonymie : leurs déclarations n'auraient jamais été
+    rattachées. Elle va désormais à la fiche SEN, dans les deux ordres de
+    lecture. Un vrai homonyme reste écarté."""
+    import logging
+    _inserer_elu(conn, "PA796034", "Giletti", "Frank", "1973-03-01")
+    _inserer_elu(conn, "SEN-20874F", "Giletti", "Frank", "1973-03-01", "senateur")
+    _inserer_elu(conn, "SEN-20684B", "Amard", "Gabriel", "1967-01-01", "senateur")
+    _inserer_elu(conn, "PA794906", "Amard", "Gabriel", "1967-01-01")
+    # Même clé, mais la table ne relie pas ces deux fiches : homonymie.
+    _inserer_elu(conn, "PA2", "Martin", "Camille", "1965-05-05")
+    _inserer_elu(conn, "SEN-00002A", "Martin", "Camille", "1965-05-05", "senateur")
+    # Un troisième porteur de la clé : la table ne tranche plus rien.
+    _inserer_elu(conn, "PA718884", "Bazin", "Valerie", "1960-01-01")
+    _inserer_elu(conn, "SEN-18503J", "Bazin", "Valerie", "1960-01-01", "senateur")
+    _inserer_elu(conn, "PA9", "Bazin", "Valerie", "1960-01-01")
+    passees = {"PA796034": "SEN-20874F", "PA794906": "SEN-20684B",
+               "PA718884": "SEN-18503J"}
+    with caplog.at_level(logging.INFO):
+        index = p15.construire_index_elus(conn, passees)
+    assert index[("GILETTI", "FRANK", "1973-03-01")] == "SEN-20874F"
+    assert index[("AMARD", "GABRIEL", "1967-01-01")] == "SEN-20684B"
+    assert ("MARTIN", "CAMILLE", "1965-05-05") not in index
+    assert ("BAZIN", "VALERIE", "1960-01-01") not in index
+    assert "PA796034 -> SEN-20874F" in caplog.text
+    assert "2 clé(s) nom+prénom+naissance partagée(s)" in caplog.text
+    # Sans la table, l'ancien comportement : les deux clés sont écartées.
+    assert ("GILETTI", "FRANK", "1973-03-01") not in p15.construire_index_elus(conn, {})
+
+
+def test_table_des_deputes_passes_au_senat(tmp_path):
+    """La table versionnée se lit, et seules ses lignes PA -> SEN comptent.
+    Une ligne mal formée fait échouer le chargement."""
+    passees = p15.charger_fiches_passees_au_senat()
+    assert len(passees) == 8
+    assert passees["PA796034"] == "SEN-20874F"
+    assert all(k.startswith("PA") and v.startswith("SEN-") for k, v in passees.items())
+    abimee = tmp_path / "redirections.tsv"
+    abimee.write_text("# commentaire\nPA1\tSEN-00001A\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="trois champs"):
+        p15.charger_fiches_passees_au_senat(abimee)
+
+
 def _souple(fiches):
     """Index souple bâti à la main : [(id, nom, prénom, naissance)]."""
     index = {}

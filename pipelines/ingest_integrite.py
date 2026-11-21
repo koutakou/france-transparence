@@ -100,9 +100,12 @@ from pipelines import db
 from pipelines.common import (
     RACINE, RAW_DIR, ajouter_mois, obtenir_logger, session_http, telecharger,
 )
-from pipelines.ingest_hatvp_declarations import (charger_liste_blanche,
+from pipelines.ingest_hatvp_declarations import (CHEMIN_REDIRECTIONS_ELUS,
+                                                 charger_fiches_passees_au_senat,
+                                                 charger_liste_blanche,
                                                  composantes_identite,
                                                  date_complete,
+                                                 departager_fiches_passees_au_senat,
                                                  ecritures_incluses)
 from pipelines.ingest_hatvp_declarations import date_donnees_sans_last_modified
 
@@ -1258,7 +1261,8 @@ REQUETE_ETAT_CIVIL = ("SELECT id, nom, prenom, date_naissance, sexe, profession,
 
 
 def upsert_elus(conn, personnes: dict[tuple, dict],
-                liste_blanche: dict[str, str] | None = None) -> tuple[int, int, int]:
+                liste_blanche: dict[str, str] | None = None,
+                passees: dict[str, str] | None = None) -> tuple[int, int, int]:
     """UPSERT prudent par (nom, prénom, date de naissance) normalisés.
 
     `liste_blanche` : {identifiant `rne-*` : fiche AN/Sénat}, rattrapages relus
@@ -1288,10 +1292,20 @@ def upsert_elus(conn, personnes: dict[tuple, dict],
     fiches pour une seule personne. La base servie survit d'un déploiement à
     l'autre, contrairement à celle de l'intégration continue qui naît neuve à
     chaque passage : c'est là, et là seulement, que les doublons persistent.
+
+    `passees` : {fiche PA retirée : fiche SEN de la même personne}, par défaut
+    les lignes `PA* -> SEN-*` de `deploy/redirections-elus.tsv`. Le député
+    devenu sénateur porte deux fiches sous la même clé. Les mandats RNE vont à
+    la fiche SEN, la seule publiée, quel que soit l'ordre de lecture, et ceux
+    qu'un cycle précédent avait posés sur la PA retirée en sont ôtés. Avant le
+    21/11/2026, le premier lu gagnait : la PA recevait le mandat de sénateur.
     """
     if liste_blanche is None:
         liste_blanche = charger_rattrapages_verifies()
+    if passees is None:
+        passees = charger_fiches_passees_au_senat()
     existants: dict[tuple, dict] = {}
+    evincees: dict[tuple, dict] = {}    # clé -> fiche PA retirée au profit de sa SEN
     index_nom: dict[tuple, list] = defaultdict(list)
     # Fiches AN/Sénat indexées : dénominateur du garde-fou de volume, et seules
     # cibles admises pour la liste blanche.
@@ -1300,7 +1314,14 @@ def upsert_elus(conn, personnes: dict[tuple, dict],
         e = dict(r)
         cle = (normaliser_texte(e["nom"]), normaliser_texte(e["prenom"]),
                (e["date_naissance"] or "").strip())
-        existants.setdefault(cle, e)
+        deja = existants.get(cle)
+        if deja is None:
+            existants[cle] = e
+        elif passees.get(deja["id"]) == e["id"]:
+            evincees[cle] = deja
+            existants[cle] = e
+        elif passees.get(e["id"]) == deja["id"]:
+            evincees[cle] = e
         if not e["id"].startswith("rne-"):     # garde-fou n° 1 : cibles AN/Sénat
             annee = (e["date_naissance"] or "")[:4]
             if annee:
@@ -1377,6 +1398,19 @@ def upsert_elus(conn, personnes: dict[tuple, dict],
                 " profession = COALESCE(profession, ?), mandats = ? WHERE id = ?",
                 (p["sexe"], p["profession"], json.dumps(mandats, ensure_ascii=False), e["id"]))
             maj += 1
+            retiree = evincees.get(cle)
+            if retiree is not None and passees.get(retiree["id"]) == e["id"]:
+                try:
+                    siens = json.loads(retiree["mandats"]) if retiree["mandats"] else []
+                except json.JSONDecodeError:
+                    siens = []
+                gardes = [m for m in siens if m.get("source") != "RNE"]
+                if len(gardes) != len(siens):
+                    conn.execute("UPDATE elus SET mandats = ? WHERE id = ?",
+                                 (json.dumps(gardes, ensure_ascii=False), retiree["id"]))
+                    log.info("rattrapage : mandats RNE ôtés de la fiche retirée %s, posés"
+                             " sur %s (même personne, %s)", retiree["id"], e["id"],
+                             CHEMIN_REDIRECTIONS_ELUS.name)
         else:
             ident = _identifiant_rne(cle)
             conn.execute(
@@ -1601,7 +1635,8 @@ def dossier_corrobore_fiche(dossier: dict, mandats: list[dict],
 
 
 def croiser_hatvp_flag(conn, dossiers: list[dict],
-                       locaux: dict[tuple, set] | None = None) -> tuple[int, int]:
+                       locaux: dict[tuple, set] | None = None,
+                       passees: dict[str, str] | None = None) -> tuple[int, int]:
     """hatvp_flag + hatvp_url quand la personne est UNE des deux côtés ET
     qu'un de ses dossiers concorde avec un mandat de la fiche.
 
@@ -1618,9 +1653,18 @@ def croiser_hatvp_flag(conn, dossiers: list[dict],
     cycle précédent ne doit pas survivre au correctif. Tout est dans la
     transaction de `ecrire()`.
 
+    Le député devenu sénateur n'est pas un homonyme : sa fiche PA retirée et
+    sa fiche SEN portent le même nom et le même prénom. Quand `passees`
+    ({PA : SEN}, par défaut `deploy/redirections-elus.tsv`) les donne pour la
+    même personne et que les deux fiches ont la même date de naissance, la PA
+    est écartée des candidats et la SEN, seule publiée, reçoit le lien. Avant
+    le 21/11/2026, ces 8 sénateurs n'avaient aucun lien HATVP.
+
     Retour : (flags posés, appariements nom+prénom uniques écartés faute de
     concordance).
     """
+    if passees is None:
+        passees = charger_fiches_passees_au_senat()
     colonnes = {r["name"] for r in conn.execute("PRAGMA table_info(elus)")}
     if "hatvp_url" not in colonnes:
         conn.execute("ALTER TABLE elus ADD COLUMN hatvp_url TEXT")
@@ -1642,10 +1686,22 @@ def croiser_hatvp_flag(conn, dossiers: list[dict],
     locaux = locaux or {}
 
     n = ecartes = 0
+    departages: list[str] = []
     for cle, classements in hatvp_par_nom.items():
         if len(classements) != 1:
             continue
         candidats = elus_par_nom.get(cle, [])
+        retirees: list[str] = []
+        if len(candidats) > 1:
+            restants = departager_fiches_passees_au_senat(
+                (c[0] for c in candidats), passees)
+            naissances = {c[0]: c[2] for c in candidats}
+            # Même date de naissance, non vide, des deux côtés : sinon ce n'est
+            # pas la paire que la table décrit, et l'on ne départage rien.
+            if all(naissances[i] and naissances[i] == naissances[passees[i]]
+                   for i in naissances.keys() - restants):
+                retirees = sorted(naissances.keys() - restants)
+                candidats = [c for c in candidats if c[0] in restants]
         if len(candidats) != 1:
             continue
         ident, brut, naissance = candidats[0]
@@ -1662,6 +1718,12 @@ def croiser_hatvp_flag(conn, dossiers: list[dict],
         conn.execute("UPDATE elus SET hatvp_flag = 1, hatvp_url = ? WHERE id = ?",
                      (url, ident))
         n += 1
+        if retirees:
+            departages.append(f"{' + '.join(retirees)} -> {ident} ({url})")
+    log.info("hatvp_flag : %d lien(s) posé(s) sur la fiche de sénateur d'un député"
+             " passé au Sénat, fiche de député retirée écartée (%s) : %s",
+             len(departages), CHEMIN_REDIRECTIONS_ELUS.name,
+             " | ".join(departages) or "aucun")
     return n, ecartes
 
 
