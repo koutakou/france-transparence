@@ -16,7 +16,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 import { SIGNES_BANNIS, signesPresents, textesDuBalisage, textesDuSource } from "./outils/typographie.mjs";
-import { controlerTypographie, voisinagesBase } from "../scripts/typographie.mjs";
+import { COLONNES_SOURCES, clesDeValeur, controlerTypographie, voisinagesSources } from "../scripts/typographie.mjs";
 
 const APP = fileURLToPath(new URL("../", import.meta.url));
 
@@ -119,7 +119,45 @@ test("la lecture de l'export ne lit ni scripts, ni styles, ni directive CSP, mai
   }
 });
 
-test("le contrôle de l'export distingue les textes de l'app de ceux venus de la base", (t) => {
+test("chaque colonne de COLONNES_SOURCES existe dans le schéma documenté", () => {
+  const schema = fs.readFileSync(path.join(APP, "..", "docs", "SCHEMA-DB.md"), "utf8");
+  const colonnes = new Map();
+  for (const m of schema.matchAll(/CREATE TABLE (\w+) \(([\s\S]*?)\n\);/g)) {
+    const noms = new Set();
+    for (const ligne of m[2].split("\n")) {
+      const c = ligne.replace(/--.*$/, "").trim().match(/^(\w+)\s+[A-Z]/);
+      if (c) noms.add(c[1]);
+    }
+    colonnes.set(m[1], noms);
+  }
+  assert.ok(colonnes.size > 50, "lecture du schéma");
+  const disparues = COLONNES_SOURCES.filter((tc) => {
+    const [table, col] = tc.split(".");
+    return !colonnes.get(table)?.has(col);
+  });
+  assert.deepEqual(disparues, [], "colonne listée absente de docs/SCHEMA-DB.md : la retirer ou la renommer");
+  assert.equal(new Set(COLONNES_SOURCES).size, COLONNES_SOURCES.length, "doublon dans la liste");
+  for (const tc of ["meta_sources.nom", "meta_sources.notes", "alertes.titre", "alertes.detail", "ue_registre_organisations.cout_libelle"]) {
+    assert.ok(!COLONNES_SOURCES.includes(tc), `${tc} est écrit par nos pipelines, il reste bloquant`);
+  }
+});
+
+test("une valeur courte d'une source sert de clé entière, mais pas un morceau de mot", () => {
+  const cles = clesDeValeur("ENM–RI");
+  assert.ok(cles.has("ENM–RI"));
+  assert.equal(clesDeValeur(" – ").size, 0, "le signe seul n'est pas une clé");
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ft-typo-court-"));
+  try {
+    fs.writeFileSync(path.join(tmp, "a.html"), "<p>Sigle : ENM–RI</p><p>Code XENM–RIZ</p>");
+    const r = controlerTypographie(tmp, cles);
+    assert.equal(r.sources.length, 1, "la valeur courte entière est reprise de la source");
+    assert.deepEqual(r.app.map((o) => o.extrait), ["Code XENM–RIZ"], "collée à un mot, elle reste bloquante");
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("le contrôle de l'export n'accepte que les colonnes sources, pas les textes de nos pipelines", (t) => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ft-typo-"));
   t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
   const out = path.join(tmp, "out");
@@ -137,25 +175,28 @@ test("le contrôle de l'export distingue les textes de l'app de ceux venus de la
 
   const cheminBase = path.join(tmp, "france.db");
   const db = new Database(cheminBase);
-  db.exec("CREATE TABLE textes (titre TEXT, n INTEGER); CREATE TABLE sources (nom TEXT)");
-  db.prepare("INSERT INTO textes VALUES (?, 1)").run("Décret n° 12 relatif au budget ; dispositions diverses");
-  db.prepare("INSERT INTO sources VALUES (?)").run("HATVP — répertoire des représentants");
+  db.exec("CREATE TABLE jorf_textes (titre TEXT, n INTEGER); CREATE TABLE meta_sources (nom TEXT)");
+  db.prepare("INSERT INTO jorf_textes VALUES (?, 1)").run("Décret n° 12 relatif au budget ; dispositions diverses");
+  db.prepare("INSERT INTO meta_sources VALUES (?)").run("HATVP — répertoire des représentants");
   db.close();
 
   const sansBase = controlerTypographie(out);
-  assert.equal(sansBase.base.length, 0);
+  assert.equal(sansBase.sources.length, 0);
   assert.deepEqual(
     sansBase.app.map((o) => `${o.fichier} ${o.signe}`).sort(),
     ["api/meta.json tiret cadratin", "flux.xml points de suspension", "index.html point-virgule", "index.html tiret cadratin"],
   );
 
-  const cles = voisinagesBase(cheminBase);
+  const { cles, absentes } = voisinagesSources(cheminBase, ["jorf_textes.titre", "jorf_textes.disparue"]);
+  assert.deepEqual(absentes, ["jorf_textes.disparue"], "une colonne listée absente de la base est signalée");
   const avecBase = controlerTypographie(out, cles);
   assert.deepEqual(
     avecBase.app.map((o) => `${o.fichier} ${o.signe}`).sort(),
-    ["flux.xml points de suspension", "index.html tiret cadratin"],
-    "les textes de l'app restent bloquants",
+    ["api/meta.json tiret cadratin", "flux.xml points de suspension", "index.html tiret cadratin"],
+    "les textes de l'app et ceux de nos pipelines (meta_sources) restent bloquants",
   );
-  assert.deepEqual(avecBase.base.map((o) => o.fichier).sort(), ["api/meta.json", "index.html"]);
-  assert.equal(voisinagesBase(path.join(tmp, "absente.db")).size, 0, "base absente : aucune tolérance");
+  assert.deepEqual(avecBase.sources.map((o) => o.fichier), ["index.html"], "le titre du JO est repris tel quel");
+  const defaut = voisinagesSources(cheminBase);
+  assert.deepEqual([...defaut.cles], ["au budget ; dispositi"], "jorf_textes.titre est dans COLONNES_SOURCES, pas meta_sources");
+  assert.equal(voisinagesSources(path.join(tmp, "absente.db")).cles.size, 0, "base absente : rien n'est accepté");
 });

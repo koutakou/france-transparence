@@ -76,8 +76,8 @@ function principal() {
     console.error(`ÉCHEC : ${p.page} pèse ${fmt(p.total)} octets${p.fragment ? " fragment sans geste compris" : ""}, au-delà de ${fmt(PLAFOND_OCTETS)}`);
   }
   // Même passage, second contrôle de l'export : typographie des textes publiés
-  // (scripts/typographie.mjs). La base sert seulement à reconnaître les textes
-  // venus des pipelines, tolérés à titre provisoire. Même chemin que src/lib/db.ts.
+  // (scripts/typographie.mjs). La base sert seulement à reconnaître les valeurs
+  // reprises telles quelles des sources (COLONNES_SOURCES). Même chemin que src/lib/db.ts.
   const base = process.env.FRANCE_DB_PATH
     ? path.resolve(process.env.FRANCE_DB_PATH)
     : path.resolve(process.cwd(), "..", "data", "france.db");
