@@ -415,6 +415,23 @@ export function constatAttente(f: Pick<Fraicheur, "editionFigee">): string {
     : "aucune édition plus récente n’a été ingérée à ce jour";
 }
 
+/**
+ * La mention courte que porte le badge de fraîcheur d'un module, ou `null`
+ * quand l'état ne demande rien (à jour, à surveiller, non calibré).
+ *
+ * Elle reste vraie quand la page est lue après sa construction : l'âge d'une
+ * donnée ne fait que croître tant qu'aucune édition n'est ingérée, et une
+ * ingestion reconstruit la page. Elle ne dit rien de l'amont (aucune
+ * affirmation qu'une édition y a paru), seulement ce que le site a ingéré.
+ */
+export function mentionBadgeFraicheur(f: Pick<Fraicheur, "niveau">): string | null {
+  if (f.niveau === "attente_edition") {
+    return "âge au-delà du seuil d’alerte, aucune édition plus récente ingérée";
+  }
+  if (f.niveau === "en_retard") return "âge au-delà du seuil d’alerte";
+  return null;
+}
+
 /* ------------------------------------------------------------------ */
 /* Phrases — les mêmes au build et à la lecture                        */
 /* ------------------------------------------------------------------ */

@@ -1,4 +1,6 @@
 import { formatDateFr } from "@/lib/format";
+import { evalueFraicheur, mentionBadgeFraicheur } from "@/lib/fraicheur";
+import { instantDeConstruction } from "@/lib/lecture";
 
 /**
  * Badge de fraîcheur — OBLIGATOIRE sur chaque module (ARCHITECTURE §5) :
@@ -26,6 +28,14 @@ export interface FreshnessBadgeProps {
   url: string;
   /** Mention obligatoire éventuelle (« provisoire », « PLF »…). */
   mention?: string;
+  /**
+   * Identifiant `meta_sources.source_id`. Donné, le badge calcule l'état de
+   * fraîcheur de la source (`lib/fraicheur.ts`) au jour de la construction
+   * et dit quand la donnée a dépassé son seuil d'alerte. Réservé au rendu
+   * serveur : dans un composant client, le calcul à l'hydratation se ferait
+   * à une autre date que celle du HTML statique.
+   */
+  sourceId?: string;
   className?: string;
 }
 
@@ -35,12 +45,18 @@ export function FreshnessBadge({
   frequence,
   url,
   mention,
+  sourceId,
   className,
 }: FreshnessBadgeProps) {
+  const etat = sourceId
+    ? mentionBadgeFraicheur(
+        evalueFraicheur(sourceId, dateDonnees, new Date(instantDeConstruction())),
+      )
+    : null;
   // truncate + title=URL cachaient la mention ; rounded-full refuse le multiligne.
   const libelle = `Données au ${formatDateFr(dateDonnees)} · ${source} · ${frequence}${
     mention ? ` · ${mention}` : ""
-  }`;
+  }${etat ? ` · ${etat}` : ""}`;
   return (
     <a
       href={url}
@@ -53,7 +69,10 @@ export function FreshnessBadge({
         <circle cx="5" cy="5" r="3.5" fill="none" stroke="currentColor" strokeWidth="1.2" />
         <path d="M5 3v2.2l1.5 1" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
       </svg>
-      <span className="min-w-0 whitespace-normal">{libelle}</span>
+      <span className="min-w-0 whitespace-normal">
+        {libelle}
+        <span className="sr-only"> (nouvelle fenêtre)</span>
+      </span>
     </a>
   );
 }
