@@ -136,7 +136,7 @@ export function documentProvenance(p: Provenance): string {
   for (const c of p.colonnes) l.push(`  ${c.cle} : ${c.description}`);
   l.push("");
   l.push("Format");
-  l.push(`  Séparateur "${SEPARATEUR_CSV}", encodage UTF-8 avec BOM, fin de ligne CRLF.`);
+  l.push("  Séparateur point-virgule, encodage UTF-8 avec BOM, fin de ligne CRLF.");
   l.push("  Un champ qui contient le séparateur, des guillemets ou un saut de ligne est entouré de guillemets (RFC 4180).");
   l.push("  Nombres sans séparateur de milliers, virgule décimale. Montants en euros. Champ vide = non renseigné.");
   l.push("  Un texte qui commencerait par =, +, - ou @ est précédé d'une apostrophe (aucune formule exécutée par le tableur).");

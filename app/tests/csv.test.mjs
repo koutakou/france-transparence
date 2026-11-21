@@ -7,6 +7,7 @@ import {
   celluleCsv,
   documentCsv,
   documentProvenance,
+  SEPARATEUR_CSV,
   ligneCsv,
   nombreCsv,
 } from "../src/lib/csv.ts";
@@ -145,6 +146,9 @@ test("provenance : chaque source avec sa licence, sa date des données et son UR
   }
   // Aucune ligne de la provenance n'est faite pour être lue comme du CSV.
   assert.doesNotMatch(texte, /^#/m);
+  // Texte publié : le séparateur est nommé en toutes lettres, sans point-virgule.
+  assert.ok(texte.includes("Séparateur point-virgule") && SEPARATEUR_CSV === ";");
+  assert.doesNotMatch(texte, /;/);
 });
 
 test("provenance sans source amont propre : la phrase de remplacement", () => {
