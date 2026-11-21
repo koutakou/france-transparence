@@ -17,7 +17,7 @@ Un run CI rouge n'est **jamais** une panne du site, et la validation ne voit **j
 ## 1. Architecture d'exploitation
 
 ```
-44 sources : publications officielles (data.gouv.fr, DILA, AN, Sénat, HATVP, DGFiP, OFGL, CNCCFP, Eurostat, DREES, INSEE, Direction du Budget…), plus S1, S7 et S31, étiquetées sur `/donnees`, qui est le catalogue vivant
+44 sources : publications officielles (data.gouv.fr, DILA, AN, Sénat, HATVP, DGFiP, OFGL, CNCCFP, Eurostat, DREES, INSEE, Direction du Budget, etc.), plus S1, S7-DATAN et S31, étiquetées sur `/donnees`, qui est le catalogue vivant
         │  re-téléchargées à chaque cycle. Quatre dumps que l'amont peut retirer
         │  (scrutins AN, Dosleg, CADA, Datan) et les livraisons nocturnes du JO
         │  (que la DILA retire de son dépôt) ont en plus une copie datée hors
@@ -118,7 +118,7 @@ Relevé le 21/11/2026 (`systemctl list-timers 'ft-*'`). Heures de Paris, chacune
 | **05:17 (10 min)** | **`ft-deploy.timer`** | **reconstruction et publication** |
 | 06:30 (10 min) | `ft-fraicheur.timer` | fraîcheur des sources amont |
 
-Toutes en `Persistent=true`, sauf `ft-audience-continu` : un déclenchement manqué (serveur éteint) est rattrapé au démarrage. `ft-audience-continu` ne rattrape rien, voulu, car sa page est une vue de l'instant. `ft-audience-serie` et `ft-audience-continu` déclenchent une alerte en cas d'échec (`OnFailure=ft-alerte-echec@…`). Une journée ingérée à la main en cours de journée reste partielle (`complet=0`) : la rejouer le lendemain par `ft-audience-serie --jour AAAA-MM-JJ`, sous le verrou `/run/ft-audience-serie.lock`.
+Toutes en `Persistent=true`, sauf `ft-audience-continu` : un déclenchement manqué (serveur éteint) est rattrapé au démarrage. `ft-audience-continu` ne rattrape rien, voulu, car sa page est une vue de l'instant. `ft-audience-serie` et `ft-audience-continu` déclenchent une alerte en cas d'échec (`OnFailure=` vers l'unité `ft-alerte-echec`). Une journée ingérée à la main en cours de journée reste partielle (`complet=0`) : la rejouer le lendemain par `ft-audience-serie --jour AAAA-MM-JJ`, sous le verrou `/run/ft-audience-serie.lock`.
 
 ## 4. Diagnostic d'un échec de publication
 

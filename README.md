@@ -34,12 +34,12 @@ Les volumes (nombre d'élus, de marchés, de textes) changent à chaque ingestio
 
 Producteurs principaux : DILA (Journal officiel, BOAMP, dossiers législatifs), Assemblée nationale, Sénat, HATVP, ministère de l'Intérieur (Répertoire national des élus), DGFiP, OFGL, CNCCFP, CADA, INSEE, DREES, Eurostat, Autorité de la concurrence, registre de transparence de l'Union européenne.
 
-Trois sources ne sont pas des publications officielles au sens strict. `/donnees` le dit à côté de chacune (`app/src/lib/nature-sources.ts`) :
+Trois sources portent une étiquette particulière : deux consolidations non officielles (S1 et S7-DATAN) et des chiffres officiels recopiés à la main (S31). `/donnees` le dit à côté de chacune (`app/src/lib/nature-sources.ts`) :
 
 | Source | Étiquette sur `/donnees` | Ce que c'est |
 |---|---|---|
 | S1 | Consolidation reconnue, non officielle | Consolidation des données essentielles des marchés publics (DECP) par le projet `decp-processing` de Colin Maudry |
-| S7 (Datan) | Consolidation reconnue, non officielle | Scores calculés par l'association Datan à partir des données de l'Assemblée nationale, affichés à côté du taux calculé par le site |
+| S7-DATAN | Consolidation reconnue, non officielle | Scores calculés par l'association Datan à partir des données de l'Assemblée nationale, affichés à côté du taux calculé par le site |
 | S31 | Officielle, recopiée à la main | Chiffres recopiés de documents officiels (textes, rapports, PDF publics), sans jeu de données ouvert lisible par machine, chacun cité avec son adresse |
 
 Rien n'est mis à jour « en direct » : aucune source publique ne le permet. Chaque page dit la date de ses données, et la fraîcheur de chaque source est mesurée contre un seuil (`app/src/lib/fraicheur.ts`).
@@ -53,13 +53,13 @@ Rien n'est mis à jour « en direct » : aucune source publique ne le permet. Ch
 
 **Publication.** Le serveur reconstruit le site chaque nuit vers 05:17, heure de Paris (minuterie systemd `ft-deploy.timer`, décalage aléatoire de 10 minutes au plus). Le script `ft-deploy` met le dépôt à jour, vérifie l'identité de déploiement, ingère toutes les sources, joue les tests, construit l'export, le contrôle, puis bascule le lien `current` vers la nouvelle version. Si une étape échoue, rien ne bascule : la version précédente reste servie et une alerte part. Ces scripts vivent sur le serveur et ne sont pas versionnés ici. Leur description publique est le [RUNBOOK](docs/deploiement/RUNBOOK.md).
 
-**Validation.** La CI GitHub (`.github/workflows/publication.yml`) ne publie rien. Chaque jour à 04:45 UTC, donc après le cycle du serveur, elle rejoue la chaîne complète dans une base neuve : ingestion, tests, lint, types, build, contrôles. Sur chaque proposition de fusion, elle joue les mêmes étapes avant que le code n'atteigne `main`, en réutilisant la base en cache quand l'empreinte des pipelines n'a pas changé. Un second workflow, `vigie.yml`, lit le site en ligne une fois par jour et ouvre une issue s'il est figé.
+**Validation.** La CI GitHub (`.github/workflows/publication.yml`) ne publie rien. Une exécution est programmée chaque jour à 04:45 UTC, après le cycle du serveur (le départ réel a souvent lieu plusieurs heures plus tard). Elle rejoue la chaîne complète dans une base neuve : ingestion, tests, lint, types, build, contrôles. Sur chaque proposition de fusion, elle joue les mêmes étapes avant que le code n'atteigne `main`, en réutilisant la base en cache quand l'empreinte des pipelines et de `requirements.txt` n'a pas changé. Un second workflow, `vigie.yml`, lit le site en ligne une fois par jour et ouvre une issue s'il est figé.
 
 L'ancienne adresse GitHub Pages ne porte plus qu'une page de redirection vers le domaine (`pages-redirection/`).
 
 ## Reproduire en local
 
-Prérequis : Python 3.14 (celui du `Makefile`, de la CI et du serveur), Node.js 24 ou plus (celui de la CI), `make`.
+Prérequis : Python 3.14 (celui du `Makefile`, de la CI et du serveur), Node.js 24 ou plus (celui de la CI), `make`. Tant que le job `tests-python-3-10` existe, le code des pipelines et `requirements.txt` doivent rester compatibles avec Python 3.10 (voir l'en-tête de `requirements.txt`). Ce job n'est pas un check requis : vérifier son résultat sur chaque proposition de fusion.
 
 ```bash
 make venv          # crée .venv avec les versions figées de requirements.txt
@@ -68,7 +68,7 @@ make app-install   # installe les dépendances de app/
 make dev           # http://localhost:3620
 ```
 
-`make ingest` télécharge beaucoup et prend du temps : les fichiers bruts restent en cache dans `data/raw/`, et la commande se rejoue sans risque. Un seul pipeline : `make ingest-<nom>`.
+`make ingest` télécharge beaucoup et prend du temps (plus de 1 Go de fichiers bruts, mesuré le 24/08/2026) : les fichiers bruts restent en cache dans `data/raw/`, et la commande se rejoue sans risque. Un seul pipeline : `make ingest-<nom>`.
 
 La forme servie en production se reproduit ainsi :
 
@@ -89,10 +89,23 @@ cd app && npm test && npm run lint && npm run typecheck
 
 Les tests de transformation tournent hors ligne sur des fixtures figées dans `pipelines/tests/fixtures/`. La CI joue aussi les tests des pipelines sous Python 3.10 (job `tests-python-3-10`).
 
+## Limites connues
+
+Chaque page dit ses limites, et [`/comprendre`](https://francetransparence.fr/comprendre/) les rassemble. Les principales :
+
+- Les montants d'accords-cadres sont des maximums contractuels, pas des paiements. Le site écrit « marchés notifiés », jamais « dépensé ».
+- Les données essentielles des marchés publics (DECP) arrivent avec une latence légale de publication qui peut atteindre deux mois.
+- Les notes de frais des parlementaires ne sont pas publiées et ne relèvent pas du droit d'accès aux documents administratifs. `/frais` montre les barèmes et les contrôles publiés, avec leurs textes.
+- Le budget de l'État est publié chaque mois avec environ six semaines de décalage.
+- L'outre-mer n'est pas rendu sur la carte, mais il figure dans les tableaux et les agrégats.
+
+Le site ne dépose aucun cookie et n'utilise aucun traceur. Les journaux du serveur et leurs durées sont décrits sur [/donnees-personnelles](https://francetransparence.fr/donnees-personnelles/).
+
 ## Licences
 
 - **Code** : AGPL-3.0-or-later ([LICENSE](LICENSE)).
 - **Données** : chaque source garde la licence de son producteur, pour l'essentiel la Licence Ouverte 2.0 (Etalab). La licence de chaque source est affichée sur `/donnees`. S31 n'a pas de licence ouverte : ce sont des chiffres cités de documents officiels. Détails : [LICENSES.md](LICENSES.md).
+- **Crédits** : consolidation DECP par le projet `decp-processing` de Colin Maudry, scores de l'association Datan, fonds de carte france-geojson (Grégoire David) et contours Etalab.
 
 ## Signaler une erreur, contribuer
 
