@@ -1121,7 +1121,8 @@ def main(argv: list[str] | None = None) -> int:
         # Une base qui porte le JORF d'un cycle réussi : on n'y touche pas.
         if cycle_precedent() is not None:
             return secours_cycle_precedent(panne)
-        # Base neuve (le cas du serveur, chaque nuit) : il n'y a pas de
+        # Base neuve (CI ou première installation, la base du serveur
+        # persiste d'un cycle à l'autre, voir docs/deploiement/RUNBOOK.md) : il n'y a pas de
         # « cycle précédent » à reprendre, mais il y a peut-être des copies.
         # Ce qui vient d'être téléchargé avant la coupure en fait partie.
         locales = copies_locales()

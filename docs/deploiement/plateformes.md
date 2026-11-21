@@ -1,5 +1,7 @@
 # Plateformes d'hébergement — état de l'art vérifié (19/08/2026)
 
+> **Document historique, qui ne décrit pas le déploiement en service.** C'est l'étude comparative du 19/08/2026, gardée telle quelle. Depuis, le site tourne sur un serveur dédié, sa base persiste d'un cycle d'ingestion à l'autre (pas de nouvelle base ni de bascule à chaque nuit) et l'application exige Node 24 ou plus. Le déploiement réel est décrit dans [RUNBOOK.md](RUNBOOK.md).
+
 Recherche menée le **19 août 2026** par WebSearch + lecture réelle des pages officielles (WebFetch).
 Chaque chiffre est daté et sourcé ; les pages bloquées (rendu JavaScript) sont signalées et croisées avec une seconde source, marquée *(tierce)*. Prix **HT sauf mention contraire** ; les mensuels dérivés d'un tarif horaire sont calculés sur 730 h et marqués « ≈ ».
 

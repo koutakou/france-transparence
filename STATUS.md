@@ -16,5 +16,5 @@
   - à vérifier au cycle du 22/11 : `npm ci` installe better-sqlite3 13.2 sur le serveur.
   - données d'élus : doublons et rattachements à relire dans un lot dédié.
   - #147 : la CI planifiée a échoué du 18 au 20/11 sur `ingest-boamp` (export JSON mal formé par l'amont). Le correctif #158 est fusionné depuis le 21/11, à confirmer au prochain run planifié.
-  - points plus anciens, toujours ouverts : docs/ACTIONS-HUMAINES.md, « À faire en premier », points 3, 6, 7 et 8, et la section du 11/11/2026 (#139, liste fermée des scrutins et `FT_LEGISLATURE`, `pip` non figé, `npm audit` absent de la CI, docstrings de `jorf` et `parlement` qui supposent encore une base neuve).
+  - points plus anciens, toujours ouverts : docs/ACTIONS-HUMAINES.md, « À faire en premier », points 1 à 4, et la section du 11/11/2026 (#139, liste fermée des scrutins et `FT_LEGISLATURE`, `pip` non figé, `npm audit` absent de la CI, docstrings de `jorf` et `parlement` qui supposent encore une base neuve).
 - **Reprise** : lire JOURNAL.md, docs/deploiement/RUNBOOK.md et docs/ACTIONS-HUMAINES.md. `docs/RAPPORT-MISSION.md` est un journal daté des 19 et 20/08 : il se lit au passé.
