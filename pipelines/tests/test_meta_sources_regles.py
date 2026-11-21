@@ -12,6 +12,7 @@ Tests de structure (AST) : ils lisent le code des pipelines sans l'exécuter.
 from __future__ import annotations
 
 import ast
+import logging
 from pathlib import Path
 
 import pytest
@@ -217,18 +218,67 @@ def test_s11_date_de_la_fiche_modifiee_la_plus_recente():
         date_donnees_annuaire([{"nom": "Préfecture - Y"}])
 
 
-def test_s27_geo_api_doit_servir_le_millesime_annonce():
-    from pipelines import ingest_referentiels as ref
+class _Releve(logging.Handler):
+    """Le logger des pipelines ne propage pas : caplog ne le voit pas."""
+
+    def __init__(self):
+        super().__init__(logging.WARNING)
+        self.messages: list[str] = []
+
+    def emit(self, record):
+        self.messages.append(record.getMessage())
+
+
+def _communes_et_pops():
     pops = {f"{i:02d}": 1000 + i for i in range(1, 97)}
     communes = [{"code": f"{d}001", "codeDepartement": d, "population": p}
                 for d, p in pops.items()]
-    assert ref.controler_millesime_geo(communes, pops) == 96
-    # le millésime suivant : une commune change de population, le cycle lève
-    communes[0] = {**communes[0], "population": communes[0]["population"] + 7}
-    with pytest.raises(ValueError, match=f"millésime {ref.MILLESIME_POPULATIONS}"):
-        ref.controler_millesime_geo(communes, pops)
+    return communes, pops
+
+
+def test_s27_geo_api_millesime_confirme_cas_nominal():
+    from pipelines import ingest_referentiels as ref
+    communes, pops = _communes_et_pops()
+    releve = _Releve()
+    ref.log.addHandler(releve)
+    try:
+        assert ref.controler_millesime_geo(communes, pops) == (96, 0)
+    finally:
+        ref.log.removeHandler(releve)
+    assert releve.messages == []
+    meta = ref.meta_s27_geo_api(96, 0)
+    assert meta["date_donnees"] == ref.EN_VIGUEUR_POPULATIONS
+    assert meta["notes"].startswith(
+        f"COG et populations de référence {ref.MILLESIME_POPULATIONS} en vigueur"
+        " au 01/01/2026 (millésime contrôlé sur 96 départements")
+    assert "non confirmé" not in meta["notes"]
     assert ref.EN_VIGUEUR_POPULATIONS == f"{ref.MILLESIME_POPULATIONS + 3}-01-01"
     assert f"/{ref.MILLESIME_CONTOURS}/" in ref.URL_ETALAB_DEPARTEMENTS_100M
+
+
+def test_s27_geo_api_nouveau_millesime_n_arrete_pas_le_cycle():
+    """Chaque janvier, geo.api passe au millésime suivant. Lever arrêtait
+    `referentiels`, premier pipeline de `make ingest`, donc toute l'ingestion.
+    Désormais : aucun arrêt, un avertissement nommé, la dernière date vraie
+    gardée et une note qui dit le millésime non confirmé."""
+    from pipelines import ingest_referentiels as ref
+    communes, pops = _communes_et_pops()
+    communes[0] = {**communes[0], "population": communes[0]["population"] + 7}
+    releve = _Releve()
+    ref.log.addHandler(releve)
+    try:
+        resultat = ref.controler_millesime_geo(communes, pops)
+    finally:
+        ref.log.removeHandler(releve)
+    assert resultat == (96, 1)
+    assert len(releve.messages) == 1
+    assert releve.messages[0].startswith(ref.AVERTISSEMENT_MILLESIME_GEO + " : ")
+    meta = ref.meta_s27_geo_api(*resultat)
+    assert meta["date_donnees"] == ref.EN_VIGUEUR_POPULATIONS
+    assert "millésime non confirmé" in meta["notes"]
+    assert "1 département(s) sur 96" in meta["notes"]
+    # trop peu de départements comparés : pas confirmé non plus
+    assert "non confirmé" in ref.meta_s27_geo_api(90, 0)["notes"]
 
 
 def _base_s14(tmp_path, precedente):
@@ -260,10 +310,40 @@ def test_s14_sans_en_tete_garde_la_date_connue_jamais_le_jour(tmp_path):
     conn.close()
 
 
-def test_s37_date_du_dernier_decret_inscrit():
+def test_s37_date_du_dernier_decret_inscrit(monkeypatch, tmp_path):
+    """`main` hors ligne, sur les fixtures de test_financement : la ligne S37
+    écrite porte la date de signature du décret de l'année la plus récente,
+    quel que soit l'ordre de la table, jamais la date du jour."""
+    from datetime import date
+
+    from pipelines import db
     from pipelines import ingest_financement as fin
+    from pipelines.tests.test_financement import _brancher_hors_ligne
+
     assert all(d.get("date_decret") for d in fin.DECRETS_AIDE_PUBLIQUE)
     for d in fin.DECRETS_AIDE_PUBLIQUE:
         assert d["date_decret"][:4] == str(d["annee"])
-    source = (RACINE_PIPELINES / "ingest_financement.py").read_text("utf-8")
-    assert 'date_donnees=dernier_decret["date_decret"]' in source
+    attendu = max(fin.DECRETS_AIDE_PUBLIQUE, key=lambda d: d["annee"])["date_decret"]
+    assert len({d["date_decret"] for d in fin.DECRETS_AIDE_PUBLIQUE}) > 1
+    # le plus récent en tête : ni le premier ni le dernier ne suffit à passer
+    monkeypatch.setattr(fin, "DECRETS_AIDE_PUBLIQUE",
+                        sorted(fin.DECRETS_AIDE_PUBLIQUE, key=lambda d: -d["annee"]))
+    chemin = _brancher_hors_ligne(monkeypatch, tmp_path)
+    assert fin.main() == 0
+    conn = db.connexion(chemin)
+    try:
+        lue = conn.execute("SELECT date_donnees FROM meta_sources"
+                           " WHERE source_id = 'S37'").fetchone()[0]
+    finally:
+        conn.close()
+    assert lue == attendu
+    assert lue != date.today().isoformat()
+    monkeypatch.setattr(fin, "DECRETS_AIDE_PUBLIQUE",
+                        sorted(fin.DECRETS_AIDE_PUBLIQUE, key=lambda d: d["annee"]))
+    assert fin.main() == 0
+    conn = db.connexion(chemin)
+    try:
+        assert conn.execute("SELECT date_donnees FROM meta_sources"
+                            " WHERE source_id = 'S37'").fetchone()[0] == attendu
+    finally:
+        conn.close()
