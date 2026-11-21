@@ -1531,6 +1531,53 @@ def test_upsert_elus_pose_le_mandat_rne_sur_la_fiche_senat(conn, pa_en_premier):
     assert sources["SEN-00001A"][0] == "SENAT-P9" and "RNE" in sources["SEN-00001A"]
 
 
+def test_hatvp_flag_ne_departage_pas_deux_fiches_sans_date(conn):
+    """Relecture de la PR 170 (m1) : la table ne départage une PA et sa SEN
+    que si leur date de naissance est la même ET non vide. Deux fiches sans
+    date ne sont pas la paire décrite : aucun lien, comme sans la table."""
+    _fiche_nee(conn, "PA796034", "Giletti", "Frank", None,
+               [{"source": "AN-P9", "type": "depute", "date_fin": "2026-09-30"}])
+    _fiche_nee(conn, "SEN-20874F", "Giletti", "Frank", "",
+               [{"source": "SENAT-P9", "type": "senateur"}])
+    hatvp = [_dossier_hatvp("GILETTI", "Frank", "senateur", "83", "Sénateur")]
+    assert p7.croiser_hatvp_flag(
+        conn, hatvp, passees={"PA796034": "SEN-20874F"}) == (0, 0)
+    assert conn.execute("SELECT count(*) FROM elus WHERE hatvp_flag <> 0"
+                        " OR hatvp_url IS NOT NULL").fetchone()[0] == 0
+
+
+@pytest.mark.parametrize("pa_en_premier", [True, False])
+def test_upsert_elus_ne_departage_pas_deux_fiches_sans_date(tmp_path, pa_en_premier):
+    """Relecture de la PR 170 (m2) : la même garde dans upsert_elus. Une PA et
+    une SEN sans date reliées par la table ne sont pas départagées : les
+    mandats RNE d'une personne RNE sans date suivent la règle d'avant (le
+    premier lu gagne), et rien n'est ôté de la PA. Même résultat qu'avec une
+    table vide, dans les deux ordres de lecture."""
+    def _jouer(passees):
+        c = db.init_db(chemin=tmp_path / f"sans-date-{len(passees)}.db")
+        c.executescript(p7.SCHEMA_P7)
+        fiches = [("PA1", [{"source": "AN-P9", "type": "depute"},
+                           {"source": "RNE", "type": "senateur"}]),
+                  ("SEN-00001A", [{"source": "SENAT-P9", "type": "senateur"}])]
+        for ident, mandats in (fiches if pa_en_premier else fiches[::-1]):
+            _fiche_nee(c, ident, "Valmont", "Lucien", "", mandats)
+        p7.upsert_elus(c, p7.preparer_personnes(_rne_un_seul("VALMONT", "Lucien", "")),
+                       liste_blanche={}, passees=passees)
+        sources = {i: [m["source"] for m in json.loads(m_)]
+                   for i, m_ in c.execute("SELECT id, mandats FROM elus")}
+        c.close()
+        return sources
+
+    avec_table = _jouer({"PA1": "SEN-00001A"})
+    assert avec_table == _jouer({})
+    if pa_en_premier:
+        assert "RNE" in avec_table["PA1"]
+        assert avec_table["SEN-00001A"] == ["SENAT-P9"]
+    else:
+        assert "RNE" in avec_table["SEN-00001A"]
+        assert avec_table["PA1"] == ["AN-P9", "RNE"]    # rien n'est ôté de la PA
+
+
 def test_hatvp_flag_refuse_un_homonyme_d_un_autre_departement(conn):
     """Constat du 15/10/2026 (cas relevé sur la base servie) : LEROY Gilles,
     maire de Courtrizy-et-Fussigny (02), recevait la fiche HATVP d'un
@@ -1763,11 +1810,14 @@ def test_a1_nd_l_identifiant_ne_change_pas_quand_l_url_parait():
     "/pages_nominatives/echaniz-iñaki-24343",
     "/pages_nominatives/faubert-christian[1]",
 ])
-def test_url_dossier_mal_forme_retombe_sur_la_liste(conn, chemin):
+def test_url_dossier_mal_forme_alerte_vers_la_liste_cle_brute_gardee(conn, chemin):
     """Audit du 21/11/2026 : chemins réels de liste.csv que le site de la HATVP
-    ne sert pas (404 ou accueil). Ni la fiche d'élu ni l'alerte n'y renvoient,
-    elles renvoient à la liste, comme pour un chemin vide."""
+    ne sert pas (404 ou accueil). L'alerte, qui n'est qu'un lien affiché,
+    renvoie à la liste. La fiche d'élu garde en base l'URL brute : c'est la
+    clé qui lui rattache ses déclarations (`url_fiche IN (hatvp_url)`), et
+    l'application n'affiche le lien qu'après filtre (lib/lien-hatvp.ts)."""
     assert p7.url_fiche_hatvp(chemin) is None
+    assert p7.url_brute_hatvp(chemin) == p7.URL_HATVP_SITE + chemin
     (alerte,) = p7.construire_alertes(
         [_non_deposee(nom="CAPITANIO", prenom="Olivier", url_dossier=chemin)],
         [], AUJOURD_HUI, "2026-08-14", "2026-08-11")
@@ -1778,13 +1828,67 @@ def test_url_dossier_mal_forme_retombe_sur_la_liste(conn, chemin):
                             "Vice-président du conseil départemental de Maine-et-Loire"),
              url_dossier=chemin)
     assert p7.croiser_hatvp_flag(conn, [d]) == (1, 0)
-    assert conn.execute("SELECT hatvp_url FROM elus").fetchone()[0] == p7.URL_HATVP_LISTE
+    assert conn.execute("SELECT hatvp_url FROM elus").fetchone()[0] \
+        == p7.URL_HATVP_SITE + chemin
 
 
 def test_url_dossier_bien_forme_donne_la_fiche():
     assert p7.url_fiche_hatvp("/pages_nominatives/gate-sylvie-23162") \
         == "https://www.hatvp.fr/pages_nominatives/gate-sylvie-23162"
     assert p7.url_fiche_hatvp("") is None and p7.url_fiche_hatvp(None) is None
+    assert p7.url_brute_hatvp("/pages_nominatives/gate-sylvie-23162") \
+        == "https://www.hatvp.fr/pages_nominatives/gate-sylvie-23162"
+    assert p7.url_brute_hatvp("") is None and p7.url_brute_hatvp(None) is None
+
+
+def test_url_fiche_ecrite_par_ecrire(tmp_path, dossiers):
+    """La colonne `url_fiche` que le vrai `ecrire()` pose dans
+    hatvp_declarations est la clé de jointure aux déclarations d'une fiche
+    d'élu (`url_fiche IN (hatvp_url)`). Elle garde l'URL brute, même pour un
+    chemin mal formé : la filtrer coupait ces déclarations de la fiche de leur
+    élu (13 déclarations, 4 fiches, base du 21/11/2026). L'URL de la liste,
+    commune à tous, n'y est jamais écrite : elle rattacherait à un élu les
+    déclarations d'autres personnes."""
+    bien = _dossier(nom="GÂTÉ", prenom="Sylvie", type_document="dia",
+                    url_dossier="/pages_nominatives/gate-sylvie-23162")
+    mal = _dossier(nom="CAPITANIO", prenom="Olivier", type_document="dia",
+                   url_dossier="/pages_nominatives/capitanio-olivier[")
+    leroy = dict(_dossier_hatvp("LEROY", "Gilles", "departement", "49",
+                                "Vice-président du conseil départemental de Maine-et-Loire"),
+                 url_dossier="/pages_nominatives/leroy-(maine-et-loire)-gilles")
+    conn = db.init_db(chemin=tmp_path / "url-fiche.db")
+    try:
+        _fiche(conn, "rne-leroy", "LEROY", "Gilles",
+               [{"source": "RNE", "type": "maire", "departement": "49"}])
+        p7.ecrire(conn, dossiers + [bien, mal, leroy], charger_rne(),
+                  {"cm": FIXTURES / "rne_cm_extrait.csv"},
+                  AUJOURD_HUI, "2026-08-14", "2026-08-11")
+        par_chemin = dict(conn.execute(
+            "SELECT url_dossier, url_fiche FROM hatvp_declarations"
+            " WHERE url_dossier IN (?, ?, ?)",
+            (bien["url_dossier"], mal["url_dossier"], leroy["url_dossier"])).fetchall())
+        assert par_chemin == {
+            bien["url_dossier"]: "https://www.hatvp.fr/pages_nominatives/gate-sylvie-23162",
+            mal["url_dossier"]: "https://www.hatvp.fr/pages_nominatives/capitanio-olivier[",
+            leroy["url_dossier"]:
+                "https://www.hatvp.fr/pages_nominatives/leroy-(maine-et-loire)-gilles",
+        }
+        assert conn.execute(
+            "SELECT count(*) FROM hatvp_declarations WHERE url_fiche = ?",
+            (p7.URL_HATVP_LISTE,)).fetchone()[0] == 0
+        for (url,) in conn.execute(
+                "SELECT url_fiche FROM hatvp_declarations WHERE url_fiche IS NOT NULL"):
+            assert url.startswith(p7.URL_HATVP_SITE + "/pages_nominatives/"), url
+        # La jointure de la fiche d'élu : l'élu au chemin mal formé retrouve
+        # sa déclaration, et elle seule.
+        (url_elu,) = conn.execute(
+            "SELECT hatvp_url FROM elus WHERE id = 'rne-leroy'").fetchone()
+        assert url_elu == p7.URL_HATVP_SITE + leroy["url_dossier"]
+        assert [r[0] for r in conn.execute(
+            "SELECT url_dossier FROM hatvp_declarations WHERE url_fiche IN (?)",
+            (url_elu,))] == [leroy["url_dossier"]]
+    finally:
+        conn.close()
 
 
 def test_dedoublonner_hatvp_ecarte_les_lignes_strictement_identiques():

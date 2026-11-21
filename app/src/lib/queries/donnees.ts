@@ -12,6 +12,7 @@
  */
 import { getDb, type MetaSource } from "@/lib/db";
 import { evalueFraicheur, type Fraicheur } from "@/lib/fraicheur";
+import { lienHatvpAffichable } from "@/lib/lien-hatvp";
 
 // Seuils, niveaux et phrases de fraîcheur : module pur `lib/fraicheur.ts`,
 // partagé avec le recalcul fait dans le navigateur à la date de lecture.
@@ -206,7 +207,9 @@ export function getElusExport(): EluExport[] | null {
     if (l.prenom) e.prenom = l.prenom;
     if (l.uid_an) e.uid_an = l.uid_an;
     if (l.matricule_senat) e.matricule_senat = l.matricule_senat;
-    if (l.hatvp_url) e.hatvp_url = l.hatvp_url;
+    // Lien publié : un chemin HATVP mal formé renvoie à la liste (lib/lien-hatvp.ts).
+    const hatvp = lienHatvpAffichable(l.hatvp_url);
+    if (hatvp) e.hatvp_url = hatvp;
     if (l.mandats) {
       try {
         const brut: unknown = JSON.parse(l.mandats);

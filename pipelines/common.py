@@ -49,7 +49,10 @@ USER_AGENT = "FranceTransparence/1.0 (projet open data personnel)"
 # « fr-lo », mention « Licence Ouverte » seule), la version n'est pas
 # inventée, et le libellé ne prête rien au producteur : « fr-lo » renvoie
 # sur data.gouv au PDF Licence_Ouverte.pdf de 2014, sans version écrite
-# dans la fiche (relevé du 21/11/2026 sur les jeux JORF et RefOrgaAdminEtat).
+# dans la fiche (relevé du 21/11/2026 sur RefOrgaAdminEtat, S35, et sur les
+# comptes des partis, S25). Le JORF (S3) n'en est plus un exemple : le PDF de
+# présentation du dossier JORFSIMPLE de la DILA écrit « licence ouverte
+# v2.0 », il passe en Licence Ouverte 2.0.
 LICENCE_OUVERTE_2 = "Licence Ouverte 2.0"
 LICENCE_OUVERTE_SANS_VERSION = "Licence Ouverte (version non vérifiée)"
 # Jeu dont la fiche du producteur ne déclare aucune licence (data.gouv

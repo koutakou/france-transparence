@@ -548,6 +548,8 @@ def charger_fiches_passees_au_senat(chemin: str | Path | None = None) -> dict[st
     des doublons que P7 supprime de `elus` : elles ne sont jamais en
     concurrence avec leur cible. Une ligne qui n'a pas trois champs non vides
     fait échouer le chargement : une table illisible ne doit rien départager.
+    Une PA inscrite deux fois vers deux SEN différentes le fait échouer aussi :
+    garder la dernière ligne choisirait sans bruit l'une des deux personnes.
     """
     chemin = chemin or CHEMIN_REDIRECTIONS_ELUS
     table: dict[str, str] = {}
@@ -561,6 +563,12 @@ def charger_fiches_passees_au_senat(chemin: str | Path | None = None) -> dict[st
                                  f"attendus (id retiré, id conservé, personne)")
             if (re.fullmatch(r"PA\d+", champs[0])
                     and re.fullmatch(r"SEN-\d{5}[A-Z]", champs[1])):
+                deja = table.get(champs[0])
+                if deja is not None and deja != champs[1]:
+                    raise ValueError(
+                        f"{chemin}, ligne {numero} : {champs[0]} renvoie déjà à"
+                        f" {deja}, pas aussi à {champs[1]} (une fiche retirée"
+                        f" n'a qu'une fiche SEN)")
                 table[champs[0]] = champs[1]
     return table
 

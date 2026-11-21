@@ -414,6 +414,25 @@ def test_table_des_deputes_passes_au_senat(tmp_path):
         p15.charger_fiches_passees_au_senat(abimee)
 
 
+def test_table_une_pa_vers_deux_sen_echoue(tmp_path):
+    """Relecture de la PR 170 (m3) : une PA inscrite deux fois vers deux SEN
+    différentes était écrasée sans bruit par la dernière ligne. Le
+    chargement échoue désormais en nommant la PA et les deux SEN. Une ligne
+    répétée à l'identique reste admise. Le vrai fichier passe la garde."""
+    double = tmp_path / "redirections.tsv"
+    double.write_text(
+        "PA1\tSEN-00001A\tDupont Jean\n"
+        "PA2\tSEN-00002B\tMartin Anne\n"
+        "PA1\tSEN-00003C\tDupont Jean\n", encoding="utf-8")
+    with pytest.raises(ValueError, match=r"ligne 3 : PA1 renvoie déjà à SEN-00001A,"
+                                         r" pas aussi à SEN-00003C"):
+        p15.charger_fiches_passees_au_senat(double)
+    repetee = tmp_path / "repetee.tsv"
+    repetee.write_text("PA1\tSEN-00001A\tDupont Jean\n" * 2, encoding="utf-8")
+    assert p15.charger_fiches_passees_au_senat(repetee) == {"PA1": "SEN-00001A"}
+    assert len(p15.charger_fiches_passees_au_senat()) == 8
+
+
 def _souple(fiches):
     """Index souple bâti à la main : [(id, nom, prénom, naissance)]."""
     index = {}
