@@ -72,6 +72,7 @@ const MANDATS_HATVP: Record<string, string> = {
   senateur: "Sénateur ou sénatrice",
   europe: "Parlement européen",
   gouvernement: "Membre du Gouvernement",
+  president: "Présidence de la République",
   region: "Mandat régional",
   departement: "Mandat départemental",
   commune: "Mandat communal",

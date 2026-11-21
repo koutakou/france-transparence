@@ -41,7 +41,8 @@ test("sans fonction, l'intitulé du type, accordé ou épicène", () => {
 test("les codes de mandat HATVP sont lisibles, un code inconnu reste tel quel", () => {
   assert.equal(libelleMandatHatvp("region"), "Mandat régional");
   assert.equal(libelleMandatHatvp("epci"), "Intercommunalité (EPCI)");
-  assert.equal(libelleMandatHatvp("president"), "president");
+  assert.equal(libelleMandatHatvp("president"), "Présidence de la République");
+  assert.equal(libelleMandatHatvp("code_inexistant"), "code_inexistant");
   assert.equal(libelleMandatHatvp(null), "—");
 });
 
