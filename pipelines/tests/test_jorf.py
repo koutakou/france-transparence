@@ -1118,10 +1118,11 @@ def test_les_extraits_sont_trente_nocturnes_d_un_jo_chacune(tmp_path, conn):
 def test_base_neuve_index_reduit_copies_au_coffre_trente_jo(
     monkeypatch, tmp_path, mini_tarball, caplog
 ):
-    """LE cas du serveur, qui ingère chaque nuit dans une base neuve : le
-    dépôt ne propose plus qu'une nocturne, mais la machine a gardé les 29
-    précédentes. La fenêtre est entière dès ce cycle. Sur le code d'avant,
-    un JO."""
+    """Base neuve (CI avec un coffre restauré, première installation, ou
+    serveur dont la base serait recréée : en temps normal elle persiste d'un
+    cycle à l'autre) : le dépôt ne propose plus qu'une nocturne, mais la
+    machine a gardé les 29 précédentes. La fenêtre est entière dès ce cycle.
+    Sur le code d'avant, un JO."""
     _poser_coffre(monkeypatch, tmp_path, sauf=(NOCTURNE_19_08,))
     with caplog.at_level("INFO"):
         code, c = _jouer_main(monkeypatch, tmp_path, INDEX_UNE_NOCTURNE, {
