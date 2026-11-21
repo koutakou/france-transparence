@@ -188,6 +188,47 @@ def test_deux_libelles_pour_la_licence_ouverte():
     assert ouvertes == {common.LICENCE_OUVERTE_2, common.LICENCE_OUVERTE_SANS_VERSION}
 
 
+def _licences_par_source() -> dict[str, set[str]]:
+    par_source: dict[str, set[str]] = {}
+    for chemin in MODULES:
+        source = chemin.read_text("utf-8")
+        arbre = ast.parse(source)
+        constantes = _valeurs_constantes(arbre)
+        for appel in _appels_upsert_meta(arbre):
+            ident = _argument(appel, "source_id", 1)
+            licence = _argument(appel, "licence", 4)
+            if ident is None or licence is None:
+                continue
+            ident, licence = _evaluer(ident, constantes), _evaluer(licence, constantes)
+            if ident and licence:
+                par_source.setdefault(ident, set()).add(licence)
+    return par_source
+
+
+# Licences relues chez le producteur le 21/11/2026 (audit sources du tour 4).
+LICENCES_RELUES = {
+    # data.gouv.fr « license: notspecified »
+    "S29": common.LICENCE_NON_PRECISEE,
+    # hatvp.fr/open-data : lien vers ETALAB-Licence-Ouverte-v2.0.pdf
+    "S14": common.LICENCE_OUVERTE_2,
+    "S15": common.LICENCE_OUVERTE_2,
+    # DILA_JORF_Presentation_20170824.pdf : « licence ouverte v2.0 »
+    "S3": common.LICENCE_OUVERTE_2,
+    # data.gouv.fr « fr-lo », sans version écrite : la version n'est pas prêtée
+    "S25": common.LICENCE_OUVERTE_SANS_VERSION,
+    "S38": common.LICENCE_OUVERTE_SANS_VERSION,
+    "S47": common.LICENCE_OUVERTE_SANS_VERSION,
+    "S7-DATAN": common.LICENCE_OUVERTE_SANS_VERSION,
+}
+
+
+def test_les_licences_relues_chez_le_producteur_sont_celles_ecrites():
+    par_source = _licences_par_source()
+    ecarts = {s: sorted(par_source.get(s, set())) for s, attendue in LICENCES_RELUES.items()
+              if par_source.get(s) != {attendue}}
+    assert ecarts == {}, f"licence écrite différente de la licence relue : {ecarts}"
+
+
 def test_le_controle_des_licences_voit_un_libelle_hors_table():
     code = ("LICENCE = 'Licence Ouverte (fr-lo)'\n"
             "def f(conn):\n"

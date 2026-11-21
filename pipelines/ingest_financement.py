@@ -1456,7 +1456,9 @@ def main() -> int:
             source_id="S29",
             nom="CNCCFP : comptes de campagne, législatives 2024",
             url=URL_DATASET_LEG2024,
-            licence="Licence Ouverte (version non vérifiée)",
+            # data.gouv.fr : « license: notspecified » pour ce jeu (21/11/2026),
+            # alors que S25, du même producteur, est en « fr-lo ».
+            licence="Licence non précisée par le producteur",
             frequence="par scrutin",
             date_donnees="2024-07-07",
             lignes=nb_candidats,

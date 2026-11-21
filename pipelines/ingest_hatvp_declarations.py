@@ -134,7 +134,9 @@ log = obtenir_logger("ingest_hatvp_declarations")
 ID_SOURCE = "S15"
 NOM_SOURCE = "HATVP : contenu des déclarations d'intérêts (declarations.xml)"
 URL_DECLARATIONS = "https://www.hatvp.fr/livraison/merge/declarations.xml"
-LICENCE = "Licence Ouverte (version non vérifiée)"
+# Page open data de la HATVP (https://www.hatvp.fr/open-data/, relue le
+# 21/11/2026) : « licence ouverte Etalab », lien vers ETALAB-Licence-Ouverte-v2.0.pdf.
+LICENCE = "Licence Ouverte 2.0"
 
 # Cadence : data.gouv.fr annonce « punctual » pour cette ressource, ce qui ne
 # calibre aucun seuil de fraîcheur. Le fait observable dit autre chose : le

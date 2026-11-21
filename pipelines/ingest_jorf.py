@@ -1253,7 +1253,9 @@ def main(argv: list[str] | None = None) -> int:
         source_id="S3",
         nom="DILA : Journal officiel « Lois et décrets » (JORFSIMPLE)",
         url=URL_JORFSIMPLE,
-        licence="Licence Ouverte (version non vérifiée)",
+        # DILA_JORF_Presentation_20170824.pdf, dans le dossier JORFSIMPLE :
+        # « réutilisables gratuitement sous licence ouverte v2.0 ».
+        licence="Licence Ouverte 2.0",
         frequence="quotidienne",
         date_donnees=date_donnees,
         lignes=lignes,

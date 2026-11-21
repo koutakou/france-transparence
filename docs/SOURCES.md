@@ -201,7 +201,7 @@ Contexte 2026 à garder en tête : LFI 2026 promulguée tardivement le 19/02/202
 - **URL testée** : `https://echanges.dila.gouv.fr/OPENDATA/JORFSIMPLE/` (HTTP 200, sans auth, sans quota) ; le tarball nocturne `JORFSIMPLE_20260819-003035.tar.gz` (392 Ko) contient le **JORF n° 0192 du 19/08/2026 complet** (sommaire structuré + 83 textes en XML autocontenus) (07-documents-juridique.md).
 - **Format/granularité** : 1 texte = 1 XML avec `NATURE` (LOI/DECRET/ARRETE), `NOR`, `TITREFULL`, `MINISTERE`, dates, articles complets, `ID_ELI` → lien Légifrance sortant ; le sommaire (`JORFCONT`) donne les rubriques dont **« Mesures nominatives »** (07).
 - **Fraîcheur** : livraison nocturne ~00h20-00h45 = JO du jour (76-440 Ko) ; livraison du soir (2,8-13 Mo) = corrections rétroactives à ignorer pour le flux ; jours sans JO existants (07).
-- **Licence** : Licence Ouverte (fr-lo). **Pièges** : URLs non prédictibles → parser l'index HTML (ISO-8859-1) ; historique complet = Freemium 1,0 Go optionnel (07).
+- **Licence** : data.gouv `fr-lo`, mais la présentation DILA du dossier (`DILA_JORF_Presentation_20170824.pdf`, relue le 21/11/2026) dit « licence ouverte v2.0 ». Libellé `meta_sources` : `Licence Ouverte 2.0`. **Pièges** : URLs non prédictibles → parser l'index HTML (ISO-8859-1) ; historique complet = Freemium 1,0 Go optionnel (07).
 - **Modules** : Documents/JO (flux quotidien, nominations, lois, décrets), Accueil.
 
 #### S4. HATVP — répertoire des représentants d'intérêts AGORA (lobbying), mis à jour chaque nuit
@@ -270,12 +270,12 @@ Contexte 2026 à garder en tête : LFI 2026 promulguée tardivement le 19/02/202
 #### S14. HATVP — liste des déclarations publiées (`liste.csv`) ★ pièce maîtresse des alertes
 - **URL testée** : `https://www.hatvp.fr/livraison/opendata/liste.csv` (200, 3,3 Mo, **12 930 dossiers déclaratifs**, Last-Modified 14/08/2026 → **hebdomadaire**) (04).
 - **Contenu décisif** : `statut_publication` compté le 19/08 : Livrée 8 884 ; **« En cours » (attendue, non déposée) 1 241** ; **« Déclaration non déposée » (constat officiel) 4** ; vague post-municipales 2026 incluse (3 234 dépôts 2026) (04).
-- **Licence** : LO Etalab. **Pièges** : pas d'identifiant personne stable (`id_origine` rempli seulement pour les parlementaires) ; **toujours tirer hatvp.fr** (miroir data.gouv moins frais) (04).
+- **Licence** : Licence Ouverte 2.0 (page `https://www.hatvp.fr/open-data/`, relue le 21/11/2026 : « licence ouverte Etalab », lien vers `ETALAB-Licence-Ouverte-v2.0.pdf`). **Pièges** : pas d'identifiant personne stable (`id_origine` rempli seulement pour les parlementaires) ; **toujours tirer hatvp.fr** (miroir data.gouv moins frais) (04).
 - **Modules** : Alertes transparence, Élus & Institutions.
 
 #### S15. HATVP — contenu intégral des déclarations (`declarations.xml`)
 - **URL testée** : `https://www.hatvp.fr/livraison/merge/declarations.xml` (200, **88,8 Mo**, hebdo ; ⚠ l'ancienne URL `livraison/opendata/declarations.xml` = 404) ; **6 611 déclarations** en texte intégral structuré (rémunérations annuelles, participations, activités du conjoint…) (04).
-- **Licence** : LO Etalab. **Pièges** : parser en streaming (SAX/iterparse) ; montants « 70 676 » avec espaces ; delta avec liste.csv (versions dépubliées absentes) ; doc structure `opendata-structure.xlsx` (04).
+- **Licence** : Licence Ouverte 2.0 (même page HATVP que S14, relue le 21/11/2026). **Pièges** : parser en streaming (SAX/iterparse) ; montants « 70 676 » avec espaces ; delta avec liste.csv (versions dépubliées absentes) ; doc structure `opendata-structure.xlsx` (04).
 - **Modules** : Élus & Institutions (fiches patrimoine/intérêts) — non ingéré au 19/08/2026 (ingéré depuis, voir l'encadré en tête).
 
 #### S16. OFGL — data.ofgl.fr ★ source pivot des finances locales
@@ -499,7 +499,7 @@ Tous téléchargés/dépouillés le 19/08/2026 (05-frais-indemnites.md) :
 
 #### S47. IRCOM — impôt sur le revenu par collectivité territoriale (évalué le 24/08/2026)
 - **Producteur** : DGFiP / DESF (ministères économiques et financiers). Jeu data.gouv `limpot-sur-le-revenu-par-collectivite-territoriale-ircom` (id `536998cba3a729239d20505e`). **URL dataset** : `https://www.data.gouv.fr/datasets/limpot-sur-le-revenu-par-collectivite-territoriale-ircom` (HTTP 200 le 24/08/2026). Ressource zip du millésime courant (IRCOM 2025 = revenus 2024, 18 181 698 o, last_modified 2026-05-26), fichier `ircom_communes_complet_revenus_2024.xlsx`. Le miroir data.economie `limpot-sur-le-revenu-par-collectivite-territoriale0` est **figé** (modified 2018-12-13, 0 enregistrement) : ce n'est pas la source.
-- **Licence relue** (24/08/2026) : fiche data.gouv identifiant `fr-lo`, libellé affiché « Licence Ouverte / Open Licence », HTTP 200. Libellé `meta_sources` : `Licence Ouverte / Open Licence`.
+- **Licence relue** (24/08/2026) : fiche data.gouv identifiant `fr-lo`, libellé affiché « Licence Ouverte / Open Licence », sans version écrite, HTTP 200. Libellé `meta_sources` : `Licence Ouverte (version non vérifiée)`, la version n'étant pas prêtée au producteur (`pipelines/common.py`, audit du 20/11/2026).
 - **Fréquence** : annuelle (campagne IRCOM N+1 sur les revenus N, publication ~mai N+2). **Date des données** = 31 décembre de l'année des revenus (**2024-12-31** au 24/08/2026), **jamais** `last_update` data.gouv (2026-05-26). Seuils **910/970** jours calendaires depuis le 11/11/2026 (650/750 auparavant) : revenus 2020 à 2024 versés les 21/06/2022, 08/06/2023, 10/06/2024, 09/04/2025 et 07/04/2026, l'édition remplacée ayant alors 828 à 903 jours.
 - **Objet** : impôt net **sur rôle** des foyers fiscaux, par commune de résidence. Notice DESF (4 p., 26/05/2026) : payé ou restitué, hors crédit d'impôt PFU, CEHR incluse. `n.c.` = secret statistique. Un négatif est une restitution. `source_id` = **S47**, jamais `'S13'`.
 - **Ce que la page affiche** : somme des communes dont l'impôt net n'est pas n.c., nombre de foyers, départements (Paris/Lyon/Marseille = arrondissements ramenés à 75/69/13). Tranches de RFR, salaires et pensions **non ingérés**. 0 page communale.
@@ -805,7 +805,7 @@ Alertes **documentaires** (sans calcul, mais sourcées) : refus de publication d
 | S26 Élections agrégées (MI) | Par scrutin (municipales 2026 incluses, 07/07/2026) (09) | lov2 | Élus & Institutions | **ingérée** (20/08/2026) |
 | S27 Géo + populations INSEE | Statique/annuel (pop. réf. 2023 en vigueur 2026) (09) | LO/INSEE | Cartes, ratios | **ingéré** |
 | S28 Balances collectivités DGFiP | 2025 provisoire (13/07/2026) (06) | LO 2.0 | Finances locales (drill-down) | non ingéré |
-| S29 CNCCFP comptes de campagne | Législatives 2024 (29/07/2025) ; municipales 2026 : aucun compte publié à ce jour (04) | LO | Financement politique, Alertes | **ingéré** |
+| S29 CNCCFP comptes de campagne | Législatives 2024 (29/07/2025) ; municipales 2026 : aucun compte publié à ce jour (04) | non précisée par le producteur (data.gouv `notspecified`, 21/11/2026) | Financement politique, Alertes | **ingéré** |
 | S30 SME PDF (missions mensuelles) | Mensuelle (juin 2026) mais 403 anti-bot (01) | LO 2.0 | Dépenses de l'État | non ingéré |
 | S31 Corpus PDF train de vie | Annuel (rapports 2026 sur exercices 2024-2025) (05) | publications officielles | Frais & train de vie | **ingéré** (constantes) |
 | S32 Subventions SCDL (panel) | Hétérogène (Armor 16/08/2026 ; Paris 28/07/2026) (06) | LO 2.0 (à vérifier) | Finances locales | non ingéré |

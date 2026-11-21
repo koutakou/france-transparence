@@ -52,9 +52,14 @@ USER_AGENT = "FranceTransparence/1.0 (projet open data personnel)"
 # dans la fiche (relevé du 21/11/2026 sur les jeux JORF et RefOrgaAdminEtat).
 LICENCE_OUVERTE_2 = "Licence Ouverte 2.0"
 LICENCE_OUVERTE_SANS_VERSION = "Licence Ouverte (version non vérifiée)"
+# Jeu dont la fiche du producteur ne déclare aucune licence (data.gouv
+# « notspecified », relevé du 21/11/2026 sur les comptes de campagne des
+# législatives 2024, S29). Le site n'en prête aucune au producteur.
+LICENCE_NON_PRECISEE = "Licence non précisée par le producteur"
 LICENCES_CANONIQUES = frozenset({
     LICENCE_OUVERTE_2,
     LICENCE_OUVERTE_SANS_VERSION,
+    LICENCE_NON_PRECISEE,
     "Open data DILA (mention DILA)",
     "Texte officiel (JORF)",
     "Publications officielles (hors open data)",

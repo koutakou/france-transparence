@@ -2001,7 +2001,7 @@ def main() -> int:
         db.upsert_meta(
             conn, source_id="S14",
             nom="HATVP : liste des déclarations publiées (liste.csv)",
-            url=URL_HATVP_LISTE, licence="Licence Ouverte (version non vérifiée)",
+            url=URL_HATVP_LISTE, licence="Licence Ouverte 2.0",
             frequence="hebdomadaire", date_donnees=date_hatvp, lignes=len(dossiers),
             notes=f"statuts : {statuts[STATUT_EN_COURS]} « En cours », "
                   f"{statuts[STATUT_NON_DEPOSEE]} « Déclaration non déposée ». "
