@@ -34,7 +34,7 @@ function alerte(id, type, gravite, titre, dateFait = null) {
 // se retrouvaient en première page.
 const STOCK = [
   alerte("A1-ND-feroussier-dsp", "A1_hatvp_non_deposee", "haute",
-    "Déclaration non déposée (constat officiel HATVP) — Mme FEROUSSIER", "2026-11-19"),
+    "Déclaration non déposée (constat officiel HATVP) : Mme FEROUSSIER", "2026-11-19"),
   alerte("FIN-CAMP-REJ-202409066", "financement_campagne_rejetee", "haute",
     "Compte de campagne rejeté par la CNCCFP, M. KOUASSI Fulgence (décision non définitive : le juge de l'élection statue)"),
   alerte("FIN-CAMP-REF-202408091", "financement_campagne_reformee", "moyenne",

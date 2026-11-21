@@ -192,6 +192,8 @@
 >
 > **La base servie est une base migrée.** Quatre colonnes y ont été posées par `ALTER TABLE` plutôt
 > que par le `CREATE TABLE` du pipeline : `elus.hatvp_url`, `campagnes_2024.marqueur_etoile`,
+> `alertes.date_detection` (posée par `db.remplacer_alertes`, AAAA-MM-JJ du premier cycle qui a vu l'alerte par son `id`, gardée tant que l'`id` existe, nouvelle date si l'alerte disparaît puis revient. Les alertes présentes à l'ajout de la colonne reçoivent la date de ce premier cycle. Sert à dater les entrées du flux Atom des alertes.)
+>
 > `alertes.date_fait` (posée par `db.assurer_date_fait_alertes`, date du fait selon la source, NULL
 > quand la source ne la donne pas, distincte de `date_calcul`, instant du cycle) et
 > `trainvie_faits.assiette`. Elles se reconnaissent au fragment `, colonne …);` détaché en fin de

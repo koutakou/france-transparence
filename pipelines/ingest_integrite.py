@@ -913,7 +913,7 @@ def construire_alertes(nominatives: list[dict], en_cours: list[dict],
             f"A1-ND-{slug}-{d['type_document']}",
             TYPE_ALERTE_NON_DEPOSEE,
             "haute",
-            f"Déclaration non déposée (constat officiel HATVP) — "
+            f"Déclaration non déposée (constat officiel HATVP) : "
             f"{d['prenom']} {d['nom']}, {d['qualite']}",
             f"{LIBELLES_DOC.get(d['type_document'], d['type_document'])} "
             f"(mandat « {d['type_mandat']} », département « {d['departement']} »). "

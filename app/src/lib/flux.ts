@@ -44,7 +44,7 @@ export const FLUX = [
     titre: "France Transparence : alertes",
     page: "/alertes/",
     description:
-      "Les alertes de la page Alertes, une entrée par alerte. La dépendance d'un parti à l'aide publique est datée de la clôture de l'exercice des comptes (31 décembre). Les autres alertes (HATVP, lobbying, partis privés d'aide) sont datées du jour où le site les a détectées pour la première fois, date gardée tant que l'alerte existe. Une entrée ne change pas de date d'une mise à jour à l'autre. Chaque entrée renvoie à la donnée officielle et à la page de la règle.",
+      "Les alertes de la page Alertes, une entrée par alerte. La dépendance d'un parti à l'aide publique est datée de la clôture de l'exercice des comptes (31 décembre). Les autres alertes (HATVP, lobbying, partis privés d'aide) sont datées du jour où le site les a détectées pour la première fois, date gardée tant que l'alerte existe. Les alertes déjà en place à l'ouverture du flux portent la date de cette ouverture. Une entrée ne change pas de date d'une mise à jour à l'autre. Chaque entrée renvoie à la donnée officielle et à la page de la règle.",
   },
   {
     chemin: "/flux/sources.xml",
