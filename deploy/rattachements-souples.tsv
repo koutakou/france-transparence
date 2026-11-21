@@ -25,6 +25,16 @@
 # (AESCHLIMANN, prénom abrégé, LELOUIS, une composante de date) pour 4
 # déclarations.
 #
+# Ajout du 21/11/2026 : 3 déclarants que le repli ne propose pas, faute de
+# composante de prénom commune (BELRHITI, PAHUN, TANGUY). Pour chacun, la
+# date de naissance est identique, le mandat est le même, et les dates de
+# dépôt de ses deux déclarations sont celles de la DIA et de la DIAM que la
+# liste HATVP officielle range sous l'identifiant de chambre de la fiche.
+# Rejoué en lecture seule sur une copie de la base servie et le fichier
+# declarations.xml du 21/11/2026 : 68 déclarations rattachées par cette
+# liste, pour 33 déclarants (6 de plus, aucun refus, aucun autre
+# rattachement modifié).
+#
 # La clé est le haché de l'état civil du déclarant tel que `lire_identite` le
 # rend (nom, prénom, date). La date y est hachée avec le nom : elle n'est pas
 # écrite telle quelle, mais le haché ne la protège pas contre une recherche et
@@ -35,6 +45,7 @@
 #
 # clé déclarant	id fiche	personne	preuve
 hatvp-d97e0a72f1a7ec3e	SEN-21071F	AESCHLIMANN MARIE DOMINIQUE (HATVP), fiche Aeschlimann Marie-Do	Même nom, prénom abrégé d'un côté, date de naissance identique, déclaration HATVP au titre de « senateur Hauts-de-Seine(92) », fiche sénateur Hauts-de-Seine. Relu le 20/11/2026.
+hatvp-d8d111a06994500b	SEN-19954N	BELRHITI CATHERINA (HATVP), fiche Belrhiti Catherine	Même nom, prénom écrit d'une lettre différente, date de naissance identique, déclarations HATVP au titre de « senateur Moselle(57) » déposées les 29/10/2023 et 14/06/2025, dates de la DIA et de la DIAM que la liste HATVP range sous l'identifiant Sénat 19954N, fiche sénatrice Moselle. Relu le 21/11/2026.
 hatvp-8c0243541bb06ad7	PA795616	BILONGO MARTENS CARLOS (HATVP), fiche Bilongo Carlos Martens	Même nom, mêmes prénoms dans un autre ordre, date de naissance identique, déclaration HATVP au titre de « depute Val-d'Oise(95) », fiche député Val-d'Oise 8e circonscription. Relu le 20/11/2026.
 hatvp-94af5a1ae5e22d33	SEN-19621T	BRISSON MAX FRANCOIS (HATVP), fiche Brisson Max	Même nom, prénom inclus dans l'autre écriture, date de naissance identique, déclaration HATVP au titre de « senateur Pyrénées-Atlantiques(64) », fiche sénateur Pyrénées-Atlantiques. Relu le 20/11/2026.
 hatvp-ff9b82e909fe5067	PA840939	CHARRET GODARD OCEANE (HATVP), fiche Godard Océane	Nom inclus dans l'autre écriture, même prénom, date de naissance identique, déclaration HATVP au titre de « depute Côte-d'Or(21) », fiche député Côte-d'Or 1re circonscription. Relu le 20/11/2026.
@@ -56,11 +67,13 @@ hatvp-b75578472baf1e48	PA841563	MARAIS CLAIRE (HATVP), fiche Marais-Beuil Claire
 hatvp-0fabc069b8ea71a6	PA793342	MARTIN ALEXANDRA (HATVP), fiche Martin (Alpes-Maritimes) Alexandra	Même nom, même prénom, date de naissance identique, déclaration HATVP au titre de « depute Alpes-Maritimes(06) », fiche député Alpes-Maritimes 8e circonscription. Relu le 20/11/2026.
 hatvp-0e3fabce9f597100	PA342384	MARTIN ELISA SUZANNE (HATVP), fiche Martin Élisa	Même nom, prénom inclus dans l'autre écriture, date de naissance identique, déclaration HATVP au titre de « depute Isère(38) », fiche député Isère 3e circonscription. Relu le 20/11/2026.
 hatvp-80940e40ac2c0197	PA842271	MAUREL EMMANUEL, FRANCIS (HATVP), fiche Maurel Emmanuel	Même nom, prénom inclus dans l'autre écriture, date de naissance identique, déclaration HATVP au titre de « depute Val-d'Oise(95) », fiche député Val-d'Oise 3e circonscription. Relu le 20/11/2026.
+hatvp-76fedbb8e2e90b03	PA720334	PAHUN JEAN MICHEL (HATVP), fiche Pahun Jimmy	Même nom, prénom d'usage sur la fiche, date de naissance identique, déclarations HATVP au titre de « depute Morbihan(56) » déposées les 05/09/2024 et 14/02/2025, dates de la DIA et de la DIAM que la liste HATVP range sous l'identifiant AN 720334, fiche député Morbihan. Relu le 21/11/2026.
 hatvp-e30cd8c78397debb	PA721234	PETIT MAUD MAIDA YVELISE (HATVP), fiche Petit Maud	Même nom, prénom inclus dans l'autre écriture, date de naissance identique, déclaration HATVP au titre de « depute Val-de-Marne(94) », fiche député Val-de-Marne 4e circonscription. Relu le 20/11/2026.
 hatvp-8ff27c04e8a6df11	PA795270	POUSSIER MARIE AGNES (HATVP), fiche Poussier-Winsback Marie-Agnès	Nom inclus dans l'autre écriture, même prénom, date de naissance identique, déclaration HATVP au titre de « depute Seine-Maritime(76) », fiche député Seine-Maritime 9e circonscription. Relu le 20/11/2026.
 hatvp-54bf5a780d48c314	rne-fc60f9a6d98ac130	ROUSSET ALAIN PIERRE MARIE (HATVP), fiche ROUSSET Alain	Même nom, prénom inclus dans l'autre écriture, date de naissance identique, déclaration HATVP au titre de « cr Nouvelle-Aquitaine (75) », fiche présidence du conseil régional Nouvelle-Aquitaine. Relu le 20/11/2026.
 hatvp-56d8312d19b21a7f	SEN-21690D	SALAMI DADKHAH FOROUGH (HATVP), fiche Dadkhah Forough	Nom inclus dans l'autre écriture, même prénom, date de naissance identique, déclaration HATVP au titre de « cr Bretagne (53) », fiche sénateur Finistère. Relu le 20/11/2026.
 hatvp-cc79e85187c2beef	PA793382	TACHE DE LA PAGERIE EMMANUEL (HATVP), fiche Taché Emmanuel	Nom inclus dans l'autre écriture, même prénom, date de naissance identique, déclaration HATVP au titre de « depute Bouches-du-Rhône(13) », fiche député Bouches-du-Rhône 16e circonscription. Relu le 20/11/2026.
+hatvp-6b5c11475d4dc6c4	PA719550	TANGUY LILIANE (HATVP), fiche Tanguy Liliana	Même nom, prénom écrit d'une lettre différente, date de naissance identique, déclarations HATVP au titre de « depute Finistère(29) » déposées les 08/09/2024 et 19/10/2024, dates de la DIA et de la DIAM que la liste HATVP range sous l'identifiant AN 719550, fiche députée Finistère. Relu le 21/11/2026.
 hatvp-c3cc636ad06535d3	PA841893	THIEBAULT CELINE (HATVP), fiche Thiébault-Martinez Céline	Nom inclus dans l'autre écriture, même prénom, date de naissance identique, déclaration HATVP au titre de « depute Seine-et-Marne(77) », fiche député Seine-et-Marne 9e circonscription. Relu le 20/11/2026.
 hatvp-a6260b60ad48da05	PA840657	VAGINAY SOPHIE (HATVP), fiche Ricourt Vaginay Sophie	Nom inclus dans l'autre écriture, même prénom, date de naissance identique, déclaration HATVP au titre de « depute Alpes-de-Haute-Provence(04) », fiche député Alpes-de-Haute-Provence 2e circonscription. Relu le 20/11/2026.
 hatvp-e81eaa0702ce805a	SEN-21030V	XOWIE ROBERT (HATVP), fiche Xowie Robert Wienie	Même nom, prénom inclus dans l'autre écriture, date de naissance identique, déclaration HATVP au titre de « senateur Nouvelle-Calédonie(988) », fiche sénateur Nouvelle-Calédonie. Relu le 20/11/2026.

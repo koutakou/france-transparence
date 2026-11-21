@@ -858,7 +858,7 @@ def test_les_listes_blanches_versionnees_sont_lisibles_et_concordent():
     """
     p7_liste = p7.charger_rattrapages_verifies()
     p15_liste = p15.charger_liste_blanche(p15.CHEMIN_RATTACHEMENTS_VERIFIES)
-    assert len(p7_liste) == 16 and len(p15_liste) == 30
+    assert len(p7_liste) == 16 and len(p15_liste) == 33
     redirections = {}
     for ligne in (p7.RACINE / "deploy" / "redirections-elus.tsv").read_text(
             encoding="utf-8").splitlines():
