@@ -23,16 +23,27 @@ import { jsonLdPage, metadonneesPage } from "@/lib/seo";
  *      individuellement plus de 36 000 élus serait disproportionné
  *      (docs/deploiement/exigences-publiques.md §1.2, reco CNIL juin 2024).
  *
- * Références du volet A, vérifiées le 20/08/2026 sur la machine elle-même
+ * Références du volet A, relevées le 21/11/2026 sur la machine elle-même
  * (le site n'est plus hébergé sur une plateforme tierce : les journaux sont
  * ceux d'un nginx administré par l'éditeur, qui en est donc responsable) :
  * - /etc/nginx/nginx.conf : log_format `main` (IP complète) -> access.log ;
  *   map $ip_pseudonyme + log_format `audience` (IP tronquée /24 en IPv4,
  *   /48 en IPv6) -> audience.log ;
- * - /etc/logrotate.d/nginx : access.log et error.log, `rotate 52` (jours) ;
- * - /etc/logrotate.d/nginx-audience : audience.log, `rotate 400` (jours).
+ * - /etc/logrotate.d/nginx : access.log et error.log, `daily`, `rotate 52`
+ *   (53 fichiers, plus ancienne ligne du 30/09 relevée le 21/11) ;
+ * - /etc/logrotate.d/nginx-audience : audience.log, `daily`, `rotate 400` ;
+ * - /etc/logrotate.d/fail2ban, ufw, rsyslog : `weekly`, `rotate 4` (cinq
+ *   semaines au plus), journald `MaxRetentionSec=1month` ;
+ * - /usr/local/bin/ft-audience-serie : `RETENTION_JOURS=1825` (série agrégée,
+ *   aucune adresse : 0 clé au motif IPv4 ou IPv6 dans serie.sqlite) ;
+ *   /usr/local/bin/ft-audience : `RETENTION_RAPPORTS_JOURS=730` ;
+ * - les deux scripts gardent access.log comme repli (`source_du_jour`,
+ *   `debut_vu`) : il n'a servi qu'aux journées du 19 et du 20/08/2026.
  * Toute modification de ces fichiers doit être répercutée ici : une durée de
  * conservation publiée qui ne correspond plus à la réalité est un manquement.
+ * La délibération CNIL n° 2021-122 (journalisation) n'est plus citée : elle
+ * vise les traces des utilisateurs habilités d'un système d'information, pas
+ * les journaux des visiteurs d'un site, et 400 jours dépassent sa fourchette.
  *
  * L'identité de l'hébergeur citée ici vient de src/lib/hebergeur.ts : c'est
  * une donnée de déploiement, et les mentions légales en publient la même.
@@ -101,8 +112,9 @@ export default function PageDonneesPersonnelles() {
             <strong className="text-ink">
               B. les personnes figurant dans les données publiées
             </strong>{" "}
-            — élus, candidats, représentants d&apos;intérêts : republication de
-            données publiques (information collective prévue par
+            : élus et autres responsables publics, candidats, personnes
+            nommées au Journal officiel, représentants d&apos;intérêts.
+            Republication de données publiques (information collective prévue par
             l&apos;article 14 du RGPD, fournie au titre de son
             article 14(5)(b)).
           </li>
@@ -165,44 +177,79 @@ export default function PageDonneesPersonnelles() {
               </strong>{" "}
               (<code>access.log</code>, ainsi que le journal d&apos;erreurs).
               Finalité : la{" "}
-              <strong className="text-ink">sécurité du service</strong> —
+              <strong className="text-ink">sécurité du service</strong>, pour
               détecter et bloquer les attaques (blocage automatique des adresses
-              abusives), analyser un incident. Conservation :{" "}
-              <strong className="text-ink">52 jours</strong>, puis suppression
-              automatique.
+              abusives) et analyser un incident. Conservation :{" "}
+              <strong className="text-ink">
+                52 jours, plus la journée en cours
+              </strong>
+              , puis suppression automatique. Les journaux système du serveur
+              (pare-feu, blocage automatique, connexions d&apos;administration)
+              contiennent aussi des adresses IP, celles des connexions
+              qu&apos;ils refusent ou bloquent. Ils sont conservés{" "}
+              <strong className="text-ink">cinq semaines au plus</strong>.
             </li>
             <li>
               <strong className="text-ink">
                 Un journal d&apos;audience, à adresse IP tronquée
               </strong>{" "}
-              (<code>audience.log</code>) : les derniers chiffres de
-              l&apos;adresse sont remplacés par un zéro au moment même de
-              l&apos;écriture (un quart d&apos;adresse en IPv4, la moitié en
-              IPv6), de sorte que le fichier ne permet plus de remonter à un
-              abonné. Finalité : la{" "}
+              (<code>audience.log</code>) : au moment même de l&apos;écriture,
+              la fin de l&apos;adresse est remplacée par des zéros (le dernier
+              des quatre nombres d&apos;une adresse IPv4, tout ce qui suit les
+              48 premiers bits d&apos;une adresse IPv6). L&apos;adresse tronquée
+              ne désigne plus un abonné à elle seule.{" "}
+              <strong className="text-ink">
+                Ce journal est pseudonymisé, il n&apos;est pas anonyme
+              </strong>{" "}
+              : croisée avec l&apos;heure, la page demandée et l&apos;identifiant
+              du navigateur, l&apos;adresse tronquée peut encore rapprocher les
+              requêtes d&apos;un même appareil. L&apos;identification devient
+              très difficile, mais le journal reste soumis au RGPD. Finalité :
+              la{" "}
               <strong className="text-ink">
                 mesure d&apos;audience du site
               </strong>
-              , sous forme exclusivement statistique et agrégée. C&apos;est le
-              journal que l&apos;outil de statistiques lit en priorité ; pour les
-              périodes qu&apos;il ne couvre pas — avant sa mise en place, ou les
-              heures d&apos;une journée qu&apos;il n&apos;a pas vues — le journal
-              de sécurité est lu à sa place, sans que cela prolonge sa
-              conservation ni n&apos;en fasse sortir la moindre adresse.
-              Conservation :{" "}
-              <strong className="text-ink">400 jours</strong>, cette durée plus
-              longue étant permise par la pseudonymisation ; elle sert à
-              comparer une année à la suivante.
+              , sous forme exclusivement statistique et agrégée. Conservation :{" "}
+              <strong className="text-ink">
+                400 jours, plus la journée en cours
+              </strong>
+              , puis suppression automatique. Cette durée sert à comparer une
+              journée à la même journée de l&apos;année précédente.
             </li>
           </ul>
           <p>
-            <strong className="text-ink">Base légale</strong> — l&apos;intérêt
-            légitime (art. 6(1)(f) RGPD) : assurer la sécurité d&apos;un service
-            en accès libre, et en connaître la fréquentation. La journalisation
-            est également une mesure de sécurité au sens de l&apos;article 32 du
-            RGPD. La conservation retenue est délibérément inférieure à la
-            fourchette de six mois à un an admise par la CNIL pour les journaux
-            (délibération n° 2021-122 du 14 octobre 2021).
+            <strong className="text-ink">
+              Repli sur le journal de sécurité
+            </strong>{" "}
+            : les outils de statistiques lisent le journal d&apos;audience. Ils
+            restent réglés pour lire le journal de sécurité à sa place pour une
+            journée que celui-ci aurait vue plus tôt, et ils en parcourent les
+            dates à chaque passage pour faire ce choix. Ce repli n&apos;a servi
+            que pour les 19 et 20 août 2026, avant la mise en place du journal
+            d&apos;audience. Il ne prolonge pas la conservation du journal de
+            sécurité et aucune adresse n&apos;en sort.
+          </p>
+          <p>
+            <strong className="text-ink">Statistiques produites</strong> : les
+            chiffres agrégés tirés de ces journaux (requêtes et visites par jour,
+            pages vues, sites d&apos;origine réduits à leur nom, familles de
+            robots) sont conservés{" "}
+            <strong className="text-ink">cinq ans</strong> dans une base qui ne
+            contient aucune adresse IP ni aucun identifiant de navigateur de
+            visiteur. Les rapports quotidiens tirés de la même mesure sont
+            conservés <strong className="text-ink">deux ans</strong>.
+          </p>
+          <p>
+            <strong className="text-ink">Base légale</strong> : l&apos;intérêt
+            légitime (art. 6(1)(f) RGPD), pour assurer la sécurité d&apos;un
+            service en accès libre et en connaître la fréquentation. La
+            journalisation est également une mesure de sécurité au sens de
+            l&apos;article 32 du RGPD. Les durées ci-dessus sont des choix de
+            l&apos;éditeur : 52 jours laissent le temps de découvrir et
+            d&apos;analyser un incident après coup, et le journal
+            d&apos;audience, dont l&apos;adresse est tronquée, est gardé plus
+            longtemps pour permettre la comparaison d&apos;une année sur
+            l&apos;autre.
           </p>
           <p>
             <strong className="text-ink">Destinataires</strong> —{" "}
@@ -224,7 +271,7 @@ export default function PageDonneesPersonnelles() {
             </strong>{" "}
             — les journaux ne servent jamais à suivre un individu ni à établir un
             profil. Les statistiques produites sont agrégées et ne contiennent
-            aucune adresse IP. Le seul traitement automatisé est le blocage
+            aucune adresse de visiteur. Le seul traitement automatisé est le blocage
             temporaire d&apos;une adresse qui attaque le serveur.
           </p>
         </div>
@@ -256,16 +303,58 @@ export default function PageDonneesPersonnelles() {
       <Card titre="B. Données traitées et personnes concernées">
         <div className="flex flex-col gap-3 text-sm leading-relaxed text-ink-secondary">
           <p>
-            Le site traite exclusivement des{" "}
+            Le site traite des{" "}
             <strong className="text-ink">
-              données de responsables publics issues de publications
+              données de personnes physiques issues de publications
               officielles ouvertes
-            </strong>{" "}
-            : élus et titulaires de mandats (répertoire national des élus,
-            données des assemblées), déclarations d&apos;intérêts et
-            constats publiés par la HATVP, répertoire des représentants
-            d&apos;intérêts, comptes des partis et comptes de campagne
-            (CNCCFP), votes et activités parlementaires.
+            </strong>
+            , qui relèvent des catégories suivantes, et d&apos;elles seules :
+          </p>
+          <ul className="flex list-disc flex-col gap-1.5 pl-5">
+            <li>
+              <strong className="text-ink">
+                les élus et titulaires de mandats
+              </strong>{" "}
+              (répertoire national des élus, données des assemblées), avec
+              leurs votes et activités parlementaires.
+            </li>
+            <li>
+              <strong className="text-ink">
+                les responsables publics qui déposent des déclarations auprès
+                de la HATVP
+              </strong>
+              , élus ou non (membres du gouvernement, par exemple) : existence
+              et date des déclarations, déclarations d&apos;intérêts publiées,
+              constats publiés par la HATVP.
+            </li>
+            <li>
+              <strong className="text-ink">
+                les candidats aux élections législatives de 2024
+              </strong>
+              , élus ou non, dont la CNCCFP publie les comptes de campagne :
+              nom, circonscription et montants. Seul un tableau des dix
+              dépenses de campagne les plus élevées les nomme sur le site. Les
+              décisions de la CNCCFP sur ces comptes ne sont publiées qu&apos;en
+              nombre, sans aucun nom, et aucune alerte ne nomme un candidat.
+            </li>
+            <li>
+              <strong className="text-ink">
+                les personnes nommées au Journal officiel
+              </strong>
+              , par le titre des mesures nominatives tel que la DILA le publie
+              (nominations, par exemple).
+            </li>
+            <li>
+              <strong className="text-ink">
+                les représentants d&apos;intérêts
+              </strong>{" "}
+              inscrits au répertoire tenu par la HATVP, sous la dénomination
+              qu&apos;ils y déclarent. Ce sont le plus souvent des personnes
+              morales, parfois des personnes qui exercent en nom propre.
+            </li>
+          </ul>
+          <p>
+            Les comptes des partis (CNCCFP) portent sur des personnes morales.
           </p>
           {/*
             Art. 14(1)(d) RGPD : quand les données ne sont pas collectées
@@ -456,7 +545,7 @@ export default function PageDonneesPersonnelles() {
             <strong className="text-ink">
               Si vous êtes visiteur du site
             </strong>{" "}
-            (volet A) — vous disposez, sur les journaux, des droits d&apos;accès
+            (volet A) : vous disposez, sur les journaux, des droits d&apos;accès
             (art. 15), de rectification (art. 16), d&apos;effacement (art. 17),
             de limitation (art. 18) et d&apos;opposition (art. 21), cette
             dernière pouvant être écartée pour ce qui relève strictement de la
@@ -464,8 +553,12 @@ export default function PageDonneesPersonnelles() {
             concernées et la période : sans cela, la recherche est impossible et
             l&apos;éditeur n&apos;est pas tenu de collecter des informations
             supplémentaires pour vous identifier (art. 11 RGPD). Le journal
-            d&apos;audience, dont les adresses sont tronquées, ne permet par
-            construction d&apos;identifier personne.
+            d&apos;audience, dont les adresses sont tronquées, est pseudonymisé
+            et non anonyme : les mêmes droits s&apos;y exercent. Une demande qui
+            le vise doit indiquer l&apos;adresse, la période et, si possible,
+            l&apos;identifiant du navigateur, faute de quoi les requêtes
+            d&apos;une personne ne peuvent pas y être distinguées de celles de
+            ses voisins de réseau.
           </p>
           <p>
             <strong className="text-ink">Comment exercer ces droits</strong> —
