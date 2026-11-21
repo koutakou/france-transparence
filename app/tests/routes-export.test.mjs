@@ -29,13 +29,13 @@ await baseDeTest((db) => {
     jo.run(`JORFTEXT${i}`, date, i === 1 ? null : `NOR${i}`, `Décret n° ${i} & arrêté`, `https://www.legifrance.gouv.fr/jorf/id/JORFTEXT${i}`, i);
   }
   db.exec(`CREATE TABLE alertes (id TEXT PRIMARY KEY, type TEXT, gravite TEXT, titre TEXT, detail TEXT,
-    regle TEXT, base_legale TEXT, source_url TEXT, date_calcul TEXT, date_fait TEXT)`);
-  const al = db.prepare("INSERT INTO alertes VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-  al.run("A1-ND-x", "A1_hatvp_non_deposee", "haute", "Déclaration non déposée (constat officiel HATVP)", "d", "r", "loi", "https://www.hatvp.fr/x", "2026-11-21", "2026-11-12");
-  al.run("lob-1", "lobbying_defaut_declaration", "haute", "Défaut de déclaration lobbying ; test", "d", "r", "loi", null, "2026-11-21T04:24:27+00:00", null);
-  al.run("FIN-PARTI-DEP-2024-P1", "financement_parti_dependance_aide", "info", "Parti financé à 80 % par l'aide publique", "d", "r", "loi", "https://www.data.gouv.fr/partis", "2026-11-21T03:10:00+00:00", null);
+    regle TEXT, base_legale TEXT, source_url TEXT, date_calcul TEXT, date_fait TEXT, date_detection TEXT)`);
+  const al = db.prepare("INSERT INTO alertes VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+  al.run("A1-ND-x", "A1_hatvp_non_deposee", "haute", "Déclaration non déposée (constat officiel HATVP)", "d", "r", "loi", "https://www.hatvp.fr/x", "2026-11-21", "2026-11-12", "2026-11-03");
+  al.run("lob-1", "lobbying_defaut_declaration", "haute", "Défaut de déclaration lobbying ; test", "d", "r", "loi", null, "2026-11-21T04:24:27+00:00", null, "2026-11-05");
+  al.run("FIN-PARTI-DEP-2024-P1", "financement_parti_dependance_aide", "info", "Parti financé à 80 % par l'aide publique", "d", "r", "loi", "https://www.data.gouv.fr/partis", "2026-11-21T03:10:00+00:00", null, "2026-11-21");
   // Type retiré : ni dans le CSV, ni dans le flux.
-  al.run("cc-1", "financement_campagne_rejetee", "haute", "Candidat nommé", "d", "r", "loi", "https://x", "2026-11-21", "2026-11-01");
+  al.run("cc-1", "financement_campagne_rejetee", "haute", "Candidat nommé", "d", "r", "loi", "https://x", "2026-11-21", "2026-11-01", "2026-11-01");
   db.exec(`CREATE TABLE dole_dossiers (dossier_id TEXT PRIMARY KEY, titre TEXT, type TEXT, date_creation TEXT,
     date_modif TEXT, legislature_num TEXT, legislature_libelle TEXT, derniere_etape TEXT,
     derniere_etape_url TEXT, lien_legifrance TEXT)`);
@@ -87,16 +87,22 @@ test("flux dossiers : la navette de la législature courante seulement", async (
   assert.match(texte, /href="https:\/\/www\.vie-publique\.fr\/dossierlegislatif\/JORFDOLE1"/);
 });
 
-test("flux alertes : seules les alertes à date du fait stable, aucun type retiré", async () => {
+test("flux alertes : date du fait stable, sinon date de détection, aucun type retiré", async () => {
   const { texte } = await corps("flux/alertes.xml");
-  assert.equal((texte.match(/<entry>/g) ?? []).length, 1);
+  assert.equal((texte.match(/<entry>/g) ?? []).length, 3);
   assert.doesNotMatch(texte, /Candidat nommé|cc-1/);
-  // A1 (date du fichier HATVP) et lobbying (aucune date du fait) hors du flux.
-  assert.doesNotMatch(texte, /A1-ND-x|lob-1/);
+  // A1 et lobbying : datés de leur détection, jamais de date_fait (fichier
+  // HATVP) ni de date_calcul.
+  assert.match(texte, /alerte\/A1-ND-x<\/id>[\s\S]*?<updated>2026-11-03T00:00:00Z<\/updated>/);
+  assert.match(texte, /alerte\/lob-1<\/id>[\s\S]*?<updated>2026-11-05T00:00:00Z<\/updated>/);
+  assert.doesNotMatch(texte, /2026-11-12T|2026-11-21T0[34]/);
+  // Dépendance : clôture de l'exercice, même détectée plus tard.
   assert.match(texte, /alerte\/FIN-PARTI-DEP-2024-P1<\/id>[\s\S]*?<updated>2024-12-31T00:00:00Z<\/updated>/);
-  // updated du flux = clôture de l'exercice, ni la date de S25 changeante, ni le calcul.
-  assert.equal(texte.match(/<updated>([^<]*)<\/updated>/)[1], "2024-12-31T00:00:00Z");
+  // updated du flux = entrée la plus récente, ni la date d'une source, ni le calcul.
+  assert.equal(texte.match(/<updated>([^<]*)<\/updated>/)[1], "2026-11-05T00:00:00Z");
   assert.match(texte, /CNCCFP comptes des partis \(Licence Ouverte\)/);
+  assert.match(texte, /HATVP liste\.csv \(Licence Ouverte\)/);
+  assert.match(texte, /HATVP AGORA \(Licence Ouverte\)/);
   assert.match(texte, /rel="related" type="text\/html" href="https:\/\/francetransparence\.fr\/alertes\/"/);
 });
 

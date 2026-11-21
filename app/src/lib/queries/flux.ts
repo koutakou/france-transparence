@@ -23,6 +23,25 @@ export function getDatesCreationDossiers(): Map<string, string> | null {
 }
 
 /**
+ * Date de détection des alertes (AAAA-MM-JJ du premier cycle d'ingestion qui
+ * a vu l'alerte, gardée tant que son identifiant existe : écrite par
+ * pipelines/db.py `remplacer_alertes`), par id. Elle date l'entrée du flux
+ * quand le fait n'a pas de date stable. Une base d'avant la colonne donne une
+ * table vide : ces alertes sont alors absentes du flux, jamais datées d'autre
+ * chose.
+ */
+export function getDatesDetectionAlertes(): Map<string, string> | null {
+  const db = getDb();
+  if (!db) return null;
+  const colonnes = db.prepare("PRAGMA table_info(alertes)").all() as { name: string }[];
+  if (!colonnes.some((c) => c.name === "date_detection")) return new Map();
+  const lignes = db
+    .prepare("SELECT id, date_detection FROM alertes WHERE date_detection IS NOT NULL")
+    .all() as { id: string; date_detection: string }[];
+  return new Map(lignes.map((l) => [l.id, l.date_detection]));
+}
+
+/**
  * Textes des `nbNumeros` derniers numéros du JO en base (source S3), dans
  * l'ordre du flux de /documents : JO le plus récent d'abord, puis ordre du
  * sommaire. Le NOR est lu pour l'identifiant d'entrée.

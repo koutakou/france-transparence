@@ -690,11 +690,18 @@ export default async function PageDonnees() {
           Chaque entrée porte le titre et le lien officiels de la donnée, sans
           commentaire, et une date qui ne change pas tant que la donnée
           elle-même ne change pas&nbsp;: publication au Journal officiel, dernière
-          modification du dossier (à défaut sa création), clôture de
-          l’exercice des comptes pour une alerte, date des données pour une
-          source (le premier jour de la période quand la source la donne au
-          mois). Une entrée sans date de ce type n’est pas publiée, d’où un
-          flux des alertes limité aux comptes des partis. Son identifiant est
+          modification du dossier (à défaut sa création), date des données pour
+          une source (le premier jour de la période quand la source la donne au
+          mois). Le flux des alertes reprend toutes les alertes de la page
+          Alertes. La dépendance d’un parti à l’aide publique y est datée de la
+          clôture de l’exercice des comptes (31 décembre). Les autres alertes
+          (HATVP, lobbying, partis privés d’aide) sont datées du jour où le site
+          les a détectées pour la première fois, et gardent cette date tant
+          qu’elles restent en place. Une alerte qui disparaît puis revient est
+          un fait nouveau et reçoit une nouvelle date. Une alerte qui compte
+          des dossiers (agrégat) garde sa date quand son compte change&nbsp;: la
+          page Alertes donne le compte du jour. Une alerte qui n’a
+          aucune de ces deux dates n’est pas publiée. Son identifiant est
           celui de la source (NOR, numéro de dossier, identifiant d’alerte, code
           de la source et date des données)&nbsp;: une entrée déjà lue ne
           revient pas.
