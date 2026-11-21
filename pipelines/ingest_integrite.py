@@ -120,13 +120,24 @@ URL_HATVP_SITE = "https://www.hatvp.fr"
 # Chemin de fiche nominative bien formé. La HATVP publie parfois dans
 # `url_dossier` un chemin inutilisable (« capitanio-olivier[ »,
 # « martin-(gironde)-alexandra-26044 », « echaniz-iñaki-24343 ») : son site
-# répond 404 ou renvoie à l'accueil. Un tel chemin est traité comme absent.
+# répond 404 ou renvoie à l'accueil. Un tel chemin n'est jamais AFFICHÉ comme
+# lien (alerte A1 ici, fiche et exports côté application par
+# app/src/lib/lien-hatvp.ts), mais il reste la clé de rattachement en base.
 MOTIF_URL_DOSSIER = re.compile(r"/pages_nominatives/[a-z0-9-]+")
 
 
+def url_brute_hatvp(url_dossier: str | None) -> str | None:
+    """URL absolue construite telle quelle depuis le chemin publié, ou None si
+    le chemin est vide. C'est la clé qui rattache les déclarations à la fiche
+    d'un élu (`hatvp_declarations.url_fiche` = `elus.hatvp_url`) : elle est
+    propre à une personne même quand le chemin est mal formé, au contraire de
+    l'URL de la liste, commune à tous."""
+    return (URL_HATVP_SITE + url_dossier) if url_dossier else None
+
+
 def url_fiche_hatvp(url_dossier: str | None) -> str | None:
-    """URL absolue de la fiche HATVP, ou None si le chemin publié est vide ou
-    mal formé. Le chemin brut reste conservé tel quel dans `url_dossier`."""
+    """URL absolue de la fiche HATVP à afficher comme lien, ou None si le
+    chemin publié est vide ou mal formé."""
     if url_dossier and MOTIF_URL_DOSSIER.fullmatch(url_dossier):
         return URL_HATVP_SITE + url_dossier
     return None
@@ -1692,7 +1703,7 @@ def croiser_hatvp_flag(conn, dossiers: list[dict],
     for d in dossiers:
         cle = (normaliser_texte(d["nom"]), normaliser_texte(d["prenom"]))
         hatvp_par_nom[cle].setdefault(d["classement"],
-                                      url_fiche_hatvp(d["url_dossier"])
+                                      url_brute_hatvp(d["url_dossier"])
                                       or URL_HATVP_LISTE)
         dossiers_par_classement[d["classement"]].append(d)
     elus_par_nom: dict[tuple, list[tuple]] = defaultdict(list)
@@ -1867,7 +1878,7 @@ def ecrire(conn, dossiers: list[dict], rne: dict, chemins: dict,
           d["qualite"], d["type_document"], d["departement"],
           d["date_publication"] or None, d["date_depot"] or None,
           d["statut_publication"], d["nom_fichier"] or None, d["url_dossier"] or None,
-          url_fiche_hatvp(d["url_dossier"]),
+          url_brute_hatvp(d["url_dossier"]),
           d["open_data"] or None, d["id_origine"] or None, d["url_photo"] or None)
          for d in dossiers])
     conn.executemany("INSERT INTO hatvp_agregats (categorie, cle, nb) VALUES (?, ?, ?)",

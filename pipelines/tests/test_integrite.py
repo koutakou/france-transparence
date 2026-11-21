@@ -1810,11 +1810,14 @@ def test_a1_nd_l_identifiant_ne_change_pas_quand_l_url_parait():
     "/pages_nominatives/echaniz-iñaki-24343",
     "/pages_nominatives/faubert-christian[1]",
 ])
-def test_url_dossier_mal_forme_retombe_sur_la_liste(conn, chemin):
+def test_url_dossier_mal_forme_alerte_vers_la_liste_cle_brute_gardee(conn, chemin):
     """Audit du 21/11/2026 : chemins réels de liste.csv que le site de la HATVP
-    ne sert pas (404 ou accueil). Ni la fiche d'élu ni l'alerte n'y renvoient,
-    elles renvoient à la liste, comme pour un chemin vide."""
+    ne sert pas (404 ou accueil). L'alerte, qui n'est qu'un lien affiché,
+    renvoie à la liste. La fiche d'élu garde en base l'URL brute : c'est la
+    clé qui lui rattache ses déclarations (`url_fiche IN (hatvp_url)`), et
+    l'application n'affiche le lien qu'après filtre (lib/lien-hatvp.ts)."""
     assert p7.url_fiche_hatvp(chemin) is None
+    assert p7.url_brute_hatvp(chemin) == p7.URL_HATVP_SITE + chemin
     (alerte,) = p7.construire_alertes(
         [_non_deposee(nom="CAPITANIO", prenom="Olivier", url_dossier=chemin)],
         [], AUJOURD_HUI, "2026-08-14", "2026-08-11")
@@ -1825,47 +1828,65 @@ def test_url_dossier_mal_forme_retombe_sur_la_liste(conn, chemin):
                             "Vice-président du conseil départemental de Maine-et-Loire"),
              url_dossier=chemin)
     assert p7.croiser_hatvp_flag(conn, [d]) == (1, 0)
-    assert conn.execute("SELECT hatvp_url FROM elus").fetchone()[0] == p7.URL_HATVP_LISTE
+    assert conn.execute("SELECT hatvp_url FROM elus").fetchone()[0] \
+        == p7.URL_HATVP_SITE + chemin
 
 
 def test_url_dossier_bien_forme_donne_la_fiche():
     assert p7.url_fiche_hatvp("/pages_nominatives/gate-sylvie-23162") \
         == "https://www.hatvp.fr/pages_nominatives/gate-sylvie-23162"
     assert p7.url_fiche_hatvp("") is None and p7.url_fiche_hatvp(None) is None
+    assert p7.url_brute_hatvp("/pages_nominatives/gate-sylvie-23162") \
+        == "https://www.hatvp.fr/pages_nominatives/gate-sylvie-23162"
+    assert p7.url_brute_hatvp("") is None and p7.url_brute_hatvp(None) is None
 
 
 def test_url_fiche_ecrite_par_ecrire(tmp_path, dossiers):
-    """Relecture de la PR 172 : la colonne `url_fiche` que le vrai `ecrire()`
-    pose dans hatvp_declarations. Bien formé, la fiche nominative. Mal formé,
-    aucune URL de fiche : la fiche d'élu renvoie à la liste par `hatvp_url`,
-    pas par cette colonne. Elle sert de clé de jointure aux déclarations d'une
-    fiche (`url_fiche IN (hatvp_url)`) : y écrire l'URL de la liste
-    rattacherait les déclarations de tous les chemins mal formés à chaque
-    élu renvoyé à la liste."""
+    """La colonne `url_fiche` que le vrai `ecrire()` pose dans
+    hatvp_declarations est la clé de jointure aux déclarations d'une fiche
+    d'élu (`url_fiche IN (hatvp_url)`). Elle garde l'URL brute, même pour un
+    chemin mal formé : la filtrer coupait ces déclarations de la fiche de leur
+    élu (14 déclarations, 4 fiches, base du 21/11/2026). L'URL de la liste,
+    commune à tous, n'y est jamais écrite : elle rattacherait à un élu les
+    déclarations d'autres personnes."""
     bien = _dossier(nom="GÂTÉ", prenom="Sylvie", type_document="dia",
                     url_dossier="/pages_nominatives/gate-sylvie-23162")
     mal = _dossier(nom="CAPITANIO", prenom="Olivier", type_document="dia",
                    url_dossier="/pages_nominatives/capitanio-olivier[")
+    leroy = dict(_dossier_hatvp("LEROY", "Gilles", "departement", "49",
+                                "Vice-président du conseil départemental de Maine-et-Loire"),
+                 url_dossier="/pages_nominatives/leroy-(maine-et-loire)-gilles")
     conn = db.init_db(chemin=tmp_path / "url-fiche.db")
     try:
-        p7.ecrire(conn, dossiers + [bien, mal], charger_rne(),
+        _fiche(conn, "rne-leroy", "LEROY", "Gilles",
+               [{"source": "RNE", "type": "maire", "departement": "49"}])
+        p7.ecrire(conn, dossiers + [bien, mal, leroy], charger_rne(),
                   {"cm": FIXTURES / "rne_cm_extrait.csv"},
                   AUJOURD_HUI, "2026-08-14", "2026-08-11")
         par_chemin = dict(conn.execute(
             "SELECT url_dossier, url_fiche FROM hatvp_declarations"
-            " WHERE url_dossier IN (?, ?)",
-            (bien["url_dossier"], mal["url_dossier"])).fetchall())
+            " WHERE url_dossier IN (?, ?, ?)",
+            (bien["url_dossier"], mal["url_dossier"], leroy["url_dossier"])).fetchall())
         assert par_chemin == {
             bien["url_dossier"]: "https://www.hatvp.fr/pages_nominatives/gate-sylvie-23162",
-            mal["url_dossier"]: None,
+            mal["url_dossier"]: "https://www.hatvp.fr/pages_nominatives/capitanio-olivier[",
+            leroy["url_dossier"]:
+                "https://www.hatvp.fr/pages_nominatives/leroy-(maine-et-loire)-gilles",
         }
         assert conn.execute(
             "SELECT count(*) FROM hatvp_declarations WHERE url_fiche = ?",
             (p7.URL_HATVP_LISTE,)).fetchone()[0] == 0
-        # Les autres lignes de la fixture : jamais une URL hors fiche nominative.
         for (url,) in conn.execute(
                 "SELECT url_fiche FROM hatvp_declarations WHERE url_fiche IS NOT NULL"):
             assert url.startswith(p7.URL_HATVP_SITE + "/pages_nominatives/"), url
+        # La jointure de la fiche d'élu : l'élu au chemin mal formé retrouve
+        # sa déclaration, et elle seule.
+        (url_elu,) = conn.execute(
+            "SELECT hatvp_url FROM elus WHERE id = 'rne-leroy'").fetchone()
+        assert url_elu == p7.URL_HATVP_SITE + leroy["url_dossier"]
+        assert [r[0] for r in conn.execute(
+            "SELECT url_dossier FROM hatvp_declarations WHERE url_fiche IN (?)",
+            (url_elu,))] == [leroy["url_dossier"]]
     finally:
         conn.close()
 
