@@ -65,6 +65,7 @@ function BadgeSource({ source, mention }: { source?: MetaSource; mention?: strin
   return (
     <FreshnessBadge
       dateDonnees={source.date_donnees}
+      sourceId={source.source_id}
       source={libelleBadgeSource(source, LIBELLES_SOURCES)}
       frequence={source.frequence}
       url={source.url}

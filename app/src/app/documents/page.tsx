@@ -228,6 +228,7 @@ export default async function DocumentsPage() {
         {meta && (
           <FreshnessBadge
             dateDonnees={meta.date_donnees}
+            sourceId={meta.source_id}
             source={meta.nom}
             frequence={meta.frequence}
             url={meta.url}
@@ -403,6 +404,7 @@ export default async function DocumentsPage() {
             droite={
               <FreshnessBadge
                 dateDonnees={dole.meta.date_donnees}
+                sourceId={dole.meta.source_id}
                 source={dole.meta.nom}
                 frequence={dole.meta.frequence}
                 url={dole.meta.url}

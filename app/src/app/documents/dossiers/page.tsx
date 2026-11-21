@@ -122,6 +122,7 @@ export default async function DossiersLegislatifsPage() {
         </div>
         <FreshnessBadge
           dateDonnees={dole.meta.date_donnees}
+          sourceId={dole.meta.source_id}
           source={dole.meta.nom}
           frequence={dole.meta.frequence}
           url={dole.meta.url}

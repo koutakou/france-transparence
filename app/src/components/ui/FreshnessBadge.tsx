@@ -1,5 +1,4 @@
-import { formatDateFr } from "@/lib/format";
-import { evalueFraicheur, mentionBadgeFraicheur } from "@/lib/fraicheur";
+import { libelleBadgeFraicheur } from "@/lib/fraicheur";
 import { instantDeConstruction } from "@/lib/lecture";
 
 /**
@@ -31,7 +30,8 @@ export interface FreshnessBadgeProps {
   /**
    * Identifiant `meta_sources.source_id`. Donné, le badge calcule l'état de
    * fraîcheur de la source (`lib/fraicheur.ts`) au jour de la construction
-   * et dit quand la donnée a dépassé son seuil d'alerte. Réservé au rendu
+   * et dit, en le datant, quand la donnée a dépassé son seuil d'alerte (la
+   * page de la veille reste servie si un build échoue). Réservé au rendu
    * serveur : dans un composant client, le calcul à l'hydratation se ferait
    * à une autre date que celle du HTML statique.
    */
@@ -48,15 +48,11 @@ export function FreshnessBadge({
   sourceId,
   className,
 }: FreshnessBadgeProps) {
-  const etat = sourceId
-    ? mentionBadgeFraicheur(
-        evalueFraicheur(sourceId, dateDonnees, new Date(instantDeConstruction())),
-      )
-    : null;
   // truncate + title=URL cachaient la mention ; rounded-full refuse le multiligne.
-  const libelle = `Données au ${formatDateFr(dateDonnees)} · ${source} · ${frequence}${
-    mention ? ` · ${mention}` : ""
-  }${etat ? ` · ${etat}` : ""}`;
+  const libelle = libelleBadgeFraicheur(
+    { dateDonnees, source, frequence, mention, sourceId },
+    new Date(instantDeConstruction()),
+  );
   return (
     <a
       href={url}
