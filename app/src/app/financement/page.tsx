@@ -130,6 +130,7 @@ export default async function FinancementPage() {
   const badgePartis = (
     <FreshnessBadge
       dateDonnees={metaPartis.date_donnees}
+      sourceId={metaPartis.source_id}
       source="CNCCFP — comptes des partis"
       frequence={metaPartis.frequence}
       url={metaPartis.url}
@@ -139,6 +140,7 @@ export default async function FinancementPage() {
   const badgeCampagnes = (
     <FreshnessBadge
       dateDonnees={metaCampagnes.date_donnees}
+      sourceId={metaCampagnes.source_id}
       source="CNCCFP — législatives 2024"
       frequence={metaCampagnes.frequence}
       url={metaCampagnes.url}
@@ -523,6 +525,7 @@ export default async function FinancementPage() {
           droite={
             <FreshnessBadge
               dateDonnees={metaDecret.date_donnees}
+              sourceId={metaDecret.source_id}
               source="JORF — décrets d'aide publique"
               frequence={metaDecret.frequence}
               url={decretRecent?.source_url ?? metaDecret.url}

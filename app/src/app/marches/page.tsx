@@ -117,6 +117,7 @@ function SectionAdlc({ donnees }: { donnees: SanctionsAdlc }) {
   const badge = (
     <FreshnessBadge
       dateDonnees={meta.date_donnees}
+      sourceId={meta.source_id}
       source="Autorité de la concurrence"
       frequence={meta.frequence}
       url={meta.url}
@@ -411,6 +412,7 @@ export default async function PageMarches() {
   const badgeS1 = meta.s1 && (
     <FreshnessBadge
       dateDonnees={meta.s1.date_donnees}
+      sourceId={meta.s1.source_id}
       source="DECP consolidées"
       frequence={meta.s1.frequence}
       url={meta.s1.url}
@@ -1169,6 +1171,7 @@ export default async function PageMarches() {
             meta.s2 && (
               <FreshnessBadge
                 dateDonnees={meta.s2.date_donnees}
+                sourceId={meta.s2.source_id}
                 source="BOAMP"
                 frequence={meta.s2.frequence}
                 url={meta.s2.url}
@@ -1235,6 +1238,7 @@ export default async function PageMarches() {
           meta.s9 && (
             <FreshnessBadge
               dateDonnees={meta.s9.date_donnees}
+              sourceId={meta.s9.source_id}
               source="APProch"
               frequence={meta.s9.frequence}
               url={meta.s9.url}

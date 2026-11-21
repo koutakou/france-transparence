@@ -143,6 +143,7 @@ export default async function PageRecettes() {
   const badge = (
     <FreshnessBadge
       dateDonnees={source.date_donnees}
+      sourceId={source.source_id}
       source="DGFiP — situations mensuelles"
       frequence={source.frequence}
       url={source.url}
@@ -383,6 +384,7 @@ export default async function PageRecettes() {
             droite={
               <FreshnessBadge
                 dateDonnees={nonFiscalesPlf.meta.date_donnees}
+                sourceId={nonFiscalesPlf.meta.source_id}
                 source="Direction du Budget — État A du PLF"
                 frequence={nonFiscalesPlf.meta.frequence}
                 url={nonFiscalesPlf.meta.url}
@@ -460,6 +462,7 @@ export default async function PageRecettes() {
             droite={
               <FreshnessBadge
                 dateDonnees={ircom.meta.date_donnees}
+                sourceId={ircom.meta.source_id}
                 source="DGFiP — IRCOM"
                 frequence={ircom.meta.frequence}
                 url={ircom.meta.url}
@@ -657,6 +660,7 @@ export default async function PageRecettes() {
             droite={
               <FreshnessBadge
                 dateDonnees={recettesApu.meta.date_donnees}
+                sourceId={recettesApu.meta.source_id}
                 source="Eurostat — gov_10a_main"
                 frequence={recettesApu.meta.frequence}
                 url={recettesApu.meta.url}
@@ -737,6 +741,7 @@ export default async function PageRecettes() {
             droite={
               <FreshnessBadge
                 dateDonnees={prelevements.meta.date_donnees}
+                sourceId={prelevements.meta.source_id}
                 source="INSEE — comptes nationaux"
                 frequence={prelevements.meta.frequence}
                 url={prelevements.meta.url}

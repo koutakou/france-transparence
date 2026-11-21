@@ -242,6 +242,7 @@ function AvisCadaParAdministration({ data }: { data: AvisCadaData }) {
       droite={
         <FreshnessBadge
           dateDonnees={meta.date_donnees}
+          sourceId={meta.source_id}
           source="Avis de la CADA"
           frequence={meta.frequence}
           url={meta.url}
@@ -473,6 +474,7 @@ export default async function FraisPage() {
         {meta && (
           <FreshnessBadge
             dateDonnees={meta.date_donnees}
+            sourceId={meta.source_id}
             source={meta.nom}
             frequence={meta.frequence}
             url={meta.url}

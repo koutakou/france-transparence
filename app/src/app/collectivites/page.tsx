@@ -149,6 +149,7 @@ export default async function PageCollectivites() {
   const badge = (mention: string) => (
     <FreshnessBadge
       dateDonnees={meta.date_donnees}
+      sourceId={meta.source_id}
       source="OFGL / DGFiP"
       frequence={frequenceCourte}
       url={meta.url}
@@ -363,6 +364,7 @@ export default async function PageCollectivites() {
             droite={
               <FreshnessBadge
                 dateDonnees={rei.meta.date_donnees}
+                sourceId={rei.meta.source_id}
                 source="DGFiP — REI"
                 frequence={rei.meta.frequence}
                 url={rei.meta.url}

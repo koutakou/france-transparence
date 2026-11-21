@@ -207,6 +207,7 @@ function SectionCroisement({
     <div className="flex flex-wrap items-center justify-end gap-1.5">
       <FreshnessBadge
         dateDonnees={metaS1.date_donnees}
+        sourceId={metaS1.source_id}
         source="DECP consolidées"
         frequence={metaS1.frequence}
         url={metaS1.url}
@@ -214,6 +215,7 @@ function SectionCroisement({
       />
       <FreshnessBadge
         dateDonnees={metaS4.date_donnees}
+        sourceId={metaS4.source_id}
         source="HATVP — AGORA"
         frequence={metaS4.frequence}
         url={metaS4.url}
@@ -538,6 +540,7 @@ function SectionRegistreUe({ donnees }: { donnees: DonneesRegistreUe }) {
   const badgeUe = (
     <FreshnessBadge
       dateDonnees={meta.date_donnees}
+      sourceId={meta.source_id}
       source="Registre de transparence de l'UE"
       frequence={meta.frequence}
       url={meta.url}
@@ -846,6 +849,7 @@ export default async function LobbyingPage() {
   const badge = (
     <FreshnessBadge
       dateDonnees={meta.date_donnees}
+      sourceId={meta.source_id}
       source="HATVP — AGORA"
       frequence={meta.frequence}
       url={meta.url}

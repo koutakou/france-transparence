@@ -225,6 +225,7 @@ export default async function PageDepenses() {
         {sources.S13 && (
           <FreshnessBadge
             dateDonnees={sources.S13.date_donnees}
+            sourceId={sources.S13.source_id}
             source="DGFiP — situations mensuelles"
             frequence={sources.S13.frequence}
             url={sources.S13.url}
@@ -292,6 +293,7 @@ export default async function PageDepenses() {
             sources.S13 && (
               <FreshnessBadge
                 dateDonnees={sources.S13.date_donnees}
+                sourceId={sources.S13.source_id}
                 source="DGFiP — situations mensuelles"
                 frequence={sources.S13.frequence}
                 url={sources.S13.url}
@@ -328,6 +330,7 @@ export default async function PageDepenses() {
             sources.S13 && (
               <FreshnessBadge
                 dateDonnees={sources.S13.date_donnees}
+                sourceId={sources.S13.source_id}
                 source="DGFiP — situations mensuelles"
                 frequence={sources.S13.frequence}
                 url={sources.S13.url}
@@ -417,6 +420,7 @@ export default async function PageDepenses() {
             sources.S20 && (
               <FreshnessBadge
                 dateDonnees={sources.S20.date_donnees}
+                sourceId={sources.S20.source_id}
                 source="Budget vert — PLF 2026"
                 frequence={sources.S20.frequence}
                 url={sources.S20.url}
@@ -472,6 +476,7 @@ export default async function PageDepenses() {
             sources.S21 && (
               <FreshnessBadge
                 dateDonnees={sources.S21.date_donnees}
+                sourceId={sources.S21.source_id}
                 source="PLF 2025 — destination"
                 frequence={sources.S21.frequence}
                 url={sources.S21.url}
@@ -535,6 +540,7 @@ export default async function PageDepenses() {
             sources.S23 && (
               <FreshnessBadge
                 dateDonnees={sources.S23.date_donnees}
+                sourceId={sources.S23.source_id}
                 source="Jaune PLF 2025 — associations"
                 frequence={sources.S23.frequence}
                 url={sources.S23.url}
@@ -610,6 +616,7 @@ export default async function PageDepenses() {
             droite={
               <FreshnessBadge
                 dateDonnees={dette.meta.date_donnees}
+                sourceId={dette.meta.source_id}
                 source="Eurostat — gov_10q_ggdebt"
                 frequence={dette.meta.frequence}
                 url={dette.meta.url}
@@ -658,6 +665,7 @@ export default async function PageDepenses() {
             droite={
               <FreshnessBadge
                 dateDonnees={deficit.meta.date_donnees}
+                sourceId={deficit.meta.source_id}
                 source="Eurostat — gov_10dd_edpt1"
                 frequence={deficit.meta.frequence}
                 url={deficit.meta.url}
@@ -731,6 +739,7 @@ export default async function PageDepenses() {
             droite={
               <FreshnessBadge
                 dateDonnees={depensesApu.meta.date_donnees}
+                sourceId={depensesApu.meta.source_id}
                 source="Eurostat — gov_10a_main"
                 frequence={depensesApu.meta.frequence}
                 url={depensesApu.meta.url}
@@ -796,6 +805,7 @@ export default async function PageDepenses() {
             droite={
               <FreshnessBadge
                 dateDonnees={cofogApu.meta.date_donnees}
+                sourceId={cofogApu.meta.source_id}
                 source="Eurostat — gov_10a_exp"
                 frequence={cofogApu.meta.frequence}
                 url={cofogApu.meta.url}
@@ -876,6 +886,7 @@ export default async function PageDepenses() {
             droite={
               <FreshnessBadge
                 dateDonnees={comptesApuInsee.meta.date_donnees}
+                sourceId={comptesApuInsee.meta.source_id}
                 source="INSEE — comptes nationaux"
                 frequence={comptesApuInsee.meta.frequence}
                 url={comptesApuInsee.meta.url}
@@ -952,6 +963,7 @@ export default async function PageDepenses() {
             droite={
               <FreshnessBadge
                 dateDonnees={odacInsee.meta.date_donnees}
+                sourceId={odacInsee.meta.source_id}
                 source="INSEE — comptes nationaux"
                 frequence={odacInsee.meta.frequence}
                 url={odacInsee.meta.url}
@@ -1022,6 +1034,7 @@ export default async function PageDepenses() {
             droite={
               <FreshnessBadge
                 dateDonnees={bilanCge.meta.date_donnees}
+                sourceId={bilanCge.meta.source_id}
                 source="DGFiP — compte général de l'État"
                 frequence={bilanCge.meta.frequence}
                 url={bilanCge.meta.url}
@@ -1118,6 +1131,7 @@ export default async function PageDepenses() {
             droite={
               <FreshnessBadge
                 dateDonnees={protectionSociale.meta.date_donnees}
+                sourceId={protectionSociale.meta.source_id}
                 source="DREES — comptes de la protection sociale"
                 frequence={protectionSociale.meta.frequence}
                 url={protectionSociale.meta.url}

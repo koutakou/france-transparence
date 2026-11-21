@@ -167,6 +167,7 @@ export default async function PageMission({ params }: Props) {
   const badge = sources?.S21 && (
     <FreshnessBadge
       dateDonnees={sources.S21.date_donnees}
+      sourceId={sources.S21.source_id}
       source="PLF 2025 — destination"
       frequence={sources.S21.frequence}
       url={sources.S21.url}

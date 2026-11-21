@@ -416,20 +416,53 @@ export function constatAttente(f: Pick<Fraicheur, "editionFigee">): string {
 }
 
 /**
- * La mention courte que porte le badge de fraîcheur d'un module, ou `null`
- * quand l'état ne demande rien (à jour, à surveiller, non calibré).
+ * La mention courte que porte le badge de fraîcheur d'un module, datée du
+ * jour du calcul (« au 21/11/2026, âge au-delà du seuil d'alerte »), ou
+ * `null` quand l'état ne demande rien (à jour, à surveiller, non calibré).
  *
- * Elle reste vraie quand la page est lue après sa construction : l'âge d'une
- * donnée ne fait que croître tant qu'aucune édition n'est ingérée, et une
- * ingestion reconstruit la page. Elle ne dit rien de l'amont (aucune
- * affirmation qu'une édition y a paru), seulement ce que le site a ingéré.
+ * Elle est DATÉE parce que la page peut être lue bien après sa construction :
+ * quand un cycle de publication échoue, la page de la veille reste servie, et
+ * une mention sans date passerait pour un constat du jour de lecture. Datée,
+ * elle reste vraie : elle dit l'état au jour du build, rien de plus. Elle ne
+ * dit rien de l'amont (aucune affirmation qu'une édition y a paru),
+ * seulement ce que le site avait ingéré à cette date.
  */
-export function mentionBadgeFraicheur(f: Pick<Fraicheur, "niveau">): string | null {
-  if (f.niveau === "attente_edition") {
-    return "âge au-delà du seuil d’alerte, aucune édition plus récente ingérée";
-  }
-  if (f.niveau === "en_retard") return "âge au-delà du seuil d’alerte";
-  return null;
+export function mentionBadgeFraicheur(
+  f: Pick<Fraicheur, "niveau">,
+  calculeLe: Date,
+): string | null {
+  const constat =
+    f.niveau === "attente_edition"
+      ? "âge au-delà du seuil d’alerte, aucune édition plus récente ingérée"
+      : f.niveau === "en_retard"
+        ? "âge au-delà du seuil d’alerte"
+        : null;
+  if (constat === null) return null;
+  return `au ${formatDateFr(FORMAT_JOUR.format(calculeLe))}, ${constat}`;
+}
+
+/** Ce que le badge de fraîcheur affiche (`components/ui/FreshnessBadge`). */
+export interface ContenuBadgeFraicheur {
+  dateDonnees: string;
+  source: string;
+  frequence: string;
+  mention?: string;
+  /** Donné, l'état de fraîcheur de la source est calculé et ajouté, daté. */
+  sourceId?: string;
+}
+
+/**
+ * Le libellé du badge de fraîcheur : « Données au JJ/MM/AAAA · source ·
+ * fréquence », puis la mention éventuelle, puis l'état de la source au jour
+ * `construitLe` quand `sourceId` est donné et que l'état demande à être dit.
+ */
+export function libelleBadgeFraicheur(b: ContenuBadgeFraicheur, construitLe: Date): string {
+  const etat = b.sourceId
+    ? mentionBadgeFraicheur(evalueFraicheur(b.sourceId, b.dateDonnees, construitLe), construitLe)
+    : null;
+  return [`Données au ${formatDateFr(b.dateDonnees)}`, b.source, b.frequence, b.mention, etat]
+    .filter((p): p is string => typeof p === "string" && p !== "")
+    .join(" · ");
 }
 
 /* ------------------------------------------------------------------ */
