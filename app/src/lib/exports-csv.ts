@@ -8,7 +8,8 @@
  * Règle de contenu : un CSV ne porte AUCUNE colonne de plus que l'export JSON
  * ou le tableau de page dont il est la version tableur. Même règle de
  * données personnelles que l'affichage : rien n'est ajouté, seuls les champs
- * déjà publiés sont repris.
+ * déjà publiés sont repris. Seuls les en-têtes qui diraient « suspect » sont
+ * renommés en « signale » (montant_signales, nb_marches_signales par exemple).
  */
 import type { ColonneCsv } from "@/lib/csv";
 import type { MetaSource } from "@/lib/db";
@@ -213,28 +214,32 @@ export const CSV_LOBBYING_MARCHES: DefinitionCsv<TitulaireLobbyiste> = {
     { cle: "activites_12m", description: "activités de représentation d'intérêts publiées sur 12 mois", valeur: (t) => t.activites_12m },
     { cle: "nb_marches_hors_ac", description: "marchés hors accords-cadres", valeur: (t) => t.nb_marches_hors_ac },
     { cle: "montant_hors_ac", description: "montant hors accords-cadres, écrêté et réparti, euros", valeur: (t) => t.montant_hors_ac },
-    { cle: "nb_suspects_hors_ac", description: "marchés hors accords-cadres au montant signalé", valeur: (t) => t.nb_suspects_hors_ac },
+    { cle: "nb_signales_hors_ac", description: "marchés hors accords-cadres au montant signalé", valeur: (t) => t.nb_suspects_hors_ac },
     { cle: "nb_marches_tous", description: "marchés, accords-cadres compris", valeur: (t) => t.nb_marches_tous },
     { cle: "montant_tous", description: "montant, accords-cadres compris, euros", valeur: (t) => t.montant_tous },
   ],
 };
 
-/** Colonnes communes aux deux classements, dans l'ordre du tableau de /marches. */
+/**
+ * Colonnes communes aux deux classements, dans l'ordre du tableau de /marches.
+ * Les en-têtes publiés disent « signalé » (décision de ton du 20/11) : les
+ * champs de la base et les clés du JSON gardent leur nom `*_suspects`.
+ */
 type LigneTop = Omit<TopAcheteur, "montant_total">;
 
 const COLONNES_MONTANT_TOP: ColonneCsv<LigneTop>[] = [
   {
-    cle: "montant_hors_suspects",
+    cle: "montant_hors_signales",
     description: "montant hors montants signalés, euros (fixe le rang)",
     valeur: (a) => a.montant_hors_suspects,
   },
   {
-    cle: "montant_suspects",
+    cle: "montant_signales",
     description: "montants signalés, euros (vide quand aucun marché n'est signalé)",
     valeur: (a) => (a.nb_marches_suspects === 0 ? null : a.montant_suspects),
   },
   {
-    cle: "nb_marches_suspects",
+    cle: "nb_marches_signales",
     description: "marchés au montant signalé",
     valeur: (a) => a.nb_marches_suspects,
   },

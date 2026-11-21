@@ -31,9 +31,11 @@ test("top acheteurs et titulaires : exactement les colonnes du tableau de /march
   const montants = clesDuBloc(cellules, "export const COLONNES_MONTANT_TOP", "];");
   const acheteurs = clesDuBloc(tables, "export function TableTopAcheteurs", "export function TableTopTitulaires");
   const titulaires = clesDuBloc(tables, "export function TableTopTitulaires", "export function TableProcedures");
-  // Le tableau affiche nb_marches_suspects dans la cellule des montants signalés.
-  assert.deepEqual(cles(CSV_TOP_ACHETEURS), [...acheteurs, ...montants, "nb_marches_suspects"]);
-  assert.deepEqual(cles(CSV_TOP_TITULAIRES), [...titulaires, ...montants, "nb_marches_suspects"]);
+  // Le tableau affiche nb_marches_suspects dans la cellule des montants
+  // signalés. Les en-têtes publiés disent « signalé », jamais « suspect ».
+  const enTete = (cle) => cle.replace(/suspects/, "signales");
+  assert.deepEqual(cles(CSV_TOP_ACHETEURS), [...acheteurs, ...montants, "nb_marches_suspects"].map(enTete));
+  assert.deepEqual(cles(CSV_TOP_TITULAIRES), [...titulaires, ...montants, "nb_marches_suspects"].map(enTete));
   for (const def of [CSV_TOP_ACHETEURS, CSV_TOP_TITULAIRES]) {
     assert.ok(!cles(def).includes("montant_total"), "montant_total n'est pas affiché");
     assert.ok(!cles(def).includes("dans_sirene"), "dans_sirene n'est pas une colonne affichée");
@@ -56,7 +58,7 @@ test("top : montant signalé vide quand aucun marché n'est signalé, comme le t
   const texte = documentCsv(CSV_TOP_ACHETEURS.colonnes, [ligne]);
   assert.equal(
     texte,
-    "﻿rang;nom;siren;nb_etablissements;nb_marches;montant_hors_suspects;montant_suspects;nb_marches_suspects\r\n" +
+    "﻿rang;nom;siren;nb_etablissements;nb_marches;montant_hors_signales;montant_signales;nb_marches_signales\r\n" +
       "1;Acheteur;123456789;2;10;1500000,5;;0\r\n",
   );
 });
@@ -103,6 +105,8 @@ test("colonnes : clés uniques et décrites dans chaque export", () => {
       assert.match(c.cle, /^[a-z0-9_]+$/, `${e.fichier} ${c.cle}`);
       assert.ok(c.description.length > 0, `${e.fichier} ${c.cle}`);
       assert.doesNotMatch(c.description, /[—–;]|(?<![\w_])suspect/, `${e.fichier} ${c.cle}`);
+      // Ton (décision du 20/11) : aucun en-tête publié ne dit « suspect ».
+      assert.doesNotMatch(c.cle, /suspect/, `${e.fichier} ${c.cle}`);
     }
   }
 });

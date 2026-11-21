@@ -5,20 +5,17 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import { importer } from "./outils/charger.mjs";
+import { EXPORTS_CSV, cheminProvenance } from "../src/lib/exports-csv.ts";
 
 process.env.FRANCE_DB_PATH = path.join(os.tmpdir(), "ft-base-absente-inexistante", "france.db");
 
+// Chaque CSV et son fichier de provenance, d'après la liste publiée sur /donnees.
+const exportsCsv = EXPORTS_CSV.map((e) => e.fichier);
+assert.equal(exportsCsv.length, 9);
+
 for (const route of [
-  "api/meta.csv",
-  "api/alertes.csv",
-  "api/elus.csv",
-  "api/budget-mensuel.csv",
-  "api/marches-agregats-departements.csv",
-  "api/marches-agregats-mois.csv",
-  "api/lobbying-marches.csv",
-  "api/marches-top-acheteurs.csv",
-  "api/marches-top-titulaires.csv",
-  "api/elus.provenance.txt",
+  ...exportsCsv.map((f) => `api/${f}`),
+  ...exportsCsv.map((f) => cheminProvenance(f).replace(/^\//, "")),
   "flux/jo.xml",
   "flux/dossiers.xml",
   "flux/alertes.xml",
