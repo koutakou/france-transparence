@@ -12,6 +12,7 @@ Le test réseau (marque `reseau`) joue le pipeline complet contre hatvp.fr :
 `pytest -m reseau` pour l'exécuter, `-m "not reseau"` pour l'exclure.
 """
 
+import re
 from datetime import date
 from pathlib import Path
 
@@ -294,8 +295,10 @@ def test_idempotence_et_table_alertes_partagee(base, tmp_path):
     conn, donnees = base
     # une alerte d'un AUTRE pipeline doit survivre à nos passages
     conn.execute(
-        "INSERT INTO alertes VALUES ('a1_test:x', 'hatvp_retard', 'haute', 't', "
-        "'d', 'r', 'b', 'u', '2026-08-19T00:00:00+00:00')")
+        "INSERT INTO alertes (id, type, gravite, titre, detail, regle,"
+        " base_legale, source_url, date_calcul) VALUES ('a1_test:x',"
+        " 'hatvp_retard', 'haute', 't', 'd', 'r', 'b', 'u',"
+        " '2026-08-19T00:00:00+00:00')")
     conn.commit()
 
     ecrire_db(conn, donnees)  # second passage complet
@@ -320,6 +323,22 @@ def test_ecriture_tolere_la_colonne_date_fait_posee_par_un_autre_pipeline(base):
     lignes = conn.execute(
         "SELECT date_fait FROM alertes WHERE type IN (?, ?)", TYPES_ALERTES).fetchall()
     assert len(lignes) == 3 and all(l["date_fait"] is None for l in lignes)
+
+
+def test_date_detection_gardee_d_un_cycle_a_l_autre(base):
+    """La base persiste sur le serveur : un cycle suivant garde la date du
+    premier cycle qui a vu l'alerte (elle date l'entrée du flux Atom)."""
+    conn, donnees = base
+    jours = {r["date_detection"] for r in conn.execute(
+        "SELECT date_detection FROM alertes WHERE type IN (?, ?)", TYPES_ALERTES)}
+    assert len(jours) == 1 and re.fullmatch(r"\d{4}-\d{2}-\d{2}", jours.pop())
+    conn.execute("UPDATE alertes SET date_detection = '2020-01-02'"
+                 " WHERE id = 'lobbying_defaut_declaration:0'")
+    conn.commit()
+    ecrire_db(conn, donnees)
+    gardee = conn.execute("SELECT date_detection FROM alertes"
+                          " WHERE id = 'lobbying_defaut_declaration:0'").fetchone()
+    assert gardee["date_detection"] == "2020-01-02"
 
 
 # ---------------------------------------------------------------------------
