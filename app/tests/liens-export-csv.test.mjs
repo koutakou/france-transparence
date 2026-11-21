@@ -32,6 +32,7 @@ function usages() {
             page: chemin.slice(SRC.length + 1).split("\\").join("/"),
             ligne: s.slice(0, m.index).split("\n").length,
             constante: def?.[1] ?? null,
+            perimetre: /\bperimetre="[^"]+"/.test(m[1]),
           });
         }
       }
@@ -80,4 +81,15 @@ test("les tableaux principaux qui ont un export portent leur lien", () => {
     const surPage = vus.filter((u) => u.page === page).map((u) => u.constante);
     for (const c of constantes) assert.ok(surPage.includes(c), `${page} : lien ${c} absent`);
   }
+});
+
+// Ces exports ne reprennent pas exactement le tableau sous lequel ils sont
+// placés (autres colonnes, série plus longue, liste complète au lieu des
+// 20 premiers) : le lien doit le dire en clair.
+test("un CSV plus large que le tableau au-dessus dit son périmètre à l'écran", () => {
+  const larges = new Set(["CSV_ELUS", "CSV_BUDGET_MENSUEL", "CSV_LOBBYING_MARCHES"]);
+  const fautes = usages()
+    .filter((u) => larges.has(u.constante) && !u.perimetre)
+    .map((u) => `${u.page}:${u.ligne} : ${u.constante} sans perimetre`);
+  assert.deepEqual(fautes, []);
 });

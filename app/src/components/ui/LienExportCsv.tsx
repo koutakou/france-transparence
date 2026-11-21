@@ -7,12 +7,18 @@ import { cheminCsv, cheminProvenance, type DefinitionCsv } from "@/lib/exports-c
  * (sources amont, licence, date des données, sens des colonnes). Les deux
  * chemins viennent de la définition de l'export : le lien ne peut pas
  * pointer ailleurs que vers la route statique qui publie ce fichier.
+ *
+ * `perimetre` est OBLIGATOIRE dès que le fichier ne reprend pas exactement
+ * le tableau au-dessus (série plus longue, autres colonnes, autre
+ * population) : il est alors dit en clair, à côté du lien.
  */
 export function LienExportCsv({
   definition,
+  perimetre,
   className,
 }: {
   definition: Pick<DefinitionCsv<unknown>, "fichier" | "titre">;
+  perimetre?: string;
   className?: string;
 }) {
   const lien =
@@ -23,6 +29,7 @@ export function LienExportCsv({
         Télécharger (CSV)
         <span className="sr-only">, {definition.titre}</span>
       </a>
+      {perimetre ? <span>Le fichier contient {perimetre}.</span> : null}
       <a href={urlSite(cheminProvenance(definition.fichier))} className={lien}>
         Provenance du fichier
         <span className="sr-only"> CSV, {definition.titre}</span>

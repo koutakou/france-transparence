@@ -412,14 +412,18 @@ function SectionCroisement({
           </div>
 
           <TitulairesLobbyistes horsAccordsCadres={topHorsAc} tousMarches={topTous} />
-          <LienExportCsv definition={CSV_LOBBYING_MARCHES} />
+          <LienExportCsv
+            definition={CSV_LOBBYING_MARCHES}
+            perimetre="tous les représentants d'intérêts titulaires d'au moins un marché, pas seulement les 20 premiers"
+          />
 
           <p className="text-xs leading-relaxed text-ink-muted">
             Classement des 20 premiers sur {formatNombre(titulaires.length)}{" "}
             représentants d&apos;intérêts titulaires d&apos;au moins un marché.
             Les marchés portent sur les 24 mois DECP (notification initiale),
             pas sur le classement 12 mois de la page Marchés. La liste
-            complète, les agrégats et la méthode sont exportés dans{" "}
+            complète est dans le CSV ci-dessus, et avec les agrégats et la
+            méthode dans{" "}
             <code className="rounded bg-raised px-1 py-0.5">
               /api/lobbying-marches.json
             </code>
