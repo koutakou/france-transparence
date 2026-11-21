@@ -59,10 +59,11 @@ from __future__ import annotations
 import json
 import logging
 import sys
+import time
 from datetime import date, timedelta
 from urllib.parse import quote, urlencode
 
-from pipelines import db
+from pipelines import common, db
 from pipelines.archive_fenetre import archiver_sortie_fenetre
 from pipelines.common import assainir_texte_integral, obtenir_logger, telecharger
 
@@ -627,9 +628,25 @@ def _exporter(where: str, select: str, dest: str) -> list[dict]:
     url = EXPORT_URL + "?" + urlencode(
         {"where": where, "select": select}, quote_via=quote
     )
-    chemin = telecharger(url, dest, max_age_heures=None)
-    with open(chemin, encoding="utf-8") as f:
-        donnees = json.load(f)
+    # L'export ODS peut finir sans erreur de transport sur un JSON mal formé
+    # au milieu du flux : relevé en CI le 21/11/2026, `Expecting ',' delimiter`
+    # au caractère 6 692 357, et le cycle entier tombait sur cette seule source.
+    # Un export illisible est retéléchargé (mêmes pauses que les reprises de
+    # `telecharger`), puis l'erreur remonte.
+    pauses = list(common.PAUSES_REPRISE_S)
+    while True:
+        chemin = telecharger(url, dest, max_age_heures=None)
+        try:
+            with open(chemin, encoding="utf-8") as f:
+                donnees = json.load(f)
+            break
+        except json.JSONDecodeError as erreur:
+            if not pauses:
+                raise
+            pause = pauses.pop(0)
+            log.warning("export BOAMP illisible (%s), nouveau téléchargement dans %d s : %s",
+                        erreur, pause, dest)
+            time.sleep(pause)
     if not isinstance(donnees, list):
         raise RuntimeError(f"export BOAMP inattendu (pas une liste JSON) : {dest}")
     return donnees
