@@ -4,8 +4,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   FLUX,
+  TYPES_ALERTES_FLUX,
   dateAlerte,
   dateAtom,
+  debutPeriode,
   documentAtom,
   echapperXml,
   entreesAlertes,
@@ -145,22 +147,32 @@ test("flux JO : titre et lien Légifrance, date du numéro", () => {
   verifierAtom(documentAtom({ ...baseFlux, entrees }));
 });
 
-test("flux dossiers : numéro de dossier, date de mise à jour sinon date des données, 100 au plus", () => {
-  const ligne = (i, date) => ({
+test("flux dossiers : numéro de dossier, date de mise à jour sinon de création, 100 au plus", () => {
+  const ligne = (i, date, creation = null) => ({
     dossier_id: `JORFDOLE${i}`,
     titre: `Proposition de loi ${i}`,
     type: "PROPOSITION_LOI",
     date_modif: date,
+    date_creation: creation,
     derniere_etape: "Adoption",
     lien_legifrance: `https://www.vie-publique.fr/dossierlegislatif/JORFDOLE${i}`,
   });
-  const entrees = entreesDossiers([ligne(1, "2026-11-20"), ligne(2, null)], "2026-11-21");
+  const entrees = entreesDossiers([
+    ligne(1, "2026-11-20", "2025-01-02"),
+    ligne(2, null, "2025-03-04"),
+    ligne(3, null, null),
+  ]);
   assert.equal(entrees[0].id, "tag:francetransparence.fr,2026:dossier/JORFDOLE1");
   assert.equal(entrees[0].maj, "2026-11-20T00:00:00Z");
-  assert.equal(entrees[1].maj, "2026-11-21T00:00:00Z");
+  // Sans mise à jour : la création du dossier, jamais la date des données.
+  assert.equal(entrees[1].maj, "2025-03-04T00:00:00Z");
+  assert.equal(entrees.length, 2, "un dossier sans aucune date est écarté");
+  assert.ok(!entrees.some((e) => e.id.endsWith("JORFDOLE3")));
   assert.ok(!("lienRelie" in entrees[0]));
-  const beaucoup = Array.from({ length: 150 }, (_, i) => ligne(i, "2026-11-01"));
-  assert.equal(entreesDossiers(beaucoup, "2026-11-21").length, 100);
+  const beaucoup = Array.from({ length: 150 }, (_, i) => ligne(i, i < 10 ? null : "2026-11-01"));
+  const cent = entreesDossiers(beaucoup);
+  assert.equal(cent.length, 100, "100 entrées datées, les dossiers écartés ne comptent pas");
+  assert.equal(cent[0].id, "tag:francetransparence.fr,2026:dossier/JORFDOLE10");
   verifierAtom(documentAtom({ ...baseFlux, entrees }));
 });
 
@@ -178,36 +190,58 @@ const alerte = (sur) => ({
   ...sur,
 });
 
-test("alertes : date du fait, sinon date des données de la source, sinon calcul", () => {
-  const dates = { S14: "2026-11-14", S4: "2026-11-20", S25: "2026-02-10" };
-  assert.equal(dateAlerte(alerte({}), dates), "2026-11-12T00:00:00Z");
+test("alertes : seule une date du fait stable, jamais la date d'une source ni du calcul", () => {
+  assert.deepEqual(TYPES_ALERTES_FLUX, ["financement_parti_dependance_aide"]);
+  // Dépendance à l'aide publique : clôture de l'exercice lu dans l'identifiant.
   assert.equal(
-    dateAlerte(alerte({ type: "lobbying_defaut_declaration", date_fait: null }), dates),
-    "2026-11-20T00:00:00Z",
+    dateAlerte(alerte({ id: "FIN-PARTI-DEP-2024-PARTI-1378", type: "financement_parti_dependance_aide", date_fait: null })),
+    "2024-12-31T00:00:00Z",
   );
   assert.equal(
-    dateAlerte(alerte({ type: "financement_parti_prive_aide", date_fait: null }), dates),
-    "2026-02-10T00:00:00Z",
+    dateAlerte(alerte({ id: "FIN-PARTI-DEP-x", type: "financement_parti_dependance_aide", date_fait: null })),
+    null,
+    "identifiant sans exercice : pas de date inventée",
   );
-  assert.equal(
-    dateAlerte(alerte({ type: "autre_type", date_fait: null }), dates),
-    "2026-11-21T04:24:29+00:00",
-  );
+  // A1 : date_fait = date du fichier liste.csv, qui change à chaque fichier.
+  assert.equal(dateAlerte(alerte({})), null);
+  assert.equal(dateAlerte(alerte({ type: "A1_hatvp_en_cours_delai_ecoule", id: "A1-EC-commune" })), null);
+  for (const type of [
+    "lobbying_defaut_declaration",
+    "lobbying_declaration_incomplete",
+    "financement_parti_prive_aide",
+    "autre_type",
+  ]) {
+    assert.equal(dateAlerte(alerte({ type, date_fait: null })), null, type);
+  }
 });
 
-test("alertes : titre et liens seulement, lien de page si la source manque", () => {
+test("alertes : une alerte datée du fait, les autres hors du flux, titre et liens seulement", () => {
   const page = "https://francetransparence.fr/alertes/";
+  const dep = (id, source_url) =>
+    alerte({
+      id,
+      type: "financement_parti_dependance_aide",
+      gravite: "info",
+      titre: "Parti financé à 80 % par l'aide publique",
+      source_url,
+      date_fait: null,
+    });
   const entrees = entreesAlertes(
-    [alerte({}), alerte({ id: "lob-1", type: "lobbying_defaut_declaration", source_url: null, date_fait: null })],
-    { S4: "2026-11-20" },
+    [
+      alerte({}),
+      alerte({ id: "lob-1", type: "lobbying_defaut_declaration", source_url: null, date_fait: null }),
+      dep("FIN-PARTI-DEP-2024-P1", "https://www.data.gouv.fr/partis"),
+      dep("FIN-PARTI-DEP-2024-P2", null),
+    ],
     page,
   );
+  assert.equal(entrees.length, 2, "ni A1 ni lobbying dans le flux");
   assert.deepEqual(entrees[0], {
-    id: "tag:francetransparence.fr,2026:alerte/A1-ND-x",
-    titre: "Déclaration non déposée (constat officiel HATVP)",
-    lien: "https://www.hatvp.fr/pages_nominatives/x",
+    id: "tag:francetransparence.fr,2026:alerte/FIN-PARTI-DEP-2024-P1",
+    titre: "Parti financé à 80 % par l'aide publique",
+    lien: "https://www.data.gouv.fr/partis",
     lienRelie: page,
-    maj: "2026-11-12T00:00:00Z",
+    maj: "2024-12-31T00:00:00Z",
   });
   assert.equal(entrees[1].lien, page);
   assert.ok(!("lienRelie" in entrees[1]), "pas deux fois le même lien");
@@ -222,20 +256,38 @@ test("sources : une entrée par source et date des données, plus récente d'abo
     [
       { source_id: "S13", nom: "DGFiP", url: "https://data.economie.gouv.fr/s13", date_donnees: "2026-09-30" },
       { source_id: "S3", nom: "DILA JORF", url: "https://echanges.dila.gouv.fr/", date_donnees: "2026-11-21" },
-      { source_id: "S99", nom: "Date illisible", url: "https://x", date_donnees: "inconnue" },
+      { source_id: "S41", nom: "Mensuelle", url: "https://x/m", date_donnees: "2026-10" },
+      { source_id: "S42", nom: "Annuelle", url: "https://x/a", date_donnees: "2025" },
     ],
     "https://francetransparence.fr/donnees/",
   );
   assert.deepEqual(
-    entrees.map((e) => e.id),
+    entrees.map((e) => [e.id, e.maj]),
     [
-      "tag:francetransparence.fr,2026:source/S3/2026-11-21",
-      "tag:francetransparence.fr,2026:source/S13/2026-09-30",
+      ["tag:francetransparence.fr,2026:source/S3/2026-11-21", "2026-11-21T00:00:00Z"],
+      ["tag:francetransparence.fr,2026:source/S41/2026-10", "2026-10-01T00:00:00Z"],
+      ["tag:francetransparence.fr,2026:source/S13/2026-09-30", "2026-09-30T00:00:00Z"],
+      ["tag:francetransparence.fr,2026:source/S42/2025", "2025-01-01T00:00:00Z"],
     ],
   );
   assert.equal(entrees[0].titre, "DILA JORF : données du 2026-11-21");
+  assert.equal(entrees[1].titre, "Mensuelle : données du 2026-10");
   assert.equal(entrees[0].lien, "https://echanges.dila.gouv.fr/");
   verifierAtom(documentAtom({ ...baseFlux, entrees }));
+});
+
+test("sources : une date des données illisible fait échouer le build, jamais sautée", () => {
+  assert.equal(debutPeriode("2026-11"), "2026-11-01");
+  assert.equal(debutPeriode("2026"), "2026-01-01");
+  assert.equal(debutPeriode("2026-11-21"), "2026-11-21");
+  assert.throws(
+    () =>
+      entreesSources(
+        [{ source_id: "S99", nom: "Date illisible", url: "https://x", date_donnees: "inconnue" }],
+        "https://francetransparence.fr/donnees/",
+      ),
+    /S99.*inconnue/,
+  );
 });
 
 test("updated du flux = entrée la plus récente, jamais l'heure du build", () => {

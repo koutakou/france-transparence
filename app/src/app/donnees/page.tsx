@@ -688,7 +688,13 @@ export default async function PageDonnees() {
       >
         <p className="mb-4 max-w-3xl text-[13px] leading-relaxed text-ink-secondary">
           Chaque entrée porte le titre et le lien officiels de la donnée, sans
-          commentaire, et la date du fait ou de la donnée. Son identifiant est
+          commentaire, et une date qui ne change pas d’une mise à jour à
+          l’autre&nbsp;: publication au Journal officiel, dernière
+          modification du dossier (à défaut sa création), clôture de
+          l’exercice des comptes pour une alerte, date des données pour une
+          source (le premier jour de la période quand la source la donne au
+          mois). Une entrée sans date de ce type n’est pas publiée, d’où un
+          flux des alertes limité aux comptes des partis. Son identifiant est
           celui de la source (NOR, numéro de dossier, identifiant d’alerte, code
           de la source et date des données)&nbsp;: une entrée déjà lue ne
           revient pas.
