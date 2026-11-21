@@ -1846,7 +1846,7 @@ def test_url_fiche_ecrite_par_ecrire(tmp_path, dossiers):
     hatvp_declarations est la clé de jointure aux déclarations d'une fiche
     d'élu (`url_fiche IN (hatvp_url)`). Elle garde l'URL brute, même pour un
     chemin mal formé : la filtrer coupait ces déclarations de la fiche de leur
-    élu (14 déclarations, 4 fiches, base du 21/11/2026). L'URL de la liste,
+    élu (13 déclarations, 4 fiches, base du 21/11/2026). L'URL de la liste,
     commune à tous, n'y est jamais écrite : elle rattacherait à un élu les
     déclarations d'autres personnes."""
     bien = _dossier(nom="GÂTÉ", prenom="Sylvie", type_document="dia",
