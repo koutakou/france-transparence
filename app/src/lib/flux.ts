@@ -7,11 +7,14 @@
  * - une entrée = un titre et un lien officiels, plus pour les alertes le lien
  *   vers la page qui donne la règle. Aucun commentaire ajouté ;
  * - un flux ne montre jamais plus que la page qui lui correspond : les
- *   alertes sont celles de /alertes (types retirés exclus par la requête,
- *   réformations et rejets de comptes de campagne absents, agrégats HATVP non
- *   nominatifs), les dossiers ceux de la navette de /documents/dossiers ;
- * - la date d'une entrée est celle du fait ou de la donnée. `updated` du flux
- *   est la plus récente de ses entrées, jamais l'heure du build ;
+ *   alertes sont prises dans celles de /alertes (types retirés exclus par la
+ *   requête, comptes de campagne absents), les dossiers dans la navette de
+ *   /documents/dossiers ;
+ * - la date d'une entrée est celle du fait ou de la donnée, et ne change pas
+ *   d'une ingestion à l'autre. Jamais la date des données d'une source pour
+ *   dater un fait, jamais l'instant d'un calcul : une entrée sans date stable
+ *   est absente du flux. `updated` du flux est la plus récente de ses
+ *   entrées, jamais l'heure du build ;
  * - identifiants d'entrée : URI `tag:` (RFC 4151) sur une autorité et une
  *   date FIXES, suivies de l'identifiant officiel (NOR, numéro de dossier, id
  *   d'alerte, code source et date). Ils ne dépendent ni de l'adresse de
@@ -38,9 +41,10 @@ export const FLUX = [
   },
   {
     chemin: "/flux/alertes.xml",
-    titre: "France Transparence : alertes",
+    titre: "France Transparence : alertes sur les comptes des partis",
     page: "/alertes/",
-    description: "Les alertes de la page Alertes, chacune avec le lien de la donnée officielle et celui de sa règle.",
+    description:
+      "Seulement les alertes de la page Alertes qui ont une date du fait fixe : la dépendance d'un parti à l'aide publique, datée de la clôture de l'exercice des comptes (31 décembre). Les alertes HATVP, lobbying et documentaires n'y sont pas, faute d'une date du fait qui ne change pas à chaque fichier publié. Chaque entrée renvoie à la donnée officielle et à la page de la règle.",
   },
   {
     chemin: "/flux/sources.xml",
@@ -86,13 +90,19 @@ export function entreesJo(textes: TexteJoFlux[]): EntreeAtom[] {
   return entrees;
 }
 
-export function entreesDossiers(
-  navette: DoleNavetteLigne[],
-  dateDonnees: string,
-): EntreeAtom[] {
+/** Ligne de la navette, avec la date de création du dossier lue pour le flux. */
+export type DossierFlux = DoleNavetteLigne & { date_creation: string | null };
+
+/**
+ * Date d'un dossier : sa dernière mise à jour, sinon sa création. Jamais la
+ * date des données de la source, qui change à chaque édition : un dossier
+ * sans aucune de ces deux dates est écarté du flux.
+ */
+export function entreesDossiers(navette: DossierFlux[]): EntreeAtom[] {
   const entrees: EntreeAtom[] = [];
-  for (const d of navette.slice(0, NB_DOSSIERS_FLUX)) {
-    const maj = dateAtom(d.date_modif) ?? dateAtom(dateDonnees);
+  for (const d of navette) {
+    if (entrees.length >= NB_DOSSIERS_FLUX) break;
+    const maj = dateAtom(d.date_modif) ?? dateAtom(d.date_creation);
     if (!maj) continue;
     entrees.push({ id: idTag("dossier", d.dossier_id), titre: d.titre, lien: d.lien_legifrance, maj });
   }
@@ -100,40 +110,43 @@ export function entreesDossiers(
 }
 
 /**
- * Source dont dérive un type d'alerte, d'après le préfixe du type : sa date
- * des données date l'alerte quand la source ne donne pas la date du fait.
+ * Types d'alerte publiés dans le flux, chacun avec la date de son fait, qui
+ * ne change pas d'une ingestion à l'autre. Les autres types n'y sont pas :
+ * - A1 (HATVP) : leur `date_fait` est la date du fichier liste.csv lu, qui
+ *   change à chaque fichier publié ;
+ * - lobbying (S4) : le pipeline n'écrit aucune date du fait ;
+ * - partis privés d'aide (S25) : mention documentaire sur un avis publié en
+ *   PDF, pas un fait daté.
+ * Une dépendance à l'aide publique porte sur les comptes d'un exercice
+ * (identifiant `FIN-PARTI-DEP-<exercice>-<parti>`, écrit par
+ * pipelines/ingest_financement.py) : elle est datée de la clôture de cet
+ * exercice, le 31 décembre. Un nouvel exercice donne un nouvel identifiant,
+ * donc une nouvelle entrée.
  */
-export function sourceDomaineAlerte(type: string): string | null {
-  if (type.startsWith("A1_")) return "S14";
-  if (type.startsWith("lobbying_")) return "S4";
-  if (type.startsWith("financement_")) return "S25";
-  return null;
-}
+const DATE_FAIT_STABLE: Record<string, (a: Pick<Alerte, "id">) => string | null> = {
+  financement_parti_dependance_aide: (a) => {
+    const m = a.id.match(/^FIN-PARTI-DEP-(\d{4})-/);
+    return m ? `${m[1]}-12-31` : null;
+  },
+};
+
+export const TYPES_ALERTES_FLUX = Object.keys(DATE_FAIT_STABLE);
 
 /**
- * Date d'une alerte : la date du fait selon la source, sinon la date des
- * données de sa source, sinon l'instant de son calcul.
+ * Date d'une alerte dans le flux : la date stable de son fait, `null` si son
+ * type n'en a pas (l'alerte est alors absente du flux). Jamais la date des
+ * données d'une source ni l'instant du calcul, qui feraient remonter
+ * l'entrée dans les lecteurs à chaque ingestion.
  */
-export function dateAlerte(
-  a: Pick<Alerte, "type" | "date_fait" | "date_calcul">,
-  datesSources: Record<string, string>,
-): string | null {
-  const source = sourceDomaineAlerte(a.type);
-  return (
-    dateAtom(a.date_fait) ??
-    (source ? dateAtom(datesSources[source]) : null) ??
-    dateAtom(a.date_calcul)
-  );
+export function dateAlerte(a: Pick<Alerte, "id" | "type">): string | null {
+  const dater = DATE_FAIT_STABLE[a.type];
+  return dater ? dateAtom(dater(a)) : null;
 }
 
-export function entreesAlertes(
-  alertes: Alerte[],
-  datesSources: Record<string, string>,
-  pageAlertes: string,
-): EntreeAtom[] {
+export function entreesAlertes(alertes: Alerte[], pageAlertes: string): EntreeAtom[] {
   const entrees: EntreeAtom[] = [];
   for (const a of alertes) {
-    const maj = dateAlerte(a, datesSources);
+    const maj = dateAlerte(a);
     if (!maj) continue;
     entrees.push({
       id: idTag("alerte", a.id),
@@ -149,7 +162,9 @@ export function entreesAlertes(
 
 /**
  * Une entrée par source et par date des données : quand une source reçoit
- * une édition plus récente, une nouvelle entrée apparaît.
+ * une édition plus récente, une nouvelle entrée apparaît. Une date publiée
+ * au mois ou à l'année est datée du premier jour de la période. Une date
+ * illisible fait échouer le build : aucune source n'est sautée en silence.
  */
 export function entreesSources(
   sources: Pick<MetaSource, "source_id" | "nom" | "url" | "date_donnees">[],
@@ -157,8 +172,13 @@ export function entreesSources(
 ): EntreeAtom[] {
   const entrees: EntreeAtom[] = [];
   for (const s of sources) {
-    const maj = dateAtom(s.date_donnees);
-    if (!maj) continue;
+    const maj = dateAtom(debutPeriode(s.date_donnees));
+    if (!maj) {
+      // Jamais une source sautée sans le dire : le build échoue.
+      throw new Error(
+        `Flux sources : date des données illisible pour ${s.source_id} (« ${s.date_donnees} »), attendu AAAA, AAAA-MM ou AAAA-MM-JJ.`,
+      );
+    }
     entrees.push({
       id: idTag("source", `${s.source_id}/${s.date_donnees}`),
       titre: `${s.nom} : données du ${s.date_donnees}`,
@@ -194,6 +214,18 @@ export function echapperXml(s: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
+}
+
+/**
+ * Date des données publiée à la granularité d'une période : `AAAA-MM`
+ * devient le premier jour du mois, `AAAA` le 1er janvier. Les autres
+ * valeurs sont rendues telles quelles.
+ */
+export function debutPeriode(valeur: string): string {
+  const v = valeur.trim();
+  if (/^\d{4}-\d{2}$/.test(v)) return `${v}-01`;
+  if (/^\d{4}$/.test(v)) return `${v}-01-01`;
+  return v;
 }
 
 /**

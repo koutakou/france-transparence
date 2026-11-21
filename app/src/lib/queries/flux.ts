@@ -1,11 +1,26 @@
 /**
  * Requêtes propres aux flux Atom (/flux/*.xml). Les autres flux réutilisent
- * les requêtes de leur page (alertes, dossiers, catalogue des sources).
+ * les requêtes de leur page (alertes, dossiers, catalogue des sources), le
+ * flux des dossiers y ajoute leur date de création.
  *
  * Toutes les requêtes renvoient `null` si la base n'existe pas encore.
  */
 import { getDb } from "@/lib/db";
 import type { TexteJoFlux } from "@/lib/flux";
+
+/**
+ * Date de création des dossiers législatifs (source S43), par numéro de
+ * dossier : elle date l'entrée du flux quand le dossier n'a pas de date de
+ * mise à jour. Les dossiers sans date de création n'y figurent pas.
+ */
+export function getDatesCreationDossiers(): Map<string, string> | null {
+  const db = getDb();
+  if (!db) return null;
+  const lignes = db
+    .prepare("SELECT dossier_id, date_creation FROM dole_dossiers WHERE date_creation IS NOT NULL")
+    .all() as { dossier_id: string; date_creation: string }[];
+  return new Map(lignes.map((l) => [l.dossier_id, l.date_creation]));
+}
 
 /**
  * Textes des `nbNumeros` derniers numéros du JO en base (source S3), dans
