@@ -51,7 +51,7 @@ export function SyntheseFraicheurLecture({
             >
               <span className="text-ink">{source.nom}</span>{" "}
               <span className="text-[11px] text-ink-muted">({source.source_id})</span>{" "}
-              — données au {formatDateFr(source.date_donnees)} ;{" "}
+              : données au {formatDateFr(source.date_donnees)},{" "}
               {constatAttente(fraicheur)} ({libelleAge(fraicheur)}).
             </li>
           ))}

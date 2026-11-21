@@ -58,7 +58,7 @@ export function FreshnessBadge({
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      title={`${libelle} — ${url}`}
+      title={`${libelle} · ${url}`}
       className={`inline-flex min-h-11 min-w-0 max-w-full items-center gap-1.5 rounded-lg border border-card-border bg-card px-2.5 py-1.5 text-[11px] leading-snug text-ink-muted transition-colors hover:border-raised-border hover:text-ink-secondary ${className ?? ""}`}
     >
       <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" className="shrink-0">
