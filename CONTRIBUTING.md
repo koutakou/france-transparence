@@ -29,8 +29,8 @@ trompe » et « le site déplaît ».
 
 Pourquoi une issue et pas une correction directe : **aucune donnée ne vit dans
 ce dépôt**. La base `data/france.db` est gitignorée et entièrement reconstruite
-par `make ingest` depuis les sources amont ; le site public est rebâti chaque
-matin sur cette base neuve. Modifier un chiffre « à la main » est donc
+par `make ingest` depuis les sources amont, et le site public est rebâti
+chaque nuit après une nouvelle ingestion. Modifier un chiffre « à la main » est donc
 matériellement impossible — et ce serait contraire au principe du projet :
 aucun chiffre fabriqué, même pour corriger.
 
@@ -55,11 +55,11 @@ du site.
 
 ## 2. Installer et vérifier
 
-Prérequis : `python3.14`, Node.js ≥ 24, `make` (voir le
+Prérequis : Python 3.14, Node.js 24 ou plus, `make` (voir le
 [README](README.md), qui fait foi pour le démarrage rapide).
 
 ```bash
-make venv         # crée .venv et installe requests, duckdb, pytest
+make venv         # crée .venv avec les versions figées de requirements.txt
 make test         # suite pytest complète
 make ingest       # reconstruit data/france.db depuis les sources amont
 make app-install  # npm install dans app/
@@ -76,8 +76,7 @@ Précisions utiles à un contributeur :
   du fichier de test — et sur des bases temporaires jetables. Les tests
   d'intégration qui téléchargent réellement les sources portent le marqueur
   `reseau` — pour itérer vite : `.venv/bin/pytest pipelines/tests -m 'not reseau'`.
-- **`make ingest` télécharge beaucoup** (les volumes et durées indicatifs
-  sont dans le README) et met les bruts en cache dans `data/raw/` : la
+- **`make ingest` télécharge beaucoup** et met les bruts en cache dans `data/raw/` : la
   commande est rejouable à volonté. Pour ne rejouer qu'un pipeline :
   `make ingest-<source>`, la liste des `<source>` valides étant la variable
   `PIPELINES` du `Makefile` — c'est elle qui fait autorité, pas la
@@ -126,10 +125,10 @@ solide que ce qu'il prétend.
    absent reste NULL en base, et l'interface dit « non publié » ou « non
    disponible ».
 2. **Aucune source portant une clause de partage à l'identique n'est ingérée**
-   (ODbL, CC BY-SA…). Les agrégats du site sont réutilisables sous la
-   promesse de la Licence Ouverte 2.0 ; mêler dans la même base une source
-   share-alike contaminerait cette promesse pour tout le monde. Une telle
-   source peut être **citée et liée**, jamais ingérée.
+   (ODbL, CC BY-SA…). Chaque source garde la licence de son producteur,
+   affichée sur `/donnees` ([LICENSES.md](LICENSES.md)). Mêler dans la même
+   base une source share-alike imposerait sa clause à tout ce qui en dérive.
+   Une telle source peut être **citée et liée**, jamais ingérée.
 3. **Aucun superlatif, aucune affirmation d'inexistence ou d'antériorité**
    (« le plus gros contrat », « jamais publié ailleurs », « premier site
    à… ») : invérifiables par construction, ces phrases engagent le site sur
