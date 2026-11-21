@@ -71,7 +71,7 @@ import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 const CHEMIN = "/depenses/";
 const TITRE = "Dépenses de l'État";
 const DESCRIPTION =
-  "Exécution budgétaire mensuelle de l'État (DGFiP), crédits du PLF 2026 par mission, crédits du PLF 2025 par ministère et subventions aux associations — données publiques réelles.";
+  "Exécution budgétaire mensuelle de l'État (DGFiP), crédits du PLF 2026 par mission, crédits du PLF 2025 par ministère et subventions aux associations. Données publiques réelles.";
 
 export const metadata: Metadata = metadonneesPage({
   chemin: CHEMIN,
@@ -145,7 +145,7 @@ export default async function PageDepenses() {
           Dépenses de l&apos;État
         </h1>
         <div className="max-w-2xl rounded-xl border border-card-border bg-card p-5 text-sm text-ink-muted">
-          La base locale n&apos;est pas encore construite — lancer{" "}
+          La base locale n&apos;est pas encore construite. Lancer{" "}
           <code className="rounded bg-raised px-1.5 py-0.5">make ingest</code>{" "}
           pour ingérer les sources budgétaires.
         </div>
@@ -220,7 +220,7 @@ export default async function PageDepenses() {
           </h1>
           <p className="mt-2 text-sm text-ink-secondary">
             Cumuls depuis le 1er janvier, budget général, comparés à la même
-            période N−1 — dernière situation DGFiP&nbsp;:{" "}
+            période N−1. Dernière situation DGFiP&nbsp;:{" "}
             {formatDateFr(kpis.dateFinMois)} (cinq à sept semaines de latence).
           </p>
         </div>
@@ -228,7 +228,7 @@ export default async function PageDepenses() {
           <FreshnessBadge
             dateDonnees={sources.S13.date_donnees}
             sourceId={sources.S13.source_id}
-            source="DGFiP — situations mensuelles"
+            source="DGFiP : situations mensuelles"
             frequence={sources.S13.frequence}
             url={sources.S13.url}
             mention={mentionProvisoire}
@@ -244,7 +244,7 @@ export default async function PageDepenses() {
             valeur: <MontantMd valeur={kpis.depensesNettes} />,
             montantVedette: true,
             perimetre: kpis.ruptureDepenses
-              ? `${PERIMETRE_BG} — ${bornePerimetreRompu(kpis.ruptureDepenses)}`
+              ? `${PERIMETRE_BG}, ${bornePerimetreRompu(kpis.ruptureDepenses)}`
               : PERIMETRE_BG,
             delta: deltaDepenses === null ? undefined : { valeur: deltaDepenses, vs: vsN1 },
           },
@@ -255,7 +255,7 @@ export default async function PageDepenses() {
                   label: `Recettes nettes cumulées au ${formatDateFr(kpis.dateFinMois)}`,
                   valeur: <MontantMd valeur={kpis.recettesNettes} />,
                   perimetre: kpis.ruptureRecettes
-                    ? `${PERIMETRE_BG} — ${bornePerimetreRompu(kpis.ruptureRecettes)}`
+                    ? `${PERIMETRE_BG}, ${bornePerimetreRompu(kpis.ruptureRecettes)}`
                     : PERIMETRE_BG,
                   delta: deltaRecettes === null ? undefined : { valeur: deltaRecettes, vs: vsN1 },
                 },
@@ -277,7 +277,7 @@ export default async function PageDepenses() {
                   // + fonds de concours 3,14 Md€ = le solde servi. Le solde n'est
                   // donc pas borné au budget général : la borne le dit.
                   perimetre:
-                    "solde budgétaire de l’État, cumul depuis le 1er janvier — au-delà du budget général : prélèvements sur recettes, solde des comptes spéciaux et fonds de concours compris",
+                    "solde budgétaire de l’État, cumul depuis le 1er janvier, au-delà du budget général : prélèvements sur recettes, solde des comptes spéciaux et fonds de concours compris",
                   delta: deltaSolde === null ? undefined : { valeur: deltaSolde, vs: vsN1 },
                 },
               ]),
@@ -290,13 +290,13 @@ export default async function PageDepenses() {
       {serie && serie.annees.length > 0 && (
         <Card
           titre="Dépenses nettes cumulées par mois"
-          sousTitre="Budget général — cumul depuis le 1er janvier, en Md€"
+          sousTitre="Budget général, cumul depuis le 1er janvier, en Md€"
           droite={
             sources.S13 && (
               <FreshnessBadge
                 dateDonnees={sources.S13.date_donnees}
                 sourceId={sources.S13.source_id}
-                source="DGFiP — situations mensuelles"
+                source="DGFiP : situations mensuelles"
                 frequence={sources.S13.frequence}
                 url={sources.S13.url}
                 mention={mentionProvisoire}
@@ -331,13 +331,13 @@ export default async function PageDepenses() {
       {parTitre && (
         <Card
           titre="Décomposition par titre"
-          sousTitre={`Dépenses nettes du budget général au ${formatDateFr(parTitre.dateFinMois)} — cumul depuis le 1er janvier`}
+          sousTitre={`Dépenses nettes du budget général au ${formatDateFr(parTitre.dateFinMois)}, cumul depuis le 1er janvier`}
           droite={
             sources.S13 && (
               <FreshnessBadge
                 dateDonnees={sources.S13.date_donnees}
                 sourceId={sources.S13.source_id}
-                source="DGFiP — situations mensuelles"
+                source="DGFiP : situations mensuelles"
                 frequence={sources.S13.frequence}
                 url={sources.S13.url}
                 mention={mentionProvisoire}
@@ -427,10 +427,10 @@ export default async function PageDepenses() {
               <FreshnessBadge
                 dateDonnees={sources.S20.date_donnees}
                 sourceId={sources.S20.source_id}
-                source="Budget vert — PLF 2026"
+                source="Budget vert : PLF 2026"
                 frequence={sources.S20.frequence}
                 url={sources.S20.url}
-                mention="PLF 2026 — la LFI 2026 n'est pas publiée en données"
+                mention="PLF 2026 : la LFI 2026 n'est pas publiée en données"
               />
             )
           }
@@ -440,7 +440,7 @@ export default async function PageDepenses() {
               nu
               label="Crédits de paiement du PLF 2026"
               valeur={<MontantMd valeur={missions.totalPlf2026Cp} decimales={1} />}
-              perimetre="PLF 2026 — projet, pas la LFI ; crédits budgétaires seuls, hors dépenses fiscales"
+              perimetre="PLF 2026, projet, pas la LFI. Crédits budgétaires seuls, hors dépenses fiscales"
             />
           </div>
           <p className="mb-4 text-sm text-ink-secondary">
@@ -477,16 +477,16 @@ export default async function PageDepenses() {
       {ministeres && (
         <Card
           titre="Crédits 2025 par ministère (destination)"
-          sousTitre={`${ministeres.etiquette} · Crédits de paiement bruts — non comparables aux dépenses nettes du budget général (exécution DGFiP)`}
+          sousTitre={`${ministeres.etiquette} · Crédits de paiement bruts, non comparables aux dépenses nettes du budget général (exécution DGFiP)`}
           droite={
             sources.S21 && (
               <FreshnessBadge
                 dateDonnees={sources.S21.date_donnees}
                 sourceId={sources.S21.source_id}
-                source="PLF 2025 — destination"
+                source="PLF 2025 : destination"
                 frequence={sources.S21.frequence}
                 url={sources.S21.url}
-                mention="PLF 2025 — projet"
+                mention="PLF 2025, projet"
               />
             )
           }
@@ -496,7 +496,7 @@ export default async function PageDepenses() {
               nu
               label="Crédits de paiement 2025 (bruts, tous budgets)"
               valeur={<MontantMd valeur={ministeres.totalCp} decimales={1} />}
-              perimetre="PLF 2025 — projet, pas la LFI ni l’exécution ; CP bruts, non comparables aux dépenses nettes"
+              perimetre="PLF 2025, projet, pas la LFI ni l’exécution. CP bruts, non comparables aux dépenses nettes"
             />
           </div>
           <DataTable
@@ -519,8 +519,8 @@ export default async function PageDepenses() {
           />
           <p className="mt-3 text-xs text-ink-muted">
             «&nbsp;Tous budgets&nbsp;» inclut budgets annexes et comptes
-            spéciaux (pensions, avances…), d&apos;où des totaux supérieurs au
-            seul budget général — total général&nbsp;:{" "}
+            spéciaux (pensions, avances, etc.), d&apos;où des totaux supérieurs au
+            seul budget général. Total général&nbsp;:{" "}
             {enMd(ministeres.totalCp, 1)} de CP bruts.
           </p>
           <p className="mt-2 text-sm text-ink-secondary">
@@ -531,7 +531,7 @@ export default async function PageDepenses() {
             >
               explorer le budget 2025 par destination
             </Link>{" "}
-            — 46 missions, leurs programmes, actions et sous-actions, et la
+            : 46 missions, leurs programmes, actions et sous-actions, et la
             ventilation par titre (nature de la dépense).
           </p>
         </Card>
@@ -541,13 +541,13 @@ export default async function PageDepenses() {
       {subventions && (
         <Card
           titre={`Subventions de l'État aux associations (${subventions.annee})`}
-          sousTitre={`Versements ${subventions.annee}, publiés dans l'annexe « jaune » du PLF ${subventions.annee + 2} — décalage structurel de deux ans`}
+          sousTitre={`Versements ${subventions.annee}, publiés dans l'annexe « jaune » du PLF ${subventions.annee + 2}, avec un décalage structurel de deux ans`}
           droite={
             sources.S23 && (
               <FreshnessBadge
                 dateDonnees={sources.S23.date_donnees}
                 sourceId={sources.S23.source_id}
-                source="Jaune PLF 2025 — associations"
+                source="Jaune PLF 2025 : associations"
                 frequence={sources.S23.frequence}
                 url={sources.S23.url}
                 mention={`versements ${subventions.annee}`}
@@ -596,7 +596,7 @@ export default async function PageDepenses() {
             la ligne retrace la contribution française à cette institution,
             versée via le programme 110 («&nbsp;Aide économique et financière
             au développement&nbsp;», mission Aide publique au développement).
-            SIREN absent («&nbsp;—&nbsp;»)&nbsp;: bénéficiaire sans SIREN dans
+            SIREN absent («&nbsp;n.d.&nbsp;»)&nbsp;: bénéficiaire sans SIREN dans
             la source (ex. organismes internationaux). Le champ
             «&nbsp;associations&nbsp;» s&apos;entend au sens large du jaune
             budgétaire.
@@ -618,12 +618,12 @@ export default async function PageDepenses() {
         <div id="dette-maastricht" className="scroll-mt-32">
           <Card
             titre="Encours de dette des APU (Maastricht)"
-            sousTitre="Stock consolidé brut à la valeur faciale, fin de trimestre — distinct des charges d'intérêts du budget général"
+            sousTitre="Stock consolidé brut à la valeur faciale, fin de trimestre, distinct des charges d'intérêts du budget général"
             droite={
               <FreshnessBadge
                 dateDonnees={dette.meta.date_donnees}
                 sourceId={dette.meta.source_id}
-                source="Eurostat — gov_10q_ggdebt"
+                source="Eurostat : gov_10q_ggdebt"
                 frequence={dette.meta.frequence}
                 url={dette.meta.url}
               />
@@ -667,12 +667,12 @@ export default async function PageDepenses() {
         <div id="deficit-maastricht" className="scroll-mt-32">
           <Card
             titre="Déficit public des APU (Maastricht)"
-            sousTitre="Capacité (+) / besoin (−) de financement annuel — distinct du solde du budget général et de l'encours"
+            sousTitre="Capacité (+) / besoin (−) de financement annuel, distinct du solde du budget général et de l'encours"
             droite={
               <FreshnessBadge
                 dateDonnees={deficit.meta.date_donnees}
                 sourceId={deficit.meta.source_id}
-                source="Eurostat — gov_10dd_edpt1"
+                source="Eurostat : gov_10dd_edpt1"
                 frequence={deficit.meta.frequence}
                 url={deficit.meta.url}
               />
@@ -741,12 +741,12 @@ export default async function PageDepenses() {
         <div id="depenses-apu-esa" className="scroll-mt-32">
           <Card
             titre="Dépenses des APU (ESA)"
-            sousTitre="Total des dépenses des administrations publiques, flux d'année civile — distinct de l'exécution du budget général"
+            sousTitre="Total des dépenses des administrations publiques, flux d'année civile, distinct de l'exécution du budget général"
             droite={
               <FreshnessBadge
                 dateDonnees={depensesApu.meta.date_donnees}
                 sourceId={depensesApu.meta.source_id}
-                source="Eurostat — gov_10a_main"
+                source="Eurostat : gov_10a_main"
                 frequence={depensesApu.meta.frequence}
                 url={depensesApu.meta.url}
               />
@@ -807,12 +807,12 @@ export default async function PageDepenses() {
         <div id="depenses-apu-cfap" className="scroll-mt-32">
           <Card
             titre="Dépenses des APU par fonction (CFAP)"
-            sousTitre="Flux annuel des APU par fonction — table Eurostat distincte du total ESA (S44)"
+            sousTitre="Flux annuel des APU par fonction, table Eurostat distincte du total ESA (S44)"
             droite={
               <FreshnessBadge
                 dateDonnees={cofogApu.meta.date_donnees}
                 sourceId={cofogApu.meta.source_id}
-                source="Eurostat — gov_10a_exp"
+                source="Eurostat : gov_10a_exp"
                 frequence={cofogApu.meta.frequence}
                 url={cofogApu.meta.url}
               />
@@ -888,12 +888,12 @@ export default async function PageDepenses() {
         <div id="comptes-apu-insee" className="scroll-mt-32">
           <Card
             titre="Dépenses des APU par sous-secteur (INSEE)"
-            sousTitre="Comptes nationaux, présentation dépenses et recettes — distinct du total ESA (S44) et de la CFAP (S49)"
+            sousTitre="Comptes nationaux, présentation dépenses et recettes, distinct du total ESA (S44) et de la CFAP (S49)"
             droite={
               <FreshnessBadge
                 dateDonnees={comptesApuInsee.meta.date_donnees}
                 sourceId={comptesApuInsee.meta.source_id}
-                source="INSEE — comptes nationaux"
+                source="INSEE : comptes nationaux"
                 frequence={comptesApuInsee.meta.frequence}
                 url={comptesApuInsee.meta.url}
               />
@@ -921,7 +921,7 @@ export default async function PageDepenses() {
               total TE Eurostat (S44), pas une ventilation CFAP, pas la
               dette de l&apos;État. Les trois sous-secteurs ne
               s&apos;additionnent pas&nbsp;: chaque bloc est consolidé en
-              son sein. L&apos;État (S13111) est déjà dans S1311 ; il
+              son sein. L&apos;État (S13111) est déjà dans S1311, il
               n&apos;est pas une ligne sœur.
             </p>
             <BarList
@@ -965,12 +965,12 @@ export default async function PageDepenses() {
         <div id="odac-insee" className="scroll-mt-32">
           <Card
             titre="Dépenses des ODAC (INSEE)"
-            sousTitre="Organismes divers d'administration centrale, S13112 — déjà dans S1311, distinct du jaune opérateurs"
+            sousTitre="Organismes divers d'administration centrale, S13112, déjà dans S1311, distinct du jaune opérateurs"
             droite={
               <FreshnessBadge
                 dateDonnees={odacInsee.meta.date_donnees}
                 sourceId={odacInsee.meta.source_id}
-                source="INSEE — comptes nationaux"
+                source="INSEE : comptes nationaux"
                 frequence={odacInsee.meta.frequence}
                 url={odacInsee.meta.url}
               />
@@ -1036,12 +1036,12 @@ export default async function PageDepenses() {
         <div id="cge" className="scroll-mt-32">
           <Card
             titre="Situation nette de l'État (CGE)"
-            sousTitre="Comptabilité générale — stock au 31 décembre, distinct du budget et des agrégats Maastricht des APU"
+            sousTitre="Comptabilité générale : stock au 31 décembre, distinct du budget et des agrégats Maastricht des APU"
             droite={
               <FreshnessBadge
                 dateDonnees={bilanCge.meta.date_donnees}
                 sourceId={bilanCge.meta.source_id}
-                source="DGFiP — compte général de l'État"
+                source="DGFiP : compte général de l'État"
                 frequence={bilanCge.meta.frequence}
                 url={bilanCge.meta.url}
               />
@@ -1133,12 +1133,12 @@ export default async function PageDepenses() {
         <div id="protection-sociale" className="scroll-mt-32">
           <Card
             titre="Prestations de protection sociale"
-            sousTitre="tous régimes, flux d'année civile — distinct du budget général et des agrégats ESA des APU"
+            sousTitre="tous régimes, flux d'année civile, distinct du budget général et des agrégats ESA des APU"
             droite={
               <FreshnessBadge
                 dateDonnees={protectionSociale.meta.date_donnees}
                 sourceId={protectionSociale.meta.source_id}
-                source="DREES — comptes de la protection sociale"
+                source="DREES : comptes de la protection sociale"
                 frequence={protectionSociale.meta.frequence}
                 url={protectionSociale.meta.url}
               />
@@ -1184,7 +1184,7 @@ export default async function PageDepenses() {
                 <p className="mt-2 text-xs text-ink-muted">
                   Ordre des codes DREES (E11-1 à E11-6), année{" "}
                   {protectionSociale.dernier.annee}. Les six risques sont
-                  exclusifs et recomposent le total — ce n&apos;est pas un
+                  exclusifs et recomposent le total. Ce n&apos;est pas un
                   classement.
                 </p>
               </>
@@ -1271,7 +1271,7 @@ export default async function PageDepenses() {
             {formatDateFr(kpis.dateFinMois)}). Le détail mensuel par mission et
             programme n&apos;existe qu&apos;en PDF, dont le téléchargement
             automatisé est bloqué par la protection anti-robots
-            d&apos;economie.gouv.fr. Le niveau le plus fin — l&apos;action —
+            d&apos;economie.gouv.fr. Le niveau le plus fin, l&apos;action,
             n&apos;est publié qu&apos;une fois par an, via le budget vert
             annexé au PLF.
           </p>

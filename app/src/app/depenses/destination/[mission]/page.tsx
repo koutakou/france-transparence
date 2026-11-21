@@ -78,7 +78,7 @@ function descriptionMission(libelle: string): string {
  */
 function titreMission(libelle: string): string {
   const budget = LONGUEUR_TITRE_PARTAGE - SUFFIXE_TITRE.length;
-  const complet = `Mission « ${libelle} » — budget 2025`;
+  const complet = `Mission « ${libelle} » : budget 2025`;
   if (complet.length <= budget) return complet;
   const sansAnnee = `Mission « ${libelle} »`;
   if (sansAnnee.length <= budget) return sansAnnee;
@@ -168,10 +168,10 @@ export default async function PageMission({ params }: Props) {
     <FreshnessBadge
       dateDonnees={sources.S21.date_donnees}
       sourceId={sources.S21.source_id}
-      source="PLF 2025 — destination"
+      source="PLF 2025 : destination"
       frequence={sources.S21.frequence}
       url={sources.S21.url}
-      mention="PLF 2025 — projet"
+      mention="PLF 2025, projet"
     />
   );
 
@@ -207,10 +207,10 @@ export default async function PageMission({ params }: Props) {
             Mission «&nbsp;{arbre.libelle}&nbsp;»
           </h1>
           <p className="mt-2 text-sm text-ink-secondary">
-            {typeBudget} ({arbre.typebudget}) — {arbre.etiquette}&nbsp;: montants
+            {typeBudget} ({arbre.typebudget}), {arbre.etiquette}&nbsp;: montants
             BRUTS en crédits de paiement (CP) et autorisations
             d&apos;engagement (AE), non comparables aux dépenses nettes de la
-            page Dépenses&nbsp;; ministère{arbre.ministeres.length > 1 ? "s" : ""} de
+            page Dépenses. Ministère{arbre.ministeres.length > 1 ? "s" : ""} de
             rattachement&nbsp;: {arbre.ministeres.join(" · ") || "non renseigné"}.
           </p>
         </div>
@@ -224,12 +224,12 @@ export default async function PageMission({ params }: Props) {
             label: "Crédits de paiement 2025 (bruts)",
             valeur: <span title={`${formatNombre(arbre.cp)}${ESPACE_FINE}€`}>{enMd(arbre.cp)}</span>,
             montantVedette: true,
-            perimetre: "PLF 2025 — projet, pas l’exécution ni la LFI",
+            perimetre: "PLF 2025, projet, pas l’exécution ni la LFI",
           },
           {
             label: "Autorisations d'engagement 2025 (brutes)",
             valeur: <span title={`${formatNombre(arbre.ae)}${ESPACE_FINE}€`}>{enMd(arbre.ae)}</span>,
-            perimetre: "PLF 2025 — projet, pas l’exécution ni la LFI",
+            perimetre: "PLF 2025, projet, pas l’exécution ni la LFI",
           },
           {
             label: "Programmes / actions",
@@ -268,8 +268,8 @@ export default async function PageMission({ params }: Props) {
         provenance={
           <p>
             Projet de loi de finances 2025, répartition par destination.
-            Une LFI 2025 par mission est publiée dans le budget vert ;
-            ce n’est pas la granularité sous-action × nature.
+            Une LFI 2025 par mission est publiée dans le budget vert,
+            mais ce n’est pas la granularité sous-action × nature.
           </p>
         }
         limites={
@@ -287,7 +287,7 @@ export default async function PageMission({ params }: Props) {
       {/* Arbre programme → action → sous-action */}
       <Card
         titre="Programmes, actions et sous-actions"
-        sousTitre="CP bruts 2025 — déplier un programme, puis une action marquée ▸ quand la nomenclature définit des sous-actions"
+        sousTitre="CP bruts 2025. Déplier un programme, puis une action marquée ▸ quand la nomenclature définit des sous-actions"
         droite={badge}
       >
         <ul className="flex flex-col divide-y divide-[var(--viz-grid)]">
@@ -320,14 +320,14 @@ export default async function PageMission({ params }: Props) {
         <p className="mt-3 text-xs text-ink-muted">
           Les sous-actions ne sont définies que là où la nomenclature du
           PLF 2025 en publie&nbsp;: une action sans marque ▸ n&apos;est pas
-          subdivisée dans la source. Les montants affichés sont les CP&nbsp;;
+          subdivisée dans la source. Les montants affichés sont les CP,
           la valeur exacte en euros apparaît au survol.
         </p>
       </Card>
 
       {/* Encadré pédagogique obligatoire — CAS Pensions */}
       {arbre.mission === "YD" && (
-        <Card titre="Ce que cette mission couvre — et ne couvre pas">
+        <Card titre="Ce que cette mission couvre, et ne couvre pas">
           <div className="flex max-w-3xl flex-col gap-3 text-sm leading-relaxed text-ink-secondary">
             <p>
               La mission «&nbsp;Pensions&nbsp;» est un compte

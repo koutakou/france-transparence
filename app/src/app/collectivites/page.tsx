@@ -15,7 +15,8 @@ import { StatStrip } from "@/components/ui/StatStrip";
 import { TableTronquee } from "@/components/client/TableTronquee";
 import { VueTableau } from "@/components/ui/VueTableau";
 import { textesComptesLocaux } from "@/lib/comptes-locaux";
-import { ESPACE_FINE, formatDateFr, formatEuros, formatNombre } from "@/lib/format";
+import { ESPACE_FINE, VIDE, formatDateFr, formatEuros, formatNombre } from "@/lib/format";
+import { Vide } from "@/components/ui/Vide";
 import {
   getConseilsDepartementaux,
   getDepartementsDepenses,
@@ -58,7 +59,7 @@ import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 const CHEMIN = "/collectivites/";
 const TITRE = "Finances locales";
 const DESCRIPTION =
-  "Comptes des communes, départements et régions : dépenses par habitant, dotations de l’État — données OFGL datées. La fiscalité directe locale (REI) est un autre objet : impositions primitives du rôle général, pas les comptes.";
+  "Comptes des communes, départements et régions : dépenses par habitant, dotations de l’État, données OFGL datées. La fiscalité directe locale (REI) est un autre objet : impositions primitives du rôle général, pas les comptes.";
 
 export const metadata: Metadata = metadonneesPage({
   chemin: CHEMIN,
@@ -121,7 +122,7 @@ export default async function PageCollectivites() {
         </h1>
         <div className="max-w-2xl rounded-xl border border-card-border bg-card p-5 text-sm text-ink-muted">
           La base locale n&apos;est pas construite ou la source S16 (OFGL) n&apos;y est pas
-          encore ingérée — lancer{" "}
+          encore ingérée. Lancer{" "}
           <code className="rounded bg-raised px-1.5 py-0.5">make ingest</code>. Aucune donnée
           fictive n&apos;est affichée.
         </div>
@@ -228,7 +229,7 @@ export default async function PageCollectivites() {
       label: `DGF nationale (${dgfDerniere.exercice})`,
       valeur: <Money valeur={dgfDerniere.montant} />,
       perimetre:
-        "versée aux communes — les départements et les EPCI n’y sont pas",
+        "versée aux communes, les départements et les EPCI n’y sont pas",
       delta:
         deltaDgfDepuis2018 !== null
           ? { valeur: deltaDgfDepuis2018, vs: String(dgf2018?.exercice) }
@@ -241,7 +242,7 @@ export default async function PageCollectivites() {
       label: `Communes agrégées (comptes ${kpis.exercice})`,
       valeur: formatNombre(kpis.nb_communes),
       perimetre:
-        "ayant rendu leurs comptes, via les agrégats départementaux — ce n’est pas le top 200 affiché plus bas",
+        "ayant rendu leurs comptes, via les agrégats départementaux. Ce n’est pas le top 200 affiché plus bas",
     });
   }
 
@@ -283,7 +284,7 @@ export default async function PageCollectivites() {
     code: c.code_insee,
     nom: c.nom,
     siren: c.siren,
-    departement: c.dep_code ?? "—",
+    departement: c.dep_code ?? VIDE,
     population: c.population,
     fonctionnement_meur: c.fonctionnement === null ? null : c.fonctionnement / 1e6,
     fonct_euros_par_hab: c.fonct_euros_par_hab,
@@ -339,7 +340,7 @@ export default async function PageCollectivites() {
             Comptes {exerciceComptes} des collectivités (OFGL / DGFiP), budgets
             principaux, lus le {luLe}
             {suiteEntete}
-            . DGF jusqu&apos;à l&apos;exercice {exerciceDgf ?? "—"}.
+            . DGF jusqu&apos;à l&apos;exercice {exerciceDgf ?? <Vide />}.
           </p>
         </div>
         {badge(mentionComptes)}
@@ -360,12 +361,12 @@ export default async function PageCollectivites() {
 
           <Card
             titre={`Fiscalité directe locale (REI, imposition ${rei.annee})`}
-            sousTitre="impositions primitives du rôle général, par taxe et bénéficiaire — distinct des comptes OFGL et de l'IRCOM"
+            sousTitre="impositions primitives du rôle général, par taxe et bénéficiaire, distinct des comptes OFGL et de l'IRCOM"
             droite={
               <FreshnessBadge
                 dateDonnees={rei.meta.date_donnees}
                 sourceId={rei.meta.source_id}
-                source="DGFiP — REI"
+                source="DGFiP : REI"
                 frequence={rei.meta.frequence}
                 url={rei.meta.url}
               />
@@ -444,7 +445,7 @@ export default async function PageCollectivites() {
       <section id="carte">
         <Card
           titre="Dépenses communales par habitant"
-          sousTitre={`Fonctionnement + investissement des communes, agrégés par département — exercice ${exerciceComptes}${qualifComptes}`}
+          sousTitre={`Fonctionnement + investissement des communes, agrégés par département, exercice ${exerciceComptes}${qualifComptes}`}
           droite={badge(mentionComptes)}
         >
           <div className="mx-auto w-full max-w-[22rem]">
@@ -453,7 +454,7 @@ export default async function PageCollectivites() {
               format="euros-par-hab"
               legendeTitre={`€ par habitant (${exerciceComptes})`}
               ariaLabel="Carte de France : dépenses communales par habitant et par département"
-              messageAbsent="Fond de carte absent (data/geo/departements.geojson non trouvé) — les tableaux restent complets."
+              messageAbsent="Fond de carte absent (data/geo/departements.geojson non trouvé). Les tableaux restent complets."
             />
           </div>
           {minDep && maxDep && (
@@ -465,7 +466,7 @@ export default async function PageCollectivites() {
             </p>
           )}
           <p className="mt-1 text-[11px] text-ink-muted">
-            Outre-mer hors rendu cartographique — présent dans les tableaux.
+            Outre-mer hors rendu cartographique, présent dans les tableaux.
           </p>
         </Card>
       </section>
@@ -475,7 +476,7 @@ export default async function PageCollectivites() {
           titre="Grandes communes"
           sousTitre={
             grandesCommunes.length > 0
-              ? `Les ${grandesCommunes.length} communes les plus peuplées — exercice ${grandesCommunes[0].exercice}${qualifComptes}${libellePeriodeSeries ? `, séries ${libellePeriodeSeries} au clic` : ""}`
+              ? `Les ${grandesCommunes.length} communes les plus peuplées, exercice ${grandesCommunes[0].exercice}${qualifComptes}${libellePeriodeSeries ? `, séries ${libellePeriodeSeries} au clic` : ""}`
               : undefined
           }
           droite={badge(mentionComptes)}
@@ -494,12 +495,12 @@ export default async function PageCollectivites() {
               Budget principal seul (les budgets annexes et les dépenses portées par
               l&apos;intercommunalité n&apos;y figurent pas). Exercice {exerciceComptes}
               {qualifComptes}
-              {kpis ? ` : ${formatNombre(kpis.nb_communes)} communes y figurent` : ""} ;
-              celles dont les comptes manquent encore à la source s&apos;affichent
+              {kpis ? ` : ${formatNombre(kpis.nb_communes)} communes y figurent` : ""}.
+              Celles dont les comptes manquent encore à la source s&apos;affichent
               « donnée non disponible », jamais 0. La comparaison
               proposée est la médiane des communes de la même strate démographique
               (calculée par l&apos;API OFGL sur l&apos;ensemble des communes de France) :
-              un écart à la médiane de strate n&apos;est ni une faute ni un mérite —
+              un écart à la médiane de strate n&apos;est ni une faute ni un mérite :
               strate, compétences transférées à l&apos;intercommunalité et
               investissements ponctuels expliquent l&apos;essentiel des écarts.
               L&apos;intercommunalité de la commune est mentionnée quand la source la
@@ -521,7 +522,7 @@ export default async function PageCollectivites() {
             />
           </div>
           <div className="min-w-0 flex-1">
-            <SousTitreBloc>Flop 10 — les plus faibles par habitant</SousTitreBloc>
+            <SousTitreBloc>Flop 10 : les plus faibles par habitant</SousTitreBloc>
             <TableCompacte
               colonnes={colonnesTopFlopDep}
               lignes={flop10Dep}
@@ -544,7 +545,7 @@ export default async function PageCollectivites() {
             écart à la médiane de strate n’est ni une faute ni un mérite. La
             participation électorale porte sur les préfectures, les communes
             de plus de 50&nbsp;000&nbsp;habitants, et les 200 communes les
-            plus peuplées — pas sur les 35&nbsp;000 communes de France.
+            plus peuplées, pas sur les 35&nbsp;000 communes de France.
           </p>
         }
         provenance={
@@ -575,7 +576,7 @@ export default async function PageCollectivites() {
             regions.length > 0
               ? `${regions.length}${
                   nbRegionsReferentiel ? ` des ${nbRegionsReferentiel}` : ""
-                } collectivités régionales, exercice ${regions[0].exercice} — dont ${ctu.length} collectivités territoriales uniques (${ctu
+                } collectivités régionales, exercice ${regions[0].exercice}, dont ${ctu.length} collectivités territoriales uniques (${ctu
                   .map((r) => r.nom)
                   .join(", ")}) exerçant aussi les compétences départementales`
               : undefined
@@ -640,10 +641,10 @@ export default async function PageCollectivites() {
       {/* ------------------------------------------------ dotations DGF */}
       <section id="dgf" className="flex flex-col gap-6">
         <Card
-          titre="Dotation globale de fonctionnement — évolution nationale"
+          titre="Dotation globale de fonctionnement : évolution nationale"
           sousTitre={
             dgfNationale.length > 0
-              ? `Dotation versée aux communes, ${dgfNationale[0].exercice}-${dgfNationale.at(-1)?.exercice} — hors départements et EPCI`
+              ? `Dotation versée aux communes, ${dgfNationale[0].exercice}-${dgfNationale.at(-1)?.exercice}, hors départements et EPCI`
               : undefined
           }
           droite={badge(mentionDgf)}
@@ -677,7 +678,7 @@ export default async function PageCollectivites() {
             implicite « auto » s'élargit au min-content des tableaux (débord mobile). */}
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <Card
-            titre="DGF par habitant — communes de 20 000 habitants ou plus"
+            titre="DGF par habitant : communes de 20 000 habitants ou plus"
             sousTitre={
               dgfTopFlop?.exercice
                 ? `Extrêmes réels de l'exercice ${dgfTopFlop.exercice}, en euros par habitant`
@@ -688,7 +689,7 @@ export default async function PageCollectivites() {
             {dgfTopFlop && (dgfTopFlop.top.length > 0 || dgfTopFlop.flop.length > 0) ? (
               <div className="flex flex-col gap-5">
                 <div>
-                  <SousTitreBloc>Top 10 — DGF/hab les plus élevées</SousTitreBloc>
+                  <SousTitreBloc>Top 10 : DGF/hab les plus élevées</SousTitreBloc>
                   <TableCompacte
                     colonnes={colonnesDgfCommunes}
                     lignes={lignesDgfCommunes(dgfTopFlop.top)}
@@ -696,7 +697,7 @@ export default async function PageCollectivites() {
                   />
                 </div>
                 <div>
-                  <SousTitreBloc>Flop 10 — DGF/hab les plus faibles</SousTitreBloc>
+                  <SousTitreBloc>Flop 10 : DGF/hab les plus faibles</SousTitreBloc>
                   <TableCompacte
                     colonnes={colonnesDgfCommunes}
                     lignes={lignesDgfCommunes(dgfTopFlop.flop)}
@@ -704,7 +705,7 @@ export default async function PageCollectivites() {
                   />
                   <p className="mt-2 text-xs text-ink-secondary">
                     Une DGF à 0&nbsp;€ est une donnée réelle : la dotation de ces communes est
-                    intégralement écrêtée — c&apos;est le cas de {dgfTopFlop.nb_zero} communes
+                    intégralement écrêtée. C&apos;est le cas de {dgfTopFlop.nb_zero} communes
                     de 20&nbsp;000 habitants ou plus en {dgfTopFlop.exercice}
                     {parisEcrete ? ", dont Paris" : ""}.
                   </p>
@@ -716,7 +717,7 @@ export default async function PageCollectivites() {
           </Card>
 
           <Card
-            titre="DGF par habitant — par département"
+            titre="DGF par habitant par département"
             sousTitre={
               dgfDepartements.length > 0
                 ? `DGF des communes agrégée par département, exercice ${dgfDepartements[0].exercice}`
@@ -732,11 +733,11 @@ export default async function PageCollectivites() {
                     format="euros-par-hab"
                     legendeTitre={`DGF par habitant (${dgfDepartements[0].exercice})`}
                     ariaLabel="Carte de France : DGF par habitant et par département"
-                    messageAbsent="Fond de carte absent — la vue tableau ci-dessous reste complète."
+                    messageAbsent="Fond de carte absent, la vue tableau ci-dessous reste complète."
                   />
                 </div>
                 <p className="mt-1 text-[11px] text-ink-muted">
-                  Outre-mer hors rendu cartographique — présent dans la vue tableau.
+                  Outre-mer hors rendu cartographique, présent dans la vue tableau.
                 </p>
                 <VueTableau
                   resume={`Vue tableau (${dgfDepartements.length} départements et collectivités)`}

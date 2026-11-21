@@ -8,7 +8,7 @@ import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { VueTableau } from "@/components/ui/VueTableau";
-import { ESPACE_FINE, formatNombre } from "@/lib/format";
+import { ESPACE_FINE, VIDE, formatNombre } from "@/lib/format";
 import {
   getMissionsDestination2025Liste,
   getSourcesBudget,
@@ -26,7 +26,7 @@ import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 const CHEMIN = "/depenses/destination/";
 const TITRE = "Budget 2025 par destination";
 const DESCRIPTION =
-  "Les 46 missions du budget de l'État (PLF 2025) et leur ventilation par titre : chaque mission se déplie en programmes, actions et sous-actions — crédits de paiement et autorisations d'engagement.";
+  "Les 46 missions du budget de l'État (PLF 2025) et leur ventilation par titre : chaque mission se déplie en programmes, actions et sous-actions, en crédits de paiement et autorisations d'engagement.";
 
 export const metadata: Metadata = metadonneesPage({
   chemin: CHEMIN,
@@ -68,7 +68,7 @@ export default async function PageDestination() {
           Budget 2025 par destination
         </h1>
         <div className="max-w-2xl rounded-xl border border-card-border bg-card p-5 text-sm text-ink-muted">
-          La base locale n&apos;est pas encore construite — lancer{" "}
+          La base locale n&apos;est pas encore construite. Lancer{" "}
           <code className="rounded bg-raised px-1.5 py-0.5">make ingest</code>{" "}
           pour ingérer les sources budgétaires.
         </div>
@@ -80,10 +80,10 @@ export default async function PageDestination() {
     <FreshnessBadge
       dateDonnees={sources.S21.date_donnees}
       sourceId={sources.S21.source_id}
-      source="PLF 2025 — destination"
+      source="PLF 2025 : destination"
       frequence={sources.S21.frequence}
       url={sources.S21.url}
-      mention="PLF 2025 — projet"
+      mention="PLF 2025, projet"
     />
   );
 
@@ -144,7 +144,7 @@ export default async function PageDestination() {
               </span>
             ),
             montantVedette: true,
-            perimetre: "PLF 2025 — projet, pas l’exécution ni la LFI ; CP bruts",
+            perimetre: "PLF 2025, projet, pas l’exécution ni la LFI. CP bruts",
           },
           {
             label: "Autorisations d'engagement 2025 (brutes)",
@@ -153,12 +153,12 @@ export default async function PageDestination() {
                 {enMd(totalAe)}
               </span>
             ),
-            perimetre: "PLF 2025 — projet ; AE et CP ne s'additionnent pas",
+            perimetre: "PLF 2025, projet. AE et CP ne s'additionnent pas",
           },
           {
             label: "Missions",
             valeur: formatNombre(missions.missions.length),
-            perimetre: "nomenclature du PLF 2025 — une mission n'est pas un ministère",
+            perimetre: "nomenclature du PLF 2025. Une mission n'est pas un ministère",
           },
         ]}
       />
@@ -167,7 +167,7 @@ export default async function PageDestination() {
       {titres && (
         <Card
           titre="Ventilation par titre (nature de la dépense)"
-          sousTitre={`Tous budgets confondus — ${enMd(titres.totalCp)} de CP bruts, PLF 2025`}
+          sousTitre={`Tous budgets confondus : ${enMd(titres.totalCp)} de CP bruts, PLF 2025`}
           droite={badge}
         >
           <BarList
@@ -188,7 +188,7 @@ export default async function PageDestination() {
               ]}
               lignes={titres.titres.map((t) => ({
                 numero: t.titre,
-                libelle: t.libelle ?? "—",
+                libelle: t.libelle ?? VIDE,
                 cpMd: t.cp / 1e9,
                 aeMd: t.ae / 1e9,
                 part: titres.totalCp > 0 ? (t.cp / titres.totalCp) * 100 : null,
@@ -198,7 +198,7 @@ export default async function PageDestination() {
           </VueTableau>
           <p className="mt-3 text-xs text-ink-muted">
             Le titre décrit la nature de la dépense (nomenclature LOLF,
-            art. 5)&nbsp;; chaque titre se subdivise en catégories dans la
+            art. 5). Chaque titre se subdivise en catégories dans la
             source. Les AE engagent l&apos;État sur plusieurs années, les CP
             couvrent les paiements de l&apos;année&nbsp;: les deux colonnes ne
             s&apos;additionnent pas.
@@ -209,7 +209,7 @@ export default async function PageDestination() {
       {/* Les 46 missions */}
       <Card
         titre="Les missions du budget de l'État"
-        sousTitre={`${formatNombre(missions.missions.length)} missions — cliquer une mission pour la déplier en programmes, actions et sous-actions`}
+        sousTitre={`${formatNombre(missions.missions.length)} missions. Cliquer une mission pour la déplier en programmes, actions et sous-actions`}
         droite={badge}
       >
         <DataTable
@@ -253,7 +253,7 @@ export default async function PageDestination() {
           <p>
             Projet de loi de finances 2025, répartition par destination
             (missions, programmes, actions). Une LFI 2025 par mission
-            est publiée dans le budget vert ; ce n’est pas la
+            est publiée dans le budget vert, mais ce n’est pas la
             granularité sous-action × nature.
           </p>
         }
@@ -272,7 +272,7 @@ export default async function PageDestination() {
       />
 
       {/* Encadré pédagogique obligatoire — CAS Pensions */}
-      <Card titre="Ce que la mission « Pensions » couvre — et ne couvre pas">
+      <Card titre="Ce que la mission « Pensions » couvre, et ne couvre pas">
         <div className="flex max-w-3xl flex-col gap-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             La mission «&nbsp;Pensions&nbsp;» est un compte d&apos;affectation

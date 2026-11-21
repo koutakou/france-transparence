@@ -31,7 +31,7 @@ export async function GET() {
   const lignes = getBudgetMensuelComplet();
   if (lignes === null) {
     throw new Error(
-      "Base absente au build — lancer make ingest (ou poser FRANCE_DB_PATH) avant next build.",
+      "Base absente au build : lancer make ingest (ou poser FRANCE_DB_PATH) avant next build.",
     );
   }
   const s13 = (getMetaSourcesParIds(["S13"]) ?? [])[0];
@@ -56,11 +56,11 @@ export async function GET() {
                   : `ne vaut pas ${r.identite}, contrairement aux autres mois`
               })`,
           )
-          .join(" ; ")}. Valeur publiée telle quelle ; ne pas la comparer à montant_cumul_n1 ni à la même date N+1 : voir rupture_perimetre sur chaque ligne, et montant_mois NULL à travers la cellule.`;
+          .join(", ")}. Valeur publiée telle quelle, à ne pas comparer à montant_cumul_n1 ni à la même date N+1 : voir rupture_perimetre sur chaque ligne, et montant_mois NULL à travers la cellule.`;
   return NextResponse.json({
     meta: {
       description:
-        "Situations mensuelles budgétaires de l'État (26 lignes par grands titres), série complète 2013 → dernier mois publié. Montants en euros : montant_cumul = cumul depuis le 1er janvier, montant_mois = flux mensuel, colonnes _n1 = même période N−1. Mois infra-annuels provisoires ; pas de détail mission/programme dans cette source ; pas de temps réel (~5-7 semaines de décalage). Snapshot statique régénéré à chaque build." +
+        "Situations mensuelles budgétaires de l'État (26 lignes par grands titres), série complète 2013 → dernier mois publié. Montants en euros : montant_cumul = cumul depuis le 1er janvier, montant_mois = flux mensuel, colonnes _n1 = même période N−1. Mois infra-annuels provisoires. Pas de détail mission/programme dans cette source, pas de temps réel (~5-7 semaines de décalage). Snapshot statique régénéré à chaque build." +
         phraseRuptures,
       ruptures_perimetre: listeRuptures.map((r) => ({
         ligne_id: r.ligneId,
