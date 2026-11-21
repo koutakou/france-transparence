@@ -312,17 +312,25 @@ def charger_populations_departements(chemin_zip: Path) -> dict[str, int]:
     return pops
 
 
+# Nom stable de l'avertissement journalisé quand geo.api ne sert plus le
+# millésime annoncé : la vigie et la lecture des journaux le cherchent tel quel.
+AVERTISSEMENT_MILLESIME_GEO = "MILLESIME_GEO_NON_CONFIRME"
+
+
 def controler_millesime_geo(communes: list[dict],
-                            pops_insee: dict[str, int]) -> int:
-    """Vérifie que geo.api sert les populations du millésime
-    MILLESIME_POPULATIONS, sinon lève. Retourne le nombre de départements
-    comparés.
+                            pops_insee: dict[str, int]) -> tuple[int, int]:
+    """Compare les populations de geo.api au fichier INSEE du millésime
+    MILLESIME_POPULATIONS. Retourne (départements comparés, départements en
+    écart). Ne lève jamais.
 
     La somme des populations communales de geo.api doit égaler, département
     par département, la PMUN du fichier INSEE de ce millésime. Mesuré le
     20/11/2026 : 100 départements sur 100 égaux. Le jour où l'API servira le
-    millésime suivant, la date et la note publiées pour S27-geo-api seraient
-    fausses sans erreur : le cycle s'arrête, et il faut alors avancer
+    millésime suivant (chaque janvier), arrêter le cycle figerait toute
+    l'ingestion, `referentiels` ouvrant `make ingest`. Le cycle continue
+    donc : `meta_s27_geo_api` garde la dernière date confirmée et écrit dans
+    la note que le millésime n'est pas confirmé, et l'avertissement
+    AVERTISSEMENT_MILLESIME_GEO est journalisé. Il faut alors avancer
     MILLESIME_POPULATIONS et URL_INSEE_POPULATIONS ensemble.
     """
     par_departement: dict[str, int] = {}
@@ -334,12 +342,42 @@ def controler_millesime_geo(communes: list[dict],
     communs = sorted(set(par_departement) & set(pops_insee))
     ecarts = [d for d in communs if par_departement[d] != pops_insee[d]]
     if len(communs) < 96 or ecarts:
-        raise ValueError(
-            f"geo.api : populations différentes du millésime "
-            f"{MILLESIME_POPULATIONS} de l'INSEE pour {len(ecarts)} "
-            f"département(s) sur {len(communs)} (ex. {ecarts[:3]}) : l'API "
-            "sert sans doute un autre millésime, date de donnée à revoir")
-    return len(communs)
+        log.warning(
+            "%s : geo.api diffère du millésime %d de l'INSEE pour %d "
+            "département(s) sur %d comparés (ex. %s). L'API sert sans doute "
+            "un autre millésime : S27-geo-api garde la date %s et sa note dit "
+            "« millésime non confirmé » jusqu'à ce que MILLESIME_POPULATIONS "
+            "et URL_INSEE_POPULATIONS soient avancés.",
+            AVERTISSEMENT_MILLESIME_GEO, MILLESIME_POPULATIONS, len(ecarts),
+            len(communs), ecarts[:3], EN_VIGUEUR_POPULATIONS)
+    return len(communs), len(ecarts)
+
+
+def meta_s27_geo_api(nb_compares: int, nb_ecarts: int) -> dict[str, str]:
+    """Date et note de S27-geo-api selon le contrôle du millésime.
+
+    Millésime confirmé : la date d'entrée en vigueur des populations
+    MILLESIME_POPULATIONS. Non confirmé : la même date, dernière vraie
+    connue, et une note qui le dit, pour que /donnees ne présente pas comme
+    sûr un millésime que le contrôle n'a pas retrouvé.
+    """
+    en_vigueur = f"{date.fromisoformat(EN_VIGUEUR_POPULATIONS):%d/%m/%Y}"
+    if nb_compares >= 96 and nb_ecarts == 0:
+        debut = (f"COG et populations de référence {MILLESIME_POPULATIONS}"
+                 f" en vigueur au {en_vigueur} (millésime contrôlé sur"
+                 f" {nb_compares} départements contre le fichier INSEE)")
+    else:
+        debut = ("COG et populations de référence : millésime non confirmé."
+                 f" geo.api diffère du fichier INSEE {MILLESIME_POPULATIONS}"
+                 f" pour {nb_ecarts} département(s) sur {nb_compares} comparés,"
+                 f" la date gardée est la dernière confirmée ({en_vigueur})"
+                 " et l'API sert sans doute un millésime plus récent")
+    return {
+        "date_donnees": EN_VIGUEUR_POPULATIONS,
+        "notes": debut + " ; centroïdes des communes > 50 000 hab."
+                 " pour ref_villes ; population de Mayotte par somme"
+                 " communale (absente du CSV INSEE).",
+    }
 
 
 def completer_populations(
@@ -912,9 +950,11 @@ def main() -> int:
             max_age_heures=24 * 30, session=session,  # millésime annuel
         )
         pops_insee = charger_populations_departements(chemin_insee)
-        nb_deps_controles = controler_millesime_geo(communes, pops_insee)
-        log.info("geo.api : populations %d confirmées sur %d départements",
-                 MILLESIME_POPULATIONS, nb_deps_controles)
+        nb_deps_compares, nb_deps_ecarts = controler_millesime_geo(
+            communes, pops_insee)
+        if not nb_deps_ecarts:
+            log.info("geo.api : populations %d confirmées sur %d départements",
+                     MILLESIME_POPULATIONS, nb_deps_compares)
         deps_completes = completer_populations(departements, pops_insee, communes)
         if deps_completes:
             log.info(
@@ -962,15 +1002,8 @@ def main() -> int:
             db.upsert_meta(
                 conn, "S27-geo-api", "geo.api.gouv.fr (départements, communes)",
                 "https://geo.api.gouv.fr", "Licence Ouverte 2.0", "continue",
-                date_donnees=EN_VIGUEUR_POPULATIONS,
                 lignes=len(departements) + len(villes),
-                notes=f"COG et populations de référence {MILLESIME_POPULATIONS}"
-                      f" en vigueur au {date.fromisoformat(EN_VIGUEUR_POPULATIONS):%d/%m/%Y}"
-                      f" (millésime contrôlé sur {nb_deps_controles}"
-                      " départements contre le fichier INSEE)"
-                      " ; centroïdes des communes > 50 000 hab."
-                      " pour ref_villes ; population de Mayotte par somme"
-                      " communale (absente du CSV INSEE).",
+                **meta_s27_geo_api(nb_deps_compares, nb_deps_ecarts),
             )
             db.upsert_meta(
                 conn, "S27-insee-populations",
