@@ -403,28 +403,48 @@ export default function PageDonneesPersonnelles() {
           */}
           <p>
             <strong className="text-ink">Catégories de données publiées</strong>{" "}
-            : nom et prénom, <strong className="text-ink">date de
-            naissance</strong> et âge, sexe, profession ou catégorie
-            socio-professionnelle, mandats, fonctions et dates de mandat,
-            circonscription ou collectivité de rattachement, groupe et
-            appartenance politiques, votes et activités parlementaires,
-            existence et date des déclarations HATVP ainsi que les constats
-            publiés par elle,{" "}
-            <strong className="text-ink">
-              le contenu des déclarations d&apos;intérêts publiées par la HATVP
-            </strong>{" "}
-            (mandats et fonctions électives, participations aux organes
-            dirigeants d&apos;un organisme, participations financières directes
-            dans le capital d&apos;une société, activités professionnelles des
-            cinq dernières années, activités de consultant, fonctions bénévoles
-            et observations), ainsi que les{" "}
-            <strong className="text-ink">
-              montants de rémunération déclarés, année par année
-            </strong>{" "}
-            qui y figurent, reproduits mot pour mot et datés, et les montants déclarés
-            dans les comptes de partis et de campagne. Aucune coordonnée privée n&apos;est publiée : ni
-            adresse postale personnelle, ni téléphone, ni adresse
-            électronique, ni donnée relevant de l&apos;article 9 du RGPD.
+            :
+          </p>
+          <ul className="flex list-disc flex-col gap-1 pl-5">
+            <li>nom et prénom</li>
+            <li>
+              <strong className="text-ink">date de naissance</strong> et âge
+            </li>
+            <li>sexe</li>
+            <li>profession ou catégorie socio-professionnelle</li>
+            <li>mandats, fonctions et dates de mandat</li>
+            <li>circonscription ou collectivité de rattachement</li>
+            <li>groupe et appartenance politiques</li>
+            <li>votes et activités parlementaires</li>
+            <li>
+              existence et date des déclarations HATVP, ainsi que les constats
+              publiés par elle
+            </li>
+            <li>
+              <strong className="text-ink">
+                le contenu des déclarations d&apos;intérêts publiées par la HATVP
+              </strong>{" "}
+              (mandats et fonctions électives, participations aux organes
+              dirigeants d&apos;un organisme, participations financières directes
+              dans le capital d&apos;une société, activités professionnelles des
+              cinq dernières années, activités de consultant, fonctions bénévoles
+              et observations)
+            </li>
+            <li>
+              les{" "}
+              <strong className="text-ink">
+                montants de rémunération déclarés, année par année
+              </strong>{" "}
+              qui y figurent, reproduits mot pour mot et datés
+            </li>
+            <li>
+              les montants déclarés dans les comptes de partis et de campagne
+            </li>
+          </ul>
+          <p>
+            Aucune coordonnée privée n&apos;est publiée : ni adresse postale
+            personnelle, ni téléphone, ni adresse électronique, ni donnée
+            relevant de l&apos;article 9 du RGPD.
           </p>
           {/*
             Même faute que celle décrite plus haut, re-commise le 20/08/2026 au

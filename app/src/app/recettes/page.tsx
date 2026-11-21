@@ -270,7 +270,7 @@ export default async function PageRecettes() {
       />
       <p className="text-xs leading-relaxed text-ink-muted">
         {kpis.ruptureTotal?.cote === "mois"
-          ? `Les fonds de concours et attributions de produits sont une ligne propre : les autres mois, le total des recettes nettes publié par la DGFiP ne les contient pas, celui du ${formatDateFr(kpis.dateFinMois)} a un autre périmètre (ci-dessus). On ne les y additionne pas.`
+          ? `Les fonds de concours et attributions de produits sont une ligne propre : les autres mois, le total des recettes nettes publié par la DGFiP ne les contient pas, mais celui du ${formatDateFr(kpis.dateFinMois)} a un autre périmètre (ci-dessus). On ne les y additionne pas.`
           : "Les fonds de concours et attributions de produits sont une ligne propre, hors du total des recettes nettes. On ne les y additionne pas."}
       </p>
 

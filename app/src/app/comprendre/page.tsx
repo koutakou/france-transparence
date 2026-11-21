@@ -238,7 +238,7 @@ const GLOSSAIRE: EntreeGlossaire[] = [
       <>
         Commission nationale des comptes de campagne et des financements
         politiques. Elle publie les comptes des partis et les comptes de
-        campagne. Ce site les republie, il n’estime pas ce qui n’y figure
+        campagne. Ce site les republie et n’estime pas ce qui n’y figure
         pas.
       </>
     ),

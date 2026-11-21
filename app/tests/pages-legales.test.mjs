@@ -98,6 +98,34 @@ test("R9 : le périmètre des personnes concernées est complet", () => {
   assert.match(TEXTE, /personnes nommées au Journal officiel, représentants d'intérêts, entrepreneurs individuels titulaires de marchés publics\./);
 });
 
+test("B : les catégories de données publiées forment une liste à puces, sans en retirer aucune", () => {
+  const items = BLOCS.map((b) => b.trim());
+  for (const attendu of [
+    "nom et prénom",
+    "date de naissance et âge",
+    "sexe",
+    "profession ou catégorie socio-professionnelle",
+    "mandats, fonctions et dates de mandat",
+    "circonscription ou collectivité de rattachement",
+    "groupe et appartenance politiques",
+    "votes et activités parlementaires",
+    "existence et date des déclarations HATVP, ainsi que les constats publiés par elle",
+    "les montants déclarés dans les comptes de partis et de campagne",
+  ]) {
+    assert.ok(items.includes(attendu), `élément de liste manquant : ${attendu}`);
+  }
+  assert.ok(
+    items.some((b) => /^le contenu des déclarations d'intérêts publiées par la HATVP \(mandats et fonctions électives, .* fonctions bénévoles et observations\)$/.test(b)),
+    "contenu des déclarations d'intérêts, avec ses rubriques",
+  );
+  assert.ok(
+    items.includes("les montants de rémunération déclarés, année par année qui y figurent, reproduits mot pour mot et datés"),
+    "montants de rémunération",
+  );
+  assert.match(TEXTE, /Aucune coordonnée privée n'est publiée : ni adresse postale personnelle, ni téléphone, ni adresse électronique, ni donnée relevant de l'article 9 du RGPD\./);
+  assert.ok(!BLOCS.some((b) => /nom et prénom.*comptes de partis/.test(b)), "plus d'énumération en une seule phrase");
+});
+
 test("Les phrases corrigées suivent le style du site", () => {
   const corrigees = BLOCS.filter((b) =>
     /plus la journée en cours|pseudonymisé|Aucun repli sur le journal|Statistiques produites|choix de l'éditeur|élus ou non|nommées au Journal officiel|exercent en nom propre|titulaires de marchés publics, sous le nom|registres des connexions au serveur/.test(b),

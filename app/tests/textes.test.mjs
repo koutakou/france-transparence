@@ -61,6 +61,35 @@ test("Licence Ouverte : aucun lien vers l'adresse etalab.gouv.fr redirigée vers
   assert.deepEqual(fautes, []);
 });
 
+test("/recettes et /comprendre : deux phrases liées par « mais » et « et », sans virgule de juxtaposition", () => {
+  const r = aplati("app/recettes/page.tsx");
+  assert.match(r, /ne les contient pas, mais celui du \$\{formatDateFr\(kpis\.dateFinMois\)\} a un autre périmètre/);
+  const c = aplati("app/comprendre/page.tsx");
+  assert.match(c, /Ce site les republie et n’estime pas ce qui n’y figure pas\./);
+  assert.doesNotMatch(c, /les republie, il n’estime/);
+});
+
+test("« n.d. » seulement pour un manque : ministère sans objet, vote sans position dit en clair", () => {
+  const flux = aplati("components/client/FluxTextes.tsx");
+  assert.match(flux, /\) : \( \/\/ Une loi ou une décision du Conseil constitutionnel n'a pas de ministère\. <Vide sansObjet \/> \)/);
+  assert.match(flux, /affiché « \$\{SANS_OBJET\} » \(sans objet\)/);
+  const vide = lire("components/ui/Vide.tsx");
+  assert.match(vide, /<abbr title="sans objet">\{SANS_OBJET\}<\/abbr>/);
+  const elu = aplati("app/elus/[id]/page.tsx");
+  assert.match(elu, /if \(!l\.position\) return <span className="text-ink-muted">Sans position enregistrée<\/span>;/);
+});
+
+test("libellé PLF 2025 : la copie de l'app est le texte exact du pipeline, sans tiret long", () => {
+  const py = readFileSync(new URL("../../pipelines/ingest_recettes_plf.py", import.meta.url), "utf8");
+  const bloc = py.match(/^ETIQUETTE = \(\r?\n([\s\S]*?)\r?\n\)/m);
+  assert.ok(bloc, "constante ETIQUETTE du pipeline introuvable");
+  const pipeline = [...bloc[1].matchAll(/"([^"]*)"/g)].map((m) => m[1]).join("");
+  assert.equal(pipeline, "PLF 2025 déposé en octobre 2024 : projet, pas la LFI 2025 votée, pas l'exécution (S13)");
+  const app = lire("lib/queries/recettes-plf.ts").match(/export const ETIQUETTE_PLF = \(\s*"([^"]*)"\s*\)/);
+  assert.ok(app, "ETIQUETTE_PLF introuvable");
+  assert.equal(app[1], pipeline);
+});
+
 test("/comprendre : aucune phrase datée figée (« au 24 août 2026 », « mesuré le … »)", () => {
   const s = aplati("app/comprendre/page.tsx");
   assert.doesNotMatch(s, /en données au \d{1,2} \w+ 20\d\d/);
