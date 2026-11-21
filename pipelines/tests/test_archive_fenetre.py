@@ -116,7 +116,18 @@ def test_ingerer_dosleg_archive_les_votes_hors_100(tmp_path, monkeypatch):
     Seuls les quatre matricules que la fixture `votsen` liste sont semés :
     ingerer_dosleg refuse d'écrire quand la liste d'un scrutin ne couvre pas
     les sénateurs en exercice (controler_listes_votsen), et ce test-ci porte
-    sur l'archive, pas sur cette prémisse."""
+    sur l'archive, pas sur cette prémisse.
+
+    Le jour est figé une fois pour toutes : comparé à un date.today() lu
+    après le pipeline, le test échouait s'il passait minuit en route."""
+    jour = date.today()
+
+    class _JourFige(date):
+        @classmethod
+        def today(cls):
+            return jour
+
+    monkeypatch.setattr("pipelines.ingest_parlement.date", _JourFige)
     conn = db.init_db(chemin=tmp_path / "t.db")
     conn.executescript(_SCHEMA_P9)
     conn.executemany(
@@ -147,7 +158,7 @@ def test_ingerer_dosleg_archive_les_votes_hors_100(tmp_path, monkeypatch):
     arch = conn.execute(
         "SELECT sesann, numero, matricule, archive_le FROM votes_senat_archive"
     ).fetchone()
-    assert tuple(arch) == (2023, 99, "21071F", date.today().isoformat())
+    assert tuple(arch) == (2023, 99, "21071F", jour.isoformat())
     assert conn.execute("SELECT count(*) FROM votes_senat").fetchone()[0] == 12
 
 
