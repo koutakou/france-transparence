@@ -16,7 +16,7 @@ export function VueTableau({
 }) {
   return (
     <details className="group mt-3">
-      <summary className="w-fit cursor-pointer list-none select-none text-xs text-ink-muted transition-colors hover:text-ink-secondary">
+      <summary className="flex min-h-6 w-fit cursor-pointer list-none items-center select-none [&::-webkit-details-marker]:hidden text-xs text-ink-muted transition-colors hover:text-ink-secondary">
         <span
           aria-hidden="true"
           className="mr-1 inline-block transition-transform group-open:rotate-90 motion-reduce:transition-none"

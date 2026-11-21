@@ -62,6 +62,13 @@ export interface DataTableProps<T extends object> {
    * (défaut : « Tableau : » + les trois premiers en-têtes).
    */
   libelle?: string;
+  /**
+   * Légende du tableau, rendue en `<caption class="sr-only">` : le titre de
+   * la carte qui le contient, pour qu'un lecteur d'écran qui passe de
+   * tableau en tableau sache lequel il lit. Défaut : `libelle`, puis le nom
+   * de zone tiré des en-têtes (aucun tableau sans légende).
+   */
+  legende?: string;
   className?: string;
 }
 
@@ -95,6 +102,7 @@ export function DataTable<T extends object>({
   vide = "Aucune donnée",
   hauteurMax,
   libelle,
+  legende,
   className,
 }: DataTableProps<T>) {
   // Filet horizontal 1px `--viz-grid` (jamais de filets verticaux, §7) et
@@ -122,6 +130,7 @@ export function DataTable<T extends object>({
       style={hauteurMax ? { maxHeight: hauteurMax } : undefined}
     >
       <table className="w-full border-collapse text-[13px]">
+        <caption className="sr-only">{legende ?? nomZone}</caption>
         <thead>
           <tr>
             {colonnes.map((c) => (

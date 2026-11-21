@@ -80,7 +80,7 @@ export function BadgeFraicheurLecture({
   // survol de la souris.
   return (
     <details className="group">
-      <summary className="inline-flex cursor-pointer list-none flex-col gap-0.5 [&::-webkit-details-marker]:hidden">
+      <summary className="inline-flex min-h-6 cursor-pointer list-none flex-col gap-0.5 [&::-webkit-details-marker]:hidden">
         <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
           <span
             aria-hidden="true"

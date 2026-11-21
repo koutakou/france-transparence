@@ -98,7 +98,7 @@ function BlocSerie({
         <button
           type="button"
           onClick={surRetour}
-          className="text-xs text-ink-muted underline decoration-dotted underline-offset-2 transition-colors hover:text-ink-secondary"
+          className="min-h-6 text-xs text-ink-muted underline decoration-dotted underline-offset-2 transition-colors hover:text-ink-secondary"
         >
           {retourLabel}
         </button>
@@ -199,7 +199,7 @@ export function SeriesCollectivites({ niveau, lignes, hauteurMax }: SeriesCollec
               type="button"
               onClick={() => choisir(l.code)}
               aria-current={code === l.code ? "true" : undefined}
-              className={`text-left underline decoration-dotted underline-offset-2 transition-colors hover:text-accent ${
+              className={`min-h-6 text-left underline decoration-dotted underline-offset-2 transition-colors hover:text-accent ${
                 code === l.code ? "font-medium text-accent" : ""
               }`}
             >
