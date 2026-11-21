@@ -165,15 +165,15 @@ export function TitulairesLobbyistes({
             <strong className="font-medium text-ink">
               le montant d&apos;un accord-cadre est un maximum contractuel, pas
               une dépense
-            </strong>{" "}
-            — ce classement additionne donc des engagements plafonds et des
+            </strong>
+            . Ce classement additionne donc des engagements plafonds et des
             montants notifiés fermes, et ne se compare pas au précédent.
           </>
         ) : (
           <>
             Périmètre de référence : accords-cadres exclus, leur montant notifié
             étant un maximum contractuel et non une dépense. Le classement porte
-            sur {formatNombre(lignes.length)} entités —{" "}
+            sur {formatNombre(lignes.length)} entités, et{" "}
             <strong className="font-medium text-ink">
               aucune n&apos;est en tort du seul fait d&apos;y figurer
             </strong>
@@ -181,7 +181,7 @@ export function TitulairesLobbyistes({
           </>
         )}{" "}
         Montants retenus écrêtés à 100&nbsp;M€ par marché, puis répartis à parts
-        égales entre co-titulaires (la source ne les ventile pas) ; les marchés
+        égales entre co-titulaires (la source ne les ventile pas). Les marchés
         sans montant renseigné sont comptés mais exclus des sommes.
       </p>
     </div>

@@ -127,15 +127,15 @@ export function OrganisationsRegistreUe({
             disabled={chargement}
             className="inline-flex min-h-11 items-center rounded-lg border border-card-border bg-raised px-3 text-ink transition-colors hover:bg-hover disabled:cursor-wait"
           >
-            {chargement ? "Chargement…" : `Tout afficher (${formatNombre(total)})`}
+            {chargement ? "Chargement en cours" : `Tout afficher (${formatNombre(total)})`}
           </button>
         </p>
       )}
       {indisponible && (
         <p className="mt-2 text-xs text-ink-muted" role="status">
-          Liste complète indisponible pour le moment — les{" "}
+          Liste complète indisponible pour le moment. Les{" "}
           {formatNombre(premieres.length)} premières organisations (sur{" "}
-          {formatNombre(total)}) restent affichées ; le registre officiel est
+          {formatNombre(total)}) restent affichées, et le registre officiel est
           consultable en ligne (lien source de ce bloc).
         </p>
       )}

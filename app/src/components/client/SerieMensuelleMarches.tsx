@@ -5,6 +5,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { LineChart } from "@/components/ui/LineChart";
 import { Money } from "@/components/ui/Money";
 import { VueTableau } from "@/components/ui/VueTableau";
+import { Vide } from "@/components/ui/Vide";
 import { formatNombre } from "@/lib/format";
 import type { MoisAgg } from "@/lib/queries/marches";
 
@@ -75,7 +76,7 @@ export function SerieMensuelleMarches({ serie }: { serie: MoisAgg[] }) {
           />
         </div>
       </div>
-      <VueTableau resume="Vue tableau — 36 mois">
+      <VueTableau resume="Vue tableau : 36 mois">
         <DataTable
           hauteurMax="320px"
           colonnes={[
@@ -86,7 +87,7 @@ export function SerieMensuelleMarches({ serie }: { serie: MoisAgg[] }) {
               entete: "Montant",
               type: "montant",
               rendu: (m) =>
-                m.montant_total === null ? "—" : <Money valeur={m.montant_total} />,
+                m.montant_total === null ? <Vide /> : <Money valeur={m.montant_total} />,
             },
           ]}
           lignes={serie}

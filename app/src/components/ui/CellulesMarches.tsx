@@ -1,7 +1,8 @@
 import { type Colonne } from "@/components/ui/DataTable";
 import { LienOfficiel } from "@/components/ui/LienOfficiel";
 import { Money } from "@/components/ui/Money";
-import { formatNombre } from "@/lib/format";
+import { Vide } from "@/components/ui/Vide";
+import { VIDE, formatNombre } from "@/lib/format";
 import type { TopAcheteur } from "@/lib/queries/marches";
 import { urlAnnuaireEntreprise } from "@/lib/urlOfficielle";
 
@@ -13,8 +14,8 @@ import { urlAnnuaireEntreprise } from "@/lib/urlOfficielle";
 
 /** Tronque proprement un libellé long (le `title` porte le texte complet). */
 export function tronque(s: string | null, max: number): string {
-  if (!s || s.trim() === "") return "—";
-  return s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s;
+  if (!s || s.trim() === "") return VIDE;
+  return s.length > max ? `${s.slice(0, max - 1).trimEnd()}...` : s;
 }
 
 /** Annuaire Sirene seulement si le SIREN est dans S18 (9 chiffres, LEFT JOIN). */
@@ -45,7 +46,7 @@ export function NomEntreprise({
 }
 
 export function CelluleSiren({ siren, dans_sirene }: { siren: string | null; dans_sirene: number }) {
-  if (!siren) return "—";
+  if (!siren) return <Vide />;
   const href = hrefAnnuaire({ siren, dans_sirene });
   return href ? (
     <LienOfficiel href={href} source="Sirene">
@@ -73,7 +74,7 @@ export const COLONNES_MONTANT_TOP: Colonne<
     entete: "Montant hors montants signalés",
     type: "montant",
     rendu: (a) =>
-      a.montant_hors_suspects === null ? "—" : <Money valeur={a.montant_hors_suspects} />,
+      a.montant_hors_suspects === null ? <Vide /> : <Money valeur={a.montant_hors_suspects} />,
   },
   {
     cle: "montant_suspects",
@@ -81,10 +82,10 @@ export const COLONNES_MONTANT_TOP: Colonne<
     type: "montant",
     rendu: (a) =>
       a.nb_marches_suspects === 0 ? (
-        "—"
+        <Vide />
       ) : (
         <>
-          {a.montant_suspects === null ? "—" : <Money valeur={a.montant_suspects} />}{" "}
+          {a.montant_suspects === null ? <Vide /> : <Money valeur={a.montant_suspects} />}{" "}
           <span className="text-[11px] text-ink-muted">
             ({formatNombre(a.nb_marches_suspects)})
           </span>

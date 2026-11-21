@@ -116,15 +116,15 @@ export function DefautsLobbying({ premieres, total }: DefautsLobbyingProps) {
             disabled={chargement}
             className="inline-flex min-h-11 items-center rounded-lg border border-card-border bg-raised px-3 text-ink transition-colors hover:bg-hover disabled:cursor-wait"
           >
-            {chargement ? "Chargement…" : `Tout afficher (${formatNombre(total)})`}
+            {chargement ? "Chargement en cours" : `Tout afficher (${formatNombre(total)})`}
           </button>
         </p>
       )}
       {indisponible && (
         <p className="mt-2 text-xs text-ink-muted" role="status">
-          Liste complète indisponible pour le moment — les{" "}
+          Liste complète indisponible pour le moment. Les{" "}
           {formatNombre(premieres.length)} premières entités (sur {formatNombre(total)})
-          restent affichées ; la liste officielle complète est consultable sur le site de
+          restent affichées, et la liste officielle complète est consultable sur le site de
           la HATVP (lien source de ce bloc).
         </p>
       )}
