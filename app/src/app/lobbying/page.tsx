@@ -5,6 +5,8 @@ import { TableCompacte } from "@/components/ui/TableCompacte";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { VueTableau } from "@/components/ui/VueTableau";
+import { LienExportCsv } from "@/components/ui/LienExportCsv";
+import { CSV_LOBBYING_MARCHES } from "@/lib/exports-csv";
 import { DefautsLobbying } from "@/components/client/DefautsLobbying";
 import {
   TableDefautsTitulaires,
@@ -410,6 +412,7 @@ function SectionCroisement({
           </div>
 
           <TitulairesLobbyistes horsAccordsCadres={topHorsAc} tousMarches={topTous} />
+          <LienExportCsv definition={CSV_LOBBYING_MARCHES} />
 
           <p className="text-xs leading-relaxed text-ink-muted">
             Classement des 20 premiers sur {formatNombre(titulaires.length)}{" "}

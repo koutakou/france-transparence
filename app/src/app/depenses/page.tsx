@@ -12,6 +12,8 @@ import { NoteRupturesPerimetre } from "@/components/ui/NoteRupturesPerimetre";
 import { LineChart } from "@/components/ui/LineChart";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { VueTableau } from "@/components/ui/VueTableau";
+import { LienExportCsv } from "@/components/ui/LienExportCsv";
+import { CSV_BUDGET_MENSUEL } from "@/lib/exports-csv";
 import { ESPACE_FINE, formatDateFr, formatNombre } from "@/lib/format";
 import {
   getAgregatApu,
@@ -317,6 +319,7 @@ export default async function PageDepenses() {
               cleLigne={(l) => String(l.mois)}
             />
           </VueTableau>
+          <LienExportCsv definition={CSV_BUDGET_MENSUEL} />
           <NoteRupturesPerimetre omises={serie.omises} />
         </Card>
       )}

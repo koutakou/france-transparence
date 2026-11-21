@@ -3,6 +3,8 @@ import { AlertesListe } from "@/components/client/AlertesListe";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
+import { LienExportCsv } from "@/components/ui/LienExportCsv";
+import { CSV_ALERTES } from "@/lib/exports-csv";
 import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { JsonLd } from "@/components/JsonLd";
 import { StatStrip } from "@/components/ui/StatStrip";
@@ -146,6 +148,7 @@ export default async function PageAlertes() {
         total={stats.total}
         initiales={premierePage}
       />
+      <LienExportCsv definition={CSV_ALERTES} />
 
       <NoticeLecture
         ancre="alertes"
