@@ -16,7 +16,7 @@
  * contrôle : 575 dépôts 2024, produits totaux 208 620 190,81 €, aide
  * inscrite aux comptes F1+F2 2024 = 70 275 372,28 €, enveloppes des décrets
  * 2024 = 66 438 848,34 € et 2026 = 64 262 871,05 €, 4 010 candidats,
- * taux de rejet 0,0271, 85 alertes rejet).
+ * taux de rejet 0,0271).
  *
  * Convention « base absente » : `getDonneesFinancement()` renvoie `null`
  * tant que `make ingest` n'a pas produit la base.
@@ -141,7 +141,11 @@ export type DecisionDetail = {
   remboursement_etat: number;
 };
 
-/** Ligne de v_campagnes_2024_top_depenses — sans nuance politique. */
+/**
+ * Ligne de v_campagnes_2024_top_depenses, sans nuance politique ni code de
+ * décision : accolé au nom, un code R serait un rejet nominatif (décision du
+ * propriétaire du 21/11/2026).
+ */
 export type CampagneTopDepense = {
   candidat_id: string;
   nom: string;
@@ -150,7 +154,6 @@ export type CampagneTopDepense = {
   depenses_declarees: number | null;
   depenses_retenues: number | null;
   remboursement_etat: number | null;
-  decision: string;
 };
 
 /** Enveloppe ouverte par décret — pas l’aide inscrite aux comptes. */
@@ -199,15 +202,6 @@ export type AlerteLigne = {
   date_calcul: string;
 };
 
-/** Synthèse des 85 alertes de rejet (règle/base légale communes). */
-export type AlertesRejetsSynthese = {
-  nb: number;
-  gravite: string;
-  regle: string | null;
-  base_legale: string | null;
-  source_url: string | null;
-};
-
 /**
  * Top 10 des partis par produits totaux. Un compte sans produits publiés
  * (NULL) n'a pas de rang : il est écarté ici et compté par
@@ -246,7 +240,6 @@ export type DonneesFinancement = {
   topDepenses: CampagneTopDepense[];
   /** Comptes approuvés après réformation dont le retenu dépasse le déclaré. */
   nbReformationHausse: number;
-  alertesRejets: AlertesRejetsSynthese;
   /** Les 5 alertes « dépendance aide publique ≥ 75 % » (ratio décroissant). */
   alertesDependance: AlerteLigne[];
   /** Alerte documentaire « partis privés d'aide » (liste JO en PDF seulement). */
@@ -330,7 +323,7 @@ export function getDonneesFinancement(): DonneesFinancement | null {
   const topDepenses = db
     .prepare(
       `SELECT candidat_id, nom, circonscription, departement,
-              depenses_declarees, depenses_retenues, remboursement_etat, decision
+              depenses_declarees, depenses_retenues, remboursement_etat
        FROM v_campagnes_2024_top_depenses
        LIMIT 10`,
     )
@@ -347,22 +340,9 @@ export function getDonneesFinancement(): DonneesFinancement | null {
       .get() as { nb: number }
   ).nb;
 
-  // Alertes de rejet NOMINATIVES : depuis le 20/11/2026, seulement les élus
-  // qui ont une fiche (le compte de tous les rejets vient de
-  // v_campagnes_2024_par_decision). Une même règle et base légale pour
-  // toutes. Aucune ligne : nb = 0 et les autres champs NULL.
-  const alertesRejets = db
-    .prepare(
-      `SELECT COUNT(*) AS nb,
-              MIN(gravite)     AS gravite,
-              MIN(regle)       AS regle,
-              MIN(base_legale) AS base_legale,
-              MIN(source_url)  AS source_url
-       FROM alertes
-       WHERE type = 'financement_campagne_rejetee'`,
-    )
-    .get() as AlertesRejetsSynthese;
-
+  // Aucune alerte de rejet n'est lue : depuis le 21/11/2026, tous les rejets
+  // sont un agrégat sans nom (v_campagnes_2024_par_decision, ci-dessus), et
+  // les liens de la carte sont fixes (lib/rejets-campagne.ts).
   const alertesDependance = db
     .prepare(
       `SELECT id, type, gravite, titre, detail, regle, base_legale, source_url, date_calcul
@@ -401,7 +381,6 @@ export function getDonneesFinancement(): DonneesFinancement | null {
     decisionsDetail,
     topDepenses,
     nbReformationHausse,
-    alertesRejets,
     alertesDependance,
     alerteDocumentaire,
   };

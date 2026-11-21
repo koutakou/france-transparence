@@ -29,6 +29,7 @@ import {
   type DecretAidePublique,
   type PartiTopProduits,
 } from "@/lib/queries/financement";
+import { carteRejets } from "@/lib/rejets-campagne";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
 // Rendu statique : la donnée ne change qu'à l'ingestion, le site est
@@ -56,14 +57,6 @@ const BALISAGE = jsonLdPage({
 });
 
 /** Gravité base (`haute`/`moyenne`/`info`) → gravité visuelle + libellé affiché. */
-/** Règle de l'agrégat des rejets (compte sans nom, toutes personnes). */
-const REGLE_AGREGAT_REJETS =
-  "Comptes dont la décision CNCCFP est « rejeté » (code R) dans le fichier des comptes de campagne des législatives 2024, comptés sans nom. Un rejet saisit le juge de l'élection, qui peut ne pas suivre la commission.";
-
-/** Repli si aucune alerte de rejet n'est en base (aucun élu concerné). */
-const BASE_LEGALE_REJETS =
-  "Code électoral, art. L.52-15 (contrôle des comptes de campagne par la CNCCFP, qui saisit le juge de l'élection en cas de rejet) et LO 136-1 (le Conseil constitutionnel statue pour les députés).";
-
 function graviteUi(g: string): { gravite: Gravite; libelle: string } {
   if (g === "haute") return { gravite: "serieux", libelle: "Gravité haute" };
   if (g === "moyenne") return { gravite: "attention", libelle: "Gravité moyenne" };
@@ -130,7 +123,6 @@ export default async function FinancementPage() {
     decisionsDetail,
     topDepenses,
     nbReformationHausse,
-    alertesRejets,
     alertesDependance,
     alerteDocumentaire,
   } = donnees;
@@ -196,6 +188,8 @@ export default async function FinancementPage() {
   const comptesDeposes =
     campagnes.nb_candidats - campagnes.nb_dispenses_depot - campagnes.nb_absences_depot;
   const familleRejete = decisionsFamilles.find((f) => f.decision_famille === "rejete") ?? null;
+  /** Agrégat SANS NOM de tous les rejets (décision du 21/11/2026). */
+  const rejets = carteRejets(familleRejete, comptesDeposes, campagnes.taux_rejet_comptes_deposes);
 
   const ressourcesParts = ressources2024
     ? [
@@ -660,11 +654,12 @@ export default async function FinancementPage() {
           soit déjà servi : le dépôt porte 136 occurrences de « plafond », dont
           zéro sur les dépenses de campagne (les autres sont l'écrêtage DECP à
           100 M€ et les indemnités d'élus locaux). La seconde phrase ne qualifie
-          pas la décision en droit — elle dit seulement de QUI elle émane, ce que
-          la colonne « Décision » du tableau ne dit pas. */}
+          pas la décision en droit. Le code de décision de la CNCCFP n'y figure
+          plus (relecture du 21/11/2026) : accolé au nom d'un candidat, un code R
+          serait un rejet nominatif, que la décision du 21/11/2026 exclut. */}
       <Card
         titre="Dépenses de campagne les plus élevées"
-        sousTitre="Top 10 des comptes de campagne par dépenses retenues par la CNCCFP — législatives 2024, sans nuance politique. Les dépenses de chaque candidat sont plafonnées, d’un montant fixé selon la circonscription : ces montants ne sont pas rapportés au plafond applicable. La colonne « Décision » est celle de la Commission, pas celle d’un juge."
+        sousTitre="Top 10 des comptes de campagne par dépenses retenues par la CNCCFP — législatives 2024, sans nuance politique. Les dépenses de chaque candidat sont plafonnées, d’un montant fixé selon la circonscription : ces montants ne sont pas rapportés au plafond applicable."
         droite={badgeCampagnes}
       >
         <DataTable<CampagneTopDepense>
@@ -674,7 +669,6 @@ export default async function FinancementPage() {
             { cle: "depenses_declarees", entete: "Déclarées (€)", type: "montant" },
             { cle: "depenses_retenues", entete: "Retenues (€)", type: "montant" },
             { cle: "remboursement_etat", entete: "Remb. État (€)", type: "montant" },
-            { cle: "decision", entete: "Décision", largeur: "6rem" },
           ]}
           lignes={topDepenses}
           cleLigne={(l) => l.candidat_id}
@@ -708,20 +702,27 @@ export default async function FinancementPage() {
       >
         <div className="flex flex-col gap-3">
           {/* Agrégat SANS NOM de tous les rejets (v_campagnes_2024_par_decision).
-              Depuis le 20/11/2026, la table `alertes` ne nomme plus que les élus
-              qui ont une fiche : son compte n'est plus celui des rejets. */}
+              Liens fixes : rien ne vient plus de la table `alertes`. */}
           <AlertItem
             gravite={graviteUi("haute").gravite}
             graviteLibelle={graviteUi("haute").libelle}
-            titre={`${formatNombre(familleRejete?.nb ?? 0)} comptes de campagne rejetés par la CNCCFP (législatives 2024)`}
-            detail={`${formatNombre(familleRejete?.nb ?? 0)} comptes rejetés sur ${formatNombre(comptesDeposes)} comptes déposés (${formatPct(campagnes.taux_rejet_comptes_deposes * 100, 2)}).${familleRejete ? ` Dépenses retenues de ces comptes : ${formatNombre(familleRejete.depenses_retenues)} € ; remboursement de l'État : ${formatNombre(familleRejete.remboursement_etat)} €.` : ""} Décision non définitive : le juge de l’élection statue. Le site ne nomme que les élus qui ont une fiche, sur la page Alertes (${formatNombre(alertesRejets.nb)} au total).`}
-            regle={REGLE_AGREGAT_REJETS}
-            baseLegale={alertesRejets.base_legale ?? BASE_LEGALE_REJETS}
-            source={{
-              libelle: "CNCCFP — data.gouv.fr",
-              url: alertesRejets.source_url ?? undefined,
-            }}
+            titre={rejets.titre}
+            detail={rejets.detail}
+            regle={rejets.regle}
+            baseLegale={rejets.baseLegale}
+            source={rejets.source}
           />
+          <p className="-mt-1 text-xs text-ink-muted">
+            Décisions du juge de l&apos;élection&nbsp;:{" "}
+            <a
+              href={rejets.juge.url}
+              className="underline decoration-dotted underline-offset-2 hover:text-ink"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              {rejets.juge.libelle}
+            </a>
+          </p>
           {alertesDependance.map((a) => (
             <AlertItem
               key={a.id}
