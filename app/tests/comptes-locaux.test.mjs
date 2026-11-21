@@ -30,7 +30,7 @@ test("lu le 11/11/2026 : tous les textes disent « provisoire »", () => {
   assert.equal(t.luLe, "11/11/2026");
   assert.equal(t.mention, "comptes 2025 provisoires");
   assert.equal(t.qualif, " (provisoire)");
-  assert.match(t.perimetre, /^budgets principaux, comptes provisoires — /);
+  assert.match(t.perimetre, /^budgets principaux, comptes provisoires, communes /);
   assert.match(t.suiteEntete, /^ : provisoires jusqu’à l’intégration des balances définitives de la DGFiP, fin décembre 2026/);
 });
 
@@ -38,7 +38,7 @@ test("lu le 02/12/2026 : plus aucun « provisoire », jamais « définitif », l
   const t = textesComptesLocaux(2025, "2026-12-02T04:17:00+00:00", formatDateFr);
   assert.equal(t.mention, "comptes 2025 lus le 02/12/2026");
   assert.equal(t.qualif, "");
-  assert.match(t.perimetre, /^budgets principaux — /);
+  assert.match(t.perimetre, /^budgets principaux, communes /);
   for (const texte of Object.values(t)) {
     assert.doesNotMatch(texte, /provisoires? (jusqu|$)|\(provisoire\)|comptes provisoires|définitifs/);
   }

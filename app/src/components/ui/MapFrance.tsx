@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState, type PointerEvent } from "react";
-import { formatNombre } from "@/lib/format";
+import { formatNombre, VIDE } from "@/lib/format";
 import {
   projectionFrance,
   type CarteFrancePrecalculee,
@@ -213,8 +213,8 @@ export function MapFrance({
               stroke="var(--map-contour)"
               strokeWidth={1}
               vectorEffect="non-scaling-stroke"
-              onPointerEnter={(e) => poserTip(e, libelle, releve ?? "—")}
-              onPointerMove={(e) => poserTip(e, libelle, releve ?? "—")}
+              onPointerEnter={(e) => poserTip(e, libelle, releve ?? VIDE)}
+              onPointerMove={(e) => poserTip(e, libelle, releve ?? VIDE)}
             />
           );
         })}
@@ -266,7 +266,7 @@ export function MapFrance({
                     className="inline-block h-2.5 w-6"
                     style={{ background: c }}
                   >
-                    <span className="sr-only">{`${formatValeur(bornes[i])} – ${formatValeur(bornes[i + 1])}`}</span>
+                    <span className="sr-only">{`de ${formatValeur(bornes[i])} à ${formatValeur(bornes[i + 1])}`}</span>
                   </span>
                 ))}
               </span>

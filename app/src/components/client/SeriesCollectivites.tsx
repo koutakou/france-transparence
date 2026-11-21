@@ -93,7 +93,7 @@ function BlocSerie({
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h3 className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
           {titre}
-          {serie.length > 0 ? ` — série ${labels[0]}-${labels[labels.length - 1]}` : ""}
+          {serie.length > 0 ? ` · série ${labels[0]}-${labels[labels.length - 1]}` : ""}
         </h3>
         <button
           type="button"
@@ -222,13 +222,13 @@ export function SeriesCollectivites({ niveau, lignes, hauteurMax }: SeriesCollec
     <div>
       {selection && chargement && (
         <p className="mb-3 text-xs text-ink-muted" aria-live="polite">
-          Chargement de la série pluriannuelle de {selection.nom}…
+          Chargement en cours de la série pluriannuelle de {selection.nom}
         </p>
       )}
       {selection && indisponible && (
         <p className="mb-3 text-xs text-ink-muted">
           Séries pluriannuelles indisponibles (fragment /data/collectivites/series.json non
-          chargé) — le tableau ci-dessous reste complet.
+          chargé). Le tableau ci-dessous reste complet.
         </p>
       )}
       {selection && serie !== null && (

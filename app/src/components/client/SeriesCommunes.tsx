@@ -151,7 +151,7 @@ function BlocSerieCommune({
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h3 className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
           {titre}
-          {labels.length > 0 ? ` — série ${labels[0]}-${labels[labels.length - 1]}` : ""}
+          {labels.length > 0 ? ` · série ${labels[0]}-${labels[labels.length - 1]}` : ""}
         </h3>
         <button
           type="button"
@@ -164,7 +164,7 @@ function BlocSerieCommune({
       {commune.epci !== null && commune.epci !== "" && (
         <p className="mb-2 text-xs text-ink-secondary">
           Intercommunalité : {commune.epci}. Seul le budget principal de la commune est
-          tracé ici — les compétences transférées à l&apos;intercommunalité n&apos;y
+          tracé ici, les compétences transférées à l&apos;intercommunalité n&apos;y
           figurent pas.
         </p>
       )}
@@ -189,12 +189,12 @@ function BlocSerieCommune({
           {manquants.length === 1
             ? `Exercice ${manquants[0]} : donnée non disponible`
             : `Exercices ${manquants.join(", ")} : donnée non disponible`}{" "}
-          — la commune est absente de la source pour{" "}
-          {manquants.length === 1 ? "cet exercice" : "ces exercices"} ; la courbe
+          (la commune est absente de la source pour{" "}
+          {manquants.length === 1 ? "cet exercice" : "ces exercices"}). La courbe
           s&apos;interrompt, rien n&apos;est compté à 0.
         </p>
       )}
-      <VueTableau resume="Vue tableau (« — » = donnée non disponible)">
+      <VueTableau resume="Vue tableau (« n.d. » = donnée non disponible)">
         <DataTable
           colonnes={[
             { cle: "exercice", entete: "Exercice" },
@@ -292,13 +292,13 @@ export function SeriesCommunes({ lignes, hauteurMax, periodeSeries = null }: Ser
     <div>
       {selection && chargement && (
         <p className="mb-3 text-xs text-ink-muted" aria-live="polite">
-          Chargement de la série pluriannuelle de {selection.nom}…
+          Chargement en cours de la série pluriannuelle de {selection.nom}
         </p>
       )}
       {selection && indisponible && (
         <p className="mb-3 text-xs text-ink-muted">
           Séries pluriannuelles indisponibles (fragment
-          /data/collectivites/series-communes.json non chargé) — le tableau ci-dessous
+          /data/collectivites/series-communes.json non chargé). Le tableau ci-dessous
           reste complet.
         </p>
       )}
