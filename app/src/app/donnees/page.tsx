@@ -8,6 +8,8 @@ import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { JsonLd } from "@/components/JsonLd";
 import { DataTable } from "@/components/ui/DataTable";
+import { cheminProvenance, EXPORTS_CSV } from "@/lib/exports-csv";
+import { FLUX } from "@/lib/flux";
 import { formatDateFr, formatNombre } from "@/lib/format";
 import { instantDeConstruction } from "@/lib/lecture";
 import { natureSource } from "@/lib/nature-sources";
@@ -46,7 +48,8 @@ export const metadata: Metadata = metadonneesPage({
  *    poste — ce qu'elle contient, ce qui en est publié (docs/SOURCES.md
  *    §2 encart + §3) ;
  * 3. licences réellement présentes en base et crédits obligatoires ;
- * 4. les exports JSON datés (site statique — plus une API interrogeable) ;
+ * 4. les exports JSON datés (site statique — plus une API interrogeable),
+ *    puis leurs versions CSV avec leur provenance, et les flux Atom ;
  * 5. reproduction (make ingest).
  */
 
@@ -634,6 +637,74 @@ export default async function PageDonnees() {
                 </a>
               </p>
               <p className="mt-1 text-[13px] leading-snug text-ink-secondary">{e.description}</p>
+            </li>
+          ))}
+        </ul>
+      </Card>
+
+      {/* 4 bis. Exports CSV (lib/exports-csv.ts) et flux Atom (lib/flux.ts) */}
+      <Card
+        titre="Exports CSV"
+        sousTitre="Les mêmes données au format tableur, construites avec cette version du site"
+      >
+        <p className="mb-4 max-w-3xl text-[13px] leading-relaxed text-ink-secondary">
+          Séparateur <code className="rounded bg-raised px-1 py-0.5 text-xs">;</code>,
+          UTF-8 avec BOM, virgule décimale et aucun séparateur de milliers&nbsp;:
+          le fichier s’ouvre tel quel dans un tableur. Un CSV ne porte aucune
+          colonne de plus que l’export JSON ou le tableau de page dont il est
+          la version tableur. Sa provenance (sources amont, licence, date des
+          données, URL, sens des colonnes) est dans un fichier texte du même
+          nom publié à côté, pour que la première ligne du CSV reste celle des
+          noms de colonnes et que l’import ne se décale pas.
+        </p>
+        <ul className="flex flex-col gap-4">
+          {EXPORTS_CSV.map((e) => (
+            <li key={e.fichier} className="border-l pl-3.5" style={{ borderColor: "var(--viz-grid)" }}>
+              <p className="flex flex-wrap items-center gap-x-2 text-[13px]">
+                <a
+                  href={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/${e.fichier}`}
+                  className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
+                >
+                  <code className="rounded bg-raised px-1.5 py-0.5 text-xs text-ink">
+                    /api/{e.fichier}
+                  </code>
+                </a>
+                <a
+                  href={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}${cheminProvenance(e.fichier)}`}
+                  className="text-xs text-ink-muted underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
+                >
+                  provenance
+                </a>
+              </p>
+              <p className="mt-1 text-[13px] leading-snug text-ink-secondary">{e.titre}</p>
+            </li>
+          ))}
+        </ul>
+      </Card>
+
+      <Card
+        titre="Flux Atom"
+        sousTitre="Pour suivre les nouveautés dans un lecteur de flux, sans revenir sur le site"
+      >
+        <p className="mb-4 max-w-3xl text-[13px] leading-relaxed text-ink-secondary">
+          Chaque entrée porte le titre et le lien officiels de la donnée, sans
+          commentaire, et la date du fait ou de la donnée. Son identifiant est
+          celui de la source (NOR, numéro de dossier, identifiant d’alerte, code
+          de la source et date des données)&nbsp;: une entrée déjà lue ne
+          revient pas.
+        </p>
+        <ul className="flex flex-col gap-4">
+          {FLUX.map((f) => (
+            <li key={f.chemin} className="border-l pl-3.5" style={{ borderColor: "var(--viz-grid)" }}>
+              <p className="text-[13px]">
+                <a
+                  href={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}${f.chemin}`}
+                  className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
+                >
+                  <code className="rounded bg-raised px-1.5 py-0.5 text-xs text-ink">{f.chemin}</code>
+                </a>
+              </p>
+              <p className="mt-1 text-[13px] leading-snug text-ink-secondary">{f.description}</p>
             </li>
           ))}
         </ul>
