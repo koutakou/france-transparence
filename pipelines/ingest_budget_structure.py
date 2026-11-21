@@ -96,11 +96,12 @@ PAGE_ASSOS = ("https://data.economie.gouv.fr/explore/dataset/plf25-donnees-de-l-
 
 # Catalogue data.economie.gouv.fr interrogé le 21/11/2026 (`search("lfi")`,
 # `search("2026")`, `search("destination")`) : aucun jeu LFI 2026, ni PLF ou
-# LFI 2026 par destination ; seul plf-2026-budget-vert. La date de
+# LFI 2026 par destination ; seul plf-2026-budget-vert (le jeu PLF 2027 des
+# opérateurs porte les subventions LFI 2026, pas les crédits par mission). La date de
 # vérification fait partie du texte : une négation sur l'amont vieillit.
 ETIQUETTE_2026 = ("PLF 2026 déposé le 14/10/2025, pas la LFI promulguée le "
-                  "19/02/2026 (non publiée en données sur data.economie.gouv.fr "
-                  "au 21/11/2026)")
+                  "19/02/2026 (crédits par mission non publiés en données sur "
+                  "data.economie.gouv.fr au 21/11/2026)")
 ETIQUETTE_2025 = "PLF 2025 déposé en octobre 2024 — projet, pas la LFI 2025 votée"
 ANNEE_VERSEMENT_ASSOS = 2023  # millésime du jaune PLF 2025 (colonne source objet_2023)
 

@@ -1305,7 +1305,7 @@ def calculer_alertes(conn, url_avis_2024: str | None) -> int:
         f"≥ {SEUIL_DEPENDANCE_RATIO:.0%} des produits totaux ET produits totaux "
         f"≥ {formater_euros(SEUIL_DEPENDANCE_PRODUITS)}, dernier exercice publié, "
         "comptes en euros (indicateur de structure de financement, pas une "
-        "infraction ; méthode : https://francetransparence.fr/comprendre/#alertes)."
+        "infraction. Méthode : https://francetransparence.fr/comprendre/#alertes)."
     )
     base_a4 = "Loi n° 88-227 du 11 mars 1988 relative à la transparence financière de la vie politique."
     for p in conn.execute(
