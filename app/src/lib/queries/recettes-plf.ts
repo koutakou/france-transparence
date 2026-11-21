@@ -25,6 +25,10 @@ import { getDb, type MetaSource } from "@/lib/db";
 
 const CODES_PARTICIPATIONS = [2110, 2116, 2199] as const;
 
+/**
+ * Copie de `ETIQUETTE` de pipelines/ingest_recettes_plf.py, qui ne l'écrit pas
+ * en base. tests/textes.test.mjs vérifie que les deux textes restent égaux.
+ */
 export const ETIQUETTE_PLF = (
   "PLF 2025 déposé en octobre 2024 : projet, pas la LFI 2025 votée, pas l'exécution (S13)"
 );
