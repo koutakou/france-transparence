@@ -44,8 +44,8 @@ export type SanctionsAdlc = {
  */
 export function perimetreAdlc(nb: number, anneeMin: number, anneeMax: number): string {
   return (
-    `${nb} décisions ${anneeMin}–${anneeMax}, une ligne par décision ` +
-    `(montant total ADLC) — avant appels et recours ; ce n'est pas un ` +
+    `${nb} décisions de ${anneeMin} à ${anneeMax}, une ligne par décision ` +
+    `(montant total ADLC), avant appels et recours. Ce n'est pas un ` +
     `marché public, pas une recette du budget général, pas un recouvrement`
   );
 }

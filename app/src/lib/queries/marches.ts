@@ -599,7 +599,7 @@ const LIBELLES_FORME_ECARTEE: Record<FormeIdentifiantEcarte["classe"], string> =
   lettres: "identifiant portant des lettres",
   siren_espaces: "SIREN de 9 chiffres, avec espaces",
   siren_nu: "SIREN de 9 chiffres, sans le numéro d’établissement",
-  longueur_13: "numéro de 13 chiffres — un caractère manque pour un SIRET",
+  longueur_13: "numéro de 13 chiffres : un caractère manque pour un SIRET",
   autre: "autre forme non conforme",
 };
 

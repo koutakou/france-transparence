@@ -27,16 +27,16 @@ export async function GET() {
   const agregats = getMarchesAgregats();
   if (agregats === null) {
     throw new Error(
-      "Base absente au build — lancer make ingest (ou poser FRANCE_DB_PATH) avant next build.",
+      "Base absente au build : lancer make ingest (ou poser FRANCE_DB_PATH) avant next build.",
     );
   }
   const s1 = (getMetaSourcesParIds(["S1"]) ?? [])[0];
   return NextResponse.json({
     meta: {
       description:
-        "Agrégats DECP par département (12 mois, montants écrêtés à 100 M€/marché ; NULL = aucun montant connu) et par mois (36 mois). Datation : chaque marché est compté à la date de sa notification INITIALE — un avenant ultérieur ne le redate pas et ne le change pas de mois ; les montants sont ceux de sa version courante. Marchés notifiés = engagements contractuels, pas des paiements ; montants d'accords-cadres = maximums ; latence légale de publication jusqu'à 2 mois (données en cours de consolidation). Snapshot statique régénéré à chaque build.",
+        "Agrégats DECP par département (12 mois, montants écrêtés à 100 M€/marché, NULL = aucun montant connu) et par mois (36 mois). Datation : chaque marché est compté à la date de sa notification INITIALE : un avenant ultérieur ne le redate pas et ne le change pas de mois. Les montants sont ceux de sa version courante. Marchés notifiés = engagements contractuels, pas des paiements. Montants d'accords-cadres = maximums. Latence légale de publication jusqu'à 2 mois (données en cours de consolidation). Snapshot statique régénéré à chaque build.",
       credit:
-        "Consolidation communautaire decp-processing (Colin Maudry) — à créditer en cas de réutilisation.",
+        "Consolidation communautaire decp-processing (Colin Maudry), à créditer en cas de réutilisation.",
       source: s1
         ? {
             source_id: s1.source_id,

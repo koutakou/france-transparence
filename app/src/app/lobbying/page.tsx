@@ -5,6 +5,7 @@ import { TableCompacte } from "@/components/ui/TableCompacte";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { VueTableau } from "@/components/ui/VueTableau";
+import { Vide } from "@/components/ui/Vide";
 import { LienExportCsv } from "@/components/ui/LienExportCsv";
 import { CSV_LOBBYING_MARCHES } from "@/lib/exports-csv";
 import { DefautsLobbying } from "@/components/client/DefautsLobbying";
@@ -55,7 +56,7 @@ import { phraseMarchesSansMontant } from "@/lib/phrases";
 const CHEMIN = "/lobbying/";
 const TITRE = "Lobbying";
 const DESCRIPTION =
-  "Le répertoire des représentants d'intérêts de la HATVP : activités déclarées, budgets, institutions visées, entités en défaut de déclaration, et les marchés publics dont ces représentants d'intérêts sont titulaires — constats officiels repris tels quels, datés et sourcés.";
+  "Le répertoire des représentants d'intérêts de la HATVP : activités déclarées, budgets, institutions visées, entités en défaut de déclaration, et les marchés publics dont ces représentants d'intérêts sont titulaires. Constats officiels repris tels quels, datés et sourcés.";
 
 export const metadata: Metadata = metadonneesPage({
   chemin: CHEMIN,
@@ -218,7 +219,7 @@ function SectionCroisement({
       <FreshnessBadge
         dateDonnees={metaS4.date_donnees}
         sourceId={metaS4.source_id}
-        source="HATVP — AGORA"
+        source="HATVP · AGORA"
         frequence={metaS4.frequence}
         url={metaS4.url}
       />
@@ -230,7 +231,7 @@ function SectionCroisement({
       {/* ── Croisement : représentants d'intérêts titulaires de marchés ── */}
       <Card
         titre="Représentants d'intérêts titulaires de marchés publics"
-        sousTitre={`Croisement de deux répertoires publics : le SIREN des entités inscrites au répertoire HATVP et le SIREN des titulaires de marchés publics (DECP consolidées). La jointure est exacte sur le SIREN — aucun rapprochement de noms, donc aucune homonymie. ${formatNombre(couverture.entitesSiren)} des ${formatNombre(couverture.entites)} entités inscrites portent un SIREN (${formatNombre(couverture.sirensDistincts)} SIREN distincts) ; les ${formatNombre(sansSiren)} autres sont identifiées par un numéro RNA d'association ou un identifiant interne HATVP et restent hors de portée de ce croisement.`}
+        sousTitre={`Croisement de deux répertoires publics : le SIREN des entités inscrites au répertoire HATVP et le SIREN des titulaires de marchés publics (DECP consolidées). La jointure est exacte sur le SIREN : aucun rapprochement de noms, donc aucune homonymie. ${formatNombre(couverture.entitesSiren)} des ${formatNombre(couverture.entites)} entités inscrites portent un SIREN (${formatNombre(couverture.sirensDistincts)} SIREN distincts). Les ${formatNombre(sansSiren)} autres sont identifiées par un numéro RNA d'association ou un identifiant interne HATVP et restent hors de portée de ce croisement.`}
         droite={badges}
       >
         <div className="flex flex-col gap-4">
@@ -248,14 +249,14 @@ function SectionCroisement({
               </strong>
               . L&apos;inscription au répertoire est une obligation de
               transparence qui pèse sur qui exerce une activité de
-              représentation d&apos;intérêts ; l&apos;attribution d&apos;un
+              représentation d&apos;intérêts, et l&apos;attribution d&apos;un
               marché résulte d&apos;une procédure d&apos;achat public encadrée.
               Le cumul des deux n&apos;est ni interdit, ni irrégulier, ni
               anormal en soi : une entreprise, une association ou une chambre
               consulaire peut avoir des raisons parfaitement légitimes de
               figurer au répertoire. Aucune des entités listées ci-dessous
               n&apos;est en tort du seul fait d&apos;y figurer, et cette
-              section ne formule aucun constat d&apos;irrégularité — à la seule
+              section ne formule aucun constat d&apos;irrégularité, à la seule
               exception du bloc suivant, qui reprend un constat officiel de la
               HATVP portant sur la déclaration, jamais sur le marché.
             </p>
@@ -267,46 +268,46 @@ function SectionCroisement({
                 label: "Représentants d'intérêts titulaires (hors accords-cadres)",
                 valeur: formatNombre(ag.sirensHorsAc),
                 perimetre:
-                  "titulaires sur les 24 derniers mois — notification initiale, pas le classement 12 mois de la page Marchés",
+                  "titulaires sur les 24 derniers mois, notification initiale, pas le classement 12 mois de la page Marchés",
               },
               {
                 label: "Marchés notifiés (hors accords-cadres)",
                 valeur: formatNombre(ag.marchesHorsAc),
                 perimetre:
-                  "notifiés sur les 24 derniers mois — notification initiale, pas le classement 12 mois de la page Marchés",
+                  "notifiés sur les 24 derniers mois, notification initiale, pas le classement 12 mois de la page Marchés",
               },
               {
                 label: "Montant notifié (écrêté, hors accords-cadres)",
                 valeur:
-                  ag.montantHorsAc !== null ? formatEuros(ag.montantHorsAc) : "—",
+                  ag.montantHorsAc !== null ? formatEuros(ag.montantHorsAc) : <Vide />,
                 montantVedette: true,
                 perimetre:
-                  "24 derniers mois, plafond 100 M€ par marché — notification initiale, pas les 12 mois de la page Marchés",
+                  "24 derniers mois, plafond 100 M€ par marché, notification initiale, pas les 12 mois de la page Marchés",
               },
               {
                 label: "Part du montant notifié hors accords-cadres",
-                valeur: partMontant !== null ? formatPct(partMontant) : "—",
+                valeur: partMontant !== null ? formatPct(partMontant) : <Vide />,
                 perimetre:
-                  "part du montant DECP hors accords-cadres, 24 mois — le dénominateur n’est pas un total lobbyiste",
+                  "part du montant DECP hors accords-cadres, 24 mois. Le dénominateur n’est pas un total lobbyiste",
               },
             ]}
           />
 
           <p className="text-xs leading-relaxed text-ink-muted">
             Lecture : {formatNombre(ag.sirensHorsAc)} SIREN inscrits au
-            répertoire — soit{" "}
-            {partTitulaires !== null ? formatPct(partTitulaires, 2) : "—"} des{" "}
+            répertoire (soit{" "}
+            {partTitulaires !== null ? formatPct(partTitulaires, 2) : <Vide />} des{" "}
             {formatNombre(ensemble.sirensTitulairesHorsAc)} SIREN titulaires
-            d&apos;au moins un marché hors accords-cadres dans les DECP — sont
+            d&apos;au moins un marché hors accords-cadres dans les DECP) sont
             titulaires de{" "}
-            {partMarches !== null ? formatPct(partMarches) : "—"} des marchés
+            {partMarches !== null ? formatPct(partMarches) : <Vide />} des marchés
             notifiés hors accords-cadres, pour{" "}
-            {partMontant !== null ? formatPct(partMontant) : "—"} du montant
+            {partMontant !== null ? formatPct(partMontant) : <Vide />} du montant
             correspondant. Marchés notifiés = engagements contractuels, pas des
             paiements. Fenêtre couverte par la source DECP au{" "}
             {formatDateFr(metaS1.date_donnees)} : les 24 derniers mois environ,
-            comptés à la date de notification initiale des marchés — un
-            avenant ne les redate pas —, avec une latence légale de
+            comptés à la date de notification initiale des marchés (un
+            avenant ne les redate pas), avec une latence légale de
             publication pouvant aller jusqu&apos;à deux mois.
           </p>
 
@@ -320,7 +321,7 @@ function SectionCroisement({
             <p className="text-xs leading-relaxed text-ink-secondary">
               Le total de{" "}
               <strong className="font-medium text-ink">
-                {ag.montantHorsAc !== null ? formatEuros(ag.montantHorsAc) : "—"}
+                {ag.montantHorsAc !== null ? formatEuros(ag.montantHorsAc) : <Vide />}
               </strong>{" "}
               porte sur {formatNombre(ag.marchesHorsAc)} marchés notifiés hors
               accords-cadres. Il n&apos;est pas homogène :
@@ -334,7 +335,7 @@ function SectionCroisement({
                 comptés à ce plafond. Ils apportent{" "}
                 {ag.montantEcretesHorsAc !== null
                   ? formatEuros(ag.montantEcretesHorsAc)
-                  : "—"}
+                  : <Vide />}
                 {partEcretee !== null && <>, soit {formatPct(partEcretee)} du total</>}{" "}
                 : cette part est faite de valeurs de substitution, leur montant
                 réel n&apos;est pas connu.
@@ -347,7 +348,7 @@ function SectionCroisement({
                 source, ou montant au-delà du plafond) et apportent{" "}
                 {ag.montantSuspectsHorsAc !== null
                   ? formatEuros(ag.montantSuspectsHorsAc)
-                  : "—"}
+                  : <Vide />}
                 {partSuspecte !== null && <>, soit {formatPct(partSuspecte)} du total</>}.
               </li>
               <li>
@@ -355,7 +356,7 @@ function SectionCroisement({
                 <strong className="font-medium text-ink">
                   {ag.montantHorsAcHorsSuspects !== null
                     ? formatEuros(ag.montantHorsAcHorsSuspects)
-                    : "—"}
+                    : <Vide />}
                 </strong>{" "}
                 pour {formatNombre(ag.marchesHorsAcHorsSuspects)} marchés et{" "}
                 {formatNombre(ag.sirensHorsAcHorsSuspects)} représentants
@@ -369,8 +370,8 @@ function SectionCroisement({
                 Sans aucun écrêtage, la somme brute atteindrait{" "}
                 {ag.montantHorsAcBrut !== null
                   ? formatEuros(ag.montantHorsAcBrut)
-                  : "—"}{" "}
-                — ce que le plafond sert précisément à ne pas afficher.
+                  : <Vide />}
+                , ce que le plafond sert précisément à ne pas afficher.
               </li>
               <li>
                 {phraseMarchesSansMontant(
@@ -394,7 +395,7 @@ function SectionCroisement({
               accords-cadres, pour un montant notifié de{" "}
               {ag.montantAccordsCadres !== null
                 ? formatEuros(ag.montantAccordsCadres)
-                : "—"}
+                : <Vide />}
               . Ce montant est un{" "}
               <strong className="font-medium text-ink">
                 maximum contractuel, pas une dépense
@@ -402,11 +403,11 @@ function SectionCroisement({
               : l&apos;acheteur peut n&apos;en consommer qu&apos;une fraction, et
               la source ne publie pas ce qui a été réellement commandé. Les
               additionner au reste porterait le croisement à{" "}
-              {ag.montantTous !== null ? formatEuros(ag.montantTous) : "—"} pour{" "}
+              {ag.montantTous !== null ? formatEuros(ag.montantTous) : <Vide />} pour{" "}
               {formatNombre(ag.sirensTous)} représentants d&apos;intérêts et{" "}
-              {formatNombre(ag.marchesTous)} marchés — un total qui mélange des
+              {formatNombre(ag.marchesTous)} marchés, un total qui mélange des
               plafonds et des engagements fermes. C&apos;est pourquoi le
-              périmètre de référence de cette section les exclut ; la bascule
+              périmètre de référence de cette section les exclut. La bascule
               du tableau ci-dessous permet néanmoins de les voir.
             </p>
           </div>
@@ -428,7 +429,7 @@ function SectionCroisement({
               /api/lobbying-marches.json
             </code>
             . Un marché est rattaché à TOUS ses titulaires, co-titulaires
-            compris (la donnée source ne désigne pas de mandataire) ; les
+            compris (la donnée source ne désigne pas de mandataire). Les
             activités déclarées sur 12 mois viennent du répertoire HATVP et
             n&apos;ont aucun lien de causalité avec les marchés listés.
             Consolidation DECP : decp-processing (Colin Maudry).
@@ -439,7 +440,7 @@ function SectionCroisement({
       {/* ── Sous-ensemble : titulaires en défaut de déclaration ────────── */}
       <Card
         titre="Titulaires de marchés en défaut de déclaration"
-        sousTitre={`${formatNombre(ag.defautSirensTous)} des ${formatNombre(ag.sirensTous)} représentants d'intérêts titulaires d'un marché public figurent sur la liste officielle HATVP des représentants d'intérêts en défaut de déclaration — flag public officiel, repris tel quel.`}
+        sousTitre={`${formatNombre(ag.defautSirensTous)} des ${formatNombre(ag.sirensTous)} représentants d'intérêts titulaires d'un marché public figurent sur la liste officielle HATVP des représentants d'intérêts en défaut de déclaration. Flag public officiel, repris tel quel.`}
         droite={badges}
       >
         <div className="flex flex-col gap-4">
@@ -483,11 +484,11 @@ function SectionCroisement({
             pour{" "}
             {ag.defautMontantTous !== null
               ? formatEuros(ag.defautMontantTous)
-              : "—"}{" "}
-            — dont{" "}
+              : <Vide />}
+            , dont{" "}
             {ag.defautMontantTousHorsSuspects !== null
               ? formatEuros(ag.defautMontantTousHorsSuspects)
-              : "—"}{" "}
+              : <Vide />}{" "}
             sur {formatNombre(ag.defautMarchesTousHorsSuspects)} marchés une fois
             écartés les montants signalés. Sur le périmètre de référence
             de cette page (accords-cadres exclus), il reste{" "}
@@ -495,7 +496,7 @@ function SectionCroisement({
             {formatNombre(ag.defautMarchesHorsAc)} marchés et{" "}
             {ag.defautMontantHorsAc !== null
               ? formatEuros(ag.defautMontantHorsAc)
-              : "—"}{" "}
+              : <Vide />}{" "}
             : l&apos;essentiel du montant de ce sous-ensemble tient à des
             accords-cadres, dont le montant est un maximum et non une dépense.
           </p>
@@ -504,10 +505,10 @@ function SectionCroisement({
           <p className="text-xs leading-relaxed text-ink-muted">
             « AC » = accord-cadre. Montants écrêtés à{" "}
             {formatEuros(PLAFOND_ECRETAGE)} par marché puis répartis entre
-            co-titulaires ; ils comprennent ici les montants signalés,
+            co-titulaires. Ils comprennent ici les montants signalés,
             le détail par entité étant trop fin pour qu&apos;une borne basse par
             ligne ait un sens. La liste officielle complète des représentants
-            d&apos;intérêts en défaut de déclaration — marchés publics ou non —
+            d&apos;intérêts en défaut de déclaration, marchés publics ou non,
             est celle du bloc précédent et reste consultable chez la HATVP.
           </p>
         </div>
@@ -596,7 +597,7 @@ function SectionRegistreUe({ donnees }: { donnees: DonneesRegistreUe }) {
               déclaratives, ni la même définition des coûts déclarés : les
               montants de l&apos;un ne se comparent pas à ceux de l&apos;autre
               et ne s&apos;additionnent pas. Aucun rapprochement automatique
-              n&apos;est possible par ailleurs — l&apos;export européen ne
+              n&apos;est possible par ailleurs : l&apos;export européen ne
               publie aucun identifiant national d&apos;entreprise, d&apos;aucun
               pays : ni SIREN, ni numéro de TVA. Aucune organisation
               n&apos;est ici mise en cause : s&apos;inscrire à un registre de
@@ -621,15 +622,15 @@ function SectionRegistreUe({ donnees }: { donnees: DonneesRegistreUe }) {
               },
               {
                 label: "Rang de la France par nombre d'inscrits",
-                valeur: rangFrance ? `${rangFrance}ᵉ` : "—",
+                valeur: rangFrance ? `${rangFrance}ᵉ` : <Vide />,
                 perimetre:
-                  "stock de l’export du jour, rang par siège déclaré — y compris les travailleurs indépendants",
+                  "stock de l’export du jour, rang par siège déclaré, y compris les travailleurs indépendants",
               },
               {
                 label: "Inscrits français déclarant une fourchette de coûts",
                 valeur: formatNombre(france.avecCout),
                 perimetre:
-                  "stock de l’export du jour — une fourchette n’est pas un montant exact",
+                  "stock de l’export du jour. Une fourchette n’est pas un montant exact",
               },
             ]}
           />
@@ -649,7 +650,7 @@ function SectionRegistreUe({ donnees }: { donnees: DonneesRegistreUe }) {
                   <strong className="font-medium text-ink">
                     répertoire français (HATVP)
                   </strong>{" "}
-                  — sur {formatNombre(compteurs.hatvpTotal)} inscrites —
+                  (sur {formatNombre(compteurs.hatvpTotal)} inscrites)
                   déclarent exercer leur activité de représentation
                   d&apos;intérêts à un niveau « Européen ». C&apos;est une case
                   d&apos;une déclaration française.
@@ -660,7 +661,7 @@ function SectionRegistreUe({ donnees }: { donnees: DonneesRegistreUe }) {
                   {formatNombre(compteurs.ueSiegeFrance)}
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-ink-secondary">
-                  inscrits au registre de l&apos;Union, à siège en France —
+                  inscrits au registre de l&apos;Union, à siège en France,
                   sur {formatNombre(compteurs.ueTotal)} inscrits, tous pays.
                   C&apos;est une inscription à Bruxelles.
                 </p>
@@ -673,7 +674,7 @@ function SectionRegistreUe({ donnees }: { donnees: DonneesRegistreUe }) {
                 ils ne recouvrent pas le même ensemble
               </strong>
               . Une organisation peut relever des deux registres, d&apos;un
-              seul, ou d&apos;aucun — une entreprise étrangère inscrite à
+              seul, ou d&apos;aucun : une entreprise étrangère inscrite à
               Bruxelles n&apos;a aucune raison de figurer au répertoire
               français, et une association qui ne s&apos;adresse qu&apos;à des
               responsables publics français n&apos;a aucune raison de
@@ -722,7 +723,7 @@ function SectionRegistreUe({ donnees }: { donnees: DonneesRegistreUe }) {
       {/* ── Coûts déclarés au registre de l'Union ─────────────────────── */}
       <Card
         titre="Coûts annuels déclarés au registre de l'Union"
-        sousTitre={`Organisations à siège en France par fourchette de coûts annuels consacrés aux activités de représentation d'intérêts auprès des institutions de l'Union — fourchettes natives du registre, telles que publiées. ${formatNombre(france.avecCout)} des ${formatNombre(france.total)} inscrits français en déclarent une.`}
+        sousTitre={`Organisations à siège en France par fourchette de coûts annuels consacrés aux activités de représentation d'intérêts auprès des institutions de l'Union. Fourchettes natives du registre, telles que publiées. ${formatNombre(france.avecCout)} des ${formatNombre(france.total)} inscrits français en déclarent une.`}
         droite={badgeUe}
       >
         <TableCompacte<CoutUe>
@@ -743,7 +744,7 @@ function SectionRegistreUe({ donnees }: { donnees: DonneesRegistreUe }) {
           <strong className="font-medium text-ink">jamais sommées</strong> : la
           somme de bornes déclaratives ne serait pas un montant. Elles ne se
           comparent pas non plus aux fourchettes de dépenses du répertoire
-          HATVP présentées plus haut — ce sont deux déclarations distinctes,
+          HATVP présentées plus haut. Ce sont deux déclarations distinctes,
           faites à deux autorités distinctes, sur deux périmètres
           d&apos;activité distincts. Une organisation qui déclare des coûts
           dans les deux registres ne déclare pas deux fois la même dépense, et
@@ -787,8 +788,8 @@ function SectionRegistreUe({ donnees }: { donnees: DonneesRegistreUe }) {
             condition posée par le Parlement européen et la Commission pour
             rencontrer leurs responsables, et l&apos;inscription y est publique
             par construction. La colonne des coûts reprend la fourchette
-            déclarée pour le dernier exercice clos publié par le registre ;
-            « — » signifie qu&apos;aucune fourchette n&apos;y figure, jamais
+            déclarée pour le dernier exercice clos publié par le registre.
+            «&nbsp;n.d.&nbsp;» signifie qu&apos;aucune fourchette n&apos;y figure, jamais
             qu&apos;elle serait nulle. Source :{" "}
             <a
               href={meta.url}
@@ -797,8 +798,8 @@ function SectionRegistreUe({ donnees }: { donnees: DonneesRegistreUe }) {
               className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
             >
               export XML du registre de transparence de l&apos;Union
-            </a>{" "}
-            — réutilisation autorisée par la décision 2011/833/UE.
+            </a>
+            , réutilisation autorisée par la décision 2011/833/UE.
           </p>
         </div>
       </Card>
@@ -827,7 +828,7 @@ export default async function LobbyingPage() {
         <div className="max-w-2xl rounded-xl border border-card-border bg-card p-5 text-sm text-ink-muted">
           <p>
             La base locale n&apos;est pas encore construite (ou la source HATVP
-            n&apos;est pas ingérée) — lancer{" "}
+            n&apos;est pas ingérée). Lancer{" "}
             <code className="rounded bg-raised px-1.5 py-0.5">make ingest</code>{" "}
             pour ingérer les sources.
           </p>
@@ -857,7 +858,7 @@ export default async function LobbyingPage() {
     <FreshnessBadge
       dateDonnees={meta.date_donnees}
       sourceId={meta.source_id}
-      source="HATVP — AGORA"
+      source="HATVP · AGORA"
       frequence={meta.frequence}
       url={meta.url}
     />
@@ -888,7 +889,7 @@ export default async function LobbyingPage() {
       <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="max-w-2xl">
           <h1 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
-            Lobbying — représentants d&apos;intérêts
+            Lobbying : représentants d&apos;intérêts
           </h1>
           <p className="mt-2 text-sm text-ink-secondary">
             Répertoire des représentants d&apos;intérêts de la HATVP, créé par
@@ -904,22 +905,22 @@ export default async function LobbyingPage() {
           {
             label: "Entités inscrites au répertoire",
             valeur: formatNombre(kpi.entites),
-            perimetre: "stock du répertoire — inscriptions en cours et cessées",
+            perimetre: "stock du répertoire, inscriptions en cours et cessées",
           },
           {
             label: "Entités actives",
             valeur: formatNombre(kpi.actives),
-            perimetre: "encore inscrites — une désinscription n’est pas une absence d’activité",
+            perimetre: "encore inscrites. Une désinscription n’est pas une absence d’activité",
           },
           {
             label: "Activités déclarées (historique)",
             valeur: formatNombre(kpi.activitesTotal),
-            perimetre: "toutes les déclarations publiées — pas une fenêtre 12 ou 24 mois",
+            perimetre: "toutes les déclarations publiées, pas une fenêtre 12 ou 24 mois",
           },
           {
             label: "Activités détaillées (24 derniers mois)",
             valeur: formatNombre(kpi.activites24m),
-            perimetre: "détail conservé sur 24 mois — ce n’est pas le total historique",
+            perimetre: "détail conservé sur 24 mois. Ce n’est pas le total historique",
           },
         ]}
       />
@@ -1008,7 +1009,7 @@ export default async function LobbyingPage() {
       {/* ── Répartition par fourchette de budget ─────────────────────── */}
       <Card
         titre="Répartition par fourchette de budget"
-        sousTitre={`Entités par fourchette de budget annuel consacré à la représentation d'intérêts — fourchettes natives HATVP, telles que déclarées. ${formatNombre(budgetsCouverture.dansFourchettes)} des ${formatNombre(budgetsCouverture.totalActives)} entités actives ont déclaré une fourchette (dernier exercice déclaré) ; les entités cessées ne sont comptées ni d'un côté ni de l'autre.`}
+        sousTitre={`Entités par fourchette de budget annuel consacré à la représentation d'intérêts. Fourchettes natives HATVP, telles que déclarées. ${formatNombre(budgetsCouverture.dansFourchettes)} des ${formatNombre(budgetsCouverture.totalActives)} entités actives ont déclaré une fourchette (dernier exercice déclaré). Les entités cessées ne sont comptées ni d'un côté ni de l'autre.`}
         droite={badge}
       >
         <BarChartIle
@@ -1086,7 +1087,7 @@ export default async function LobbyingPage() {
       {/* ── Ministères / institutions les plus visés ─────────────────── */}
       <Card
         titre="Ministères et institutions les plus visés"
-        sousTitre="Top 12 par nombre d'activités déclarées (historique), parmi les destinataires RÉELLEMENT NOMMÉS — ministères, autorités indépendantes, collectivités. Le champ « département ministériel » de la HATVP accepte plusieurs valeurs et son export CSV les sépare par une virgule, sans distinguer cette virgule de celle qui appartient au nom d'un ministère : « Environnement, énergie et mer » y figure en deux lignes. Les portefeuilles connus sont donc reconstitués à partir d'une liste de correspondances fermée, vérifiée sur les identifiants d'activité ; les autres libellés restent tels que déclarés. Une même activité pouvant viser plusieurs destinataires, les lignes ne se cumulent pas."
+        sousTitre="Top 12 par nombre d'activités déclarées (historique), parmi les destinataires RÉELLEMENT NOMMÉS : ministères, autorités indépendantes, collectivités. Le champ « département ministériel » de la HATVP accepte plusieurs valeurs et son export CSV les sépare par une virgule, sans distinguer cette virgule de celle qui appartient au nom d'un ministère : « Environnement, énergie et mer » y figure en deux lignes. Les portefeuilles connus sont donc reconstitués à partir d'une liste de correspondances fermée, vérifiée sur les identifiants d'activité. Les autres libellés restent tels que déclarés. Une même activité pouvant viser plusieurs destinataires, les lignes ne se cumulent pas."
         droite={badge}
       >
         <TableCompacte<MinistereVise>
@@ -1122,14 +1123,14 @@ export default async function LobbyingPage() {
               </strong>{" "}
               et non un destinataire nommé. Les activités déclarées ainsi
               n&apos;ont pas de ministère ni d&apos;institution identifiable et
-              ne peuvent donc pas figurer dans le classement ci-dessus — elles
+              ne peuvent donc pas figurer dans le classement ci-dessus. Elles
               représentent{" "}
               {partTypesInterlocuteur !== null && (
                 <strong className="font-medium text-ink">
                   {formatPct(partTypesInterlocuteur)}
                 </strong>
               )}{" "}
-              des mentions de destinataire — une activité qui vise plusieurs
+              des mentions de destinataire. Une activité qui vise plusieurs
               destinataires compte une fois pour chacun, ce n&apos;est donc pas
               une part d&apos;activités. Aucun chiffre n&apos;est retiré : ils
               sont ici.
@@ -1153,8 +1154,8 @@ export default async function LobbyingPage() {
 
       {/* ── Alertes : défauts de déclaration ─────────────────────────── */}
       <Card
-        titre="Alertes — défauts de déclaration"
-        sousTitre={`${formatNombre(nbAlertesDefaut)} entités inscrites sur la liste officielle HATVP des représentants d'intérêts en défaut de déclaration — flag public officiel, repris tel quel.`}
+        titre="Alertes : défauts de déclaration"
+        sousTitre={`${formatNombre(nbAlertesDefaut)} entités inscrites sur la liste officielle HATVP des représentants d'intérêts en défaut de déclaration. Flag public officiel, repris tel quel.`}
         droite={badge}
       >
         <div className="flex flex-col gap-3">
@@ -1167,7 +1168,7 @@ export default async function LobbyingPage() {
               regle={alerteDefauts.regle ?? undefined}
               baseLegale={alerteDefauts.base_legale ?? undefined}
               source={{
-                libelle: "HATVP — AGORA",
+                libelle: "HATVP · AGORA",
                 url: alerteDefauts.source_url ?? undefined,
               }}
             />

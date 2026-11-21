@@ -30,7 +30,7 @@ export async function GET() {
   const croisement = getCroisementLobbyingMarches();
   if (croisement === null) {
     throw new Error(
-      "Base absente au build — lancer make ingest (ou poser FRANCE_DB_PATH) avant next build.",
+      "Base absente au build : lancer make ingest (ou poser FRANCE_DB_PATH) avant next build.",
     );
   }
   const { metaS1, metaS4, couverture, agregats, ensemble, titulaires } = croisement;
@@ -38,13 +38,13 @@ export async function GET() {
   return NextResponse.json({
     meta: {
       description:
-        "Croisement du répertoire HATVP des représentants d'intérêts et des marchés publics (DECP consolidées), joints sur le SIREN. Périmètre de référence : marchés HORS accords-cadres (le montant notifié d'un accord-cadre est un maximum contractuel, pas une dépense ; les accords-cadres sont fournis à part). Fenêtre : les 24 derniers mois, chaque marché compté à la date de sa notification INITIALE (un avenant ne le redate pas) ; montants et titulaires pris sur sa version courante. Montants = montant retenu écrêté à 100 M€ par marché, puis réparti à parts égales entre co-titulaires (la source ne les ventile pas) ; marchés sans montant renseigné comptés mais exclus des sommes ; le sous-total « hors montants signalés » est une BORNE BASSE, le drapeau n'ayant pas été audité marché par marché. Snapshot statique régénéré à chaque build.",
+        "Croisement du répertoire HATVP des représentants d'intérêts et des marchés publics (DECP consolidées), joints sur le SIREN. Périmètre de référence : marchés HORS accords-cadres (le montant notifié d'un accord-cadre est un maximum contractuel, pas une dépense, et les accords-cadres sont fournis à part). Fenêtre : les 24 derniers mois, chaque marché compté à la date de sa notification INITIALE (un avenant ne le redate pas). Montants et titulaires pris sur sa version courante. Montants = montant retenu écrêté à 100 M€ par marché, puis réparti à parts égales entre co-titulaires (la source ne les ventile pas). Marchés sans montant renseigné comptés mais exclus des sommes. Le sous-total « hors montants signalés » est une BORNE BASSE, le drapeau n'ayant pas été audité marché par marché. Snapshot statique régénéré à chaque build.",
       avertissement:
-        "Être inscrit au répertoire des représentants d'intérêts et être titulaire d'un marché public sont deux situations parfaitement légales qui se cumulent couramment : aucune entité de ce fichier n'est en tort du seul fait d'y figurer. Le champ defaut_declaration reprend tel quel le constat officiel de la HATVP (entité n'ayant pas communiqué tout ou partie des informations exigibles pour au moins un exercice) — il ne qualifie que la déclaration de représentation d'intérêts, jamais le marché.",
+        "Être inscrit au répertoire des représentants d'intérêts et être titulaire d'un marché public sont deux situations parfaitement légales qui se cumulent couramment : aucune entité de ce fichier n'est en tort du seul fait d'y figurer. Le champ defaut_declaration reprend tel quel le constat officiel de la HATVP (entité n'ayant pas communiqué tout ou partie des informations exigibles pour au moins un exercice). Il ne qualifie que la déclaration de représentation d'intérêts, jamais le marché.",
       methode:
-        "docs/CROISEMENT-LOBBYING-MARCHES.md — jointure lobby_entites.identifiant_national (type_identifiant = 'SIREN') = 9 premiers caractères du SIRET de CHAQUE titulaire du marché (titulaires_json, co-titulaires compris).",
+        "docs/CROISEMENT-LOBBYING-MARCHES.md : jointure lobby_entites.identifiant_national (type_identifiant = 'SIREN') = 9 premiers caractères du SIRET de CHAQUE titulaire du marché (titulaires_json, co-titulaires compris).",
       credit:
-        "Consolidation communautaire decp-processing (Colin Maudry) — à créditer en cas de réutilisation.",
+        "Consolidation communautaire decp-processing (Colin Maudry), à créditer en cas de réutilisation.",
       sources: [metaS1, metaS4].map((m) => ({
         source_id: m.source_id,
         nom: m.nom,
@@ -56,7 +56,7 @@ export async function GET() {
       })),
       licence_agregats: "Licence Ouverte 2.0 (agrégats France Transparence)",
       ensemble_decp:
-        "sirensTitulaires = préfixes de 9 caractères distincts des identifiants de titulaires, sur tous les marchés, accords-cadres et identifiants non conformes compris (sens inchangé). sirensTitulairesHorsAc (ajouté le 15/10/2026) = SIREN distincts titulaires d'au moins un marché HORS accords-cadres, préfixe de 9 chiffres : c'est le seul dénominateur de même périmètre que agregats.sirensHorsAc ; /lobbying rapporte l'un à l'autre. Rapporter sirensHorsAc à sirensTitulaires mêle deux périmètres.",
+        "sirensTitulaires = préfixes de 9 caractères distincts des identifiants de titulaires, sur tous les marchés, accords-cadres et identifiants non conformes compris (sens inchangé). sirensTitulairesHorsAc (ajouté le 15/10/2026) = SIREN distincts titulaires d'au moins un marché HORS accords-cadres, préfixe de 9 chiffres. C'est le seul dénominateur de même périmètre que agregats.sirensHorsAc, et /lobbying rapporte l'un à l'autre. Rapporter sirensHorsAc à sirensTitulaires mêle deux périmètres.",
     },
     couverture,
     agregats,

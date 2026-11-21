@@ -23,7 +23,7 @@ export function phraseMarchesSansMontant(n: number, nombre: string): string {
  * qu'aucun appel d'offres n'est ouvert. `construction` est déjà formatée.
  */
 export function phraseEcheancesEpuisees(construction: string, heures: number): string {
-  return `Les échéances livrées avec cette page, arrêtées à sa construction (${construction}) pour les ${heures} heures suivantes, sont toutes passées à cette heure ; les appels d’offres qui clôturent plus tard n’y figurent pas. La liste est reconstruite à chaque publication du site.`;
+  return `Les échéances livrées avec cette page, arrêtées à sa construction (${construction}) pour les ${heures} heures suivantes, sont toutes passées à cette heure. Les appels d’offres qui clôturent plus tard n’y figurent pas. La liste est reconstruite à chaque publication du site.`;
 }
 
 /**
