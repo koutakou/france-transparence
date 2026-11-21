@@ -15,7 +15,7 @@ import { urlAnnuaireEntreprise } from "@/lib/urlOfficielle";
 /** Tronque proprement un libellé long (le `title` porte le texte complet). */
 export function tronque(s: string | null, max: number): string {
   if (!s || s.trim() === "") return VIDE;
-  return s.length > max ? `${s.slice(0, max - 1).trimEnd()}...` : s;
+  return s.length > max ? `${s.slice(0, max - 3).trimEnd()}...` : s;
 }
 
 /** Annuaire Sirene seulement si le SIREN est dans S18 (9 chiffres, LEFT JOIN). */
