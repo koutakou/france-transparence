@@ -92,10 +92,12 @@ export default async function PageAlertes() {
             Alertes transparence
           </h1>
           <p className="mt-2 text-sm text-ink-secondary">
-            {formatNombre(stats.total)} alertes calculées à l’ingestion
+            {formatNombre(stats.alertes)} alertes calculées à l’ingestion
             (dernier calcul&nbsp;:{" "}
             {stats.derniereDateCalcul ? formatDateFr(stats.derniereDateCalcul) : <Vide />}
-            ).
+            ){stats.syntheses > 0 &&
+              `, plus ${formatNombre(stats.syntheses)} synthèse${stats.syntheses > 1 ? "s" : ""} qui récapitule${stats.syntheses > 1 ? "nt" : ""} des alertes déjà comptées`}
+            .
           </p>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
@@ -121,7 +123,7 @@ export default async function PageAlertes() {
         stats={[
           {
             label: "Alertes au total",
-            valeur: formatNombre(stats.total),
+            valeur: formatNombre(stats.alertes),
             perimetre: PERIMETRE_ALERTES_TOTAL,
           },
           {

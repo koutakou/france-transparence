@@ -36,6 +36,15 @@ export const TYPES_ALERTES_RETIRES = [
 /** Condition SQL qui écarte les types retirés (littéraux constants, aucun paramètre). */
 export const SANS_TYPES_RETIRES = `type NOT IN (${TYPES_ALERTES_RETIRES.map((t) => `'${t}'`).join(", ")})`;
 
+/**
+ * Types qui récapitulent d'autres alertes déjà comptées une par une : la
+ * synthèse du lobbying (« 267 représentants d'intérêts en défaut de
+ * déclaration ») reprend les 267 lignes `lobbying_defaut_declaration`. Elle
+ * reste listée, mais n'entre pas dans le nombre d'alertes : le 21/11/2026,
+ * « 280 alertes » comptait ces 267 défauts deux fois.
+ */
+export const TYPES_SYNTHESES = ["lobbying_declaration_incomplete"] as const;
+
 /** Sources qui alimentent la table `alertes` (FreshnessBadge). */
 export const SOURCES_ALERTES = ["S14", "S17", "S4", "S25", "S29"] as const;
 export type SourceAlerteId = (typeof SOURCES_ALERTES)[number];
@@ -55,15 +64,15 @@ export function getSourcesAlertes(): Partial<Record<SourceAlerteId, MetaSource>>
 
 /** Stock calculé à l’ingestion — pas un flux du jour. */
 export const PERIMETRE_ALERTES_TOTAL =
-  "stock calculé à l’ingestion (HATVP, lobbying, financement), pas un flux du jour";
+  "stock calculé à l’ingestion (HATVP, lobbying, financement), pas un flux du jour, sans les synthèses qui récapitulent des alertes déjà comptées";
 
 /** Classification de ce site, constats officiels repris. */
 export const PERIMETRE_GRAVITE_HAUTE =
   "classification de ce site, constats officiels repris : pas une infraction constatée ici";
 
-/** Déclarations de lobbying incomplètes (personnes morales). */
+/** Seule ligne moyenne en base : la synthèse des défauts de lobbying. */
 export const PERIMETRE_GRAVITE_MOYENNE =
-  "classification de ce site, déclarations de lobbying incomplètes publiées par la HATVP";
+  "classification de ce site, synthèse des défauts de déclaration de lobbying publiés par la HATVP";
 
 /** Mixte : ratios et comptes calculés ici + un avis CNCCFP (PDF). */
 export const PERIMETRE_GRAVITE_INFO =
@@ -92,7 +101,12 @@ export type Alerte = {
 export const ALERTES_PAR_PAGE = 50;
 
 export type AlertesStats = {
+  /** Lignes servies (alertes et synthèses), base des filtres de la liste. */
   total: number;
+  /** Synthèses (TYPES_SYNTHESES) : listées, jamais comptées comme alertes. */
+  syntheses: number;
+  /** Nombre d'alertes : total sans les synthèses. */
+  alertes: number;
   parGravite: { gravite: string; nb: number }[];
   /** Date de calcul la plus récente (les alertes sont calculées à l'ingestion). */
   derniereDateCalcul: string | null;
@@ -111,10 +125,23 @@ export function getAlertesStats(): AlertesStats | null {
     )
     .all() as { gravite: string; nb: number }[];
   const total = parGravite.reduce((s, g) => s + g.nb, 0);
+  const marques = TYPES_SYNTHESES.map(() => "?").join(", ");
+  const { syntheses } = db
+    .prepare(
+      `SELECT COUNT(*) AS syntheses FROM alertes
+       WHERE ${SANS_TYPES_RETIRES} AND type IN (${marques})`,
+    )
+    .get(...TYPES_SYNTHESES) as { syntheses: number };
   const derniere = db
     .prepare(`SELECT MAX(date_calcul) AS d FROM alertes WHERE ${SANS_TYPES_RETIRES}`)
     .get() as { d: string | null };
-  return { total, parGravite, derniereDateCalcul: derniere.d };
+  return {
+    total,
+    syntheses,
+    alertes: total - syntheses,
+    parGravite,
+    derniereDateCalcul: derniere.d,
+  };
 }
 
 export type TypeAlerte = { type: string; nb: number };

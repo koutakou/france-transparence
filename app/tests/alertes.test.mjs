@@ -146,6 +146,28 @@ test("lecture : un type retiré resté en base n'est servi nulle part", () => {
   assert.equal(getAlertesToutes().length, attendu);
 });
 
+test("/alertes : la synthèse du lobbying est listée mais ne s'ajoute pas au nombre d'alertes", () => {
+  // Base du 21/11/2026 : 267 défauts un par un, plus 1 ligne qui les
+  // récapitule. « 280 alertes » comptait ces faits deux fois.
+  const stats = getAlertesStats();
+  const servies = STOCK.filter((a) => !RETIRES.includes(a.type));
+  const syntheses = servies.filter((a) => a.type === "lobbying_declaration_incomplete").length;
+  assert.equal(syntheses, 1);
+  assert.equal(stats.syntheses, syntheses);
+  assert.equal(stats.alertes, servies.length - syntheses);
+  assert.equal(stats.total, servies.length);
+  const page = readFileSync(new URL("../src/app/alertes/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /valeur: formatNombre\(stats\.alertes\)/);
+  assert.doesNotMatch(page, /valeur: formatNombre\(stats\.total\)/);
+});
+
+test("/alertes : le type agrégé du lobbying n'est plus appelé « déclaration incomplète »", () => {
+  // Son détail dit « 266 sans aucune publication, 1 avec communication partielle ».
+  const liste = readFileSync(new URL("../src/components/client/AlertesListe.tsx", import.meta.url), "utf8");
+  assert.match(liste, /lobbying_declaration_incomplete: "Lobbying : synthèse des défauts de déclaration"/);
+  assert.doesNotMatch(liste, /déclaration incomplète/);
+});
+
 test("/financement : la carte des rejets est un agrégat sans nom, aux liens fixes", () => {
   // Valeurs de v_campagnes_2024_par_decision, famille « rejete » (base du
   // 20/11/2026 : 85 rejets sur 3 136 comptes déposés).

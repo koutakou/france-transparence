@@ -39,7 +39,9 @@ const LIBELLES_TYPE: Record<string, string> = {
   A1_hatvp_non_deposee: "HATVP : non-déposée (constat officiel)",
   A1_hatvp_en_cours_delai_ecoule: "HATVP, statut « En cours » après 2 mois (agrégat)",
   lobbying_defaut_declaration: "Lobbying : défaut de déclaration",
-  lobbying_declaration_incomplete: "Lobbying : déclaration incomplète",
+  // Type historique du pipeline : une seule ligne, la synthèse des défauts
+  // de déclaration (266 sans aucune publication, 1 partielle au 21/11/2026).
+  lobbying_declaration_incomplete: "Lobbying : synthèse des défauts de déclaration",
   // Seuil = SEUIL_DEPENDANCE_RATIO de pipelines/ingest_financement.py
   // (tests/libelles-alertes.test.mjs vérifie que les deux disent le même nombre).
   financement_parti_dependance_aide: "Parti : aide publique d'au moins 75 % des produits",
