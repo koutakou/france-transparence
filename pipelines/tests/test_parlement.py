@@ -820,8 +820,8 @@ def test_ingerer_senat_reprend_la_veille_quand_export_sens_est_vide(
 
 def test_ingerer_senat_sans_veille_echoue_toujours_sur_export_sens_vide(
         tmp_path, monkeypatch):
-    """Base neuve (CI, et serveur si ft-deploy ingère dans une base neuve) :
-    rien d'honnête à servir, l'étape échoue."""
+    """Base neuve (la CI peut en partir, le serveur garde la sienne d'un
+    cycle à l'autre) : rien d'honnête à servir, l'étape échoue."""
     conn = db.init_db(chemin=tmp_path / "t.db")
     conn.executescript(p9._SCHEMA_P9)
     _senat_jetable(tmp_path, monkeypatch)

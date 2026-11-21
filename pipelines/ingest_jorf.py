@@ -77,15 +77,16 @@ nocturnes à zéro, puis à une de plus par JO. Trois conséquences :
   derniers JO connus (table + archive) sont réintégrés, sans écraser un
   texte déjà en table, et quittent l'archive. Compté à chaque cycle. Ne
   joue que sur une base qui persiste d'un cycle à l'autre ;
-- une base NEUVE — et le serveur de production ingère dans une base neuve
-  à chaque cycle (docs/deploiement/RUNBOOK.md) — n'a que ce qu'elle peut
-  relire. Les nocturnes sont des fichiers que l'amont RETIRE : chaque
+- une base NEUVE n'a que ce qu'elle peut relire. Le serveur de production
+  garde sa base d'un cycle à l'autre (`ft-deploy` ingère dans la base du
+  cycle précédent), mais la CI peut partir d'une base neuve, et une
+  première installation aussi. Les nocturnes sont des fichiers que l'amont RETIRE : chaque
   livraison téléchargée est donc copiée, avec son empreinte SHA-256, hors
   de `data/raw` (que la purge de 23 h vide), dans un coffre local. Quand
   l'index ne liste plus une livraison dont la fenêtre a besoin, elle est
   relue depuis cette copie, vérifiée (nom, empreinte, archive lisible de
   bout en bout). Une machine qui a ses copies retrouve ainsi ses 30 JO
-  dans une base neuve, y compris le jour où l'index n'a aucune nocturne
+  même dans une base neuve, y compris le jour où l'index n'a aucune nocturne
   ou quand la DILA est injoignable ;
 - sans copie (CI, première installation) la fenêtre est RÉDUITE et la
   note de meta_sources le dit, compteur et date à l'appui. Le stock

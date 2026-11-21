@@ -1578,14 +1578,12 @@ def secours_export_sens_vide(conn, motif: str,
 
     OÙ IL JOUE, condition exacte : seulement quand `make ingest` (ou
     `make ingest-parlement`) tourne sur une base qui porte déjà un cycle
-    réussi. Ce n'est le cas d'AUCUN cycle automatique décrit dans le dépôt :
-    la CI ingère toujours dans une base neuve (cycle planifié : restauration
-    du cache sautée ; autre événement : ingestion seulement si aucun cache ne
-    correspond, sinon pas d'ingestion du tout), et le RUNBOOK dit que
-    `ft-deploy` ingère lui aussi dans une base neuve. Si c'est exact, la
-    panne échoue comme avant, en tout-ou-rien ; le secours ne deviendrait
-    effectif sur le serveur que si `ft-deploy` partait d'une copie de la base
-    servie (docs/ACTIONS-HUMAINES.md, 11/11/2026).
+    réussi. C'est le cas du serveur de production : sa base persiste d'un
+    cycle à l'autre (`ft-deploy` ingère dans la base du cycle précédent), le
+    secours y couvre donc une panne passagère du Sénat. La CI, elle, peut
+    partir d'une base neuve (cycle planifié : restauration du cache sautée ;
+    autre événement : ingestion seulement si aucun cache ne correspond) : la
+    panne y échoue comme avant, en tout-ou-rien.
     """
     precedent = db.publication_precedente(conn, "senateurs", "S6-ODSEN")
     if precedent is None:
