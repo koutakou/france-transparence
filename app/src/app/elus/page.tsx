@@ -10,6 +10,8 @@ import { StatStrip } from "@/components/ui/StatStrip";
 import { VueTableau } from "@/components/ui/VueTableau";
 import { formatDateFr, formatNombre, formatPct } from "@/lib/format";
 import { suiteMasqueeSansScript } from "@/lib/sans-script";
+import { CSV_ELUS } from "@/lib/exports-csv";
+import { LienExportCsv } from "@/components/ui/LienExportCsv";
 import {
   METHODE_CENSURE,
   RESERVE_PARTICIPATION_AN,
@@ -258,6 +260,7 @@ export default async function PageElus() {
             departements={departementsDeputes}
           />
           <SansScript affiches={Math.min(PREMIER_ECRAN, deputes.length)} total={deputes.length} quoi="députés" />
+          <LienExportCsv definition={CSV_ELUS} />
           <div className="mt-3 flex flex-col gap-1 text-[11px] leading-relaxed text-ink-muted">
             <p>
               ¹ Calcul France Transparence : votes exprimés / scrutins publics de l’AN des 365
@@ -403,6 +406,7 @@ export default async function PageElus() {
             departements={departementsSenat}
           />
           <SansScript affiches={Math.min(PREMIER_ECRAN, senateurs.length)} total={senateurs.length} quoi="sénateurs" />
+          <LienExportCsv definition={CSV_ELUS} />
           <p className="mt-3 text-[11px] leading-relaxed text-ink-muted">
             ¹ Calcul France Transparence : votes exprimés (pour, contre, abstention) / scrutins
             publics du Sénat des 365 derniers jours où le Sénat liste le sénateur (« non-votant »

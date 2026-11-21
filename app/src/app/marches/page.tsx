@@ -45,6 +45,8 @@ import { moisClos, premierMoisIncomplet } from "@/lib/periodes";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 import { perimetreMontantNotifie, phraseMarchesSansMontant } from "@/lib/phrases";
 import { sansChamp } from "@/lib/champs";
+import { CSV_TOP_ACHETEURS, CSV_TOP_TITULAIRES } from "@/lib/exports-csv";
+import { LienExportCsv } from "@/components/ui/LienExportCsv";
 
 /**
  * Page STATIQUE (site pré-rendu quotidiennement) : tout est calculé au
@@ -1017,6 +1019,7 @@ export default async function PageMarches() {
               {/* montant_total (suspects compris) n'est pas affiché : il ne voyage pas. */}
               <TableTopAcheteurs lignes={sansChamp(donnees.topAcheteurs, "montant_total")} />
             </VueTableau>
+            <LienExportCsv definition={CSV_TOP_ACHETEURS} />
           </div>
           <div>
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-ink-secondary">
@@ -1042,6 +1045,7 @@ export default async function PageMarches() {
             <VueTableau resume="Vue tableau — top titulaires">
               <TableTopTitulaires lignes={sansChamp(donnees.topTitulaires, "montant_total")} />
             </VueTableau>
+            <LienExportCsv definition={CSV_TOP_TITULAIRES} />
           </div>
         </div>
         {/* ---- La règle de regroupement et sa limite, sur la page ---- */}

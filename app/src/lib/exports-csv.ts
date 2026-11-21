@@ -33,6 +33,11 @@ export type DefinitionCsv<T> = {
   colonnes: ColonneCsv<T>[];
 };
 
+/** Chemin du site où un CSV est publié (`elus.csv` : `/api/elus.csv`). */
+export function cheminCsv(fichier: string): string {
+  return `/api/${fichier}`;
+}
+
 /** Chemin du fichier de provenance publié à côté d'un CSV. */
 export function cheminProvenance(fichier: string): string {
   return `/api/${fichier.replace(/\.csv$/, "")}.provenance.txt`;
