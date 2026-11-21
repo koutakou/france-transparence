@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   FLUX,
-  TYPES_ALERTES_FLUX,
+  TYPES_DATE_FAIT_STABLE,
   dateAlerte,
   dateAtom,
   debutPeriode,
@@ -187,42 +187,49 @@ const alerte = (sur) => ({
   source_url: "https://www.hatvp.fr/pages_nominatives/x",
   date_calcul: "2026-11-21T04:24:29+00:00",
   date_fait: "2026-11-12",
+  date_detection: "2026-11-03",
   ...sur,
 });
 
-test("alertes : seule une date du fait stable, jamais la date d'une source ni du calcul", () => {
-  assert.deepEqual(TYPES_ALERTES_FLUX, ["financement_parti_dependance_aide"]);
-  // Dépendance à l'aide publique : clôture de l'exercice lu dans l'identifiant.
+test("alertes : date du fait stable, sinon date de détection, jamais la date d'une source ni du calcul", () => {
+  assert.deepEqual(TYPES_DATE_FAIT_STABLE, ["financement_parti_dependance_aide"]);
+  // Dépendance à l'aide publique : clôture de l'exercice lu dans l'identifiant,
+  // même quand la détection est plus récente.
   assert.equal(
     dateAlerte(alerte({ id: "FIN-PARTI-DEP-2024-PARTI-1378", type: "financement_parti_dependance_aide", date_fait: null })),
     "2024-12-31T00:00:00Z",
   );
   assert.equal(
-    dateAlerte(alerte({ id: "FIN-PARTI-DEP-x", type: "financement_parti_dependance_aide", date_fait: null })),
+    dateAlerte(
+      alerte({ id: "FIN-PARTI-DEP-x", type: "financement_parti_dependance_aide", date_fait: null, date_detection: null }),
+    ),
     null,
-    "identifiant sans exercice : pas de date inventée",
+    "identifiant sans exercice ni détection : pas de date inventée",
   );
-  // A1 : date_fait = date du fichier liste.csv, qui change à chaque fichier.
-  assert.equal(dateAlerte(alerte({})), null);
-  assert.equal(dateAlerte(alerte({ type: "A1_hatvp_en_cours_delai_ecoule", id: "A1-EC-commune" })), null);
+  // A1 : date_fait = date du fichier liste.csv, qui change : la détection date l'entrée.
+  assert.equal(dateAlerte(alerte({})), "2026-11-03T00:00:00Z");
+  assert.equal(dateAlerte(alerte({ type: "A1_hatvp_en_cours_delai_ecoule", id: "A1-EC-commune" })), "2026-11-03T00:00:00Z");
   for (const type of [
     "lobbying_defaut_declaration",
     "lobbying_declaration_incomplete",
     "financement_parti_prive_aide",
     "autre_type",
   ]) {
-    assert.equal(dateAlerte(alerte({ type, date_fait: null })), null, type);
+    assert.equal(dateAlerte(alerte({ type, date_fait: null })), "2026-11-03T00:00:00Z", type);
+    // Sans détection en base (base d'avant la colonne) : hors du flux, jamais
+    // datée de date_fait ni de date_calcul.
+    assert.equal(dateAlerte(alerte({ type, date_detection: null })), null, type);
   }
 });
 
-test("alertes : une alerte datée du fait, les autres hors du flux, titre et liens seulement", () => {
+test("alertes : une entrée par alerte datée, titre et liens seulement", () => {
   const page = "https://francetransparence.fr/alertes/";
   const dep = (id, source_url) =>
     alerte({
       id,
       type: "financement_parti_dependance_aide",
       gravite: "info",
-      titre: "Parti financé à 80 % par l'aide publique",
+      titre: "Parti financé à 80 % par l'aide publique : P",
       source_url,
       date_fait: null,
     });
@@ -230,25 +237,45 @@ test("alertes : une alerte datée du fait, les autres hors du flux, titre et lie
     [
       alerte({}),
       alerte({ id: "lob-1", type: "lobbying_defaut_declaration", source_url: null, date_fait: null }),
+      alerte({ id: "lob-2", type: "lobbying_defaut_declaration", date_detection: null }),
       dep("FIN-PARTI-DEP-2024-P1", "https://www.data.gouv.fr/partis"),
       dep("FIN-PARTI-DEP-2024-P2", null),
     ],
     page,
   );
-  assert.equal(entrees.length, 2, "ni A1 ni lobbying dans le flux");
-  assert.deepEqual(entrees[0], {
+  assert.deepEqual(
+    entrees.map((e) => [e.id, e.maj]),
+    [
+      ["tag:francetransparence.fr,2026:alerte/A1-ND-x", "2026-11-03T00:00:00Z"],
+      ["tag:francetransparence.fr,2026:alerte/lob-1", "2026-11-03T00:00:00Z"],
+      ["tag:francetransparence.fr,2026:alerte/FIN-PARTI-DEP-2024-P1", "2024-12-31T00:00:00Z"],
+      ["tag:francetransparence.fr,2026:alerte/FIN-PARTI-DEP-2024-P2", "2024-12-31T00:00:00Z"],
+    ],
+    "lob-2 sans date de détection reste hors du flux",
+  );
+  assert.deepEqual(entrees[2], {
     id: "tag:francetransparence.fr,2026:alerte/FIN-PARTI-DEP-2024-P1",
-    titre: "Parti financé à 80 % par l'aide publique",
+    titre: "Parti financé à 80 % par l'aide publique : P",
     lien: "https://www.data.gouv.fr/partis",
     lienRelie: page,
     maj: "2024-12-31T00:00:00Z",
   });
   assert.equal(entrees[1].lien, page);
   assert.ok(!("lienRelie" in entrees[1]), "pas deux fois le même lien");
+  assert.equal(entrees[0].lien, "https://www.hatvp.fr/pages_nominatives/x");
   const xml = documentAtom({ ...baseFlux, entrees });
   verifierAtom(xml);
   // Rien de la page au-delà du titre : ni détail, ni règle, ni gravité.
   assert.doesNotMatch(xml, /détail affiché|<summary|<content/);
+});
+
+test("description du flux des alertes : ce qu'il contient et comment il est daté", () => {
+  const f = FLUX.find((x) => x.chemin === "/flux/alertes.xml");
+  assert.match(f.description, /clôture de l'exercice/);
+  assert.match(f.description, /détectées pour la première fois/);
+  assert.match(f.description, /HATVP, lobbying/);
+  // Style des textes publiés : ni tiret long, ni point-virgule, ni points de suspension.
+  for (const x of FLUX) assert.doesNotMatch(`${x.titre} ${x.description}`, /[–—…;]/);
 });
 
 test("sources : une entrée par source et date des données, plus récente d'abord", () => {

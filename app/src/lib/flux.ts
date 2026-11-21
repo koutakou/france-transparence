@@ -41,10 +41,10 @@ export const FLUX = [
   },
   {
     chemin: "/flux/alertes.xml",
-    titre: "France Transparence : alertes sur les comptes des partis",
+    titre: "France Transparence : alertes",
     page: "/alertes/",
     description:
-      "Seulement les alertes de la page Alertes qui ont une date du fait fixe : la dépendance d'un parti à l'aide publique, datée de la clôture de l'exercice des comptes (31 décembre). Les alertes HATVP, lobbying et documentaires n'y sont pas, faute d'une date du fait qui ne change pas à chaque fichier publié. Chaque entrée renvoie à la donnée officielle et à la page de la règle.",
+      "Les alertes de la page Alertes, une entrée par alerte. La dépendance d'un parti à l'aide publique est datée de la clôture de l'exercice des comptes (31 décembre). Les autres alertes (HATVP, lobbying, partis privés d'aide) sont datées du jour où le site les a détectées pour la première fois, date gardée tant que l'alerte existe. Une entrée ne change pas de date d'une mise à jour à l'autre. Chaque entrée renvoie à la donnée officielle et à la page de la règle.",
   },
   {
     chemin: "/flux/sources.xml",
@@ -110,18 +110,18 @@ export function entreesDossiers(navette: DossierFlux[]): EntreeAtom[] {
 }
 
 /**
- * Types d'alerte publiés dans le flux, chacun avec la date de son fait, qui
- * ne change pas d'une ingestion à l'autre. Les autres types n'y sont pas :
- * - A1 (HATVP) : leur `date_fait` est la date du fichier liste.csv lu, qui
- *   change à chaque fichier publié ;
- * - lobbying (S4) : le pipeline n'écrit aucune date du fait ;
- * - partis privés d'aide (S25) : mention documentaire sur un avis publié en
- *   PDF, pas un fait daté.
- * Une dépendance à l'aide publique porte sur les comptes d'un exercice
- * (identifiant `FIN-PARTI-DEP-<exercice>-<parti>`, écrit par
+ * Types d'alerte dont le fait a une date stable par nature, lue dans
+ * l'identifiant. Une dépendance à l'aide publique porte sur les comptes d'un
+ * exercice (identifiant `FIN-PARTI-DEP-<exercice>-<parti>`, écrit par
  * pipelines/ingest_financement.py) : elle est datée de la clôture de cet
  * exercice, le 31 décembre. Un nouvel exercice donne un nouvel identifiant,
  * donc une nouvelle entrée.
+ *
+ * Les autres types sont datés de leur détection (`date_detection`) :
+ * - A1 (HATVP) : leur `date_fait` est la date du fichier liste.csv lu, qui
+ *   change à chaque fichier publié ;
+ * - lobbying (S4) : le pipeline n'écrit aucune date du fait ;
+ * - partis privés d'aide (S25) : mention documentaire, pas un fait daté.
  */
 const DATE_FAIT_STABLE: Record<string, (a: Pick<Alerte, "id">) => string | null> = {
   financement_parti_dependance_aide: (a) => {
@@ -130,20 +130,26 @@ const DATE_FAIT_STABLE: Record<string, (a: Pick<Alerte, "id">) => string | null>
   },
 };
 
-export const TYPES_ALERTES_FLUX = Object.keys(DATE_FAIT_STABLE);
+export const TYPES_DATE_FAIT_STABLE = Object.keys(DATE_FAIT_STABLE);
+
+/** Alerte du flux : celle de /alertes, plus sa date de détection lue en base. */
+export type AlerteFlux = Alerte & { date_detection: string | null };
 
 /**
- * Date d'une alerte dans le flux : la date stable de son fait, `null` si son
- * type n'en a pas (l'alerte est alors absente du flux). Jamais la date des
- * données d'une source ni l'instant du calcul, qui feraient remonter
- * l'entrée dans les lecteurs à chaque ingestion.
+ * Date d'une alerte dans le flux : la date stable de son fait quand son type
+ * en a une, sinon sa date de détection (premier cycle d'ingestion qui a vu
+ * son identifiant, gardée tant qu'il existe). `null` sans l'une ni l'autre :
+ * l'alerte est alors absente du flux. Jamais la date des données d'une
+ * source, ni `date_fait` quand elle n'est pas stable, ni l'instant du
+ * calcul : ils feraient remonter l'entrée dans les lecteurs à chaque
+ * ingestion.
  */
-export function dateAlerte(a: Pick<Alerte, "id" | "type">): string | null {
+export function dateAlerte(a: Pick<AlerteFlux, "id" | "type" | "date_detection">): string | null {
   const dater = DATE_FAIT_STABLE[a.type];
-  return dater ? dateAtom(dater(a)) : null;
+  return dateAtom(dater?.(a)) ?? dateAtom(a.date_detection);
 }
 
-export function entreesAlertes(alertes: Alerte[], pageAlertes: string): EntreeAtom[] {
+export function entreesAlertes(alertes: AlerteFlux[], pageAlertes: string): EntreeAtom[] {
   const entrees: EntreeAtom[] = [];
   for (const a of alertes) {
     const maj = dateAlerte(a);
