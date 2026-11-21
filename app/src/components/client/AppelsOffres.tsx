@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { LienOfficiel } from "@/components/ui/LienOfficiel";
 import { Money } from "@/components/ui/Money";
-import { formatNombre, formatPct } from "@/lib/format";
+import { VIDE, formatNombre, formatPct } from "@/lib/format";
 import { urlSite } from "@/lib/basePath";
 import { AO_AFFICHEES, RESERVE_HEURES, echeancesOuvertes } from "@/lib/echeances";
 import { compteEcheances, phraseEcheancesEpuisees } from "@/lib/phrases";
@@ -47,8 +47,8 @@ export interface AppelsOffresProps {
 
 /** Tronque proprement un libellé long (le `title` porte le texte complet). */
 function tronque(s: string | null, max: number): string {
-  if (!s || s.trim() === "") return "—";
-  return s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s;
+  if (!s || s.trim() === "") return VIDE;
+  return s.length > max ? `${s.slice(0, max - 1).trimEnd()}...` : s;
 }
 
 /** ISO datetime UTC → `JJ/MM/AAAA HHhMM` en heure de Paris. */
@@ -81,7 +81,7 @@ function Fourchette({ basse, haute }: { basse: number | null; haute: number | nu
       fourchette publiée&nbsp;:{" "}
       {basse !== null && haute !== null ? (
         <>
-          <Money valeur={basse} /> – <Money valeur={haute} />
+          de <Money valeur={basse} /> à <Money valeur={haute} />
         </>
       ) : haute !== null ? (
         <>
@@ -133,7 +133,7 @@ const COLONNES_AO: Colonne<AoEnCours>[] = [
           {a.montant_estime >= 1e9 && (
             <span
               className="text-[11px] text-ink-muted"
-              title="Montant tel que publié dans l’annonce — non retraité."
+              title="Montant tel que publié dans l’annonce, non retraité."
             >
               tel que publié
             </span>
@@ -265,7 +265,7 @@ export function AppelsOffres({ familles, vueToutes, aoEnCours, construitLe }: Ap
 
       {indisponible && famille !== "" && (
         <p className="mb-2 text-xs text-ink-muted">
-          Détail par famille indisponible (fragment /data/marches/ao.json non chargé) — la vue
+          Détail par famille indisponible (fragment /data/marches/ao.json non chargé). La vue
           « Toutes » reste affichée.
         </p>
       )}
@@ -297,8 +297,8 @@ export function AppelsOffres({ familles, vueToutes, aoEnCours, construitLe }: Ap
         {familleAffichee === "" ? "toutes les familles" : `la famille ${libelleFamille ?? familleAffichee}`}
         {pctSansMontant !== null && (
           <>
-            {" "}
-            — {formatPct(pctSansMontant)} d’entre eux ne publient aucun montant dans l’annonce
+            ,{" "}
+            {formatPct(pctSansMontant)} d’entre eux ne publient aucun montant dans l’annonce
             (« non publié »)
           </>
         )}
@@ -311,7 +311,7 @@ export function AppelsOffres({ familles, vueToutes, aoEnCours, construitLe }: Ap
         )}
         . Les montants publiés sont repris tels quels, y compris les valeurs extrêmes réelles
         (étiquetées, jamais tronquées).
-        {chargement ? " Chargement du détail par famille…" : ""}
+        {chargement ? " Chargement du détail par famille en cours." : ""}
       </p>
     </div>
   );

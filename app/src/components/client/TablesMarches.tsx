@@ -11,6 +11,7 @@ import {
   hrefConsultation,
   tronque,
 } from "@/components/ui/CellulesMarches";
+import { Vide } from "@/components/ui/Vide";
 import { formatPct } from "@/lib/format";
 import type {
   PublicationAnnee,
@@ -78,7 +79,7 @@ export function TableTopTitulaires({ lignes }: { lignes: Omit<TopTitulaire, "mon
           entete: "SIREN",
           rendu: (t) => <CelluleSiren siren={t.siren} dans_sirene={t.dans_sirene} />,
         },
-        { cle: "categorie", entete: "Catégorie", rendu: (t) => t.categorie ?? "—" },
+        { cle: "categorie", entete: "Catégorie", rendu: (t) => t.categorie ?? <Vide /> },
         {
           cle: "nb_etablissements",
           entete: "Établissements",
@@ -110,14 +111,14 @@ export function TableProcedures({ lignes, total }: { lignes: RepartitionProcedur
           rendu: (r) =>
             total > 0
               ? formatPct((100 * r.nb_marches) / total)
-              : "—",
+              : <Vide />,
         },
         {
           cle: "montant_total",
           entete: "Montant (écrêté)",
           type: "montant",
           rendu: (r) =>
-            r.montant_total === null ? "—" : <Money valeur={r.montant_total} />,
+            r.montant_total === null ? <Vide /> : <Money valeur={r.montant_total} />,
         },
       ]}
       lignes={lignes}
@@ -161,7 +162,7 @@ export function TableDerniersMarches({ lignes }: { lignes: Omit<DernierMarche, "
           type: "montant",
           rendu: (m) =>
             m.montant_retenu === null ? (
-              <span title="Montant non renseigné à la source">—</span>
+              <span title="Montant non renseigné à la source"><Vide /></span>
             ) : (
               <span className="inline-flex items-baseline gap-1.5">
                 <Money valeur={m.montant_retenu} />
@@ -224,13 +225,13 @@ export function TableAchatsAnnonces({ lignes }: { lignes: MarcheAVenir[] }) {
                 max={48}
               />
             ) : (
-              "—"
+              <Vide />
             ),
         },
         {
           cle: "categorie_achat",
           entete: "Catégorie",
-          rendu: (m) => m.categorie_achat ?? "—",
+          rendu: (m) => m.categorie_achat ?? <Vide />,
         },
         {
           cle: "montant_estime_tranche",
