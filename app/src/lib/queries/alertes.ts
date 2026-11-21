@@ -9,8 +9,10 @@
  * - les dossiers HATVP « En cours » sont des agrégats NON nominatifs, jamais
  *   sous 3 personnes : les lignes de la base portent déjà leurs réserves, on
  *   les affiche telles quelles, on ne nominalise jamais ;
- * - un rejet de compte de campagne ne nomme qu'un élu qui a une fiche, avec
- *   la réserve « décision non définitive » (décision du 20/11/2026) ;
+ * - aucun compte de campagne n'est une alerte : rejets et réformations sont
+ *   des agrégats sans nom sur /financement (décisions des 20 et 21/11/2026).
+ *   Les types retirés sont filtrés à la LECTURE aussi (TYPES_ALERTES_RETIRES),
+ *   pour qu'un pipeline arrêté avant sa purge ne les remette pas en ligne ;
  * - `date_calcul` est l'instant du cycle, `date_fait` la date du fait selon
  *   la source (NULL quand la source ne la donne pas).
  *
@@ -18,6 +20,21 @@
  * (getDb() null → la page affiche un état honnête « lancer make ingest »).
  */
 import { getDb, type MetaSource } from "@/lib/db";
+
+/**
+ * Types que plus aucun pipeline n'écrit, et que le site ne sert plus jamais,
+ * même s'il en reste en base : rejets et réformations de comptes de campagne
+ * (nominatifs), ancien « retard HATVP présumé ». Chaque pipeline les purge à
+ * son cycle, mais un cycle qui échoue avant sa purge les laisserait en base.
+ */
+export const TYPES_ALERTES_RETIRES = [
+  "financement_campagne_rejetee",
+  "financement_campagne_reformee",
+  "A1_hatvp_retard_presume",
+] as const;
+
+/** Condition SQL qui écarte les types retirés (littéraux constants, aucun paramètre). */
+export const SANS_TYPES_RETIRES = `type NOT IN (${TYPES_ALERTES_RETIRES.map((t) => `'${t}'`).join(", ")})`;
 
 /** Sources qui alimentent la table `alertes` (FreshnessBadge). */
 export const SOURCES_ALERTES = ["S14", "S17", "S4", "S25", "S29"] as const;
@@ -88,13 +105,14 @@ export function getAlertesStats(): AlertesStats | null {
   const parGravite = db
     .prepare(
       `SELECT gravite, COUNT(*) AS nb FROM alertes
+       WHERE ${SANS_TYPES_RETIRES}
        GROUP BY gravite
        ORDER BY CASE gravite WHEN 'haute' THEN 0 WHEN 'moyenne' THEN 1 ELSE 2 END`,
     )
     .all() as { gravite: string; nb: number }[];
   const total = parGravite.reduce((s, g) => s + g.nb, 0);
   const derniere = db
-    .prepare("SELECT MAX(date_calcul) AS d FROM alertes")
+    .prepare(`SELECT MAX(date_calcul) AS d FROM alertes WHERE ${SANS_TYPES_RETIRES}`)
     .get() as { d: string | null };
   return { total, parGravite, derniereDateCalcul: derniere.d };
 }
@@ -106,7 +124,10 @@ export function getAlertesTypes(): TypeAlerte[] | null {
   const db = getDb();
   if (!db) return null;
   return db
-    .prepare("SELECT type, COUNT(*) AS nb FROM alertes GROUP BY type ORDER BY nb DESC")
+    .prepare(
+      `SELECT type, COUNT(*) AS nb FROM alertes WHERE ${SANS_TYPES_RETIRES}
+       GROUP BY type ORDER BY nb DESC`,
+    )
     .all() as TypeAlerte[];
 }
 
@@ -128,7 +149,7 @@ export function getAlertesDomaines(): DomaineAlerte[] | null {
          WHEN type LIKE 'financement\\_%' ESCAPE '\\' THEN 'Financement politique'
          ELSE 'Autre'
        END AS domaine, COUNT(*) AS nb
-       FROM alertes GROUP BY domaine ORDER BY nb DESC`,
+       FROM alertes WHERE ${SANS_TYPES_RETIRES} GROUP BY domaine ORDER BY nb DESC`,
     )
     .all() as DomaineAlerte[];
 }
@@ -146,6 +167,7 @@ export function getAlertesToutes(): Alerte[] | null {
       `SELECT id, type, gravite, titre, detail, regle, base_legale, source_url, date_calcul,
               date_fait
        FROM alertes
+       WHERE ${SANS_TYPES_RETIRES}
        ORDER BY CASE gravite WHEN 'haute' THEN 0 WHEN 'moyenne' THEN 1 ELSE 2 END,
                 date_calcul DESC, id`,
     )
@@ -177,7 +199,7 @@ export function getAlertesExport(): AlertesExport | null {
   const types = db
     .prepare(
       `SELECT type, COUNT(*) AS nb, MAX(regle) AS regle, MAX(base_legale) AS base_legale
-       FROM alertes GROUP BY type ORDER BY nb DESC`,
+       FROM alertes WHERE ${SANS_TYPES_RETIRES} GROUP BY type ORDER BY nb DESC`,
     )
     .all() as TypeAlerteExport[];
   const alertes = db
@@ -185,6 +207,7 @@ export function getAlertesExport(): AlertesExport | null {
       `SELECT id, type, gravite, titre, detail, regle, base_legale, source_url, date_calcul,
               date_fait
        FROM alertes
+       WHERE ${SANS_TYPES_RETIRES}
        ORDER BY CASE gravite WHEN 'haute' THEN 0 WHEN 'moyenne' THEN 1 ELSE 2 END,
                 date_calcul DESC, id`,
     )
@@ -220,7 +243,7 @@ export function getAlertesPage(filtres: FiltresAlertes = {}): PageAlertes | null
   const db = getDb();
   if (!db) return null;
   const limite = Math.min(Math.max(filtres.limite ?? ALERTES_PAR_PAGE, 1), 500);
-  const conditions: string[] = [];
+  const conditions: string[] = [SANS_TYPES_RETIRES];
   const params: (string | number)[] = [];
   if (filtres.type) {
     conditions.push("type = ?");
@@ -230,7 +253,7 @@ export function getAlertesPage(filtres: FiltresAlertes = {}): PageAlertes | null
     conditions.push("gravite = ?");
     params.push(filtres.gravite);
   }
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const where = `WHERE ${conditions.join(" AND ")}`;
   const { total } = db
     .prepare(`SELECT COUNT(*) AS total FROM alertes ${where}`)
     .get(...params) as { total: number };
