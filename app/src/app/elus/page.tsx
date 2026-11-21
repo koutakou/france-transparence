@@ -9,6 +9,7 @@ import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { VueTableau } from "@/components/ui/VueTableau";
 import { formatDateFr, formatNombre, formatPct } from "@/lib/format";
+import { suiteMasqueeSansScript } from "@/lib/sans-script";
 import {
   METHODE_CENSURE,
   RESERVE_PARTICIPATION_AN,
@@ -98,7 +99,7 @@ function Badge({ source, mention }: { source: MetaSource | undefined; mention?: 
  * afficher » ne répond pas : la page le dit et renvoie à l'export complet.
  */
 function SansScript({ affiches, total, quoi }: { affiches: number; total: number; quoi: string }) {
-  if (affiches >= total) return null;
+  if (!suiteMasqueeSansScript(affiches, total)) return null;
   return (
     <noscript>
       <p className="mt-2 text-xs text-ink-secondary">
