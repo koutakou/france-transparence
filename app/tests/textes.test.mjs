@@ -3,6 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const lire = (chemin) => readFileSync(new URL(`../src/${chemin}`, import.meta.url), "utf8");
 // JSX replie les retours à la ligne en une espace : on compare sur ce texte-là.
@@ -47,7 +48,7 @@ test("élections : pas de « 1er tour » pour les européennes (un seul tour)", 
 test("Licence Ouverte : aucun lien vers l'adresse etalab.gouv.fr redirigée vers l'accueil de data.gouv.fr", async () => {
   const { readdirSync, statSync } = await import("node:fs");
   const { join } = await import("node:path");
-  const racine = new URL("../src", import.meta.url).pathname;
+  const racine = fileURLToPath(new URL("../src", import.meta.url));
   const fautes = [];
   const parcourir = (d) => {
     for (const n of readdirSync(d)) {
