@@ -38,6 +38,14 @@ export function reponseCsv<T>(def: DefinitionCsv<T>, lignes: T[] | null): Respon
 export function reponseProvenance<T>(def: DefinitionCsv<T>): Response {
   const sources = getMetaSourcesParIds(def.sources);
   if (sources === null) throw erreurBaseAbsente();
+  if (sources.length !== def.sources.length) {
+    // Une provenance qui tait une source n'est pas publiée : le build échoue.
+    const trouvees = new Set(sources.map((s) => s.source_id));
+    const manquantes = def.sources.filter((id) => !trouvees.has(id));
+    throw new Error(
+      `Provenance ${def.fichier} : source(s) absente(s) de meta_sources : ${manquantes.join(", ")}.`,
+    );
+  }
   const texte = documentProvenance({
     fichier: def.fichier,
     titre: def.titre,

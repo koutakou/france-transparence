@@ -15,6 +15,9 @@ await baseDeTest((db) => {
   meta.run("S3", "DILA JORF", "https://echanges.dila.gouv.fr/OPENDATA/JORF/", "Licence Ouverte", "2026-11-21", "2026-11-21T01:00:00+00:00");
   meta.run("S4", "HATVP AGORA", "https://www.hatvp.fr/agora/opendata/", "Licence Ouverte", "2026-11-20", "2026-11-21T04:24:27+00:00");
   meta.run("S14", "HATVP liste.csv", "https://www.hatvp.fr/livraison/opendata/liste.csv", "Licence Ouverte", "2026-11-14", "2026-11-21T04:00:00+00:00");
+  meta.run("S17", "RNE", "https://www.data.gouv.fr/rne", "Licence Ouverte", "2026-11-20", "2026-11-21T03:00:00+00:00");
+  meta.run("S25", "CNCCFP comptes des partis", "https://www.data.gouv.fr/partis", "Licence Ouverte", "2024-12-31", "2026-11-21T03:00:00+00:00");
+  meta.run("S29", "CNCCFP comptes de campagne", "https://www.data.gouv.fr/campagnes", "Licence Ouverte", "2024-07-07", "2026-11-21T03:00:00+00:00");
   meta.run("S43", "DILA DOLE", "https://echanges.dila.gouv.fr/OPENDATA/DOLE/", "Licence Ouverte", "2026-11-20", "2026-11-21T02:00:00+00:00");
   db.exec(`CREATE TABLE jorf_textes (texte_id TEXT PRIMARY KEY, conteneur_id TEXT, num_jo TEXT,
     date_publi TEXT, date_texte TEXT, nature TEXT, nor TEXT, titre TEXT, ministere TEXT, rubrique TEXT,
@@ -30,17 +33,20 @@ await baseDeTest((db) => {
   const al = db.prepare("INSERT INTO alertes VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
   al.run("A1-ND-x", "A1_hatvp_non_deposee", "haute", "Déclaration non déposée (constat officiel HATVP)", "d", "r", "loi", "https://www.hatvp.fr/x", "2026-11-21", "2026-11-12");
   al.run("lob-1", "lobbying_defaut_declaration", "haute", "Défaut de déclaration lobbying ; test", "d", "r", "loi", null, "2026-11-21T04:24:27+00:00", null);
+  al.run("FIN-PARTI-DEP-2024-P1", "financement_parti_dependance_aide", "info", "Parti financé à 80 % par l'aide publique", "d", "r", "loi", "https://www.data.gouv.fr/partis", "2026-11-21T03:10:00+00:00", null);
   // Type retiré : ni dans le CSV, ni dans le flux.
   al.run("cc-1", "financement_campagne_rejetee", "haute", "Candidat nommé", "d", "r", "loi", "https://x", "2026-11-21", "2026-11-01");
   db.exec(`CREATE TABLE dole_dossiers (dossier_id TEXT PRIMARY KEY, titre TEXT, type TEXT, date_creation TEXT,
     date_modif TEXT, legislature_num TEXT, legislature_libelle TEXT, derniere_etape TEXT,
     derniere_etape_url TEXT, lien_legifrance TEXT)`);
   const dole = db.prepare(
-    "INSERT INTO dole_dossiers (dossier_id, titre, type, date_modif, legislature_num, legislature_libelle, derniere_etape, lien_legifrance) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO dole_dossiers (dossier_id, titre, type, date_creation, date_modif, legislature_num, legislature_libelle, derniere_etape, lien_legifrance) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
   );
-  dole.run("JORFDOLE1", "Proposition de loi A", "PROPOSITION_LOI", "2026-11-20", "17", "XVIIe législature", "Adoption", "https://www.vie-publique.fr/dossierlegislatif/JORFDOLE1");
-  dole.run("JORFDOLE2", "Loi ancienne", "LOI_PUBLIEE", "2026-11-19", "17", "XVIIe législature", "Promulgation", "https://www.vie-publique.fr/dossierlegislatif/JORFDOLE2");
-  dole.run("JORFDOLE3", "Projet de loi ancien", "PROJET_LOI", "2020-01-01", "15", "XVe législature", "Dépôt", "https://www.vie-publique.fr/dossierlegislatif/JORFDOLE3");
+  dole.run("JORFDOLE1", "Proposition de loi A", "PROPOSITION_LOI", "2025-01-02", "2026-11-20", "17", "XVIIe législature", "Adoption", "https://www.vie-publique.fr/dossierlegislatif/JORFDOLE1");
+  dole.run("JORFDOLE2", "Loi ancienne", "LOI_PUBLIEE", null, "2026-11-19", "17", "XVIIe législature", "Promulgation", "https://www.vie-publique.fr/dossierlegislatif/JORFDOLE2");
+  dole.run("JORFDOLE3", "Projet de loi ancien", "PROJET_LOI", null, "2020-01-01", "15", "XVe législature", "Dépôt", "https://www.vie-publique.fr/dossierlegislatif/JORFDOLE3");
+  dole.run("JORFDOLE4", "Proposition de loi B", "PROPOSITION_LOI", "2025-06-07", null, "17", "XVIIe législature", "Dépôt", "https://www.vie-publique.fr/dossierlegislatif/JORFDOLE4");
+  dole.run("JORFDOLE5", "Proposition de loi sans date", "PROPOSITION_LOI", null, null, "17", "XVIIe législature", "Dépôt", "https://www.vie-publique.fr/dossierlegislatif/JORFDOLE5");
   const colonnesTop = `rang INTEGER, siren TEXT, nom TEXT, nb_etablissements INTEGER, nb_marches INTEGER,
     montant_total REAL, montant_hors_suspects REAL, nb_marches_suspects INTEGER, montant_suspects REAL`;
   db.exec(`CREATE TABLE decp_top_acheteurs (${colonnesTop})`);
@@ -73,23 +79,30 @@ test("flux JO : les 3 derniers numéros, identifiant NOR, texte échappé", asyn
 
 test("flux dossiers : la navette de la législature courante seulement", async () => {
   const { texte } = await corps("flux/dossiers.xml");
-  assert.match(texte, /dossier\/JORFDOLE1</);
+  assert.match(texte, /dossier\/JORFDOLE1<\/id>[\s\S]*?<updated>2026-11-20T00:00:00Z<\/updated>/);
   assert.doesNotMatch(texte, /JORFDOLE2|JORFDOLE3/);
+  // Sans mise à jour : la création du dossier, jamais la date des données (S43).
+  assert.match(texte, /dossier\/JORFDOLE4<\/id>[\s\S]*?<updated>2025-06-07T00:00:00Z<\/updated>/);
+  assert.doesNotMatch(texte, /JORFDOLE5/, "un dossier sans aucune date est écarté");
   assert.match(texte, /href="https:\/\/www\.vie-publique\.fr\/dossierlegislatif\/JORFDOLE1"/);
 });
 
-test("flux alertes : les alertes de la page, aucun type retiré", async () => {
+test("flux alertes : seules les alertes à date du fait stable, aucun type retiré", async () => {
   const { texte } = await corps("flux/alertes.xml");
-  assert.equal((texte.match(/<entry>/g) ?? []).length, 2);
+  assert.equal((texte.match(/<entry>/g) ?? []).length, 1);
   assert.doesNotMatch(texte, /Candidat nommé|cc-1/);
-  // Sans date du fait : date des données de la source du domaine (S4).
-  assert.match(texte, /alerte\/lob-1<\/id>[\s\S]*?<updated>2026-11-20T00:00:00Z<\/updated>/);
+  // A1 (date du fichier HATVP) et lobbying (aucune date du fait) hors du flux.
+  assert.doesNotMatch(texte, /A1-ND-x|lob-1/);
+  assert.match(texte, /alerte\/FIN-PARTI-DEP-2024-P1<\/id>[\s\S]*?<updated>2024-12-31T00:00:00Z<\/updated>/);
+  // updated du flux = clôture de l'exercice, ni la date de S25 changeante, ni le calcul.
+  assert.equal(texte.match(/<updated>([^<]*)<\/updated>/)[1], "2024-12-31T00:00:00Z");
+  assert.match(texte, /CNCCFP comptes des partis \(Licence Ouverte\)/);
   assert.match(texte, /rel="related" type="text\/html" href="https:\/\/francetransparence\.fr\/alertes\/"/);
 });
 
 test("flux sources : une entrée par source datée", async () => {
   const { texte } = await corps("flux/sources.xml");
-  assert.equal((texte.match(/<entry>/g) ?? []).length, 5);
+  assert.equal((texte.match(/<entry>/g) ?? []).length, 8);
   assert.match(texte, /source\/S3\/2026-11-21</);
 });
 
@@ -99,7 +112,7 @@ test("alertes.csv : en-tête de colonnes en première ligne, aucun type retiré"
   const lignes = texte.slice(1).split("\r\n");
   assert.ok(texte.startsWith("﻿"));
   assert.equal(lignes[0], "id;type;gravite;titre;detail;regle;base_legale;source_url;date_calcul;date_fait");
-  assert.equal(lignes.length, 4, "deux alertes, puis la fin de ligne finale");
+  assert.equal(lignes.length, 5, "trois alertes, puis la fin de ligne finale");
   assert.match(texte, /"Défaut de déclaration lobbying ; test"/);
   assert.doesNotMatch(texte, /Candidat nommé/);
 });
@@ -113,17 +126,23 @@ test("alertes.provenance.txt : sources, licence, date des données et URL amont"
   assert.match(texte, /https:\/\/francetransparence\.fr\/api\/alertes\.csv/);
 });
 
+test("provenance : une source attendue absente de meta_sources fait échouer le build", async () => {
+  // elus.csv attend S17, S5-AMO10, S6-ODSEN et S14 : la base de test n'a ni S5-AMO10 ni S6-ODSEN.
+  const { GET } = await importer("app/api/elus.provenance.txt/route");
+  assert.throws(() => GET(), /Provenance elus\.csv : source\(s\) absente\(s\) de meta_sources : S5-AMO10, S6-ODSEN\./);
+});
+
 test("tops : colonnes du tableau, montants pour le tableur, sans montant_total", async () => {
   const a = (await corps("api/marches-top-acheteurs.csv")).texte;
   assert.equal(
     a,
-    "﻿rang;nom;siren;nb_etablissements;nb_marches;montant_hors_suspects;montant_suspects;nb_marches_suspects\r\n" +
+    "﻿rang;nom;siren;nb_etablissements;nb_marches;montant_hors_signales;montant_signales;nb_marches_signales\r\n" +
       '1;"Ville; de ""Test""";123456789;3;40;1234567,5;99000000;2\r\n',
   );
   const t = (await corps("api/marches-top-titulaires.csv")).texte;
   assert.equal(
     t,
-    "﻿rang;nom;siren;categorie;nb_etablissements;nb_marches;montant_hors_suspects;montant_suspects;nb_marches_suspects\r\n" +
+    "﻿rang;nom;siren;categorie;nb_etablissements;nb_marches;montant_hors_signales;montant_signales;nb_marches_signales\r\n" +
       "1;Entreprise;987654321;PME;1;5;2000;;0\r\n",
   );
 });
