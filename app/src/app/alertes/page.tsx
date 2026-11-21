@@ -21,6 +21,7 @@ import {
   PERIMETRE_GRAVITE_INFO,
   PERIMETRE_GRAVITE_MOYENNE,
   SOURCES_ALERTES,
+  TYPES_SYNTHESES,
 } from "@/lib/queries/alertes";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
@@ -149,6 +150,8 @@ export default async function PageAlertes() {
         types={types}
         parGravite={stats.parGravite}
         total={stats.total}
+        typesSyntheses={TYPES_SYNTHESES}
+        syntheses={stats.syntheses}
         initiales={premierePage}
       />
       <LienExportCsv definition={CSV_ALERTES} />

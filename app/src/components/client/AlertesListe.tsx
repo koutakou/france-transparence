@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AlertItem, type Gravite } from "@/components/ui/AlertItem";
 import { formatNombre } from "@/lib/format";
 import { urlSite } from "@/lib/basePath";
+import { libelleCompteAlertes } from "@/lib/alertes-compte";
 import { suiteMasqueeSansScript } from "@/lib/sans-script";
 import { majParamsUrl } from "@/lib/urlEtat";
 import { estFicheOfficielleEntite } from "@/lib/urlOfficielle";
@@ -132,11 +133,22 @@ export interface AlertesListeProps {
   /** Répartition exacte par gravité (agrégats build). */
   parGravite: { gravite: string; nb: number }[];
   total: number;
+  /** Codes des types de synthèse (TYPES_SYNTHESES) : listés, nommés à part du compte. */
+  typesSyntheses: readonly string[];
+  /** Nombre de synthèses dans `total` (agrégat build). */
+  syntheses: number;
   /** Première page (ordre canonique), rendue dans le HTML statique. */
   initiales: Alerte[];
 }
 
-export function AlertesListe({ types, parGravite, total, initiales }: AlertesListeProps) {
+export function AlertesListe({
+  types,
+  parGravite,
+  total,
+  typesSyntheses,
+  syntheses,
+  initiales,
+}: AlertesListeProps) {
   // Filtres : état initial restauré d'une URL partagée
   // `?type=…&gravite=…&page=…` (validée), surchargé par toute action.
   const urlInitiale = new URLSearchParams(useUrlInitiale());
@@ -194,6 +206,7 @@ export function AlertesListe({ types, parGravite, total, initiales }: AlertesLis
   // Liste filtrée : fragment si dispo, sinon la première page embarquée.
   let filtrees: AlerteVue[];
   let totalFiltre: number;
+  let synthesesFiltre: number;
   let depuisFragment = false;
   if (fragment !== null) {
     depuisFragment = true;
@@ -219,6 +232,7 @@ export function AlertesListe({ types, parGravite, total, initiales }: AlertesLis
     }
     filtrees = vues;
     totalFiltre = vues.length;
+    synthesesFiltre = vues.filter((v) => typesSyntheses.includes(v.type)).length;
   } else {
     filtrees = initiales.map((a) => ({
       cle: a.id,
@@ -231,6 +245,7 @@ export function AlertesListe({ types, parGravite, total, initiales }: AlertesLis
       source_url: a.source_url,
     }));
     totalFiltre = total;
+    synthesesFiltre = syntheses;
   }
 
   const pages = Math.max(Math.ceil(totalFiltre / ALERTES_PAR_PAGE), 1);
@@ -290,9 +305,7 @@ export function AlertesListe({ types, parGravite, total, initiales }: AlertesLis
       <div className="flex flex-col gap-1.5">
         <h2 className="sr-only">Liste des alertes</h2>
         <p className="text-xs text-ink-muted" aria-live="polite">
-          {totalFiltre === 0
-            ? "Aucune alerte ne correspond à ces filtres."
-            : `${formatNombre(totalFiltre)} alerte${totalFiltre > 1 ? "s" : ""}, page ${formatNombre(pageBornee)} sur ${formatNombre(pages)}`}
+          {libelleCompteAlertes(totalFiltre, synthesesFiltre, pageBornee, pages, formatNombre)}
           {chargement ? " · chargement de la liste complète en cours" : ""}
         </p>
         {/* Sans JavaScript, filtres et pagination restent inertes : la page
