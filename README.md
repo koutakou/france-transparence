@@ -1,158 +1,111 @@
 # France Transparence
 
-Dashboard web sur la transparence de la vie politique française : dépenses et recettes de l'État, commande publique, élus, lobbying, financement politique, frais et train de vie, finances locales, Journal officiel — **sources publiques officielles, plus quelques consolidations reconnues et créditées**, aucun chiffre fabriqué. L'honnêteté est le principe produit : chaque module affiche la date réelle de ses données (badge de fraîcheur alimenté par la table `meta_sources`), le mot « en direct » est banni parce qu'aucune source publique ne le permet, et ce que l'open data ne contient pas est documenté comme tel (la liste « Ce que la loi ne publie pas » du module Frais & train de vie, l'encart « hors champ » de l'accueil). L'ensemble tient dans une base SQLite unique, reconstruite localement depuis **44 sources tracées** — le catalogue daté, avec la date réellement ingérée de chacune, est la page [`/donnees`](https://francetransparence.fr/donnees/), régénérée à chaque publication. Une page pédagogique [`/comprendre`](https://francetransparence.fr/comprendre/) — **hors navigation principale** — explique comment lire ces publications : glossaire, provenance, limites, journal des lectures.
+Site d'information sur l'argent public et la vie politique en France, en ligne sur **https://francetransparence.fr**. Il rassemble des publications de l'État, des assemblées et des autorités indépendantes, et affiche pour chacune son producteur, sa licence et la date réelle de ses données.
 
-![Page d'accueil, 24/08/2026 : onze onglets dont Recettes, champ de recherche dans le chrome, encart « hors champ » au-dessus du 240 Md€ d'exécution](docs/screenshots/accueil.png)
+Les données viennent de **sources publiques officielles, plus quelques consolidations reconnues et créditées**. Elles sont étiquetées comme telles sur la page [`/donnees`](https://francetransparence.fr/donnees/) (voir « D'où viennent les données »).
 
-## Site public
+Le site publie des données et leurs règles de calcul. Il ne porte aucun jugement sur les personnes. Un indicateur dit ce qu'il mesure, avec sa règle et sa base légale, et rien de plus.
 
-**https://francetransparence.fr**
+## Ce que montre le site
 
-Export statique du dashboard, servi **directement par nginx** depuis un serveur dédié (Scaleway Dedibox, Ubuntu 22.04). **Aucun process Node en production** : le HTML est pré-rendu au build, nginx ne fait que servir des fichiers déjà écrits sur disque (et déjà compressés). Thème sombre unique, **aucun cookie, aucun traceur** — le HTML servi n'en porte pas. Ce n'est pas un flux temps réel : la fraîcheur affichée est celle de la dernière ingestion qui a réussi à publier.
+Onze onglets, dans l'ordre de la navigation (`app/src/components/MainNav.tsx`) :
 
-Le site est reconstruit chaque matin vers 05:17 (heure de Paris) par le script serveur `ft-deploy`, déclenché par la minuterie systemd `ft-deploy.timer`. La publication est **tout ou rien** : mise à jour du dépôt → contrôle de l'identité de déploiement → ingestion de tous les pipelines → tests → build statique → contrôles de santé du site généré → **bascule atomique** du lien symbolique `current` vers la nouvelle release. Si une étape échoue, le lien ne bascule pas : l'ancienne version continue d'être servie sans interruption, et une alerte part. La fraîcheur affichée reste donc toujours celle de la base réellement construite.
+| Route | Onglet | Contenu |
+|---|---|---|
+| `/` | Accueil | Synthèse des modules, chaque bloc daté par sa source |
+| `/depenses` | Dépenses | Exécution mensuelle du budget de l'État (DGFiP), structure du projet de loi de finances, agrégats des administrations publiques |
+| `/recettes` | Recettes | Recettes nettes du budget général, impôt sur le revenu par territoire, prélèvements obligatoires |
+| `/marches` | Marchés publics | Marchés notifiés, appels d'offres en cours (BOAMP), achats à venir, sanctions de l'Autorité de la concurrence dans un bloc séparé |
+| `/elus` | Élus & Institutions | Répertoire national des élus, députés, sénateurs, annuaire et fiches |
+| `/lobbying` | Lobbying | Répertoire HATVP des représentants d'intérêts, et registre de transparence de l'Union européenne dans un bloc séparé |
+| `/financement` | Financement | Comptes des partis et comptes de campagne (CNCCFP) |
+| `/frais` | Frais | Barèmes et contrôles publiés, et ce que la loi ne publie pas |
+| `/collectivites` | Finances locales | Comptes des collectivités (OFGL), dotations, fiscalité directe locale |
+| `/documents` | Documents | Textes des derniers Journaux officiels, dossiers législatifs |
+| `/donnees` | Données | Catalogue des sources, fraîcheur mesurée, licences, exports JSON |
 
-Les cinq dernières releases sont conservées sur le serveur : `ft-rollback` revient à l'une d'elles en quelques secondes, sans rebuild.
+Hors navigation : `/alertes` (indicateurs calculés, chacun avec sa règle), `/comprendre` (comment lire ces publications), `/elus/annuaire/` et les fiches `/elus/<id>/`, `/documents/dossiers/`, `/mentions-legales` et `/donnees-personnelles`.
+
+Les volumes (nombre d'élus, de marchés, de textes) changent à chaque ingestion. Ils ne sont pas recopiés ici : la seule valeur qui fait foi est celle que le site affiche, avec la date de ses données.
+
+## D'où viennent les données
+
+**44 sources**, une ligne chacune dans la table `meta_sources` de la base et dans le catalogue de [`/donnees`](https://francetransparence.fr/donnees/), reconstruit à chaque publication. Le référentiel (périmètre, pièges, limites de chaque source) est [docs/SOURCES.md](docs/SOURCES.md).
+
+Producteurs principaux : DILA (Journal officiel, BOAMP, dossiers législatifs), Assemblée nationale, Sénat, HATVP, ministère de l'Intérieur (Répertoire national des élus), DGFiP, OFGL, CNCCFP, CADA, INSEE, DREES, Eurostat, Autorité de la concurrence, registre de transparence de l'Union européenne.
+
+Trois sources ne sont pas des publications officielles au sens strict. `/donnees` le dit à côté de chacune (`app/src/lib/nature-sources.ts`) :
+
+| Source | Étiquette sur `/donnees` | Ce que c'est |
+|---|---|---|
+| S1 | Consolidation reconnue, non officielle | Consolidation des données essentielles des marchés publics (DECP) par le projet `decp-processing` de Colin Maudry |
+| S7 (Datan) | Consolidation reconnue, non officielle | Scores calculés par l'association Datan à partir des données de l'Assemblée nationale, affichés à côté du taux calculé par le site |
+| S31 | Officielle, recopiée à la main | Chiffres recopiés de documents officiels (textes, rapports, PDF publics), sans jeu de données ouvert lisible par machine, chacun cité avec son adresse |
+
+Rien n'est mis à jour « en direct » : aucune source publique ne le permet. Chaque page dit la date de ses données, et la fraîcheur de chaque source est mesurée contre un seuil (`app/src/lib/fraicheur.ts`).
+
+## Comment c'est construit et publié
+
+1. `pipelines/` (Python) télécharge les sources dans `data/raw/` et les transforme. Chaque pipeline est une cible `make ingest-<nom>`. La liste fait autorité dans la variable `PIPELINES` du `Makefile` (`make pipelines` l'affiche).
+2. Tout aboutit dans une seule base SQLite, `data/france.db`, qui n'est pas versionnée. Chaque ingestion réussie écrit sa ligne dans `meta_sources` (date des données, licence, fréquence).
+3. L'application Next.js (`app/`) lit cette base en lecture seule et produit un **export statique** (`FT_EXPORT=1`) : toutes les pages sont écrites au build, sans appel réseau à l'exécution.
+4. En production, **nginx sert cet export**. Aucun processus Node ne tourne.
+
+**Publication.** Le serveur reconstruit le site chaque nuit vers 05:17, heure de Paris (minuterie systemd `ft-deploy.timer`, décalage aléatoire de 10 minutes au plus). Le script `ft-deploy` met le dépôt à jour, vérifie l'identité de déploiement, ingère toutes les sources, joue les tests, construit l'export, le contrôle, puis bascule le lien `current` vers la nouvelle version. Si une étape échoue, rien ne bascule : la version précédente reste servie et une alerte part. Ces scripts vivent sur le serveur et ne sont pas versionnés ici. Leur description publique est le [RUNBOOK](docs/deploiement/RUNBOOK.md).
+
+**Validation.** La CI GitHub (`.github/workflows/publication.yml`) ne publie rien. Chaque jour à 04:45 UTC, donc après le cycle du serveur, elle rejoue la chaîne complète dans une base neuve : ingestion, tests, lint, types, build, contrôles. Sur chaque proposition de fusion, elle joue les mêmes étapes avant que le code n'atteigne `main`, en réutilisant la base en cache quand l'empreinte des pipelines n'a pas changé. Un second workflow, `vigie.yml`, lit le site en ligne une fois par jour et ouvre une issue s'il est figé.
+
+L'ancienne adresse GitHub Pages ne porte plus qu'une page de redirection vers le domaine (`pages-redirection/`).
+
+## Reproduire en local
+
+Prérequis : Python 3.14 (celui du `Makefile`, de la CI et du serveur), Node.js 24 ou plus (celui de la CI), `make`.
 
 ```bash
-make build-static   # export statique local (FT_EXPORT=1 → app/out/)
-make serve-static   # sert app/out/ sur http://localhost:3620
+make venv          # crée .venv avec les versions figées de requirements.txt
+make ingest        # télécharge toutes les sources et construit data/france.db
+make app-install   # installe les dépendances de app/
+make dev           # http://localhost:3620
 ```
 
-L'ancienne adresse GitHub Pages ne sert plus le site : elle ne porte plus qu'une **page de redirection canonique** vers le domaine (`pages-redirection/`). Publier une copie intégrale du site sur les deux hôtes aurait fait vivre deux sites identiques en ligne et partagé l'autorité de référencement de chacune de ses quelque mille pages entre deux domaines ; GitHub Pages ne sachant pas émettre de 301, la canonique et le rafraîchissement méta sont les seuls instruments disponibles.
+`make ingest` télécharge beaucoup et prend du temps : les fichiers bruts restent en cache dans `data/raw/`, et la commande se rejoue sans risque. Un seul pipeline : `make ingest-<nom>`.
 
-**La CI GitHub Actions ne publie plus le site**, et ce n'est pas une perte : elle valide chaque jour (cron 04:45 UTC) la chaîne complète — ingestion de tous les pipelines dans une base neuve, tests, build, contrôles de santé — dans un environnement neuf, **indépendant du serveur**. Une panne amont y est vue **le jour même, après** le passage du serveur (le cron de 04:45 UTC tombe déjà après 05:17 Paris, et GitHub retarde ses déclenchements de plusieurs heures), et **avant** son cycle du lendemain : c'est le délai qu'elle donne pour corriger. Elle vérifie aussi chaque proposition de fusion **avant** qu'elle n'atteigne `main`, puisque c'est `main` qui alimente le serveur.
-
-L'identité de déploiement est **paramétrable au build** : un fork change d'adresse sans toucher une ligne de source. `NEXT_PUBLIC_SITE_URL` (défaut `https://francetransparence.fr`) porte l'URL du site — canoniques, sitemap et `robots.txt` en sont dérivés (`app/src/app/robots.ts` génère le `robots.txt`, il n'y a plus de fichier statique), et les variables `NEXT_PUBLIC_HEBERGEUR_*` portent l'identité de l'hébergeur publiée dans les mentions légales (`app/src/lib/hebergeur.ts`).
-
-Hébergement : serveur dédié — donc payant, contrairement à la première mise en ligne sur GitHub Pages.
-
-Décision d'hébergement et limites : [docs/deploiement/DECISION.md](docs/deploiement/DECISION.md) · exploitation quotidienne : [docs/deploiement/RUNBOOK.md](docs/deploiement/RUNBOOK.md) · ce qui exige encore un humain : [docs/ACTIONS-HUMAINES.md](docs/ACTIONS-HUMAINES.md) · redirections des fiches d'élus fusionnées : [docs/REDIRECTIONS-ELUS.md](docs/REDIRECTIONS-ELUS.md).
-
-## Démarrage rapide
-
-Prérequis : `python3.14`, Node.js ≥ 24, `make`.
+La forme servie en production se reproduit ainsi :
 
 ```bash
-make venv         # crée .venv (requests, duckdb, pytest)
-make ingest       # reconstruit data/france.db — ~5-10 min et plus de 1 Go de
-                  # téléchargements, gardés en cache dans data/raw
-make app-install  # npm install dans app/
-make dev          # http://localhost:3620
+make build-static  # export statique dans app/out/
+make serve-static  # le sert sur http://localhost:3620
 ```
 
-Le mode local SSR (`make build` puis `cd app && npm run start`, port 3620) n'est **pas** la production : en ligne, c'est `make build-static` (`FT_EXPORT=1`) servi par nginx, sans process Node.
-
-La base `data/france.db` (493 Mo, 81 tables et 6 vues au 24/08/2026 — ça bouge ; le schéma : [docs/SCHEMA-DB.md](docs/SCHEMA-DB.md)) est gitignorée : elle se reconstruit entièrement par `make ingest`.
-
-## Ré-ingérer
-
-`make ingest` est rejouable à volonté : les téléchargements sont mis en cache dans `data/raw` et chaque pipeline remplace proprement ses tables. Pour rejouer un seul pipeline :
-
-```bash
-make ingest-<source>
-```
-
-avec `<source>` parmi les pipelines déclarés dans la variable `PIPELINES` du `Makefile`, qui fait autorité. La liste n'est pas recopiée ici, elle dériverait : `make pipelines` l'affiche, un nom par ligne, dans l'ordre où `make ingest` les joue (ordre signifiant, expliqué en tête du `Makefile`).
+Pour publier sous une autre adresse, poser `NEXT_PUBLIC_SITE_URL` et les variables `NEXT_PUBLIC_HEBERGEUR_*` au build (`app/src/lib/hebergeur.ts`) : aucune source n'est à modifier.
 
 ## Tests
 
 ```bash
-make test         # suite pytest complète
+make test                                         # pipelines, suite pytest complète
+.venv/bin/pytest pipelines/tests -m 'not reseau'  # sans les tests qui touchent le réseau
+cd app && npm test && npm run lint && npm run typecheck
 ```
 
-Les tests de transformation tournent hors ligne sur des fixtures figées dans `pipelines/tests/fixtures/` : des extraits réels pour l'essentiel (pièges d'encodage inclus), et, pour certains pipelines ou certains cas, des fixtures construites, que l'en-tête du fichier de test annonce comme telles. Les tests d'intégration qui touchent le réseau portent le marqueur `reseau` — les exclure avec `pytest -m 'not reseau'`.
+Les tests de transformation tournent hors ligne sur des fixtures figées dans `pipelines/tests/fixtures/`. La CI joue aussi les tests des pipelines sous Python 3.10 (job `tests-python-3-10`).
 
-## Architecture
+## Licences
 
-1. `pipelines/` (Python 3.14 + requests + DuckDB) télécharge les sources officielles dans `data/raw/` et les transforme ;
-2. tout aboutit dans **une seule base SQLite**, `data/france.db` — le fichier est le contrat entre Python et Next ;
-3. chaque ingestion réussie écrit sa ligne dans **`meta_sources`** (date des données, date d'ingestion, fréquence, licence, compte de lignes) : la fraîcheur est une donnée de premier rang, jamais un texte décoratif ;
-4. l'app Next.js 16 (App Router, Tailwind 4, better-sqlite3) lit la base **en lecture seule**, sans aucun fetch externe au runtime ;
-5. chaque page affiche son badge « Données au JJ/MM/AAAA · source · fréquence » depuis `meta_sources` ;
-6. base absente = message « base non construite, lancer make ingest » — jamais de placeholder chiffré.
+- **Code** : AGPL-3.0-or-later ([LICENSE](LICENSE)).
+- **Données** : chaque source garde la licence de son producteur, pour l'essentiel la Licence Ouverte 2.0 (Etalab). La licence de chaque source est affichée sur `/donnees`. S31 n'a pas de licence ouverte : ce sont des chiffres cités de documents officiels. Détails : [LICENSES.md](LICENSES.md).
 
-Le site public est l'export statique de cette même app (`make build-static`, `FT_EXPORT=1`) : toutes les pages sont pré-rendues au build, les filtres et la recherche tournent côté navigateur (index JSON pré-généré, fragments `/data/*.json`), et les anciennes routes API paramétriques sont remplacées par des exports `.json` quotidiens datés.
+## Signaler une erreur, contribuer
 
-Détails : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+- **Une donnée affichée est fausse** : ouvrir une issue avec le gabarit « Erreur dans une donnée affichée », en joignant la source officielle. Aucune donnée ne vit dans le dépôt : la correction passe par le pipeline, ou par un signalement au producteur si c'est l'amont qui se trompe.
+- **Une demande qui vous concerne personnellement** : jamais par issue publique, par le canal indiqué sur [/donnees-personnelles](https://francetransparence.fr/donnees-personnelles/).
+- **Une faille de sécurité** : en privé, voir [SECURITY.md](SECURITY.md).
+- **Du code, une source à proposer** : [CONTRIBUTING.md](CONTRIBUTING.md), qui donne aussi les règles qui font refuser une contribution.
 
-## Modules du dashboard
+## Documentation
 
-Onze onglets, dans l'ordre de la navigation (`MainNav`) — libellés complets, pas de 12ᵉ onglet. `/comprendre` et `/alertes` existent ; ce ne sont pas des onglets.
-
-| Route | Module | Contenu et fraîcheur réelle |
-|---|---|---|
-| `/` | Accueil | Compteurs, carte des marchés, flux JO et alertes — chaque bloc daté par sa source (budget au dernier mois publié, marchés J-1, JO du jour). Encart « hors champ » au-dessus de l'exécution : ce que le site ne couvre pas. |
-| `/depenses` | Dépenses | Exécution mensuelle DGFiP (~6 semaines de décalage), structure PLF 2026 (mention « PLF » : la LFI 2026 n'existe pas en données), subventions aux associations (versements 2023). Blocs cloisonnés : APU Maastricht, ESA TE, CFAP par fonction (S49), comptes INSEE par sous-secteur (S50), ODAC (S51), CGE, prestations DREES. |
-| `/recettes` | Recettes | Même source S13 que les dépenses : recettes nettes du budget général (fiscales, non fiscales, fonds de concours à part), cumuls depuis le 1er janvier, séries depuis 2013. Sections cloisonnées : détail non fiscal du PLF (S46, projet, pas l'exécution) ; IRCOM (S47, impôt net sur rôle par territoire, année des revenus, pas l'IR de caisse) ; agrégats ESA des APU (S44) ; prélèvements obligatoires INSEE (S50, pas taxag) — ce n'est pas le budget de l'État. |
-| `/marches` | Marchés publics | Marchés consolidés sur 24 mois glissants comptés à la date de notification initiale (quotidien, notifications J-1, consolidation légale ≤ 2 mois), appels d'offres en cours (BOAMP, jour même), achats à venir (APProch). Les comptes bougent chaque jour : voir `/donnees`. En bas de page, bloc **cloisonné** : amendes prononcées par l'Autorité de la concurrence (S52) — ce n'est pas un marché. |
-| `/elus` | Élus & Institutions | Environ 36 000 élus (RNE, trimestriel) dont 577 députés et 348 sénateurs (open data AN/Sénat/Datan, quotidien). Les conseillers municipaux n'entrent dans aucun chiffre de cette page. |
-| `/elus/[id]` | Fiche élu | Pas un onglet. Plus de 1 000 fiches statiques (parlementaires et présidences d'exécutifs départementaux/régionaux — les autres élus restent dans les listes et agrégats) : mandats, 30 derniers votes sur les quelque 8 400 scrutins AN (le scrutin le plus récent est daté : hors session, il peut avoir plusieurs semaines) ; sur les fiches sénateurs, votes nominaux Dosleg (fenêtre des derniers scrutins publics, taux calculé ici — ce n'est pas un score Datan) ; scores Datan crédités (députés), lien HATVP. |
-| `/lobbying` | Lobbying | Répertoire HATVP des représentants d'intérêts (quotidien) : entités inscrites, activités déclarées, dépenses par exercice annuel en fourchettes, croisement avec les marchés publics. Puis, dans un bloc **cloisonné** en fin de page, le registre de transparence de l'Union européenne (quotidien) : organisations inscrites, dont celles à siège en France. Deux registres, deux cadres juridiques — jamais fusionnés, jamais comparés. |
-| `/financement` | Financement | Comptes des partis, exercice 2024 (publié le 10/02/2026 — le dernier possible) ; comptes de campagne des législatives 2024, 4 010 candidats (municipales 2026 : aucun compte publié à ce jour, instruction CNCCFP en cours). |
-| `/frais` | Frais | 56 faits chiffrés sourcés (barèmes au 01/01/2026, contrôles exercice 2024, Élysée audité 2024) + 8 opacités documentées — pas de notes de frais : elles ne sont pas publiées, et le Conseil d'État les a jugées hors du droit d'accès aux documents administratifs (27/06/2019). **Carte des verrous** : avis et conseils de la CADA de 1984 à 2024, dépouillés en agrégats (qui refuse, sur quel fondement, et dans quel sens la commission tranche), avec le retard de versement de la source affiché en clair. |
-| `/collectivites` | Finances locales | Comptes OFGL 2025 (provisoire), DGF, carte €/habitant ; fiscalité directe locale REI (imposition 2025, distincte des comptes). |
-| `/documents` | Documents | Environ 2 600 textes des 30 derniers JO (quotidien, JO du jour disponible vers 00h30), filtres lois/décrets/nominations ; dossiers législatifs DILA (fonds DOLE) en page dédiée. |
-| `/donnees` | Données | Catalogue des **44 sources** avec fraîcheur mesurée (le moniteur de santé des sources), licences, règles des alertes, **7** exports JSON statiques (`/api/meta.json`, `alertes`, `elus`, `budget-mensuel`, `marches-agregats`, `lobbying-marches`, `/data/recherche-index.json`) reconstruits à chaque publication. |
-| `/alertes` | Alertes transparence | **Page, pas un onglet.** Environ 1 600 alertes sur 8 types, chacune avec sa règle de calcul et sa base légale, recalculées à chaque ingestion. |
-| `/comprendre` | Comprendre les données | **Hors nav.** Appareil pédagogique déjà en ligne : fonctionnement de chaque publication, glossaire, provenance, limites, journal daté des lectures. Lien pied de page, encart accueil, `/donnees`. Aucun chiffre qui dérive. |
-
-Les volumes de ce tableau sont donnés en **ordre de grandeur** : la plupart des sources publient quotidiennement, ces nombres bougent à chaque ingestion. La seule valeur qui fait foi est celle affichée par le site lui-même, avec la date de ses données — c'est le rôle du badge de fraîcheur et de la page `/donnees`, régénérée à chaque publication.
-
-Captures de la release servie le 24/08/2026 — elles datent ce jour-là, elles ne gèlent pas un compteur :
-
-![Dépenses de l'État : tuiles d'exécution, recettes et solde au pli, onze onglets dont Recettes](docs/screenshots/depenses.png)
-
-![Marchés publics : tuiles DECP, BOAMP et APProch, carte des montants par département](docs/screenshots/marches.png)
-
-![Comprendre les données : sommaire pédagogique, page hors navigation principale](docs/screenshots/comprendre.png)
-
-![Données & exports : catalogue des sources, moniteur de fraîcheur](docs/screenshots/donnees.png)
-
-## Sources & licences
-
-Sources majeures (le catalogue **complet et daté** des 44 sources est la page `/donnees`, régénérée à chaque publication ; le référentiel : [docs/SOURCES.md](docs/SOURCES.md)) :
-
-| Source | Fraîcheur | Licence |
-|---|---|---|
-| DECP consolidées — data.gouv.fr, consolidation `decp-processing` (Colin Maudry) | quotidienne | Licence Ouverte 2.0 |
-| BOAMP — annonces de marchés (DILA) | quotidienne | etalab-2.0 |
-| Journal officiel JORFSIMPLE (DILA) | quotidienne | Licence Ouverte (fr-lo) |
-| HATVP — répertoire des représentants d'intérêts AGORA | quotidienne | Licence Ouverte Etalab |
-| HATVP — liste des déclarations publiées | hebdomadaire | Licence Ouverte Etalab |
-| Open data Assemblée nationale (députés, scrutins) | quotidienne | Licence Ouverte |
-| Open data Sénat (sénateurs, scrutins publics Dosleg) | quotidienne | Licence Ouverte |
-| Datan — scores de participation/loyauté des députés | quotidienne | Licence Ouverte (fr-lo) |
-| DGFiP — situations mensuelles budgétaires (data.economie) | mensuelle | Licence Ouverte 2.0 |
-| PLF 2026 budget vert, PLF 2025, jaune associations (data.economie) | annuelle | Licence Ouverte 2.0 |
-| Répertoire national des élus (ministère de l'Intérieur) | trimestrielle | Licence Ouverte 2.0 |
-| OFGL — comptes des collectivités et dotations | annuelle | Licence Ouverte 2.0 |
-| CNCCFP — comptes des partis et comptes de campagne | annuelle / par scrutin | Licence Ouverte |
-| geo.api.gouv.fr, france-geojson, populations INSEE | statique / annuelle | Licence Ouverte |
-| CADA — avis et conseils (ensemble consolidé, agrégats seulement) | irrégulière (lots, 2 à 4 fois par an) | Licence Ouverte (fr-lo) |
-| CGE — bilan patrimonial de l'État, pièce de synthèse (DGFiP) | annuelle | Licence Ouverte 2.0 (Etalab) |
-| Eurostat — dette et déficit des APU au sens de Maastricht, agrégats ESA | trimestrielle / annuelle | Décision 2011/833/UE |
-| DREES — prestations de protection sociale | annuelle | Licence Ouverte 2.0 (Etalab) |
-
-Crédits : consolidation DECP par le projet communautaire `decp-processing` de Colin Maudry ; scores calculés par Datan (datan.fr, méthodologie liée dans l'UI) ; DILA (BOAMP, JORF, annuaire, référentiel de l'organisation de l'État) ; HATVP ; CADA ; OFGL ; INSEE ; CNCCFP ; DGFiP / data.economie.gouv.fr ; Eurostat ; DREES ; fonds de carte france-geojson (Grégoire David) et contours Etalab. Chaque réutilisation mentionne sa source et porte la licence de **cette** source — il n'y a pas une licence unique pour tout le site.
-
-## Limites connues
-
-Assumées et affichées dans l'interface — l'honnêteté est le principe produit :
-
-- **Budget de l'État** : publication mensuelle avec ~6 semaines de décalage ; la date réelle du dernier mois publié est portée par le badge de fraîcheur et par `/donnees`. Aucun flux Chorus temps réel n'existe en open data.
-- **Notes de frais parlementaires** : non publiées, et hors du droit d'accès aux documents administratifs (CRPA art. L300-2, ordonnance n° 58-1100 du 17/11/1958, Conseil d'État 27/06/2019 n° 427725) → le module Frais & train de vie est pédagogique : barèmes exacts, contrôles agrégés, opacités documentées.
-- **Montants d'accords-cadres** : ce sont des maximums contractuels, pas des paiements — libellés « marchés notifiés », jamais « dépensé ».
-- **DECP** : latence légale de publication jusqu'à 2 mois — mention « en cours de consolidation » partout où le flux apparaît. Un marché est daté de sa **notification initiale** et non de son dernier avenant : c'est cette date qui décide de la fenêtre et du mois où il est compté, tandis que le montant, l'objet et les titulaires affichés sont ceux de sa version courante.
-- **Lobbying** : la donnée HATVP ne sépare pas AN et Sénat (« Parlement » agrégé) et les dépenses sont déclarées par exercice annuel. Le registre européen, lui, ne publie aucun identifiant national d'entreprise (ni SIREN, ni TVA) : aucun rapprochement automatique n'est possible entre les deux registres, et aucun n'est tenté.
-- **Comptes locaux 2025** : provisoires (chargés en juillet 2026 ; le nombre de communes encore sans comptes est relu à chaque ingestion et figure dans la note S16 de `/donnees`).
-- **Outre-mer** : hors rendu de la carte (présent dans les tableaux et agrégats).
-- **Scrutins du Sénat** : dump Dosleg `scr` + `votsen` ingéré (tous les scrutins publics ; fenêtre nominale des derniers). Le taux affiché sur la fiche est calculé ici sur les votes exprimés — ce n'est pas une présence en séance, pas un score Datan. Ameli (amendements) n'est pas ingéré.
-
-## Contribuer
-
-Signaler une donnée fausse (avec source officielle), proposer une source, corriger du code : [CONTRIBUTING.md](CONTRIBUTING.md). Une faille de sécurité se signale en privé, jamais par issue publique : [SECURITY.md](SECURITY.md).
-
-## Rapport de mission
-
-Journal de construction du 19-20/08/2026 (volumétrie **datée**, non réécrite) : [docs/RAPPORT-MISSION.md](docs/RAPPORT-MISSION.md). L'état courant se lit ici et sur `/donnees`.
+- [STATUS.md](STATUS.md) : état courant. [JOURNAL.md](JOURNAL.md) : décisions datées.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) : flux de données et invariants. [docs/SCHEMA-DB.md](docs/SCHEMA-DB.md) : schéma de la base.
+- [docs/deploiement/RUNBOOK.md](docs/deploiement/RUNBOOK.md) : exploitation du serveur. [docs/deploiement/DECISION.md](docs/deploiement/DECISION.md) : choix d'hébergement.
+- [docs/ACTIONS-HUMAINES.md](docs/ACTIONS-HUMAINES.md) : ce qui demande un geste sur le serveur ou sur GitHub.
+- [docs/REDIRECTIONS-ELUS.md](docs/REDIRECTIONS-ELUS.md) : redirections des fiches d'élus fusionnées.
+- [docs/RAPPORT-MISSION.md](docs/RAPPORT-MISSION.md) : journal de construction des 19 et 20/08/2026, daté et non réécrit.
