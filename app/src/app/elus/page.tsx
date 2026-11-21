@@ -88,7 +88,29 @@ function Badge({ source, mention }: { source: MetaSource | undefined; mention?: 
       frequence={source.frequence}
       url={source.url}
       mention={mention}
+      sourceId={source.source_id}
     />
+  );
+}
+
+/**
+ * Sans JavaScript, le tableau reste sur son premier écran et « Tout
+ * afficher » ne répond pas : la page le dit et renvoie à l'export complet.
+ */
+function SansScript({ affiches, total, quoi }: { affiches: number; total: number; quoi: string }) {
+  if (affiches >= total) return null;
+  return (
+    <noscript>
+      <p className="mt-2 text-xs text-ink-secondary">
+        Sans JavaScript, seuls les {formatNombre(affiches)} premiers {quoi} sur{" "}
+        {formatNombre(total)} sont affichés. Le répertoire complet des élus est téléchargeable en
+        JSON (/api/elus.json) depuis la page{" "}
+        <Link href="/donnees/" className="underline underline-offset-2">
+          Données
+        </Link>
+        .
+      </p>
+    </noscript>
   );
 }
 
@@ -234,6 +256,7 @@ export default async function PageElus() {
             groupes={groupesAn.map((g) => ({ valeur: g.sigle, libelle: `${g.sigle} — ${g.nom}` }))}
             departements={departementsDeputes}
           />
+          <SansScript affiches={Math.min(PREMIER_ECRAN, deputes.length)} total={deputes.length} quoi="députés" />
           <div className="mt-3 flex flex-col gap-1 text-[11px] leading-relaxed text-ink-muted">
             <p>
               ¹ Calcul France Transparence : votes exprimés / scrutins publics de l’AN des 365
@@ -318,6 +341,7 @@ export default async function PageElus() {
         )}
         <VueTableau>
           <DataTable
+            legende="Groupes politiques de l’Assemblée nationale"
             colonnes={[
               { cle: "nom", entete: "Groupe" },
               { cle: "sigle", entete: "Sigle" },
@@ -360,6 +384,7 @@ export default async function PageElus() {
           <div className="mb-4">
             <VueTableau>
               <DataTable
+                legende="Groupes politiques du Sénat"
                 colonnes={[
                   { cle: "groupe", entete: "Groupe" },
                   { cle: "effectif", entete: "Sièges", type: "nombre" },
@@ -376,6 +401,7 @@ export default async function PageElus() {
             groupes={groupesSenat.map((g) => ({ valeur: g.groupe, libelle: g.groupe }))}
             departements={departementsSenat}
           />
+          <SansScript affiches={Math.min(PREMIER_ECRAN, senateurs.length)} total={senateurs.length} quoi="sénateurs" />
           <p className="mt-3 text-[11px] leading-relaxed text-ink-muted">
             ¹ Calcul France Transparence : votes exprimés (pour, contre, abstention) / scrutins
             publics du Sénat des 365 derniers jours où le Sénat liste le sénateur (« non-votant »
@@ -392,6 +418,7 @@ export default async function PageElus() {
         droite={<Badge source={sources["S5-SCRUTINS"]} />}
       >
         <DataTable
+          legende="Scrutins récents à l’Assemblée nationale"
           colonnes={colonnesScrutins}
           lignes={scrutins}
           cleLigne={(l) => l.uid}
@@ -409,6 +436,7 @@ export default async function PageElus() {
         droite={<Badge source={sources["S6-DOSLEG"]} />}
       >
         <DataTable
+          legende="Scrutins récents au Sénat"
           colonnes={colonnesScrutins}
           lignes={scrutinsSenat}
           cleLigne={(l) => l.uid}

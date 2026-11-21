@@ -8,6 +8,11 @@ import { AgeALaLecture } from "@/components/client/AgeALaLecture";
 import { InteretsDeclares } from "@/components/client/InteretsDeclares";
 import { instantDeConstruction } from "@/lib/lecture";
 import { mentionPatrimoine } from "@/lib/mention-patrimoine";
+import {
+  intituleMandat,
+  libelleMandatHatvp,
+  titreMandat as titreMandatBalisage,
+} from "@/lib/intitules-mandat";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { LienOfficiel } from "@/components/ui/LienOfficiel";
@@ -107,15 +112,6 @@ export async function generateMetadata({
 /* Libellés                                                            */
 /* ------------------------------------------------------------------ */
 
-const TYPES_MANDAT: Record<string, string> = {
-  depute: "Député·e",
-  senateur: "Sénateur·rice",
-  maire: "Maire",
-  president_epci: "Président·e d’intercommunalité (EPCI)",
-  president_conseil_departemental: "Président·e de conseil départemental",
-  president_conseil_regional: "Président·e de conseil régional",
-};
-
 /**
  * Institution d'exercice par type de mandat — pour le seul balisage
  * schema.org (`OrganizationRole.memberOf`). `lieu: true` = le nom de
@@ -134,37 +130,6 @@ const ORGANISMES_MANDAT: Record<string, { nom: string; lieu: boolean }> = {
   president_conseil_departemental: { nom: "Conseil départemental", lieu: true },
   president_conseil_regional: { nom: "Conseil régional", lieu: true },
 };
-
-/**
- * Intitulé de mandat pour le balisage, accordé comme il l'est à l'écran.
- * Le point médian de TYPES_MANDAT est un libellé d'interface : dans un
- * `roleName`/`jobTitle` lu par une machine, il dégrade la valeur — on
- * préfère la forme accordée quand le sexe est publié par la source.
- */
-function titreMandatBalisage(type: string, sexe: string | null): string {
-  const accords: Record<string, [string, string]> = {
-    depute: ["Députée", "Député"],
-    senateur: ["Sénatrice", "Sénateur"],
-    maire: ["Maire", "Maire"],
-    president_epci: [
-      "Présidente d\u2019intercommunalité (EPCI)",
-      "Président d\u2019intercommunalité (EPCI)",
-    ],
-    president_conseil_departemental: [
-      "Présidente de conseil départemental",
-      "Président de conseil départemental",
-    ],
-    president_conseil_regional: [
-      "Présidente de conseil régional",
-      "Président de conseil régional",
-    ],
-  };
-  const accord = accords[type];
-  if (!accord) return TYPES_MANDAT[type] ?? type;
-  if (sexe === "F") return accord[0];
-  if (sexe === "M") return accord[1];
-  return TYPES_MANDAT[type] ?? accord[1];
-}
 
 const POSITIONS: Record<string, string> = {
   pour: "Pour",
@@ -217,6 +182,7 @@ function Badge({ source, mention }: { source: MetaSource | undefined; mention?: 
       frequence={source.frequence}
       url={source.url}
       mention={mention}
+      sourceId={source.source_id}
     />
   );
 }
@@ -330,7 +296,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
   } else {
     const premier = mandats[0];
     if (premier) {
-      const titre = premier.fonction ?? TYPES_MANDAT[premier.type ?? ""] ?? premier.type ?? null;
+      const titre = intituleMandat(premier.type, premier.fonction, elu.sexe);
       const lieu = lieuMandat(premier);
       mandatPrincipal = [titre, lieu].filter(Boolean).join(" — ") || null;
     }
@@ -412,7 +378,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
         );
       },
     },
-    { cle: "type_mandat", entete: "Mandat" },
+    { cle: "type_mandat", entete: "Mandat", rendu: (l) => libelleMandatHatvp(l.type_mandat) },
     { cle: "date_depot", entete: "Déposée le", type: "date" },
     { cle: "date_publication", entete: "Publiée le", type: "date" },
     { cle: "statut_publication", entete: "Statut (source HATVP)" },
@@ -430,7 +396,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
       organisme && !organisme.lieu
         ? organisme.nom
         : [organisme?.nom ?? "Institution publique", lieu].filter(Boolean).join(" — ");
-    const roleName = m.fonction ?? titreMandatBalisage(type, elu.sexe);
+    const roleName = intituleMandat(type, m.fonction, elu.sexe) ?? type;
     // Le même mandat est souvent décrit par DEUX sources (AN/Sénat et RNE) :
     // une seule entrée par (rôle, organisation), la plus ancienne date de
     // début faisant foi.
@@ -629,6 +595,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
                 {formatNombre(decomptes.sans)}
               </p>
               <DataTable
+                legende="Participation aux scrutins publics"
                 colonnes={colonnesVotes}
                 lignes={votes}
                 cleLigne={(l) => l.scrutin_uid}
@@ -735,6 +702,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
                 {formatNombre(decomptesSenat.sans)}
               </p>
               <DataTable
+                legende="Participation aux scrutins publics du Sénat"
                 colonnes={colonnesVotes}
                 lignes={votes_senat}
                 cleLigne={(l) => l.scrutin_uid}
@@ -760,7 +728,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
         ) : (
           <ul className="flex flex-col">
             {mandats.map((m, i) => {
-              const titre = m.fonction ?? TYPES_MANDAT[m.type ?? ""] ?? m.type ?? "Mandat";
+              const titre = intituleMandat(m.type, m.fonction, elu.sexe) ?? "Mandat";
               const lieu = lieuMandat(m);
               const debut = m.date_debut ?? m.date_debut_mandat ?? null;
               return (
@@ -804,6 +772,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
       >
         {declarations.length > 0 ? (
           <DataTable
+            legende="Déclarations HATVP"
             colonnes={colonnesDeclarations}
             lignes={declarations}
             cleLigne={(l) => String(l.id)}
