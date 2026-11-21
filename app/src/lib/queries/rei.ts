@@ -21,7 +21,7 @@
 import { getDb, type MetaSource } from "@/lib/db";
 
 export const ETIQUETTE_REI =
-  "impositions primitives du rôle général, année d'imposition — pas les comptes OFGL, pas l'IRCOM, pas la caisse de l'État";
+  "impositions primitives du rôle général, année d'imposition, pas les comptes OFGL, pas l'IRCOM, pas la caisse de l'État";
 
 export type LigneReiDep = {
   dep: string;

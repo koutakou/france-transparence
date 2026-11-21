@@ -22,7 +22,7 @@
 import { getDb, type MetaSource } from "@/lib/db";
 
 export const ETIQUETTE_IRCOM =
-  "impôt net sur rôle, année des revenus, par commune de résidence — pas l'IR de caisse S13, pas le PFU";
+  "impôt net sur rôle, année des revenus, par commune de résidence, pas l'IR de caisse S13, pas le PFU";
 
 export type LigneIrcomDep = {
   dep: string;

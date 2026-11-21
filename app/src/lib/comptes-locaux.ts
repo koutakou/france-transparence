@@ -54,9 +54,9 @@ export function textesComptesLocaux(
     luLe,
     mention: provisoires ? `comptes ${exercice} provisoires` : `comptes ${exercice} lus le ${luLe}`,
     qualif: provisoires ? " (provisoire)" : "",
-    perimetre: `budgets principaux${provisoires ? ", comptes provisoires" : ""} — communes ayant rendu leurs comptes, via agrégats départementaux, hors budgets annexes`,
+    perimetre: `budgets principaux${provisoires ? ", comptes provisoires" : ""}, communes ayant rendu leurs comptes, via agrégats départementaux, hors budgets annexes`,
     suiteEntete: provisoires
       ? ` : provisoires jusqu’à l’intégration des balances définitives de la DGFiP, fin décembre ${suite} (calendrier de l’OFGL)`
-      : ` ; l’OFGL intègre fin décembre ${suite} les balances définitives de la DGFiP, et ce site ne distingue pas les deux versions`,
+      : `. L’OFGL intègre fin décembre ${suite} les balances définitives de la DGFiP, et ce site ne distingue pas les deux versions`,
   };
 }

@@ -26,7 +26,7 @@ import { getDb, type MetaSource } from "@/lib/db";
 const CODES_PARTICIPATIONS = [2110, 2116, 2199] as const;
 
 export const ETIQUETTE_PLF = (
-  "PLF 2025 déposé en octobre 2024 — projet, pas la LFI 2025 votée, pas l'exécution (S13)"
+  "PLF 2025 déposé en octobre 2024 : projet, pas la LFI 2025 votée, pas l'exécution (S13)"
 );
 
 export type LigneRecettePlf = {

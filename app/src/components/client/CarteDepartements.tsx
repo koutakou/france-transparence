@@ -87,7 +87,7 @@ export function CarteDepartements({
   legendeTitre,
   ariaLabel,
   points,
-  messageAbsent = "Fond de carte indisponible — les valeurs restent lisibles dans le tableau.",
+  messageAbsent = "Fond de carte indisponible, les valeurs restent lisibles dans le tableau.",
   className,
 }: CarteDepartementsProps) {
   // undefined = chargement en cours ; null = fond indisponible.
