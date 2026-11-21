@@ -12,7 +12,7 @@
  * décisions publiées viennent d'autorités ou d'administrations.
  */
 
-const NATURES_SANS_MINISTERE = new Set(["LOI", "LOI_ORGANIQUE", "LOI_CONSTIT", "ORDONNANCE"]);
+const NATURES_SANS_MINISTERE = new Set(["LOI", "LOI_ORGANIQUE", "LOI_CONSTIT"]);
 
 /** Numéro de rôle du Conseil constitutionnel : année, numéro(s), série. */
 const DECISION_CONSEIL_CONSTITUTIONNEL =
