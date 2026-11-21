@@ -175,10 +175,10 @@ DECRETS_AIDE_PUBLIQUE: tuple[dict, ...] = (
         "source_url": "https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000053613045",
         "note": (
             "Répartition par parti non publiée en données exploitables "
-            "(tableau dans le corps du décret, Légifrance anti-bot — constat "
-            "du 19/08/2026, SOURCES.md S37) : elle n'est donc pas ingérée. "
-            "L'aide perçue par parti figure dans partis_comptes (exercices "
-            "2021-2024), qui relève d'une autre nature de donnée."
+            "(tableau dans le corps du décret, sans fichier de données, "
+            "constat du 19/08/2026) : elle n'est donc pas ingérée. "
+            "L'aide perçue par parti figure dans les comptes des partis "
+            "(exercices 2021-2024), qui relèvent d'une autre nature de donnée."
         ),
     },
 )
@@ -1304,8 +1304,8 @@ def calculer_alertes(conn, url_avis_2024: str | None) -> int:
         f"Aide publique (1ère + 2nde fractions + autres aides publiques) "
         f"≥ {SEUIL_DEPENDANCE_RATIO:.0%} des produits totaux ET produits totaux "
         f"≥ {formater_euros(SEUIL_DEPENDANCE_PRODUITS)}, dernier exercice publié, "
-        "comptes en euros (SOURCES.md §4, alerte A4 — indicateur de structure "
-        "de financement, pas une infraction)."
+        "comptes en euros (indicateur de structure de financement, pas une "
+        "infraction ; méthode : https://francetransparence.fr/comprendre/#alertes)."
     )
     base_a4 = "Loi n° 88-227 du 11 mars 1988 relative à la transparence financière de la vie politique."
     for p in conn.execute(
@@ -1355,11 +1355,11 @@ def calculer_alertes(conn, url_avis_2024: str | None) -> int:
                 "liste publiée uniquement en PDF au JO",
                 "L'avis annuel CNCCFP listant les partis n'ayant pas respecté "
                 "leurs obligations comptables (perte de l'aide publique) n'est "
-                "publié qu'en PDF au Journal officiel — aucune donnée "
-                "structurée. Traitement manuel annuel à déclencher (détection "
-                "du texte par P6/S3), la liste n'est pas recalculable ici.",
+                "publié qu'en PDF au Journal officiel, sans donnée "
+                "structurée. Le site ne recalcule donc pas cette liste : elle "
+                "se lit dans l'avis lui-même.",
                 "Avis CNCCFP annuel publié au JO, en PDF seulement "
-                "(SOURCES.md §4, alerte A4 ; mitigation 10-critique M7).",
+                "(méthode : https://francetransparence.fr/comprendre/#alertes).",
                 base_a4,
                 url_avis_2024 or URL_DATASET_PARTIS,
                 quand,
@@ -1488,13 +1488,13 @@ def main() -> int:
                       f"{d['annee']} : {formater_euros(d['montant_total_eur'])}"
                       for d in DECRETS_AIDE_PUBLIQUE
                   )
-                  + ". Totaux seuls (tableau par parti non publié en données ; "
-                  "Légifrance anti-bot) — répartition par parti non ingérée. Le "
+                  + ". Totaux seuls (tableau par parti non publié en données, "
+                  "constat du 20/08/2026) : répartition par parti non ingérée. Le "
                   "décret n° 2024-77 a été re-vérifié sur Légifrance le "
                   "20/08/2026 (JORFTEXT000049085148) : total confirmé. Ces "
                   "enveloppes ne sont PAS "
-                  "comparables aux aides inscrites aux comptes des partis "
-                  "(partis_comptes), qui sont des déclarations cumulées.",
+                  "comparables aux aides inscrites aux comptes des partis, "
+                  "qui sont des déclarations cumulées.",
             commit=False,
         )
         conn.commit()
