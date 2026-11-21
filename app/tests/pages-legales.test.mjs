@@ -119,7 +119,7 @@ test("B : les catégories de données publiées forment une liste à puces, sans
     "contenu des déclarations d'intérêts, avec ses rubriques",
   );
   assert.ok(
-    items.includes("les montants de rémunération déclarés dans ces déclarations, année par année, reproduits mot pour mot et datés"),
+    items.includes("les montants de rémunération figurant dans ces déclarations, année par année, reproduits mot pour mot et datés"),
     "montants de rémunération",
   );
   assert.ok(!items.some((b) => /qui y figurent/.test(b)), "« y » sans antécédent dans la puce");

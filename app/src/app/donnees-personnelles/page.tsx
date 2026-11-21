@@ -433,9 +433,9 @@ export default function PageDonneesPersonnelles() {
             <li>
               les{" "}
               <strong className="text-ink">
-                montants de rémunération déclarés
+                montants de rémunération
               </strong>{" "}
-              dans ces déclarations, année par année, reproduits mot pour mot et datés
+              figurant dans ces déclarations, année par année, reproduits mot pour mot et datés
             </li>
             <li>
               les montants déclarés dans les comptes de partis et de campagne
