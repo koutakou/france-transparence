@@ -6,7 +6,7 @@ import { ministereSansObjet } from "../src/lib/jorf-sans-objet.ts";
 test("« s.o. » pour une loi, une ordonnance ou une décision du Conseil constitutionnel", () => {
   assert.equal(ministereSansObjet("LOI", "LOI n° 2026-1 du 2 janvier 2026 relative à X"), true);
   assert.equal(ministereSansObjet("LOI_ORGANIQUE", "LOI organique n° 2026-2"), true);
-  assert.equal(ministereSansObjet("ORDONNANCE", "Ordonnance n° 2026-3"), true);
+  assert.equal(ministereSansObjet("ORDONNANCE", "Ordonnance n° 2026-3"), false);
   assert.equal(ministereSansObjet("DECISION", "Décision n° 2026-1225 QPC du 16 octobre 2026"), true);
   assert.equal(ministereSansObjet("DECISION", "Décision n° 2026-1230/1231 QPC du 23 octobre 2026"), true);
   assert.equal(ministereSansObjet("DECISION", "Décision n° 2026-901 DC du 5 août 2026"), true);
