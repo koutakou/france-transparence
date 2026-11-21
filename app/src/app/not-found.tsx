@@ -23,7 +23,7 @@ export default function NotFound() {
       <div className="flex flex-col gap-2">
         <h1 className="text-lg font-semibold text-ink">Page introuvable</h1>
         <p className="text-sm leading-relaxed text-ink-secondary">
-          Cette adresse ne correspond à aucune page du site — elle a pu être
+          Cette adresse ne correspond à aucune page du site. Elle a pu être
           déplacée, ou la fiche demandée n&apos;existe pas (ou plus) dans les
           données publiées.
         </p>
