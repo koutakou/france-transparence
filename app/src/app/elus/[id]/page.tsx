@@ -16,6 +16,7 @@ import {
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { LienOfficiel } from "@/components/ui/LienOfficiel";
+import { choisirLienHatvp, lienHatvpAffichable, URL_HATVP_LISTE } from "@/lib/lien-hatvp";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { formatDateFr, formatNombre, formatPct, VIDE } from "@/lib/format";
 import { Vide } from "@/components/ui/Vide";
@@ -311,7 +312,10 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
   const urlHatvpAn = depute?.url_hatvp?.startsWith("https://www.hatvp.fr/")
     ? depute.url_hatvp
     : null;
-  const urlHatvp = elu.hatvp_url ?? urlHatvpAn;
+  // elus.hatvp_url garde le chemin brut publié par la HATVP, clé des
+  // déclarations. Le lien affiché est une fiche bien formée (celle de l'AN si
+  // celle de l'élu ne l'est pas), sinon la liste (lib/lien-hatvp.ts).
+  const urlHatvp = choisirLienHatvp(elu.hatvp_url, urlHatvpAn);
   if (urlHatvp) liens.push({ href: urlHatvp, texte: "Fiche HATVP" });
 
   // Décompte des positions sur les scrutins AFFICHÉS (les N derniers).
@@ -373,9 +377,10 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
         if (!l.type_document) return <Vide />;
         const libelle = TYPES_DOCUMENT[l.type_document];
         const texte = libelle ? `${libelle} (${l.type_document})` : l.type_document.toUpperCase();
-        if (!l.url_fiche) return texte;
+        const lien = lienHatvpAffichable(l.url_fiche);
+        if (!lien) return texte;
         return (
-          <LienOfficiel href={l.url_fiche} source="HATVP">
+          <LienOfficiel href={lien} source="HATVP">
             {texte}
           </LienOfficiel>
         );
@@ -446,7 +451,8 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
     groupes: [depute?.groupe_nom, senateur?.groupe].filter(
       (g): g is string => typeof g === "string" && g.length > 0,
     ),
-    sameAs: liens.map((l) => l.href),
+    // La liste HATVP est commune à tous : ce n'est pas une page de la personne.
+    sameAs: liens.map((l) => l.href).filter((h) => h !== URL_HATVP_LISTE),
     description: [nomComplet, mandatPrincipal].filter(Boolean).join(" : "),
   });
 

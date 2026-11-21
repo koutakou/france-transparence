@@ -111,7 +111,12 @@ export const CSV_ELUS: DefinitionCsv<EluExport> = {
     { cle: "prenom", description: "prénom", valeur: (e) => e.prenom },
     { cle: "uid_an", description: "identifiant Assemblée nationale", valeur: (e) => e.uid_an },
     { cle: "matricule_senat", description: "matricule Sénat", valeur: (e) => e.matricule_senat },
-    { cle: "hatvp_url", description: "page HATVP", valeur: (e) => e.hatvp_url },
+    {
+      cle: "hatvp_url",
+      description: "page HATVP (la liste des déclarations quand le chemin publié est mal formé)",
+      // Déjà filtré par getElusExport (lib/lien-hatvp.ts), source de elus.json et de ce CSV.
+      valeur: (e) => e.hatvp_url,
+    },
     {
       cle: "types_mandats",
       description: "types des mandats en cours, séparés par une virgule",

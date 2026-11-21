@@ -19,6 +19,7 @@
  * SQL 100 % paramétré — jamais d'interpolation de valeur.
  */
 import { getDb, type MetaSource } from "@/lib/db";
+import { choisirLienHatvp, clesRattachementHatvp, lienHatvpAffichable } from "@/lib/lien-hatvp";
 import { comparerNomPrenom } from "@/lib/tri";
 
 /* ------------------------------------------------------------------ */
@@ -244,7 +245,10 @@ export type DeputeLigne = {
   datan_score_participation: number | null;
   /** Fiche producteur AN — NULL si absente en base, jamais inventée. */
   url_fiche_an: string | null;
-  /** Fiche HATVP (AN en priorité, sinon `elus.hatvp_url`). */
+  /**
+   * Lien HATVP affichable (lib/lien-hatvp.ts) : fiche de l'AN en priorité,
+   * sinon `elus.hatvp_url`, la liste quand le chemin est mal formé.
+   */
   hatvp_url: string | null;
 };
 
@@ -266,7 +270,7 @@ export function getDeputes(filtres: FiltresListe = {}): DeputeLigne[] | null {
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   // Ordre alphabétique français (lib/tri.ts) : le tri SQL est binaire.
-  return (db
+  const lignes = db
     .prepare(
       `SELECT d.uid_an, e.id AS elu_id, d.nom, d.prenom, d.groupe_sigle,
               d.groupe_nom, d.departement,
@@ -276,12 +280,22 @@ export function getDeputes(filtres: FiltresListe = {}): DeputeLigne[] | null {
               -- site (« /tribun/resources/html/… », relevé le 15/10/2026) :
               -- seul un lien absolu vers hatvp.fr est publié.
               CASE WHEN d.url_hatvp LIKE 'https://www.hatvp.fr/%' THEN d.url_hatvp
-                   ELSE e.hatvp_url END AS hatvp_url
+                   END AS an_hatvp_url,
+              e.hatvp_url AS elu_hatvp_url
        FROM deputes d JOIN elus e ON e.uid_an = d.uid_an
        ${where}
        ORDER BY d.nom, d.prenom`,
     )
-    .all(...params) as DeputeLigne[]).sort(comparerNomPrenom);
+    .all(...params) as (Omit<DeputeLigne, "hatvp_url"> & {
+    an_hatvp_url: string | null;
+    elu_hatvp_url: string | null;
+  })[];
+  return lignes
+    .map(({ an_hatvp_url, elu_hatvp_url, ...l }) => ({
+      ...l,
+      hatvp_url: choisirLienHatvp(an_hatvp_url, elu_hatvp_url),
+    }))
+    .sort(comparerNomPrenom);
 }
 
 /** Départements d'élection des députés (noms, triés). */
@@ -311,7 +325,7 @@ export type SenateurLigne = {
   taux_participation_12m: number | null;
   /** Fiche producteur Sénat — NULL si absente en base, jamais inventée. */
   url_fiche_senat: string | null;
-  /** Fiche HATVP (`elus.hatvp_url`). */
+  /** Lien HATVP affichable de `elus.hatvp_url` (lib/lien-hatvp.ts). */
   hatvp_url: string | null;
 };
 
@@ -342,7 +356,9 @@ export function getSenateurs(filtres: FiltresListe = {}): SenateurLigne[] | null
        ${where}
        ORDER BY s.nom, s.prenom`,
     )
-    .all(...params) as SenateurLigne[]).sort(comparerNomPrenom);
+    .all(...params) as SenateurLigne[])
+    .map((l) => ({ ...l, hatvp_url: lienHatvpAffichable(l.hatvp_url) }))
+    .sort(comparerNomPrenom);
 }
 
 /** Départements (circonscriptions) des sénateurs, triés. */
@@ -659,8 +675,11 @@ export function getFicheElu(id: string): FicheElu | null {
   }
 
   // Appariement HATVP par URL de fiche nominative — clé forte, jamais par
-  // simple homonymie (règle A1 : rien de présumé nominatif).
-  const urls = [...new Set([elu.hatvp_url, depute?.url_hatvp].filter((u): u is string => !!u))];
+  // simple homonymie (règle A1 : rien de présumé nominatif). Les URL brutes,
+  // même mal formées : elles sont propres à une personne. Jamais l'URL de la
+  // liste, commune à tous (clesRattachementHatvp l'écarte). Le lien affiché
+  // passe, lui, par lib/lien-hatvp.ts.
+  const urls = clesRattachementHatvp(elu.hatvp_url, depute?.url_hatvp);
   let declarations: DeclarationHatvp[] = [];
   if (urls.length > 0) {
     const marques = urls.map(() => "?").join(", ");
