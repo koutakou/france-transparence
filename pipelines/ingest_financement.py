@@ -174,9 +174,9 @@ DECRETS_AIDE_PUBLIQUE: tuple[dict, ...] = (
         "date_decret": "2026-03-03",
         "source_url": "https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000053613045",
         "note": (
-            "Répartition par parti non publiée en données exploitables "
-            "(tableau dans le corps du décret, sans fichier de données, "
-            "constat du 19/08/2026) : elle n'est donc pas ingérée. "
+            "Répartition par parti non publiée en données exploitables au "
+            "21/11/2026 (tableau dans le corps du décret, sans fichier de "
+            "données sur data.gouv.fr) : elle n'est donc pas ingérée. "
             "L'aide perçue par parti figure dans les comptes des partis "
             "(exercices 2021-2024), qui relèvent d'une autre nature de donnée."
         ),
@@ -1327,7 +1327,7 @@ def calculer_alertes(conn, url_avis_2024: str | None) -> int:
             (
                 f"FIN-PARTI-DEP-{p['exercice']}-{p['id']}",
                 "financement_parti_dependance_aide", "info",
-                f"Parti financé à {formater_pourcent(ratio, 0)} par l'aide publique — {p['nom']}",
+                f"Parti financé à {formater_pourcent(ratio, 0)} par l'aide publique : {p['nom']}",
                 # ATTENTION — le motif « (ratio X,X %) » est une CLÉ DE TRI :
                 # app/src/lib/queries/financement.ts classe ces alertes par
                 # CAST(replace(substr(detail, instr(detail,'(ratio ') + 7),
@@ -1352,13 +1352,14 @@ def calculer_alertes(conn, url_avis_2024: str | None) -> int:
                 f"FIN-PARTI-PRIVE-{dernier_ex}",
                 "financement_parti_prive_aide", "info",
                 f"Partis privés d'aide publique pour manquement (exercice {dernier_ex}) : "
-                "liste publiée uniquement en PDF au JO",
+                "liste publiée uniquement en PDF au 21/11/2026",
                 "L'avis annuel CNCCFP listant les partis n'ayant pas respecté "
-                "leurs obligations comptables (perte de l'aide publique) n'est "
-                "publié qu'en PDF au Journal officiel, sans donnée "
-                "structurée. Le site ne recalcule donc pas cette liste : elle "
-                "se lit dans l'avis lui-même.",
-                "Avis CNCCFP annuel publié au JO, en PDF seulement "
+                "leurs obligations comptables (perte de l'aide publique) est "
+                "publié au Journal officiel et diffusé sur data.gouv.fr en PDF, "
+                "sans donnée structurée (constat du 21/11/2026). Le site ne "
+                "recalcule donc pas cette liste : elle se lit dans l'avis "
+                "lui-même.",
+                "Avis CNCCFP annuel publié au JO, diffusé en PDF au 21/11/2026 "
                 "(méthode : https://francetransparence.fr/comprendre/#alertes).",
                 base_a4,
                 url_avis_2024 or URL_DATASET_PARTIS,
@@ -1367,17 +1368,13 @@ def calculer_alertes(conn, url_avis_2024: str | None) -> int:
             )
         )
 
-    db.assurer_date_fait_alertes(conn)
-    marqueurs = ",".join("?" for _ in TYPES_ALERTES)
-    conn.execute(f"DELETE FROM alertes WHERE type IN ({marqueurs})", TYPES_ALERTES)
-    conn.executemany(
-        """INSERT INTO alertes
-               (id, type, gravite, titre, detail, regle, base_legale,
-                source_url, date_calcul, date_fait)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        alertes,
-    )
-    return len(alertes)
+    # date_detection (premier cycle qui a vu l'id) relue avant la purge et
+    # gardée : elle date les entrées du flux Atom (db.remplacer_alertes).
+    return db.remplacer_alertes(
+        conn, TYPES_ALERTES,
+        ("id", "type", "gravite", "titre", "detail", "regle", "base_legale",
+         "source_url", "date_calcul", "date_fait"),
+        alertes, quand[:10])
 
 
 # ---------------------------------------------------------------------------

@@ -426,6 +426,38 @@ def test_alertes_campagnes_et_partis(conn):
     assert total == nb + 1  # + l'alerte de l'autre pipeline
 
 
+def test_date_detection_des_alertes_gardee_au_recalcul(conn):
+    """Base persistante : un recalcul garde la date du premier cycle qui a vu
+    l'alerte, et n'en pose aucune sur les lignes d'un autre pipeline."""
+    fin.charger_partis(
+        conn, {2024: fin.parser_partis(FIX_PARTIS_2024.read_bytes(), 2024)})
+    conn.execute("INSERT INTO alertes (id, type, gravite, titre, date_calcul)"
+                 " VALUES ('X-1', 'autre_pipeline', 'info', 't', '2026-08-19')")
+    fin.calculer_alertes(conn, None)
+    lignes = conn.execute("SELECT id, date_detection FROM alertes"
+                          " WHERE type != 'autre_pipeline'").fetchall()
+    assert lignes and all(l["date_detection"] for l in lignes)
+    conn.execute("UPDATE alertes SET date_detection = '2025-03-04'"
+                 " WHERE id = 'FIN-PARTI-PRIVE-2024'")
+    fin.calculer_alertes(conn, None)
+    assert conn.execute("SELECT date_detection FROM alertes WHERE id ="
+                        " 'FIN-PARTI-PRIVE-2024'").fetchone()[0] == "2025-03-04"
+    assert conn.execute("SELECT date_detection FROM alertes WHERE id = 'X-1'"
+                        ).fetchone()[0] is None
+
+
+def test_titre_dependance_sans_tiret_cadratin(conn):
+    fin.charger_partis(
+        conn, {2024: fin.parser_partis(FIX_PARTIS_2024.read_bytes(), 2024)})
+    fin.calculer_alertes(conn, None)
+    titres = [r[0] for r in conn.execute(
+        "SELECT titre FROM alertes WHERE type = 'financement_parti_dependance_aide'")]
+    assert titres
+    assert all("—" not in t and "–" not in t for t in titres)
+    assert any(t.startswith("Parti financé à ") and " par l'aide publique : " in t
+               for t in titres)
+
+
 def _tokens_a_casse_cassee(nom: str) -> list[str]:
     """Détecteur INDÉPENDANT de la fonction testée (règle réécrite à la main).
 
