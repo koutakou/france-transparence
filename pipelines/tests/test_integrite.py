@@ -1546,6 +1546,37 @@ def test_hatvp_flag_ne_departage_pas_deux_fiches_sans_date(conn):
                         " OR hatvp_url IS NOT NULL").fetchone()[0] == 0
 
 
+@pytest.mark.parametrize("pa_en_premier", [True, False])
+def test_upsert_elus_ne_departage_pas_deux_fiches_sans_date(tmp_path, pa_en_premier):
+    """Relecture de la PR 170 (m2) : la même garde dans upsert_elus. Une PA et
+    une SEN sans date reliées par la table ne sont pas départagées : les
+    mandats RNE d'une personne RNE sans date suivent la règle d'avant (le
+    premier lu gagne), et rien n'est ôté de la PA. Même résultat qu'avec une
+    table vide, dans les deux ordres de lecture."""
+    def _jouer(passees):
+        c = db.init_db(chemin=tmp_path / f"sans-date-{len(passees)}.db")
+        c.executescript(p7.SCHEMA_P7)
+        fiches = [("PA1", [{"source": "AN-P9", "type": "depute"},
+                           {"source": "RNE", "type": "senateur"}]),
+                  ("SEN-00001A", [{"source": "SENAT-P9", "type": "senateur"}])]
+        for ident, mandats in (fiches if pa_en_premier else fiches[::-1]):
+            _fiche_nee(c, ident, "Valmont", "Lucien", "", mandats)
+        p7.upsert_elus(c, p7.preparer_personnes(_rne_un_seul("VALMONT", "Lucien", "")),
+                       liste_blanche={}, passees=passees)
+        sources = {i: [m["source"] for m in json.loads(m_)]
+                   for i, m_ in c.execute("SELECT id, mandats FROM elus")}
+        c.close()
+        return sources
+
+    avec_table = _jouer({"PA1": "SEN-00001A"})
+    assert avec_table == _jouer({})
+    if pa_en_premier:
+        assert "RNE" in avec_table["PA1"]
+        assert avec_table["SEN-00001A"] == ["SENAT-P9"]
+    else:
+        assert "RNE" in avec_table["SEN-00001A"]
+        assert avec_table["PA1"] == ["AN-P9", "RNE"]    # rien n'est ôté de la PA
+
 
 def test_hatvp_flag_refuse_un_homonyme_d_un_autre_departement(conn):
     """Constat du 15/10/2026 (cas relevé sur la base servie) : LEROY Gilles,

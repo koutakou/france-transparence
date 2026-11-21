@@ -1329,12 +1329,14 @@ def upsert_elus(conn, personnes: dict[tuple, dict],
         cle = (normaliser_texte(e["nom"]), normaliser_texte(e["prenom"]),
                (e["date_naissance"] or "").strip())
         deja = existants.get(cle)
+        # La table ne départage que deux fiches de même date de naissance NON
+        # VIDE, comme dans croiser_hatvp_flag. Sans date, le premier lu gagne.
         if deja is None:
             existants[cle] = e
-        elif passees.get(deja["id"]) == e["id"]:
+        elif cle[2] and passees.get(deja["id"]) == e["id"]:
             evincees[cle] = deja
             existants[cle] = e
-        elif passees.get(e["id"]) == deja["id"]:
+        elif cle[2] and passees.get(e["id"]) == deja["id"]:
             evincees[cle] = e
         if not e["id"].startswith("rne-"):     # garde-fou n° 1 : cibles AN/Sénat
             annee = (e["date_naissance"] or "")[:4]
