@@ -192,18 +192,20 @@ export function getAoClotureTriees(): AoProcheCloture[] | null {
 }
 
 /**
- * Types d'alerte que l'accueil peut montrer : agrégats sans nom et personnes
- * morales SEULEMENT. Liste blanche et non liste noire : un type nominatif
+ * Types d'alerte que l'accueil peut montrer : agrégats sans nom et partis
+ * politiques SEULEMENT. Liste blanche et non liste noire : un type nominatif
  * ajouté demain par un pipeline reste hors de l'accueil tant qu'on ne l'y
  * inscrit pas. Décision du propriétaire du 20/11/2026 : aucun nom de candidat
  * sur l'accueil. Le 20/11, l'accueil en nommait trois (deux rejets, une
- * réformation), choisis par l'ordre des identifiants. Les alertes nominatives
- * (`A1_hatvp_non_deposee`, `financement_campagne_rejetee`) restent sur
- * /alertes, avec leurs réserves.
+ * réformation), choisis par l'ordre des identifiants.
+ *
+ * `lobbying_defaut_declaration` n'y figure pas (relecture du 21/11/2026) : son
+ * titre porte la dénomination AGORA du représentant, qui peut être le nom
+ * d'une personne exerçant à titre individuel. Il reste sur /alertes, comme
+ * `A1_hatvp_non_deposee`, constat officiel nominatif.
  */
 export const TYPES_ALERTES_ACCUEIL = [
   "A1_hatvp_en_cours_delai_ecoule",
-  "lobbying_defaut_declaration",
   "lobbying_declaration_incomplete",
   "financement_parti_dependance_aide",
   "financement_parti_prive_aide",

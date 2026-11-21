@@ -641,8 +641,8 @@ export default async function Accueil() {
         titre="Alertes transparence"
         sousTitre={
           dernierCalculAlertes
-            ? `Les plus récentes de chaque gravité, agrégats et personnes morales seulement, aucun nom de personne. Dernier calcul le ${formatDateFr(dernierCalculAlertes)}`
-            : "Les plus récentes de chaque gravité, agrégats et personnes morales seulement, aucun nom de personne"
+            ? `Les plus récentes de chaque gravité, agrégats et partis politiques seulement. Dernier calcul le ${formatDateFr(dernierCalculAlertes)}`
+            : "Les plus récentes de chaque gravité, agrégats et partis politiques seulement"
         }
       >
         <div className="flex flex-col gap-2">
