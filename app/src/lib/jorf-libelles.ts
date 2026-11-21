@@ -4,6 +4,8 @@
  * flux filtrable (client).
  */
 
+import { VIDE } from "@/lib/format";
+
 export const LIBELLES_NATURE: Record<string, string> = {
   ARRETE: "Arrêté",
   DECRET: "Décret",
@@ -28,7 +30,7 @@ export const LIBELLES_NATURE: Record<string, string> = {
 
 /** Code DILA → libellé lisible ; nature absente (réel, 4 textes) → « — ». */
 export function libelleNature(code: string | null): string {
-  if (!code) return "—";
+  if (!code) return VIDE;
   const connu = LIBELLES_NATURE[code];
   if (connu) return connu;
   const bas = code.toLowerCase().replace(/_/g, " ");

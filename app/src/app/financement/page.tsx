@@ -10,6 +10,7 @@ import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { LineChart } from "@/components/ui/LineChart";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { VueTableau } from "@/components/ui/VueTableau";
+import { Vide } from "@/components/ui/Vide";
 import { formatNombre, formatPct } from "@/lib/format";
 import {
   getDonneesFinancement,
@@ -98,7 +99,7 @@ export default async function FinancementPage() {
         <div className="max-w-2xl rounded-xl border border-card-border bg-card p-5 text-sm text-ink-muted">
           <p>
             La base locale n&apos;est pas encore construite (ou les sources
-            CNCCFP ne sont pas ingérées) — lancer{" "}
+            CNCCFP ne sont pas ingérées). Lancer{" "}
             <code className="rounded bg-raised px-1.5 py-0.5">make ingest</code>{" "}
             pour ingérer les sources.
           </p>
@@ -131,7 +132,7 @@ export default async function FinancementPage() {
     <FreshnessBadge
       dateDonnees={metaPartis.date_donnees}
       sourceId={metaPartis.source_id}
-      source="CNCCFP — comptes des partis"
+      source="CNCCFP, comptes des partis"
       frequence={metaPartis.frequence}
       url={metaPartis.url}
       mention="exercice 2024 publié le 10/02/2026"
@@ -141,7 +142,7 @@ export default async function FinancementPage() {
     <FreshnessBadge
       dateDonnees={metaCampagnes.date_donnees}
       sourceId={metaCampagnes.source_id}
-      source="CNCCFP — législatives 2024"
+      source="CNCCFP, législatives 2024"
       frequence={metaCampagnes.frequence}
       url={metaCampagnes.url}
       mention="décisions publiées le 29/07/2025"
@@ -238,7 +239,7 @@ export default async function FinancementPage() {
             Financement de la vie politique
           </h1>
           <p className="mt-2 text-sm text-ink-secondary">
-            Comptes des partis politiques déposés à la CNCCFP — exercice 2024,
+            Comptes des partis politiques déposés à la CNCCFP, exercice 2024,
             paru le 10 février 2026.
           </p>
         </div>
@@ -281,15 +282,15 @@ export default async function FinancementPage() {
           <p>
             Ces montants ne sont pas de même nature.{" "}
             <strong className="font-semibold text-ink">L&apos;enveloppe légale</strong>{" "}
-            est le montant national ouvert par décret ;{" "}
+            est le montant national ouvert par décret.{" "}
             <strong className="font-semibold text-ink">
-              l&apos;aide inscrite aux comptes
+              L&apos;aide inscrite aux comptes
             </strong>{" "}
             est la somme de ce que {formatNombre(aide2024.nb_partis_aides)}{" "}
             {aide2024.nb_partis_aides > 1 ? "partis ont" : "parti a"} déclaré
             avoir perçu, sur les {formatNombre(kpi.depots2024)} comptes 2024
-            déposés — une même aide peut y figurer deux fois, chez la structure
-            qui la perçoit et chez celle à qui elle est reversée.
+            déposés (une même aide peut y figurer deux fois, chez la structure
+            qui la perçoit et chez celle à qui elle est reversée).
             {ecartDeclareEnveloppe2024 !== null && sensEcart2024 !== null && (
               <>
                 {" "}
@@ -326,9 +327,9 @@ export default async function FinancementPage() {
           )}
           <p className="mt-2">
             La série déclarée vaut{" "}
-            {aide2021 ? enMillions(aide2021.aide_f1_f2, 2) : "—"} en 2021 et{" "}
-            {aide2022 ? enMillions(aide2022.aide_f1_f2, 2) : "—"} en 2022, puis
-            change de niveau en 2023 ({aide2023 ? enMillions(aide2023.aide_f1_f2, 2) : "—"})
+            {aide2021 ? enMillions(aide2021.aide_f1_f2, 2) : <Vide />} en 2021 et{" "}
+            {aide2022 ? enMillions(aide2022.aide_f1_f2, 2) : <Vide />} en 2022, puis
+            change de niveau en 2023 ({aide2023 ? enMillions(aide2023.aide_f1_f2, 2) : <Vide />})
             et s&apos;y maintient en 2024 ({enMillions(aide2024.aide_f1_f2, 2)}).
             {sansDecret.length > 0 && (
               <>
@@ -337,7 +338,7 @@ export default async function FinancementPage() {
                 série n&apos;y est comparée à aucune.
               </>
             )}
-            Cette datation de la rupture est établie ; sa cause ne l&apos;est
+            Cette datation de la rupture est établie. Sa cause ne l&apos;est
             pas. Une piste à vérifier : la structure « ENSEMBLE ! (MAJORITÉ
             PRÉSIDENTIELLE) » apparaît dans les comptes en 2023 et y déclare une
             aide publique du même ordre que le décalage constaté. Ce n&apos;est
@@ -371,7 +372,7 @@ export default async function FinancementPage() {
             financements politiques (CNCCFP). L’enveloppe nationale d’aide
             publique est celle des décrets annuels ingérés
             {decretRecent
-              ? ` ; le plus récent : ${decretRecent.reference.charAt(0).toLowerCase()}${decretRecent.reference.slice(1)}`
+              ? ` (le plus récent : ${decretRecent.reference.charAt(0).toLowerCase()}${decretRecent.reference.slice(1)})`
               : ""}
             .
           </p>
@@ -379,7 +380,7 @@ export default async function FinancementPage() {
         limites={
           <p>
             {premierExercice !== null && dernierExercice !== null
-              ? `Seuls les comptes des exercices ${premierExercice} à ${dernierExercice} publiés par la Commission y figurent ; la note de la source, sur /donnees, dit si un exercice plus récent est paru.`
+              ? `Seuls les comptes des exercices ${premierExercice} à ${dernierExercice} publiés par la Commission y figurent. La note de la source, sur /donnees, dit si un exercice plus récent est paru.`
               : "Seuls les comptes publiés par la Commission et repris dans la base y figurent."}{" "}
             Cette page ne produit aucun classement d’opinion, aucune
             intention de vote, aucune mesure de notoriété. Elle ne publie
@@ -391,7 +392,7 @@ export default async function FinancementPage() {
       {/* ── Top 10 des partis par produits ───────────────────────────── */}
       <Card
         titre="Partis par produits (exercice 2024)"
-        sousTitre="Top 10 par produits totaux inscrits aux comptes déposés — comptes en euros."
+        sousTitre="Top 10 par produits totaux inscrits aux comptes déposés, comptes en euros."
         droite={badgePartis}
       >
         <BarList
@@ -426,7 +427,7 @@ export default async function FinancementPage() {
       {/* ── Ressources par type ──────────────────────────────────────── */}
       <Card
         titre="Ressources des partis par type (2024)"
-        sousTitre="Répartition des produits 2024 de l'ensemble des partis, par origine — comptes en euros."
+        sousTitre="Répartition des produits 2024 de l'ensemble des partis, par origine, comptes en euros."
         droite={badgePartis}
       >
         {ressources2024 ? (
@@ -478,8 +479,8 @@ export default async function FinancementPage() {
           d'autre : y injecter les enveloppes des décrets fabriquerait une
           série mixte, illisible et fausse. */}
       <Card
-        titre="Aide inscrite aux comptes des partis — évolution 2021-2024"
-        sousTitre="Somme des aides publiques (1re + 2e fractions) déclarées par les partis dans leurs comptes déposés, par exercice — un cumul de déclarations, et non l'enveloppe nationale fixée par décret."
+        titre="Aide inscrite aux comptes des partis : évolution 2021-2024"
+        sousTitre="Somme des aides publiques (1re + 2e fractions) déclarées par les partis dans leurs comptes déposés, par exercice : un cumul de déclarations, et non l'enveloppe nationale fixée par décret."
         droite={badgePartis}
       >
         <LineChart
@@ -521,12 +522,12 @@ export default async function FinancementPage() {
       {decretsAide.length > 0 && metaDecret && (
         <Card
           titre="Enveloppes légales de l'aide publique aux partis"
-          sousTitre="Montant national ouvert par décret, une ligne par décret consulté — aucune année n'est reconduite ni interpolée."
+          sousTitre="Montant national ouvert par décret, une ligne par décret consulté. Aucune année n'est reconduite ni interpolée."
           droite={
             <FreshnessBadge
               dateDonnees={metaDecret.date_donnees}
               sourceId={metaDecret.source_id}
-              source="JORF — décrets d'aide publique"
+              source="JORF, décrets d'aide publique"
               frequence={metaDecret.frequence}
               url={decretRecent?.source_url ?? metaDecret.url}
             />
@@ -540,7 +541,7 @@ export default async function FinancementPage() {
                     {formatNombre(d.montant_total_eur, 2)} €
                   </span>
                   <span className="text-[13px] text-ink-secondary">
-                    Enveloppe {d.annee} — {d.perimetre.toLowerCase()}
+                    Enveloppe {d.annee} : {d.perimetre.toLowerCase()}
                   </span>
                 </div>
                 <p className="text-[13px] text-ink-secondary">
@@ -553,7 +554,7 @@ export default async function FinancementPage() {
                     {d.reference}
                   </a>
                   {d.fraction1_eur === null && d.fraction2_eur === null
-                    ? " — le détail fraction par fraction n'est pas publié en données exploitables."
+                    ? ". Le détail fraction par fraction n'est pas publié en données exploitables."
                     : ""}
                 </p>
                 {d.note && <p className="text-xs text-ink-muted">{d.note}</p>}
@@ -573,10 +574,10 @@ export default async function FinancementPage() {
       <header className="mt-2 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="max-w-2xl">
           <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
-            Comptes de campagne — législatives 2024
+            Comptes de campagne : législatives 2024
           </h2>
           <p className="mt-2 text-sm text-ink-secondary">
-            Scrutin des 30 juin et 7 juillet 2024 ; décisions de la CNCCFP
+            Scrutin des 30 juin et 7 juillet 2024. Décisions de la CNCCFP
             publiées le 29 juillet 2025.
           </p>
         </div>
@@ -610,7 +611,7 @@ export default async function FinancementPage() {
 
       <Card
         titre="Décisions de la CNCCFP"
-        sousTitre={`Répartition des ${formatNombre(campagnes.nb_candidats)} candidats par famille de décision — libellés complets des codes natifs (A, AR, R…).`}
+        sousTitre={`Répartition des ${formatNombre(campagnes.nb_candidats)} candidats par famille de décision, avec les libellés complets des codes natifs (A, AR, R, etc.).`}
         droite={badgeCampagnes}
       >
         <Donut
@@ -624,7 +625,7 @@ export default async function FinancementPage() {
         />
         <p className="mt-2 text-xs text-ink-muted">
           Remboursement de l&apos;État :{" "}
-          {formatNombre(campagnes.remboursement_etat)} € au total — dans
+          {formatNombre(campagnes.remboursement_etat)} € au total. Dans
           les données, seuls les comptes approuvés (avec ou sans réformation)
           portent un remboursement.
         </p>
@@ -662,7 +663,7 @@ export default async function FinancementPage() {
           serait un rejet nominatif, que la décision du 21/11/2026 exclut. */}
       <Card
         titre="Dépenses de campagne les plus élevées"
-        sousTitre="Top 10 des comptes de campagne par dépenses retenues par la CNCCFP — législatives 2024, sans nuance politique. Les dépenses de chaque candidat sont plafonnées, d’un montant fixé selon la circonscription : ces montants ne sont pas rapportés au plafond applicable."
+        sousTitre="Top 10 des comptes de campagne par dépenses retenues par la CNCCFP (législatives 2024), sans nuance politique. Les dépenses de chaque candidat sont plafonnées, d’un montant fixé selon la circonscription : ces montants ne sont pas rapportés au plafond applicable."
         droite={badgeCampagnes}
       >
         <DataTable<CampagneTopDepense>
@@ -695,7 +696,7 @@ export default async function FinancementPage() {
       {/* ── Alertes financement ──────────────────────────────────────── */}
       <Card
         titre="Alertes financement"
-        sousTitre="Constats calculés depuis les données publiées — règle et base légale dépliables sur chaque alerte."
+        sousTitre="Constats calculés depuis les données publiées, avec règle et base légale dépliables sur chaque alerte."
         droite={
           <div className="flex flex-wrap justify-end gap-2">
             {badgePartis}
@@ -735,7 +736,7 @@ export default async function FinancementPage() {
               detail={a.detail ?? undefined}
               regle={a.regle ?? undefined}
               baseLegale={a.base_legale ?? undefined}
-              source={{ libelle: "CNCCFP — data.gouv.fr", url: a.source_url ?? undefined }}
+              source={{ libelle: "CNCCFP (data.gouv.fr)", url: a.source_url ?? undefined }}
             />
           ))}
           {alerteDocumentaire && (
@@ -756,7 +757,7 @@ export default async function FinancementPage() {
       </Card>
 
       <p className="text-xs text-ink-muted">
-        Municipales 2026 : comptes de campagne non ingérés à ce jour — seuls
+        Municipales 2026 : comptes de campagne non ingérés à ce jour. Seuls
         ceux des législatives 2024 figurent ici.
       </p>
     </section>

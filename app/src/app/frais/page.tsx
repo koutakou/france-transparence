@@ -35,7 +35,7 @@ import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 const CHEMIN = "/frais/";
 const TITRE = "Frais & train de vie";
 const DESCRIPTION =
-  "Indemnités, frais de mandat et train de vie des responsables publics : les barèmes publics, les agrégats de contrôle — et ce que la loi ne publie pas.";
+  "Indemnités, frais de mandat et train de vie des responsables publics : les barèmes publics, les agrégats de contrôle, et ce que la loi ne publie pas.";
 
 export const metadata: Metadata = metadonneesPage({
   chemin: CHEMIN,
@@ -308,7 +308,7 @@ function AvisCadaParAdministration({ data }: { data: AvisCadaData }) {
             </h3>
             <p className="text-[11px] leading-snug text-ink-muted">
               Les motivations de refus les plus fréquentes, telles que la CADA les
-              qualifie — un avis défavorable donne raison à l’administration, une
+              qualifie : un avis défavorable donne raison à l’administration, une
               incompétence renvoie ailleurs, une irrecevabilité écarte la saisine sans
               juger du fond.
             </p>
@@ -396,7 +396,7 @@ export default async function FraisPage() {
         </h1>
         <div className="max-w-2xl rounded-xl border border-card-border bg-card p-5 text-sm text-ink-muted">
           <p>
-            La base locale n’est pas encore construite — lancer{" "}
+            La base locale n’est pas encore construite. Lancer{" "}
             <code className="rounded bg-raised px-1.5 py-0.5">make ingest</code> pour ingérer
             les sources.
           </p>
@@ -507,8 +507,8 @@ export default async function FraisPage() {
                   {f.source_nom}
                 </a>
               </span>
-            ))}{" "}
-            — détail et notes dans les cartes ci-dessous.
+            ))}
+            . Détail et notes dans les cartes ci-dessous.
           </p>
         </div>
       )}
@@ -549,7 +549,7 @@ export default async function FraisPage() {
           Ce qui est public
         </h2>
         <p className="text-xs text-ink-secondary">
-          {formatNombre(faits.length)} faits sourcés — chaque montant renvoie à sa
+          {formatNombre(faits.length)} faits sourcés. Chaque montant renvoie à sa
           publication officielle, datée.
         </p>
       </div>
@@ -588,7 +588,7 @@ export default async function FraisPage() {
               <span className="font-medium uppercase tracking-[0.08em] text-[11px]">
                 {libelleCadre(o.base_du_refus)}&nbsp;
               </span>
-              — {o.base_du_refus}
+              : {o.base_du_refus}
             </p>
             <p className="mt-auto pt-1 text-[11px] leading-snug text-ink-muted">
               Source&nbsp;:{" "}
@@ -610,7 +610,7 @@ export default async function FraisPage() {
       {avisCada && <AvisCadaParAdministration data={avisCada} />}
 
       {/* ------------------------------ En résumé ------------------------------ */}
-      <Card titre="En résumé" sousTitre="Ce que la loi publie — et ce qu’elle ne publie pas">
+      <Card titre="En résumé" sousTitre="Ce que la loi publie, et ce qu’elle ne publie pas">
         <div className="grid gap-3 sm:grid-cols-3">
           <ResumeCol etat="Publics" titre="Les barèmes">
             Indemnités parlementaires, dotations de frais de mandat, indemnités maximales

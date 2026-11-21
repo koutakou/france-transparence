@@ -84,13 +84,13 @@ test("tuile d'accueil « 30 j » : trois périmètres, selon ce que la base port
   // Trou dans les 30 jours : le compte ne porte que sur une partie.
   assert.equal(
     perimetreJo30j(TROUEE, seuil),
-    "JORF Lois et décrets, 30 derniers jours — aucun JO repris ici entre le 31/07/2026 et le 19/08/2026",
+    "JORF Lois et décrets, 30 derniers jours (aucun JO repris ici entre le 31/07/2026 et le 19/08/2026)",
   );
   // Trou qui COMMENCE avant le seuil et finit dedans (base arrêtée au 04/10,
   // reprise au 10/11, seuil au 12/10) : nommé aussi.
   assert.equal(
     perimetreJo30j(["2026-10-03", "2026-10-04", "2026-11-10", "2026-11-11"], "2026-10-12"),
-    "JORF Lois et décrets, 30 derniers jours — aucun JO repris ici entre le 04/10/2026 et le 10/11/2026",
+    "JORF Lois et décrets, 30 derniers jours (aucun JO repris ici entre le 04/10/2026 et le 10/11/2026)",
   );
   // Un trou entièrement antérieur aux 30 jours ne concerne pas la tuile.
   assert.equal(
@@ -100,7 +100,7 @@ test("tuile d'accueil « 30 j » : trois périmètres, selon ce que la base port
   // Base neuve : deux JO, le premier postérieur au seuil.
   assert.equal(
     perimetreJo30j(["2026-11-10", "2026-11-11"], "2026-10-12"),
-    "JORF Lois et décrets — seulement les JO parus depuis le 10/11/2026 : moins de 30 jours repris ici",
+    "JORF Lois et décrets, seulement les JO parus depuis le 10/11/2026 : moins de 30 jours repris ici",
   );
   // Premier JO exactement au seuil : les 30 jours sont couverts.
   assert.equal(
@@ -182,7 +182,7 @@ test("édition non relue : aucun libellé ne dit « derniers JO parus »", () =>
 test("tuile d'accueil : l'édition non relue n'est nommée que dans les 30 jours", () => {
   assert.equal(
     perimetreJo30j(SANS_LE_16, "2026-07-16", ["2026-07-16"]),
-    "JORF Lois et décrets, 30 derniers jours — sans l’édition du 16/07/2026",
+    "JORF Lois et décrets, 30 derniers jours (sans l’édition du 16/07/2026)",
   );
   assert.equal(
     perimetreJo30j(SANS_LE_16, "2026-07-17", ["2026-07-16"]),

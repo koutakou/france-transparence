@@ -16,27 +16,27 @@ const dgcl = (periode) => ({ periode, date_source: `${periode}-02-17` });
 const jaune = (date_source) => ({ periode: date_source.slice(0, 4), date_source });
 
 /** Une phrase coupée finit sur un mot-outil ou sur un tiret orphelin. */
-const coupee = (s) => /(\bpour|\bbarème|\bau|\bde|—)\s*$|\s—\s—|barème —/.test(s);
+const coupee = (s) => /(\bpour|\bbarème|\bau|\bde|—|:)\s*$|\s—\s—|barème —/.test(s);
 
 test("base du 11/11/2026 : en-têtes identiques à l'ancien texte, mais dérivés", () => {
   const inst = enTeteCategorie("institutions", [lfi("2026"), lfi("2026")]);
-  assert.equal(inst.titre, "Institutions — dotations 2026");
+  assert.equal(inst.titre, "Institutions : dotations 2026");
   assert.equal(inst.sousTitre, "Mission « Pouvoirs publics » de la loi de finances initiale pour 2026");
   assert.equal(
     enTeteCategorie("cabinets", [jaune("2025-07-01"), jaune("2025-07-01")]).sousTitre,
-    "Jaune budgétaire « Personnels affectés dans les cabinets ministériels » — situation au 01/07/2025",
+    "Jaune budgétaire « Personnels affectés dans les cabinets ministériels », situation au 01/07/2025",
   );
   assert.equal(
     enTeteCategorie("elus_locaux", [dgcl("2026")]).sousTitre,
-    "Indemnités maximales publiées par la DGCL, barème 2026 — les montants réellement versés ne sont pas centralisés",
+    "Indemnités maximales publiées par la DGCL, barème 2026. Les montants réellement versés ne sont pas centralisés",
   );
 });
 
 test("faits passés en 2027 : l'en-tête suit, rien de 2026 ne reste", () => {
   const inst = enTeteCategorie("institutions", [lfi("2027")]);
-  assert.equal(inst.titre, "Institutions — dotations 2027");
+  assert.equal(inst.titre, "Institutions : dotations 2027");
   assert.match(inst.sousTitre, /initiale pour 2027$/);
-  assert.match(enTeteCategorie("elus_locaux", [dgcl("2027")]).sousTitre, /barème 2027 —/);
+  assert.match(enTeteCategorie("elus_locaux", [dgcl("2027")]).sousTitre, /barème 2027\. Les montants/);
   for (const e of [inst, enTeteCategorie("elus_locaux", [dgcl("2027")])]) {
     assert.doesNotMatch(`${e.titre} ${e.sousTitre}`, /2026/);
   }
@@ -54,7 +54,7 @@ test("périodes mêlées (un fait mis à jour avant les autres) : phrase complè
     assert.doesNotMatch(`${titre} ${sousTitre}`, /202[67]/);
     assert.match(sousTitre, /indiqu[ée]e? sur sa ligne/);
   }
-  assert.equal(cas[0].titre, "Institutions — dotations");
+  assert.equal(cas[0].titre, "Institutions : dotations");
 });
 
 test("periodeCommune / dateSourceCommune : une seule valeur, sinon null", () => {

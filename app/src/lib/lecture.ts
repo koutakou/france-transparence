@@ -120,7 +120,7 @@ export function htmlBandeauSiteFige(construitLe: number): string {
     `class="mb-4 rounded-lg border border-card-border bg-card px-3 py-2 text-xs leading-snug text-ink-secondary sm:text-[13px]" ` +
     `style="border-left:3px solid var(--status-warning)">` +
     `<strong class="text-ink">Page construite le ${formatInstantFr(construitLe)}, il y a <span data-anciennete></span></strong> ` +
-    `(reconstruction prévue chaque nuit) : ses données s’arrêtent aux dates de leurs badges «&nbsp;Données au&nbsp;…&nbsp;».` +
+    `(reconstruction prévue chaque nuit) : ses données s’arrêtent aux dates qu’indiquent leurs badges «&nbsp;Données au&nbsp;».` +
     `</p><script>${SCRIPT_BANDEAU_SITE_FIGE}</script>`
   );
 }
