@@ -9,9 +9,12 @@
 //    (clic, « Tout afficher ») n'entre pas dans ce compte.
 // Les pages les plus lourdes sont journalisées à CHAQUE passage, même au
 // vert : un contrôle muet est indiscernable d'un contrôle débranché.
+// Le même passage contrôle aussi la typographie des textes publiés
+// (scripts/typographie.mjs) : l'étape de la CI qui joue ce script les garde.
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { rapporterTypographie } from "./typographie.mjs";
 
 /** 500 Ko = 500 000 octets (HTML brut, non compressé). */
 export const PLAFOND_OCTETS = 500_000;
@@ -72,7 +75,14 @@ function principal() {
   for (const p of depassements) {
     console.error(`ÉCHEC : ${p.page} pèse ${fmt(p.total)} octets${p.fragment ? " fragment sans geste compris" : ""}, au-delà de ${fmt(PLAFOND_OCTETS)}`);
   }
-  process.exit(depassements.length > 0 ? 1 : 0);
+  // Même passage, second contrôle de l'export : typographie des textes publiés
+  // (scripts/typographie.mjs). La base sert seulement à reconnaître les textes
+  // venus des pipelines, tolérés à titre provisoire. Même chemin que src/lib/db.ts.
+  const base = process.env.FRANCE_DB_PATH
+    ? path.resolve(process.env.FRANCE_DB_PATH)
+    : path.resolve(process.cwd(), "..", "data", "france.db");
+  const typographie = rapporterTypographie(racine, base);
+  process.exit(depassements.length > 0 || typographie !== 0 ? 1 : 0);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) principal();
