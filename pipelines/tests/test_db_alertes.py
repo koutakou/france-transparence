@@ -101,3 +101,36 @@ def test_colonnes_invalides(conn):
         db.remplacer_alertes(conn, ["t_a"], (*COLONNES, "date_detection"), [], "2026-11-01")
     with pytest.raises(ValueError):
         db.remplacer_alertes(conn, [], COLONNES, [], "2026-11-01")
+
+
+class _PragmaPerime:
+    """Connexion qui relit `table_info` comme avant l'`ALTER` d'un autre
+    pipeline : la colonne existe déjà, mais le `PRAGMA` ne la voit pas."""
+
+    def __init__(self, conn, colonne, erreur=None):
+        self.conn, self.colonne, self.erreur = conn, colonne, erreur
+
+    def execute(self, sql, *args):
+        if sql.startswith("PRAGMA table_info"):
+            return [r for r in self.conn.execute(sql, *args) if r[1] != self.colonne]
+        if self.erreur and sql.startswith("ALTER"):
+            raise self.erreur
+        return self.conn.execute(sql, *args)
+
+
+@pytest.mark.parametrize("colonne, assurer", [
+    ("date_detection", db.assurer_date_detection_alertes),
+    ("date_fait", db.assurer_date_fait_alertes),
+])
+def test_un_alter_concurrent_ne_fait_pas_tomber_le_pipeline(conn, colonne, assurer):
+    """Un autre pipeline a posé la colonne entre le `PRAGMA` et l'`ALTER` :
+    SQLite répond « duplicate column name », la colonne est là, on continue."""
+    conn.execute(f"ALTER TABLE alertes ADD COLUMN {colonne} TEXT")
+    assurer(_PragmaPerime(conn, colonne))
+    assert colonne in {r[1] for r in conn.execute("PRAGMA table_info(alertes)")}
+
+
+def test_une_autre_erreur_d_alter_remonte(conn):
+    verrou = sqlite3.OperationalError("database is locked")
+    with pytest.raises(sqlite3.OperationalError, match="locked"):
+        db.assurer_date_detection_alertes(_PragmaPerime(conn, "date_detection", verrou))

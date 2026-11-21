@@ -118,7 +118,7 @@ def assurer_date_fait_alertes(conn: sqlite3.Connection) -> None:
     """
     colonnes = {r[1] for r in conn.execute("PRAGMA table_info(alertes)")}
     if colonnes and "date_fait" not in colonnes:
-        conn.execute("ALTER TABLE alertes ADD COLUMN date_fait TEXT")
+        _ajouter_colonne(conn, "ALTER TABLE alertes ADD COLUMN date_fait TEXT")
 
 
 def assurer_date_detection_alertes(conn: sqlite3.Connection) -> None:
@@ -130,7 +130,20 @@ def assurer_date_detection_alertes(conn: sqlite3.Connection) -> None:
     """
     colonnes = {r[1] for r in conn.execute("PRAGMA table_info(alertes)")}
     if colonnes and "date_detection" not in colonnes:
-        conn.execute("ALTER TABLE alertes ADD COLUMN date_detection TEXT")
+        _ajouter_colonne(conn, "ALTER TABLE alertes ADD COLUMN date_detection TEXT")
+
+
+def _ajouter_colonne(conn: sqlite3.Connection, alter: str) -> None:
+    """Joue un `ALTER TABLE ... ADD COLUMN` décidé sur un `PRAGMA` lu juste
+    avant. Entre les deux, un autre pipeline peut avoir posé la même colonne
+    sur la table partagée : SQLite répond alors « duplicate column name ».
+    La colonne est là, c'est ce qu'on voulait, le cycle continue. Toute autre
+    erreur remonte."""
+    try:
+        conn.execute(alter)
+    except sqlite3.OperationalError as exc:
+        if "duplicate column name" not in str(exc).lower():
+            raise
 
 
 _JOUR_ISO = re.compile(r"\d{4}-\d{2}-\d{2}")
