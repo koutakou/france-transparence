@@ -81,7 +81,7 @@ URL_API_DATASET = (
     "https://www.data.gouv.fr/api/1/datasets/"
     "536998cba3a729239d20505e/"
 )
-LICENCE = "Licence Ouverte (version non précisée par le producteur)"
+LICENCE = "Licence Ouverte (version non vérifiée)"
 FREQUENCE = "annuelle"
 CACHE_HEURES = 7 * 24
 FICHIER_ZIP = "ircom/ircom_courant.zip"

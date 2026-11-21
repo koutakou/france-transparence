@@ -88,7 +88,7 @@ log = obtenir_logger("lobbying")
 ID_SOURCE = "S4"
 NOM_SOURCE = "HATVP — Répertoire des représentants d'intérêts (AGORA)"
 URL_ZIP = "https://www.hatvp.fr/agora/opendata/csv/Vues_Separees_CSV.zip"
-LICENCE = "Licence Ouverte (version non précisée par le producteur)"
+LICENCE = "Licence Ouverte (version non vérifiée)"
 FREQUENCE = "quotidienne"
 
 DOSSIER_RAW = RAW_DIR / "lobbying"

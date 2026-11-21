@@ -18,7 +18,7 @@ export const META = [
     "source_id": "S4",
     "nom": "HATVP — Répertoire des représentants d'intérêts (AGORA)",
     "url": "https://www.hatvp.fr/agora/opendata/csv/Vues_Separees_CSV.zip",
-    "licence": "Licence Ouverte (version non précisée par le producteur)",
+    "licence": "Licence Ouverte (version non vérifiée)",
     "frequence": "quotidienne",
     "date_donnees": "2026-10-14",
     "date_ingestion": "2026-10-15T12:29:46+00:00",

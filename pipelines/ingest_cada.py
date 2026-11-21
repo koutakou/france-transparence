@@ -128,7 +128,7 @@ URL_DATASET_PAGE = "https://www.data.gouv.fr/datasets/avis-et-conseils-de-la-cad
 TITRE_RESSOURCE = "ensemble consolidé"
 
 NOM_SOURCE = "CADA — avis et conseils (ensemble consolidé)"
-LICENCE = "Licence Ouverte (version non précisée par le producteur)"
+LICENCE = "Licence Ouverte (version non vérifiée)"
 # Cadence réelle observée sur les lots publiés : deux à quatre versements par
 # an, sans calendrier annoncé. « annuelle » serait faux, « quotidienne » aussi.
 FREQUENCE = "irrégulière (versements par lots, 2 à 4 fois par an)"
