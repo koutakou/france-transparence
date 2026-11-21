@@ -688,8 +688,8 @@ export default async function PageDonnees() {
       >
         <p className="mb-4 max-w-3xl text-[13px] leading-relaxed text-ink-secondary">
           Chaque entrée porte le titre et le lien officiels de la donnée, sans
-          commentaire, et une date qui ne change pas d’une mise à jour à
-          l’autre&nbsp;: publication au Journal officiel, dernière
+          commentaire, et une date qui ne change pas tant que la donnée
+          elle-même ne change pas&nbsp;: publication au Journal officiel, dernière
           modification du dossier (à défaut sa création), clôture de
           l’exercice des comptes pour une alerte, date des données pour une
           source (le premier jour de la période quand la source la donne au
