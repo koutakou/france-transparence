@@ -14,6 +14,7 @@ Le test réseau (marque `reseau`) joue le pipeline complet contre hatvp.fr :
 
 import re
 from datetime import date
+import shutil
 from pathlib import Path
 
 import pytest
@@ -218,6 +219,55 @@ def test_agregats(base):
     assert conn.execute(
         "SELECT nb_activites_total n FROM lobby_agg_ministeres WHERE ministere = 'Premier ministre'"
     ).fetchone()["n"] == 3
+
+
+def _groupes(conn):
+    return {r["groupe"]: (r["nb_activites_total"], r["nb_activites_12m"], r["nb_entites"])
+            for r in conn.execute("SELECT * FROM lobby_agg_groupes_institutions")}
+
+
+def test_groupes_institutions_comptent_les_activites_distinctes(tmp_path):
+    """Une activité qui vise deux catégories d'un même groupe compte une fois.
+
+    Audit du 21/11/2026 : « Administration de l'État 35 343 » additionnait
+    « Agent de l'État » et « Titulaire d'un emploi à la décision du
+    Gouvernement », 2 644 activités visant les deux (+17,6 % sur 24 mois).
+    L'activité 2294 de la fixture vise « Agent de l'État » : on lui ajoute
+    « Titulaire d'un emploi à la décision du Gouvernement ».
+    """
+    dossier = tmp_path / "vues"
+    shutil.copytree(FIXTURE, dossier)
+    csv_min = dossier / "13_ministeres_aai_api.csv"
+    with csv_min.open("a", encoding="utf-8", newline="") as f:
+        f.write("2294;Titulaire d'un emploi à la décision du Gouvernement;;\r\n")
+    conn = db.init_db(chemin=tmp_path / "lobby.db")
+    donnees = construire(dossier, AUJOURDHUI)
+    ecrire_db(conn, donnees)
+
+    cats = {r["institution"]: r["nb_activites_total"]
+            for r in conn.execute("SELECT * FROM lobby_agg_institutions "
+                                  "WHERE groupe = 'Administration de l''État'")}
+    somme = sum(cats.values())
+    total, _n12, _nbe = _groupes(conn)["Administration de l'État"]
+    assert len(cats) == 2
+    assert total == somme - 1, (cats, total)
+    # Chaque groupe reste au plus la somme de ses catégories, et au moins la
+    # plus grande d'entre elles.
+    par_groupe = {}
+    for r in conn.execute("SELECT groupe, nb_activites_total n FROM lobby_agg_institutions"):
+        par_groupe.setdefault(r["groupe"], []).append(r["n"])
+    for groupe, (n, _a, _b) in _groupes(conn).items():
+        assert max(par_groupe[groupe]) <= n <= sum(par_groupe[groupe]), groupe
+    conn.close()
+
+
+def test_groupes_institutions_sans_doublon_egaux_a_la_categorie(base):
+    conn, _ = base
+    gouv = _groupes(conn)["Gouvernement"]
+    ligne = conn.execute(
+        "SELECT nb_activites_total, nb_activites_12m, nb_entites "
+        "FROM lobby_agg_institutions WHERE groupe = 'Gouvernement'").fetchone()
+    assert gouv == tuple(ligne)
 
 
 def test_meta_source(base):

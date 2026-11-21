@@ -67,6 +67,12 @@ export const SCHEMA = {
     nb_activites_12m   INTEGER NOT NULL,
     nb_entites         INTEGER NOT NULL
 )`,
+  lobby_agg_groupes_institutions: `CREATE TABLE lobby_agg_groupes_institutions (
+    groupe             TEXT PRIMARY KEY,
+    nb_activites_total INTEGER NOT NULL,
+    nb_activites_12m   INTEGER NOT NULL,
+    nb_entites         INTEGER NOT NULL
+)`,
   lobby_agg_top_entites: `CREATE TABLE lobby_agg_top_entites (
     rang             INTEGER PRIMARY KEY,
     entite_id        TEXT NOT NULL,

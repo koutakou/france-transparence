@@ -1013,6 +1013,12 @@ CREATE TABLE lobby_agg_institutions (
     nb_activites_12m   INTEGER NOT NULL,
     nb_entites         INTEGER NOT NULL
 );
+CREATE TABLE lobby_agg_groupes_institutions (
+    groupe             TEXT PRIMARY KEY,
+    nb_activites_total INTEGER NOT NULL,
+    nb_activites_12m   INTEGER NOT NULL,
+    nb_entites         INTEGER NOT NULL
+);
 CREATE TABLE lobby_agg_ministeres (
     ministere          TEXT PRIMARY KEY,
     nb_activites_total INTEGER NOT NULL,
@@ -1850,6 +1856,7 @@ CREATE INDEX idx_sirene_etat
 - lobby_activites : 41601 lignes
 - lobby_agg_budgets : 23 lignes
 - lobby_agg_institutions : 9 lignes
+- lobby_agg_groupes_institutions : 7 lignes (activités distinctes par groupe, export AGORA du 21/11/2026)
 - lobby_agg_ministeres : 366 lignes
 - lobby_agg_top_entites : 50 lignes
 - lobby_agg_trimestres : 34 lignes

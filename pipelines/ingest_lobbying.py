@@ -40,6 +40,12 @@ Tables écrites (remplacement complet, idempotent) :
 - lobby_agg_institutions : institution (catégorie native normalisée), groupe
   (Gouvernement, Parlement, Présidence…), nb_activites_total, nb_activites_12m,
   nb_entites.
+- lobby_agg_groupes_institutions : groupe, mêmes compteurs, en
+  count(DISTINCT activite_id) sur l'union des catégories du groupe. Une
+  activité qui vise deux catégories d'un même groupe (« Agent de l'État » et
+  « Titulaire d'un emploi à la décision du Gouvernement ») n'y compte qu'une
+  fois : la somme des lignes de lobby_agg_institutions la comptait deux fois
+  (+17,6 % pour l'administration de l'État sur 24 mois, audit du 21/11/2026).
 - lobby_agg_ministeres : departement_ministeriel précisé (trim), mêmes
   compteurs. Le champ est multivalué et l'export CSV le coupe sur la
   virgule : les portefeuilles connus sont RECOMPOSÉS via la table fermée
@@ -253,6 +259,13 @@ CREATE INDEX IF NOT EXISTS idx_lobby_activites_date   ON lobby_activites(date_pu
 CREATE TABLE IF NOT EXISTS lobby_agg_institutions (
     institution        TEXT PRIMARY KEY,
     groupe             TEXT NOT NULL,
+    nb_activites_total INTEGER NOT NULL,
+    nb_activites_12m   INTEGER NOT NULL,
+    nb_entites         INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS lobby_agg_groupes_institutions (
+    groupe             TEXT PRIMARY KEY,
     nb_activites_total INTEGER NOT NULL,
     nb_activites_12m   INTEGER NOT NULL,
     nb_entites         INTEGER NOT NULL
@@ -647,6 +660,41 @@ def construire(dossier_csv: Path, aujourdhui: date) -> dict:
         ).fetchall()
     ]
 
+    # Groupes de responsables publics : compteurs DISTINCTS sur l'union des
+    # catégories du groupe, jamais la somme des lignes par catégorie. La
+    # correspondance catégorie → groupe est celle de `groupe_institution`,
+    # appliquée en Python aux catégories observées (même normalisation).
+    categories_observees = [
+        r[0] for r in con.execute(
+            f"""
+            SELECT DISTINCT trim(replace(m.responsable_public, chr(8217), ''''))
+            FROM {mia} m
+            WHERE coalesce(trim(m.responsable_public), '') <> ''
+            """
+        ).fetchall()
+    ]
+    con.execute("CREATE TEMP TABLE t_groupes (categorie VARCHAR, groupe VARCHAR)")
+    con.executemany(
+        "INSERT INTO t_groupes VALUES (?, ?)",
+        sorted((c, groupe_institution(c)) for c in categories_observees),
+    )
+    # Libellés de groupe : constantes du module, sans passage par l'hygiène.
+    agg_groupes_institutions = con.execute(
+        f"""
+        SELECT g.groupe,
+               count(DISTINCT l.activite_id),
+               count(DISTINCT l.activite_id)
+                   FILTER (t.date_publication_activite >= '{coupe_12m}'),
+               count(DISTINCT t.representants_id)
+        FROM {mia} m
+        JOIN t_groupes g
+          ON g.categorie = trim(replace(m.responsable_public, chr(8217), ''''))
+        JOIN t_lien l USING (action_representation_interet_id)
+        JOIN t_act t USING (activite_id)
+        GROUP BY 1 ORDER BY 2 DESC, 1
+        """
+    ).fetchall()
+
     # Recomposition des portefeuilles éclatés (table FERMÉE, cf. constantes) :
     # la correspondance entre dans le GROUP BY, et les compteurs restent des
     # count(DISTINCT …) — une activité visant deux fragments du MÊME
@@ -793,6 +841,7 @@ def construire(dossier_csv: Path, aujourdhui: date) -> dict:
         "entites": entites,
         "activites": activites,
         "agg_institutions": agg_institutions,
+        "agg_groupes_institutions": agg_groupes_institutions,
         "agg_ministeres": agg_ministeres,
         "agg_top": agg_top,
         "agg_budgets": agg_budgets,
@@ -908,6 +957,9 @@ def ecrire_db(conn, donnees: dict) -> dict:
         conn.execute("DELETE FROM lobby_agg_institutions")
         conn.executemany("INSERT INTO lobby_agg_institutions VALUES (?,?,?,?,?)",
                          donnees["agg_institutions"])
+        conn.execute("DELETE FROM lobby_agg_groupes_institutions")
+        conn.executemany("INSERT INTO lobby_agg_groupes_institutions VALUES (?,?,?,?)",
+                         donnees["agg_groupes_institutions"])
         conn.execute("DELETE FROM lobby_agg_ministeres")
         conn.executemany("INSERT INTO lobby_agg_ministeres VALUES (?,?,?,?)",
                          donnees["agg_ministeres"])

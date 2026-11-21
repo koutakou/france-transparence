@@ -22,7 +22,11 @@ export type LobbyKpi = {
   activites24m: number;
 };
 
-/** Activités par groupe d'institutions visées (lobby_agg_institutions). */
+/**
+ * Activités par groupe d'institutions visées (lobby_agg_groupes_institutions,
+ * activités DISTINCTES du groupe). Sans cette table, une ligne par catégorie
+ * native de lobby_agg_institutions, jamais une somme de catégories.
+ */
 export type InstitutionGroupe = {
   groupe: string;
   nb_activites_total: number;
@@ -145,6 +149,12 @@ export type DonneesLobbying = {
   kpi: LobbyKpi;
   /** Groupes d'institutions, activités décroissantes (7 groupes). */
   institutions: InstitutionGroupe[];
+  /**
+   * true : `institutions` porte des groupes comptés en activités distinctes.
+   * false : table absente (pipeline antérieur), `institutions` porte les
+   * catégories natives, sans regroupement.
+   */
+  institutionsRegroupees: boolean;
   /** Les 9 lignes natives (vue tableau jumelle du BarList). */
   institutionsDetail: InstitutionDetail[];
   topEntites: TopEntite[];
@@ -285,14 +295,21 @@ export function getDonneesLobbying(): DonneesLobbying | null {
     .prepare("SELECT COUNT(*) AS activites_24m FROM lobby_activites")
     .get() as { activites_24m: number };
 
+  // Un groupe additionnait ses catégories (« Administration de l'État
+  // 35 343 » = 17 748 + 17 595), alors qu'une activité peut viser plusieurs
+  // catégories d'un même groupe : le pipeline compte désormais les activités
+  // distinctes par groupe. Faute de sa table, les catégories sources sont
+  // servies telles quelles, sans regroupement.
+  const institutionsRegroupees = tablePresente(db, "lobby_agg_groupes_institutions");
   const institutions = db
     .prepare(
-      `SELECT groupe,
-              SUM(nb_activites_total) AS nb_activites_total,
-              SUM(nb_activites_12m)  AS nb_activites_12m
-       FROM lobby_agg_institutions
-       GROUP BY groupe
-       ORDER BY nb_activites_total DESC`,
+      institutionsRegroupees
+        ? `SELECT groupe, nb_activites_total, nb_activites_12m
+             FROM lobby_agg_groupes_institutions
+            ORDER BY nb_activites_total DESC, groupe`
+        : `SELECT institution AS groupe, nb_activites_total, nb_activites_12m
+             FROM lobby_agg_institutions
+            ORDER BY nb_activites_total DESC, institution`,
     )
     .all() as InstitutionGroupe[];
 
@@ -395,6 +412,7 @@ export function getDonneesLobbying(): DonneesLobbying | null {
       activites24m: kpiActivites.activites_24m,
     },
     institutions,
+    institutionsRegroupees,
     institutionsDetail,
     topEntites,
     budgets,
