@@ -314,10 +314,13 @@ export function getCroisementLobbyingMarches(): CroisementLobbyingMarches | null
          SUM(CASE WHEN ac = 0 THEN part_brute END)                                  AS montantHorsAcBrut,
          COUNT(DISTINCT CASE WHEN ac = 0 AND montant_retenu > ${PLAFOND_ECRETAGE}.0
                              THEN uid END)                                          AS ecretesHorsAc,
-         SUM(CASE WHEN ac = 0 AND montant_retenu > ${PLAFOND_ECRETAGE}.0
-                  THEN part END)                                                    AS montantEcretesHorsAc,
+         -- Sans aucun marché écrêté ou suspect, la vraie somme est 0 €, pas
+         -- « n.d. » : ces deux conditions supposent un montant (un suspect
+         -- l'est par son montant), donc COALESCE ne masque aucun manque.
+         COALESCE(SUM(CASE WHEN ac = 0 AND montant_retenu > ${PLAFOND_ECRETAGE}.0
+                  THEN part END), 0)                                                AS montantEcretesHorsAc,
          COUNT(DISTINCT CASE WHEN ac = 0 AND montant_suspect = 1 THEN uid END)      AS suspectsHorsAc,
-         SUM(CASE WHEN ac = 0 AND montant_suspect = 1 THEN part END)                AS montantSuspectsHorsAc,
+         COALESCE(SUM(CASE WHEN ac = 0 AND montant_suspect = 1 THEN part END), 0)   AS montantSuspectsHorsAc,
          COUNT(DISTINCT CASE WHEN ac = 0 AND montant_suspect = 0 THEN uid END)      AS marchesHorsAcHorsSuspects,
          COUNT(DISTINCT CASE WHEN ac = 0 AND montant_suspect = 0 THEN siren END)    AS sirensHorsAcHorsSuspects,
          SUM(CASE WHEN ac = 0 AND montant_suspect = 0 THEN part END)                AS montantHorsAcHorsSuspects,
