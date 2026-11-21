@@ -434,7 +434,7 @@ export function getDonneesAccueil(): DonneesAccueil | null {
     textesJo30j: compte30j("jorf_textes", "date_publi", finS3),
     perimetreJo30j:
       finS3 === null
-        ? "JORF Lois et décrets — date des données non publiée"
+        ? "JORF Lois et décrets, date des données non publiée"
         : perimetreJo30jArrete(
             (
               db

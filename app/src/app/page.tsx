@@ -18,7 +18,8 @@ import { StatStrip } from "@/components/ui/StatStrip";
 import { VueTableau } from "@/components/ui/VueTableau";
 import type { MetaSource } from "@/lib/db";
 import { formatInstantFr } from "@/lib/lecture";
-import { ESPACE_FINE, formatDateFr, formatNombre } from "@/lib/format";
+import { ESPACE_FINE, formatDateFr, formatNombre, VIDE } from "@/lib/format";
+import { Vide } from "@/components/ui/Vide";
 import {
   getDonneesAccueil,
   lireDepartementsGeojson,
@@ -162,7 +163,7 @@ export default async function Accueil() {
         </h1>
         <div className="max-w-2xl rounded-xl border border-card-border bg-card p-5 text-sm text-ink-muted">
           <p>
-            La base locale n&apos;est pas encore construite — lancer{" "}
+            La base locale n&apos;est pas encore construite. Lancer{" "}
             <code className="rounded bg-raised px-1.5 py-0.5">make ingest</code>{" "}
             pour ingérer les sources.
           </p>
@@ -283,7 +284,7 @@ export default async function Accueil() {
           >
             Comprendre les données
           </Link>
-          ; périmètre exact et licences sur{" "}
+          . Périmètre exact et licences sur{" "}
           <Link
             href="/donnees"
             className="underline decoration-dotted underline-offset-2 hover:text-ink"
@@ -302,8 +303,8 @@ export default async function Accueil() {
             titre="Dépenses de l'État"
             sousTitre={
               execution
-                ? `Exécution au ${formatDateFr(execution.dateFinMois)} — cumul depuis le 1er janvier, dépenses nettes du budget général`
-                : "Exécution mensuelle — dépenses nettes du budget général"
+                ? `Exécution au ${formatDateFr(execution.dateFinMois)} : cumul depuis le 1er janvier, dépenses nettes du budget général`
+                : "Exécution mensuelle : dépenses nettes du budget général"
             }
             droite={<BadgeSource source={sources.S13} />}
             className="h-full"
@@ -333,7 +334,7 @@ export default async function Accueil() {
                   )}
                 </div>
                 <p className="mt-3 text-xs leading-relaxed text-ink-muted">
-                  Situation mensuelle DGFiP — pas de temps réel : dernier mois
+                  Situation mensuelle DGFiP, pas de temps réel. Dernier mois
                   publié au {formatDateFr(execution.dateFinMois)}.
                 </p>
                 <LienModule href="/depenses" libelle="Voir les dépenses" />
@@ -353,17 +354,17 @@ export default async function Accueil() {
         <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3 xl:grid-cols-1">
           <KpiTile
             label="Marchés notifiés (30 j)"
-            valeur={kpis.marches30j !== null ? formatNombre(kpis.marches30j) : "—"}
-            perimetre={`notification initiale, 30 jours jusqu’au ${sources.S1 ? formatDateFr(sources.S1.date_donnees) : "—"} (date des données DECP) — ce n’est pas le stock total ; publication légale jusqu’à 2 mois, fenêtre incomplète`}
+            valeur={kpis.marches30j !== null ? formatNombre(kpis.marches30j) : VIDE}
+            perimetre={`notification initiale, 30 jours jusqu’au ${sources.S1 ? formatDateFr(sources.S1.date_donnees) : VIDE} (date des données DECP). Ce n’est pas le stock total, et la publication légale prend jusqu’à 2 mois : fenêtre incomplète`}
           />
           <KpiTile
             label="Appels d'offres en cours (BOAMP)"
             valeur={formatNombre(kpis.aoEnCours)}
-            perimetre={`annonces BOAMP non annulées, date limite encore ouverte le ${libelleConstruction} (construction du site) — un stock à cet instant, pas un flux 30 j`}
+            perimetre={`annonces BOAMP non annulées, date limite encore ouverte le ${libelleConstruction} (construction du site), un stock à cet instant, pas un flux 30 j`}
           />
           <KpiTile
             label="Textes au JO (30 j)"
-            valeur={kpis.textesJo30j !== null ? formatNombre(kpis.textesJo30j) : "—"}
+            valeur={kpis.textesJo30j !== null ? formatNombre(kpis.textesJo30j) : VIDE}
             perimetre={kpis.perimetreJo30j}
           />
         </div>
@@ -379,7 +380,7 @@ export default async function Accueil() {
           {
             label: "Marchés publics suivis",
             valeur: formatNombre(suivi.marchesSuivis),
-            perimetre: "notifiés sur les 24 derniers mois — ce n’est pas le stock total",
+            perimetre: "notifiés sur les 24 derniers mois, ce n’est pas le stock total",
           },
           {
             label: "Entités publiques référencées",
@@ -390,7 +391,7 @@ export default async function Accueil() {
           {
             label: "Élus suivis nominativement",
             valeur: formatNombre(suivi.elusSuivis),
-            perimetre: `maires, présidences d’exécutifs et parlementaires — hors conseillers municipaux ; les ${formatNombre(suivi.elusAvecFiche)} fiches sont celles des parlementaires et des présidences de département et de région`,
+            perimetre: `maires, présidences d’exécutifs et parlementaires, hors conseillers municipaux. Les ${formatNombre(suivi.elusAvecFiche)} fiches sont celles des parlementaires et des présidences de département et de région`,
           },
         ]}
       />
@@ -456,7 +457,7 @@ export default async function Accueil() {
           </VueTableau>
           {totalCpPlf2026 !== null && (
             <p className="mt-3 text-xs text-ink-muted">
-              Crédits de paiement (crédits budgétaires) — total toutes
+              Crédits de paiement (crédits budgétaires), total toutes
               missions&nbsp;: {mdE(totalCpPlf2026, 1)}.
             </p>
           )}
@@ -470,7 +471,7 @@ export default async function Accueil() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] xl:items-start">
         <Card
           titre="Marchés publics par département"
-          sousTitre="Marchés notifiés, 12 derniers mois — montants écrêtés (plafond 100 M€ par marché), acheteurs à département connu · points : préfectures · outre-mer hors carte"
+          sousTitre="Marchés notifiés, 12 derniers mois, montants écrêtés (plafond 100 M€ par marché), acheteurs à département connu · points : préfectures · outre-mer hors carte"
           droite={<BadgeSource source={sources.S1} />}
         >
           <div className="mx-auto w-full max-w-[22rem]">
@@ -495,7 +496,7 @@ export default async function Accueil() {
             .
           </p>
           <p className="mt-2 text-[11px] leading-relaxed text-ink-muted">
-            Consolidation DECP&nbsp;: decp-processing (C.&nbsp;Maudry) —
+            Consolidation DECP&nbsp;: decp-processing (C.&nbsp;Maudry),
             latence légale de publication ≤&nbsp;2&nbsp;mois. Marchés datés
             de leur notification initiale, un avenant ne les redate pas.
           </p>
@@ -562,7 +563,7 @@ export default async function Accueil() {
         <div className="min-w-0">
           <Card
             titre="Derniers textes au JO"
-            sousTitre="Le JO ne paraît pas tous les jours — liens vers Légifrance"
+            sousTitre="Le JO ne paraît pas tous les jours. Liens vers Légifrance"
             droite={<BadgeSource source={sources.S3} />}
           >
             <ul className="flex flex-col">
@@ -604,7 +605,7 @@ export default async function Accueil() {
         <div className="min-w-0">
           <Card
             titre="Appels d'offres proches de la clôture"
-            sousTitre={`Date limite de réponse (heure de Paris) — annonces BOAMP non annulées, ouvertes à la construction du site le ${libelleConstruction}`}
+            sousTitre={`Date limite de réponse (heure de Paris), annonces BOAMP non annulées, ouvertes à la construction du site le ${libelleConstruction}`}
             droite={<BadgeSource source={sources.S2} />}
           >
             <ul className="flex flex-col">
@@ -631,7 +632,7 @@ export default async function Accueil() {
           vide="Aucune donnée"
         />
         <p className="mt-2 text-[11px] text-ink-muted">
-          Top 8 sur {totalCp2025 !== null ? mdE(totalCp2025, 1) : "—"} de CP
+          Top 8 sur {totalCp2025 !== null ? mdE(totalCp2025, 1) : <Vide />} de CP
           au total. Pas de colonne d&apos;évolution&nbsp;: la donnée est un
           instantané PLF, sans exercice N−1 comparable.
         </p>

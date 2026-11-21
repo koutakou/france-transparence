@@ -9,6 +9,7 @@ import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { VueTableau } from "@/components/ui/VueTableau";
 import { formatDateFr, formatNombre, formatPct } from "@/lib/format";
+import { Vide } from "@/components/ui/Vide";
 import { suiteMasqueeSansScript } from "@/lib/sans-script";
 import { CSV_ELUS } from "@/lib/exports-csv";
 import { LienExportCsv } from "@/components/ui/LienExportCsv";
@@ -126,7 +127,7 @@ export default async function PageElus() {
         </h1>
         <div className="max-w-2xl rounded-xl border border-card-border bg-card p-5 text-sm text-ink-muted">
           <p>
-            La base locale n’est pas encore construite — lancer{" "}
+            La base locale n’est pas encore construite. Lancer{" "}
             <code className="rounded bg-raised px-1.5 py-0.5">make ingest</code> pour ingérer les
             sources (AN, Sénat, RNE, HATVP, Datan).
           </p>
@@ -160,7 +161,7 @@ export default async function PageElus() {
             {l.titre}
           </span>
         ) : (
-          "—"
+          <Vide />
         ),
     },
     { cle: "pour", entete: "Pour", type: "nombre" },
@@ -243,7 +244,7 @@ export default async function PageElus() {
 
       <div id="deputes" className="scroll-mt-32">
         <Card
-          titre="Députés — participation aux scrutins"
+          titre="Députés : participation aux scrutins"
           sousTitre="Taux calculé par France Transparence et score Datan, côte à côte : deux méthodes distinctes, étiquetées."
           droite={
             <div className="flex flex-wrap justify-end gap-2">
@@ -256,7 +257,7 @@ export default async function PageElus() {
             variante="deputes"
             initiaux={deputes.slice(0, PREMIER_ECRAN)}
             total={deputes.length}
-            groupes={groupesAn.map((g) => ({ valeur: g.sigle, libelle: `${g.sigle} — ${g.nom}` }))}
+            groupes={groupesAn.map((g) => ({ valeur: g.sigle, libelle: `${g.sigle} : ${g.nom}` }))}
             departements={departementsDeputes}
           />
           <SansScript affiches={Math.min(PREMIER_ECRAN, deputes.length)} total={deputes.length} quoi="députés" />
@@ -282,7 +283,7 @@ export default async function PageElus() {
               >
                 Datan (datan.fr)
               </a>
-              , échelle 0 à 1, méthodologie Datan — calculé par Datan, non recalculé par France
+              , échelle 0 à 1, méthodologie Datan, calculé par Datan et non recalculé par France
               Transparence.
             </p>
           </div>
@@ -297,7 +298,7 @@ export default async function PageElus() {
             les exécutifs départementaux et régionaux. Les conseillers
             municipaux du RNE n’entrent dans aucun chiffre de cette page.
             Deux scores de participation cohabitent à l’Assemblée : l’un
-            calculé ici, l’autre publié par Datan — deux méthodes, étiquetées.
+            calculé ici, l’autre publié par Datan : deux méthodes, étiquetées.
             Au Sénat, un seul taux, calculé ici (Datan ne publie pas le Sénat).
           </p>
         }
@@ -320,7 +321,7 @@ export default async function PageElus() {
       />
 
       <Card
-        titre="Assemblée nationale — groupes politiques"
+        titre="Assemblée nationale : groupes politiques"
         sousTitre={
           legislature
             ? `${formatNombre(groupesAn.reduce((s, g) => s + g.effectif, 0))} sièges · ${legislature}ᵉ législature · effectifs par groupe (préséance AN)`
@@ -342,8 +343,8 @@ export default async function PageElus() {
             {partFemmesAn !== null ? ` (${formatPct(partFemmesAn)})` : ""} · âge moyen{" "}
             {stats.deputes.age_moyen !== null && stats.deputes.age_au
               ? `${formatNombre(stats.deputes.age_moyen, 1)} ans au ${formatDateFr(stats.deputes.age_au)}`
-              : "—"}{" "}
-            — calculés depuis l’état civil du répertoire des élus.
+              : <Vide />}
+            , calculés depuis l’état civil du répertoire des élus.
           </p>
         )}
         <VueTableau>
@@ -360,7 +361,7 @@ export default async function PageElus() {
         </VueTableau>
         <p className="mt-2 text-[11px] text-ink-muted">
           Couleurs officielles des groupes (données AN) non reproduites : teinte unique du thème,
-          validée pour le fond sombre — l’identité est portée par les libellés.
+          validée pour le fond sombre. L’identité est portée par les libellés.
         </p>
       </Card>
 
@@ -384,8 +385,8 @@ export default async function PageElus() {
               {partFemmesSenat !== null ? ` (${formatPct(partFemmesSenat)})` : ""} · âge moyen{" "}
               {stats.senateurs.age_moyen !== null && stats.senateurs.age_au
                 ? `${formatNombre(stats.senateurs.age_moyen, 1)} ans au ${formatDateFr(stats.senateurs.age_au)}`
-                : "—"}{" "}
-              — calculés depuis les données open data du Sénat.
+                : <Vide />}
+              , calculés depuis les données open data du Sénat.
             </p>
           )}
           <div className="mb-4">
@@ -416,7 +417,7 @@ export default async function PageElus() {
           <p className="mt-3 text-[11px] leading-relaxed text-ink-muted">
             ¹ Calcul France Transparence : votes exprimés (pour, contre, abstention) / scrutins
             publics du Sénat des 365 derniers jours où le Sénat liste le sénateur (« non-votant »
-            compris) ; « — » : aucun scrutin de ce type depuis son entrée. Une délégation de vote
+            compris). « n.d. » : aucun scrutin de ce type depuis son entrée. Une délégation de vote
             n’est pas une présence physique. Pas un score Datan (Datan ne publie pas le Sénat).{" "}
             {RESERVE_PARTICIPATION_SENAT}
           </p>
@@ -425,7 +426,7 @@ export default async function PageElus() {
 
       <Card
         titre="Scrutins récents à l’Assemblée nationale"
-        sousTitre="Les 10 derniers scrutins publics présents en base — résultat officiel pour/contre."
+        sousTitre="Les 10 derniers scrutins publics présents en base, résultat officiel pour/contre."
         droite={<Badge source={sources["S5-SCRUTINS"]} />}
       >
         <DataTable
@@ -441,8 +442,8 @@ export default async function PageElus() {
         titre="Scrutins récents au Sénat"
         sousTitre={
           scrutinsSenat[0]
-            ? `Les 10 derniers scrutins publics présents en base — dernier du ${formatDateFr(scrutinsSenat[0].date_scrutin)}.`
-            : "Les 10 derniers scrutins publics présents en base — résultat officiel pour/contre."
+            ? `Les 10 derniers scrutins publics présents en base, dernier du ${formatDateFr(scrutinsSenat[0].date_scrutin)}.`
+            : "Les 10 derniers scrutins publics présents en base, résultat officiel pour/contre."
         }
         droite={<Badge source={sources["S6-DOSLEG"]} />}
       >
@@ -457,8 +458,8 @@ export default async function PageElus() {
 
       {stats && (
         <Card
-          titre="Intégrité — déclarations HATVP"
-          sousTitre="Appariement par URL de fiche nominative, pas par homonymie — ce n’est pas le stock total des déclarations HATVP. Le contenu des déclarations de patrimoine n’y entre pas."
+          titre="Intégrité : déclarations HATVP"
+          sousTitre="Appariement par URL de fiche nominative, pas par homonymie. Ce n’est pas le stock total des déclarations HATVP. Le contenu des déclarations de patrimoine n’y entre pas."
           droite={<Badge source={sources["S14"]} />}
         >
           <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-ink-secondary">

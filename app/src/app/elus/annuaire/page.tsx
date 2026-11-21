@@ -18,7 +18,7 @@ import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 const CHEMIN = "/elus/annuaire/";
 const TITRE = "Annuaire des fiches d’élus";
 const DESCRIPTION =
-  "Toutes les fiches individuelles publiées par le site — député·es, sénateur·rices, président·es de conseil régional et départemental — en ordre alphabétique.";
+  "Toutes les fiches individuelles publiées par le site (député·es, sénateur·rices, président·es de conseil régional et départemental), en ordre alphabétique.";
 
 export const metadata: Metadata = metadonneesPage({
   chemin: CHEMIN,

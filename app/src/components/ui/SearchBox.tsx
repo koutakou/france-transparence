@@ -74,7 +74,7 @@ function chargerIndex(): Promise<IndexPret | null> {
 }
 
 export function SearchBox({
-  placeholder = "Rechercher un élu, une institution…",
+  placeholder = "Rechercher un élu, une institution",
   className,
 }: SearchBoxProps) {
   const [q, setQ] = useState("");
@@ -226,7 +226,7 @@ export function SearchBox({
   const annonce = afficherListe
     ? `${resultats.length} résultat${resultats.length > 1 ? "s" : ""} pour « ${termeRecherche} ».`
     : afficherChargement
-      ? "Chargement de l’index…"
+      ? "Chargement de l’index en cours"
       : afficherVide
         ? messageVide
         : "";
@@ -344,7 +344,7 @@ export function SearchBox({
           className="absolute left-0 right-0 top-full z-50 mt-1 rounded-lg border border-raised-border bg-raised px-3 py-2.5 text-[13px] text-ink-secondary shadow-[0_8px_24px_rgba(0,0,0,0.45)]"
           onMouseDown={(e) => e.preventDefault()}
         >
-          {afficherChargement ? "Chargement de l’index…" : messageVide}
+          {afficherChargement ? "Chargement de l’index en cours" : messageVide}
         </div>
       )}
       <div role="status" className="sr-only">

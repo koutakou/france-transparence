@@ -11,7 +11,7 @@ import "./globals.css";
 
 // 70 caractères au plus (LONGUEUR_TITRE_PARTAGE, seo.ts) : l'ancien titre en
 // comptait 78, et X le coupait en plein mot. Vérifié par npm test.
-const TITRE_DEFAUT = "France Transparence — argent public et vie politique, données ouvertes";
+const TITRE_DEFAUT = "France Transparence : argent public et vie politique, données ouvertes";
 const DESCRIPTION_DEFAUT =
   "Dépenses de l'État, marchés publics, élus, lobbying, financement politique : sources publiques officielles, plus quelques consolidations reconnues et créditées, fraîcheur et limites affichées.";
 
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: TITRE_DEFAUT,
-    template: "%s — France Transparence",
+    template: "%s · France Transparence",
   },
   description: DESCRIPTION_DEFAUT,
   // Open Graph PAR DÉFAUT — il ne sert qu'aux pages qui n'en déclarent pas
@@ -173,8 +173,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
               >
                 Licence&nbsp;Ouverte
-              </a>{" "}
-              — licence exacte et fraîcheur, source par source, page{" "}
+              </a>
+              . Licence exacte et fraîcheur, source par source, sur la page{" "}
               <Link
                 href="/donnees"
                 className="underline decoration-dotted underline-offset-2 hover:text-ink-secondary"

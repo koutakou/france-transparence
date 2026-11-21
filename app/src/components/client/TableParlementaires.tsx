@@ -7,6 +7,7 @@ import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { PuceOfficielle } from "@/components/ui/LienOfficiel";
 import { estFicheOfficielleEntite } from "@/lib/urlOfficielle";
 import { formatNombre } from "@/lib/format";
+import { Vide } from "@/components/ui/Vide";
 import { urlSite } from "@/lib/basePath";
 import { majParamsUrl } from "@/lib/urlEtat";
 import { useUrlInitiale } from "@/lib/useUrlInitiale";
@@ -138,7 +139,7 @@ const COLONNES_DEPUTES: Colonne<DeputeLigne>[] = [
     cle: "groupe_sigle",
     entete: "Groupe",
     rendu: (l) =>
-      l.groupe_sigle ? <span title={l.groupe_nom ?? undefined}>{l.groupe_sigle}</span> : "—",
+      l.groupe_sigle ? <span title={l.groupe_nom ?? undefined}>{l.groupe_sigle}</span> : <Vide />,
   },
   { cle: "departement", entete: "Département" },
   {
@@ -149,7 +150,7 @@ const COLONNES_DEPUTES: Colonne<DeputeLigne>[] = [
   },
   {
     cle: "datan_score_participation",
-    entete: "Score Datan (0–1) ²",
+    entete: "Score Datan (0 à 1) ²",
     type: "nombre",
     decimales: 2,
   },
@@ -178,7 +179,7 @@ const COLONNES_SENATEURS: Colonne<SenateurLigne>[] = [
     cle: "groupe",
     entete: "Groupe",
     rendu: (l) =>
-      l.groupe ? <span title={l.groupe_appartenance || undefined}>{l.groupe}</span> : "—",
+      l.groupe ? <span title={l.groupe_appartenance || undefined}>{l.groupe}</span> : <Vide />,
   },
   { cle: "circonscription", entete: "Département" },
   {
@@ -199,7 +200,7 @@ const COLONNES_SENATEURS: Colonne<SenateurLigne>[] = [
           {l.commission}
         </span>
       ) : (
-        "—"
+        <Vide />
       ),
   },
 ];
@@ -312,7 +313,7 @@ export function TableParlementaires({
   // embarquées. Le dire, et ne jamais conclure « aucun député ».
   const filtrePartiel = filtreActif && indisponible && initiaux.length < total;
 
-  const videPartiel = `Aucune ligne parmi les ${formatNombre(initiaux.length)} premières chargées — la liste complète n’a pas pu être chargée : ce filtre n’a pas été appliqué à tous les ${cfg.pluriel}.`;
+  const videPartiel = `Aucune ligne parmi les ${formatNombre(initiaux.length)} premières chargées. La liste complète n’a pas pu être chargée : ce filtre n’a pas été appliqué à tous les ${cfg.pluriel}.`;
 
   return (
     <div>
@@ -385,7 +386,7 @@ export function TableParlementaires({
         {tronque ? (
           <>
             Affichage des {formatNombre(initiaux.length)} premiers {cfg.pluriel} sur{" "}
-            {formatNombre(total)} (ordre alphabétique) — filtrer ou tout afficher pour la liste
+            {formatNombre(total)} (ordre alphabétique). Filtrer ou tout afficher pour la liste
             complète.
           </>
         ) : (
@@ -400,14 +401,14 @@ export function TableParlementaires({
               : ""}
             {groupe ? ` · groupe ${groupe}` : ""}
             {departement ? ` · ${departement}` : ""}
-            {chargement ? " · chargement de la liste complète…" : ""}
+            {chargement ? " · chargement de la liste complète en cours" : ""}
           </>
         )}
       </p>
 
       {indisponible && (
         <p className="mb-2 text-xs text-ink-muted">
-          Liste complète indisponible (fragment {cfg.fragment} non chargé) — les{" "}
+          Liste complète indisponible (fragment {cfg.fragment} non chargé). Les{" "}
           {formatNombre(initiaux.length)} premières lignes restent affichées.
         </p>
       )}

@@ -28,6 +28,6 @@ export function cadreAttenteCarte(scriptActif: boolean): {
   role: "status" | undefined;
 } {
   return scriptActif
-    ? { texte: "Chargement du fond de carte…", role: "status" }
+    ? { texte: "Chargement du fond de carte en cours", role: "status" }
     : { texte: "Carte affichée avec JavaScript activé.", role: undefined };
 }

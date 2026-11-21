@@ -77,7 +77,7 @@ export function expliquerAbsences(
     phrases.push(
       pour +
         majuscule(
-          "à un second tour de législatives ne votent que les circonscriptions sans député élu au premier ; une commune manque quand aucune des siennes n’a eu de second tour.",
+          "à un second tour de législatives ne votent que les circonscriptions sans député élu au premier. Une commune manque quand aucune des siennes n’a eu de second tour.",
         ),
     );
   } else {

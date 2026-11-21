@@ -36,10 +36,10 @@ const GRAVITE_UI: Record<GraviteAlerte, { statut: Gravite; libelle: string }> = 
 
 /** Libellés courts des types d'alerte présents en base (fallback : le code). */
 const LIBELLES_TYPE: Record<string, string> = {
-  A1_hatvp_non_deposee: "HATVP — non-déposée (constat officiel)",
+  A1_hatvp_non_deposee: "HATVP : non-déposée (constat officiel)",
   A1_hatvp_en_cours_delai_ecoule: "HATVP, statut « En cours » après 2 mois (agrégat)",
-  lobbying_defaut_declaration: "Lobbying — défaut de déclaration",
-  lobbying_declaration_incomplete: "Lobbying — déclaration incomplète",
+  lobbying_defaut_declaration: "Lobbying : défaut de déclaration",
+  lobbying_declaration_incomplete: "Lobbying : déclaration incomplète",
   // Seuil = SEUIL_DEPENDANCE_RATIO de pipelines/ingest_financement.py
   // (tests/libelles-alertes.test.mjs vérifie que les deux disent le même nombre).
   financement_parti_dependance_aide: "Parti : aide publique d'au moins 75 % des produits",
@@ -54,12 +54,12 @@ function libelleType(type: string): string {
 function sourceAlerte(type: string, url: string | null): { libelle: string; url?: string } {
   const u = url ?? undefined;
   if (type.startsWith("A1_")) return { libelle: "HATVP (liste.csv) × RNE", url: u };
-  if (type.startsWith("lobbying_")) return { libelle: "HATVP — répertoire AGORA", url: u };
+  if (type.startsWith("lobbying_")) return { libelle: "HATVP, répertoire AGORA", url: u };
   if (type.startsWith("financement_campagne")) {
-    return { libelle: "CNCCFP — comptes de campagne", url: u };
+    return { libelle: "CNCCFP, comptes de campagne", url: u };
   }
   if (type.startsWith("financement_parti")) {
-    return { libelle: "CNCCFP — comptes des partis", url: u };
+    return { libelle: "CNCCFP, comptes des partis", url: u };
   }
   return { libelle: "Source", url: u };
 }
@@ -290,8 +290,8 @@ export function AlertesListe({ types, parGravite, total, initiales }: AlertesLis
         <p className="text-xs text-ink-muted" aria-live="polite">
           {totalFiltre === 0
             ? "Aucune alerte ne correspond à ces filtres."
-            : `${formatNombre(totalFiltre)} alerte${totalFiltre > 1 ? "s" : ""} — page ${formatNombre(pageBornee)} sur ${formatNombre(pages)}`}
-          {chargement ? " · chargement de la liste complète…" : ""}
+            : `${formatNombre(totalFiltre)} alerte${totalFiltre > 1 ? "s" : ""}, page ${formatNombre(pageBornee)} sur ${formatNombre(pages)}`}
+          {chargement ? " · chargement de la liste complète en cours" : ""}
         </p>
         {/* Sans JavaScript, filtres et pagination restent inertes : la page
             le dit et renvoie à l'export complet, au lieu d'un « page 1 sur
@@ -311,7 +311,7 @@ export function AlertesListe({ types, parGravite, total, initiales }: AlertesLis
         )}
         {indisponible && besoinFragment && (
           <p className="text-xs text-ink-muted">
-            Liste complète indisponible (fragment /data/alertes.json non chargé) — les{" "}
+            Liste complète indisponible (fragment /data/alertes.json non chargé). Les{" "}
             {formatNombre(initiales.length)} premières alertes restent affichées.
           </p>
         )}

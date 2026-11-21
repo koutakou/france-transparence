@@ -120,11 +120,11 @@ export type StatsElus = {
 
 /** Assemblée nationale en exercice — pas l’ensemble des élus. */
 export const PERIMETRE_DEPUTES =
-  "Assemblée nationale en exercice — ce n’est pas l’ensemble des élus";
+  "Assemblée nationale en exercice, ce n’est pas l’ensemble des élus";
 
 /** Sénat en exercice — pas l’ensemble des élus. */
 export const PERIMETRE_SENATEURS =
-  "Sénat en exercice — ce n’est pas l’ensemble des élus";
+  "Sénat en exercice, ce n’est pas l’ensemble des élus";
 
 /**
  * Mandats « maire » du RNE ingéré. Ce n’est pas tout le répertoire
@@ -132,14 +132,14 @@ export const PERIMETRE_SENATEURS =
  * de France ».
  */
 export const PERIMETRE_MAIRES =
-  "mandats maire du RNE ingéré — hors conseillers municipaux, ce n’est pas tout le RNE";
+  "mandats maire du RNE ingéré, hors conseillers municipaux (ce n’est pas tout le RNE)";
 
 /**
  * Personnes présentes dans le répertoire local. Une ligne n’est pas une
  * fiche : maires et présidences d’EPCI n’ont pas de page dédiée.
  */
 export const PERIMETRE_ELUS_EN_BASE =
-  "maires, présidences d’EPCI, de départements et de régions, parlementaires — pas les conseillers municipaux ; une fiche n’existe que pour les parlementaires et les exécutifs départementaux et régionaux";
+  "maires, présidences d’EPCI, de départements et de régions, parlementaires, pas les conseillers municipaux. Une fiche n’existe que pour les parlementaires et les exécutifs départementaux et régionaux";
 
 /** Taux calculé ici : scrutins publics AN, fenêtre glissante. */
 export const PERIMETRE_PARTICIPATION_FT =
@@ -151,15 +151,15 @@ export const PERIMETRE_PARTICIPATION_FT =
  * d’entrée en mandat. Une délégation n’est pas une présence.
  */
 export const PERIMETRE_PARTICIPATION_FT_SENAT =
-  "scrutins publics du Sénat des 12 derniers mois où il ou elle siégeait (liste officielle du scrutin) — votes exprimés, pas une présence";
+  "scrutins publics du Sénat des 12 derniers mois où il ou elle siégeait (liste officielle du scrutin) : votes exprimés, pas une présence";
 
 /** Même fenêtre que le taux — un tiret n’est pas un zéro. */
 export const PERIMETRE_VOTES_12M =
-  "même fenêtre que le taux — un tiret n’est pas un zéro";
+  "même fenêtre que le taux, « n.d. » n’est pas un zéro";
 
 /** Score Datan, autre méthode. */
 export const PERIMETRE_SCORE_DATAN =
-  "score publié par Datan, échelle 0 à 1 — ce n’est pas le taux calculé ici";
+  "score publié par Datan, échelle 0 à 1, ce n’est pas le taux calculé ici";
 
 /** Agrégats réels : effectifs, parité, âge moyen, maires, appariement HATVP. */
 export function getStatsElus(): StatsElus | null {

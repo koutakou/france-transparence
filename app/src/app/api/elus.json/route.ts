@@ -25,14 +25,14 @@ export async function GET() {
   const elus = getElusExport();
   if (elus === null) {
     throw new Error(
-      "Base absente au build — lancer make ingest (ou poser FRANCE_DB_PATH) avant next build.",
+      "Base absente au build : lancer make ingest (ou poser FRANCE_DB_PATH) avant next build.",
     );
   }
   const sources = getMetaSourcesParIds(SOURCES_ELUS) ?? [];
   return NextResponse.json({
     meta: {
       description:
-        "Répertoire complet des élus (champs publics compacts, tous issus de l'open data) : identité, identifiants AN/Sénat, lien HATVP, types des mandats en cours (député ou sénateur seulement si la chambre liste l'élu au jour des données). Clés absentes = non renseigné. Le détail des mandats (communes, dates…) reste sur les fiches élus et dans le RNE amont ; conseillers municipaux non nominatifs (agrégats départementaux seulement). Snapshot statique régénéré à chaque build.",
+        "Répertoire complet des élus (champs publics compacts, tous issus de l'open data) : identité, identifiants AN/Sénat, lien HATVP, types des mandats en cours (député ou sénateur seulement si la chambre liste l'élu au jour des données). Clés absentes = non renseigné. Le détail des mandats (communes, dates, etc.) reste sur les fiches élus et dans le RNE amont. Conseillers municipaux non nominatifs (agrégats départementaux seulement). Snapshot statique régénéré à chaque build.",
       total: elus.length,
       types_mandats_possibles: TYPES_MANDAT,
       licence_agregats: "Licence Ouverte 2.0 (agrégats France Transparence)",
