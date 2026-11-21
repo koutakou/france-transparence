@@ -65,7 +65,7 @@ export function enTeteCategorie(
       };
     case "frais_mandat":
       return {
-        titre: "Frais de mandat — les enveloppes",
+        titre: "Frais de mandat : les enveloppes",
         sousTitre:
           "Avances et dotations forfaitaires : les barèmes sont publics, pas le détail des dépenses",
       };
@@ -79,34 +79,34 @@ export function enTeteCategorie(
       return {
         titre: "Élysée",
         sousTitre:
-          "Comptes de la présidence de la République audités par la Cour des comptes — un rapport par an",
+          "Comptes de la présidence de la République audités par la Cour des comptes, un rapport par an",
       };
     case "institutions":
       return p
         ? {
-            titre: `Institutions — dotations ${p}`,
+            titre: `Institutions : dotations ${p}`,
             sousTitre: `Mission « Pouvoirs publics » de la loi de finances initiale pour ${p}`,
           }
         : {
-            titre: "Institutions — dotations",
+            titre: "Institutions : dotations",
             sousTitre:
-              "Mission « Pouvoirs publics » des lois de finances initiales — l’exercice de chaque dotation est indiqué sur sa ligne",
+              "Mission « Pouvoirs publics » des lois de finances initiales (exercice de chaque dotation indiqué sur sa ligne)",
           };
     case "cabinets": {
       const d = dateSourceCommune(faits);
       return {
         titre: "Cabinets ministériels",
         sousTitre: d
-          ? `Jaune budgétaire « Personnels affectés dans les cabinets ministériels » — situation au ${formatDateSourceFr(d)}`
-          : "Jaune budgétaire « Personnels affectés dans les cabinets ministériels » — la date de chaque situation est indiquée sur sa ligne",
+          ? `Jaune budgétaire « Personnels affectés dans les cabinets ministériels », situation au ${formatDateSourceFr(d)}`
+          : "Jaune budgétaire « Personnels affectés dans les cabinets ministériels » (date de chaque situation indiquée sur sa ligne)",
       };
     }
     case "elus_locaux":
       return {
-        titre: "Élus locaux — barèmes",
+        titre: "Élus locaux : barèmes",
         sousTitre: p
-          ? `Indemnités maximales publiées par la DGCL, barème ${p} — les montants réellement versés ne sont pas centralisés`
-          : "Indemnités maximales publiées par la DGCL — le barème de chaque montant est indiqué sur sa ligne ; les montants réellement versés ne sont pas centralisés",
+          ? `Indemnités maximales publiées par la DGCL, barème ${p}. Les montants réellement versés ne sont pas centralisés`
+          : "Indemnités maximales publiées par la DGCL (barème de chaque montant indiqué sur sa ligne). Les montants réellement versés ne sont pas centralisés",
       };
   }
 }

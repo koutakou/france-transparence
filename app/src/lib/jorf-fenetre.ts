@@ -159,10 +159,10 @@ export function perimetreJo30j(
     .filter(Boolean)
     .join(", ");
   if (manques) {
-    return `${LIBELLE_JORF}, 30 derniers jours — ${manques}`;
+    return `${LIBELLE_JORF}, 30 derniers jours (${manques})`;
   }
   if (dates.length > 0 && dates[0] > seuil) {
-    return `${LIBELLE_JORF} — seulement les JO parus depuis le ${fr(dates[0])} : moins de 30 jours repris ici`;
+    return `${LIBELLE_JORF}, seulement les JO parus depuis le ${fr(dates[0])} : moins de 30 jours repris ici`;
   }
   return `${LIBELLE_JORF}, 30 derniers jours`;
 }

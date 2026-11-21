@@ -109,9 +109,9 @@ export function perimetreDoleStock(vue: Pick<DoleVue, "legislatureMin" | "legisl
   const min = libelleLegislatureDole(vue.legislatureMin);
   const courante = libelleLegislatureDole(vue.legislatureCourante);
   if (vue.legislatureMin.num === vue.legislatureCourante.num) {
-    return `stock DILA, ${courante} — le producteur annonce la XIIe`;
+    return `stock DILA, ${courante} (le producteur annonce la XIIe)`;
   }
-  return `stock DILA, ${min} → ${courante} — le producteur annonce la XIIe`;
+  return `stock DILA, ${min} → ${courante} (le producteur annonce la XIIe)`;
 }
 
 /**

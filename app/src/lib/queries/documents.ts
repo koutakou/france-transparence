@@ -203,7 +203,7 @@ export function perimetreNominationsFenetre(mentionFenetre: string): string {
  * La date est déjà dans le libellé — ne pas la reformater ici.
  */
 export function perimetreTextesJour(): string {
-  return "un seul JO paru — pas la fenêtre entière";
+  return "un seul JO paru, pas la fenêtre entière";
 }
 
 /**
@@ -211,7 +211,7 @@ export function perimetreTextesJour(): string {
  * textes marqués nomination.
  */
 export function perimetreNominationsJour(): string {
-  return "un seul JO paru — textes marqués nomination — pas la fenêtre entière";
+  return "un seul JO paru, textes marqués nomination, pas la fenêtre entière";
 }
 
 /**

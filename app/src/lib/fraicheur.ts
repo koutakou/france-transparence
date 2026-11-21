@@ -411,7 +411,7 @@ export function evalueFraicheur(
  */
 export function constatAttente(f: Pick<Fraicheur, "editionFigee">): string {
   return f.editionFigee
-    ? "aucune édition plus récente n’a été ingérée à ce jour — millésime fixé par le pipeline : une édition plus récente n’y entrerait pas sans le modifier"
+    ? "aucune édition plus récente n’a été ingérée à ce jour (millésime fixé par le pipeline : une édition plus récente n’y entrerait pas sans le modifier)"
     : "aucune édition plus récente n’a été ingérée à ce jour";
 }
 
@@ -509,12 +509,12 @@ export function phraseFraicheur(dateDonnees: string, f: Fraicheur, maintenant: D
   if (f.niveau === "non_calibre") {
     return `${donneesAu}, soit ${age}. Aucun seuil n’est calibré pour cette source : son état n’est pas évalué.`;
   }
-  const seuils = `seuils calibrés pour cette source : ${libelleSeuil(f, f.seuilRetardJours ?? 0)} (à surveiller) / ${libelleSeuil(f, f.seuilAlerteJours ?? 0)} (alerte)`;
+  const seuils = `Seuils calibrés pour cette source : ${libelleSeuil(f, f.seuilRetardJours ?? 0)} (à surveiller) / ${libelleSeuil(f, f.seuilAlerteJours ?? 0)} (alerte)`;
   if (f.niveau === "attente_edition") {
     const constat = constatAttente(f);
-    return `${donneesAu}. ${constat.charAt(0).toUpperCase()}${constat.slice(1)} — ${age}, ${seuils}.`;
+    return `${donneesAu}, soit ${age}. ${constat.charAt(0).toUpperCase()}${constat.slice(1)}. ${seuils}.`;
   }
-  return `${donneesAu}, soit ${age} — ${seuils}.`;
+  return `${donneesAu}, soit ${age}. ${seuils}.`;
 }
 
 /** Ce qu'il faut d'une source pour en évaluer la fraîcheur. */

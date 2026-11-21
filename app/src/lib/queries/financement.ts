@@ -158,36 +158,36 @@ export type CampagneTopDepense = {
 
 /** Enveloppe ouverte par décret — pas l’aide inscrite aux comptes. */
 export function perimetreEnveloppeDecret(d: Pick<DecretAidePublique, "perimetre">): string {
-  return `${d.perimetre.toLowerCase()} — ouverture par décret, pas les comptes des partis`;
+  return `${d.perimetre.toLowerCase()}, ouverture par décret, pas les comptes des partis`;
 }
 
 /** Somme des déclarations F1+F2 — pas l’enveloppe du décret. */
 export const PERIMETRE_AIDE_INSCRITE =
-  "cumul de déclarations F1+F2, exercice 2024 — pas l’enveloppe du décret";
+  "cumul de déclarations F1+F2, exercice 2024, pas l’enveloppe du décret";
 
 /** Effectif de dépôts — un stock, pas un flux d’argent. */
 export const PERIMETRE_DEPOTS_PARTIS =
-  "effectif de dépôts, toutes unités — un stock, pas un flux d’argent";
+  "effectif de dépôts, toutes unités : un stock, pas un flux d’argent";
 
 /** Produits = flux d’exercice, comptes en euros. */
 export const PERIMETRE_PRODUITS_PARTIS =
-  "flux de l’exercice 2024, comptes en euros — pas un patrimoine";
+  "flux de l’exercice 2024, comptes en euros, pas un patrimoine";
 
 /** Fichier CNCCFP des législatives 2024 — pas le recensement ministériel. */
 export const PERIMETRE_CANDIDATS_CAMPAGNE =
-  "législatives 2024, fichier CNCCFP — ce n’est pas le recensement ministériel des candidats";
+  "législatives 2024, fichier CNCCFP (ce n’est pas le recensement ministériel des candidats)";
 
 /** Taux sur les comptes déposés seulement. */
 export const PERIMETRE_TAUX_REJET =
-  "rejets / comptes déposés — dispensés et absences de dépôt exclus du dénominateur";
+  "rejets / comptes déposés, dispensés et absences de dépôt exclus du dénominateur";
 
 /** Montant retenu, flux du scrutin. */
 export const PERIMETRE_DEPENSES_RETENUES =
-  "flux du scrutin 2024, montants retenus par la CNCCFP — pas le déclaré";
+  "flux du scrutin 2024, montants retenus par la CNCCFP, pas le déclaré";
 
 /** Remboursement : comptes approuvés seulement. */
 export const PERIMETRE_REMBOURSEMENT =
-  "flux du scrutin 2024 — dans les données, seuls les comptes approuvés portent un remboursement";
+  "flux du scrutin 2024 : dans les données, seuls les comptes approuvés portent un remboursement";
 
 /** Alerte telle qu'en base (table partagée `alertes`). */
 export type AlerteLigne = {

@@ -7,6 +7,7 @@ import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { LienOfficiel } from "@/components/ui/LienOfficiel";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { KpiTile } from "@/components/ui/KpiTile";
+import { Vide } from "@/components/ui/Vide";
 import { libelleTypeDole } from "@/lib/dole-libelles";
 import { formatNombre } from "@/lib/format";
 import {
@@ -67,7 +68,7 @@ const COLONNES_NAVETTE: Colonne<DoleNavetteLigne>[] = [
   {
     cle: "derniere_etape",
     entete: "Dernière étape",
-    rendu: (l) => l.derniere_etape || "—",
+    rendu: (l) => l.derniere_etape || <Vide />,
   },
 ];
 
@@ -167,8 +168,8 @@ export default async function DossiersLegislatifsPage() {
         provenance={
           <p>
             Dumps XML DILA du fonds DOLE (Freemium puis incréments,
-            last-write-wins), Licence Ouverte 2.0. Producteur&nbsp;: DILA ;
-            catalogue data.gouv «&nbsp;dole-les-dossiers-legislatifs&nbsp;»,
+            last-write-wins), Licence Ouverte 2.0. Producteur&nbsp;: DILA.
+            Catalogue data.gouv «&nbsp;dole-les-dossiers-legislatifs&nbsp;»,
             organisation Premier ministre. Chaque dossier renvoie vers sa
             page sur vie-publique.fr, site de la DILA (lien sortant, le
             texte n’est pas recopié ici).
@@ -187,7 +188,7 @@ export default async function DossiersLegislatifsPage() {
       />
 
       <Card
-        titre={`Navette — ${libLeg}`}
+        titre={`Navette : ${libLeg}`}
         sousTitre="Projets de loi, propositions de loi et projets d’ordonnance de la législature en cours, du plus récemment mis à jour au plus ancien"
       >
         <DataTable

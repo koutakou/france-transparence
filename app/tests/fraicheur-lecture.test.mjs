@@ -73,7 +73,7 @@ test("la phrase du badge date son âge : vraie lue sans JavaScript après le bui
   const f = evalueFraicheur("S18", "2026-09-30", new Date(CONSTRUIT));
   assert.match(phraseFraicheur("2026-09-30", f, new Date(CONSTRUIT)), /soit 39 jours au 08\/11\/2026/);
   const g = evalueFraicheur("S46", "2024-10-11", new Date(CONSTRUIT));
-  assert.match(phraseFraicheur("2024-10-11", g, new Date(CONSTRUIT)), /— 758 jours au 08\/11\/2026,/);
+  assert.match(phraseFraicheur("2024-10-11", g, new Date(CONSTRUIT)), /soit 758 jours au 08\/11\/2026\. Aucune édition/);
 });
 
 /* ------------- horloge du lecteur antérieure à la construction ------------- */
@@ -231,7 +231,7 @@ test("titre d'accueil (titre par défaut) : 70 caractères au plus, comme tout t
 
 /* ---- tuile « Textes au JO (30 j) » : libellé et compte sur la même fenêtre ---- */
 
-test("JO 30 j : le libellé prend la même fenêtre que le compte, au jour près, et un seul tiret", async () => {
+test("JO 30 j : le libellé prend la même fenêtre que le compte, au jour près, et aucun tiret", async () => {
   const { perimetreJo30jArrete } = await importer("lib/jorf-fenetre");
   const tirets = (s) => (s.match(/—/g) ?? []).length;
   const fin = "2026-11-11";
@@ -252,9 +252,9 @@ test("JO 30 j : le libellé prend la même fenêtre que le compte, au jour près
   // Premier JO au 14/10 : un jour du compte manque, c'est dit.
   const reduite = perimetreJo30jArrete(jours("2026-10-14", 29), fin);
   assert.match(reduite, /seulement les JO parus depuis le 14\/10\/2026/);
-  assert.equal(tirets(reduite), 1);
+  assert.equal(tirets(reduite), 0);
   // Base réelle du 11/11/2026 (index DILA vidé : deux JO).
   const reelle = perimetreJo30jArrete(["2026-11-10", "2026-11-11"], fin);
-  assert.equal(tirets(reelle), 1);
+  assert.equal(tirets(reelle), 0);
   assert.match(reelle, /\(jusqu’au 11\/11\/2026, JO le plus récent ingéré\)$/);
 });

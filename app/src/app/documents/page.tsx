@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BarList } from "@/components/ui/BarList";
 import { Card } from "@/components/ui/Card";
+import { Vide } from "@/components/ui/Vide";
 import { JsonLd } from "@/components/JsonLd";
 import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { DataTable, type Colonne } from "@/components/ui/DataTable";
@@ -63,7 +64,7 @@ import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 const CHEMIN = "/documents/";
 const TITRE = "Journal officiel";
 const DESCRIPTION =
-  "Lois, décrets et nominations du Journal officiel, à parution — source DILA.";
+  "Lois, décrets et nominations du Journal officiel, à parution. Source : DILA.";
 
 export const metadata: Metadata = metadonneesPage({
   chemin: CHEMIN,
@@ -116,11 +117,11 @@ export default async function DocumentsPage() {
     return (
       <section className="flex flex-col gap-6">
         <h1 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
-          Documents — Journal officiel
+          Documents : Journal officiel
         </h1>
         <div className="max-w-2xl rounded-xl border border-card-border bg-card p-5 text-sm text-ink-muted">
           <p>
-            La base locale n’est pas encore construite — lancer{" "}
+            La base locale n’est pas encore construite. Lancer{" "}
             <code className="rounded bg-raised px-1.5 py-0.5">make ingest</code> pour ingérer
             les sources.
           </p>
@@ -134,7 +135,7 @@ export default async function DocumentsPage() {
     return (
       <section className="flex flex-col gap-6">
         <h1 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
-          Documents — Journal officiel
+          Documents : Journal officiel
         </h1>
         <div className="max-w-2xl rounded-xl border border-card-border bg-card p-5 text-sm text-ink-muted">
           <p>
@@ -202,7 +203,7 @@ export default async function DocumentsPage() {
             {l.derniere_etape}
           </span>
         ) : (
-          "—"
+          <Vide />
         ),
     },
   ];
@@ -214,7 +215,7 @@ export default async function DocumentsPage() {
       <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="max-w-2xl">
           <h1 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink">
-            Documents — Journal officiel
+            Documents : Journal officiel
           </h1>
           <p className="mt-2 text-sm text-ink-secondary">
             Journal officiel «&nbsp;Lois et décrets&nbsp;»
@@ -305,7 +306,7 @@ export default async function DocumentsPage() {
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <Card
           titre="Parutions par jour"
-          sousTitre="Textes par JO paru — le JO ne paraît pas tous les jours : les jours sans parution comptent 0"
+          sousTitre="Textes par JO paru. Le JO ne paraît pas tous les jours : les jours sans parution comptent 0"
         >
           <ZoneDefilante libelle="Graphique : parutions par jour" className="overflow-x-auto">
             <Sparkline
@@ -322,7 +323,7 @@ export default async function DocumentsPage() {
             {formatNombre(pic.nb)} textes le {formatDateFr(pic.date_publi)} ·{" "}
             {formatNombre(joursSansJo)} jours sans JO sur la période (trous réels).
           </p>
-          <VueTableau resume="Vue tableau — textes par JO paru">
+          <VueTableau resume="Vue tableau : textes par JO paru">
             <DataTable
               hauteurMax="16rem"
               colonnes={colonnesParutions}
@@ -336,7 +337,7 @@ export default async function DocumentsPage() {
           titre="Répartition par nature"
           sousTitre={`${formatNombre(
             kpis.textesFenetre,
-          )} textes — natures en ordre de grandeur, les moins fréquentes repliées en « Autre »`}
+          )} textes, natures en ordre de grandeur, les moins fréquentes repliées en « Autre »`}
         >
           <Donut
             parts={natures.map((n) => ({
@@ -353,8 +354,8 @@ export default async function DocumentsPage() {
             {formatNombre(naturesFiltre.length)} natures distinctes sur la fenêtre
             {sansNature > 0 ? (
               <> · {formatNombre(sansNature)} textes sans nature renseignée (réel)</>
-            ) : null}{" "}
-            — détail par nature via le filtre du flux ci-dessus.
+            ) : null}
+            . Détail par nature via le filtre du flux ci-dessus.
           </p>
         </Card>
       </div>
@@ -362,7 +363,7 @@ export default async function DocumentsPage() {
       {/* --------------------- Nominations par ministère ----------------------- */}
       <Card
         titre="Nominations par ministère"
-        sousTitre={`Top ${formatNombre(nominations.top.length)} — fenêtre entière (${mentionFenetre}), ${formatNombre(nominations.total)} nominations au total`}
+        sousTitre={`Top ${formatNombre(nominations.top.length)}, fenêtre entière (${mentionFenetre}), ${formatNombre(nominations.total)} nominations au total`}
       >
         <BarList
           items={nominations.top.map((n) => ({ libelle: n.ministere, valeur: n.nb }))}
@@ -400,7 +401,7 @@ export default async function DocumentsPage() {
 
           <Card
             titre="Dossiers législatifs"
-            sousTitre={`Stock DILA (DOLE) et navette de la ${libelleLegislatureDole(dole.legislatureCourante)} — distinct du Journal officiel du jour`}
+            sousTitre={`Stock DILA (DOLE) et navette de la ${libelleLegislatureDole(dole.legislatureCourante)}, distinct du Journal officiel du jour`}
             droite={
               <FreshnessBadge
                 dateDonnees={dole.meta.date_donnees}
@@ -453,8 +454,8 @@ export default async function DocumentsPage() {
               provenance={
                 <p>
                   Dumps XML DILA du fonds DOLE (Freemium puis incréments,
-                  last-write-wins), Licence Ouverte 2.0. Producteur&nbsp;: DILA
-                  ; catalogue data.gouv «&nbsp;dole-les-dossiers-legislatifs&nbsp;»,
+                  last-write-wins), Licence Ouverte 2.0. Producteur&nbsp;: DILA.
+                  Catalogue data.gouv «&nbsp;dole-les-dossiers-legislatifs&nbsp;»,
                   organisation Premier ministre. Chaque dossier renvoie vers sa
                   page sur vie-publique.fr, site de la DILA (lien sortant, le
                   texte n’est pas recopié ici).

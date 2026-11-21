@@ -103,7 +103,7 @@ const POSTES: { poste: string; donnee: string; publie: string }[] = [
   {
     poste: "Ventilation par ministère",
     donnee:
-      "Le niveau mission/programme mensuel n'existe qu'en PDF ; l'API mensuelle compte 26 lignes, par grands titres. La LFI 2026 n'a jamais été publiée en données.",
+      "Le niveau mission/programme mensuel n'existe qu'en PDF. L'API mensuelle compte 26 lignes, par grands titres. La LFI 2026 n'a jamais été publiée en données.",
     publie:
       "Une répartition mensuelle par nature de dépense, et une répartition annuelle par mission issue du PLF 2026.",
   },
@@ -117,7 +117,7 @@ const POSTES: { poste: string; donnee: string; publie: string }[] = [
   {
     poste: "Montants des marchés",
     donnee:
-      "Les DECP sont des engagements contractuels — pour un accord-cadre, un montant maximum — et non des paiements.",
+      "Les DECP sont des engagements contractuels (pour un accord-cadre, un montant maximum) et non des paiements.",
     publie:
       "Le libellé exact « marchés notifiés », avec les montants rationalisés. Jamais le mot « dépensé ».",
   },
@@ -133,7 +133,7 @@ const POSTES: { poste: string; donnee: string; publie: string }[] = [
     donnee:
       "Les sources dont dérivent les alertes se mettent à jour à leur propre cadence : HATVP hebdomadaire, lobbying et marchés quotidiens.",
     publie:
-      "Des alertes recalculées à chaque mise à jour de source, chacune datée — voir la page Alertes.",
+      "Des alertes recalculées à chaque mise à jour de source, chacune datée (voir la page Alertes).",
   },
   {
     poste: "Protection sociale",
@@ -178,7 +178,7 @@ const EXPORTS: ExportJson[] = [
     motsCles: ["open data", "catalogue de sources", "fraîcheur des données", "France"],
     chemin: "/api/meta.json",
     description:
-      "Le catalogue meta_sources complet : chaque source tracée avec nom, URL amont, licence, fréquence, date des données, date d'ingestion, volumétrie et notes — plus genere_le, la date du build (témoin de fraîcheur du déploiement).",
+      "Le catalogue meta_sources complet : chaque source tracée avec nom, URL amont, licence, fréquence, date des données, date d'ingestion, volumétrie et notes, ainsi que genere_le, la date du build (témoin de fraîcheur du déploiement).",
   },
   {
     cle: "alertes",
@@ -191,7 +191,7 @@ const EXPORTS: ExportJson[] = [
   },
   {
     cle: "elus",
-    nom: "Répertoire des élus français — champs publics compacts",
+    nom: "Répertoire des élus français : champs publics compacts",
     sources: ["S17", "S5-AMO10", "S6-ODSEN", "S14"],
     motsCles: ["élus", "députés", "sénateurs", "mandats", "répertoire national des élus", "France"],
     chemin: "/api/elus.json",
@@ -239,7 +239,7 @@ const EXPORTS: ExportJson[] = [
     motsCles: ["index de recherche", "élus", "institutions", "France"],
     chemin: "/data/recherche-index.json",
     description:
-      "L'index de la recherche du site — c'est ce fichier que la barre de recherche charge et interroge côté navigateur.",
+      "L'index de la recherche du site : c'est ce fichier que la barre de recherche charge et interroge côté navigateur.",
   },
 ];
 
@@ -260,7 +260,7 @@ export default async function PageDonnees() {
           Données &amp; exports
         </h1>
         <div className="max-w-2xl rounded-xl border border-card-border bg-card p-5 text-sm text-ink-muted">
-          La base locale n’est pas encore construite — lancer{" "}
+          La base locale n’est pas encore construite. Lancer{" "}
           <code className="rounded bg-raised px-1.5 py-0.5">make ingest</code> pour
           ingérer les sources. Cette page devient alors le catalogue de fraîcheur
           des données.
@@ -330,7 +330,7 @@ export default async function PageDonnees() {
       {/* 1. Le tableau de fraîcheur central */}
       <Card
         titre="Les sources de ce dashboard"
-        sousTitre="meta_sources — chaque source porte sa date de données réelle, sa date d'ingestion, sa fréquence déclarée et sa licence"
+        sousTitre="meta_sources : chaque source porte sa date de données réelle, sa date d'ingestion, sa fréquence déclarée et sa licence"
       >
         <div className="mb-4 flex flex-col gap-2 text-[13px] leading-relaxed text-ink-secondary">
           <SyntheseFraicheurLecture sources={sourcesDatees} construitLe={construitLe} />
@@ -409,7 +409,7 @@ export default async function PageDonnees() {
             <span className="font-semibold text-ink-secondary">
               Règle du badge de fraîcheur
             </span>{" "}
-            — l’âge de la donnée (jour du calcul − date des données) est
+            : l’âge de la donnée (jour du calcul − date des données) est
             comparé à <strong className="text-ink-secondary">deux seuils calibrés
             pour cette source-là</strong>, et non à sa fréquence déclarée&nbsp;:
             «&nbsp;à jour&nbsp;» sous le premier seuil, «&nbsp;à
@@ -428,13 +428,13 @@ export default async function PageDonnees() {
             c’est le jour de construction du site dans la page servie, puis la
             date de lecture une fois la page recalculée par le navigateur
             (JavaScript actif). Seules les dates des données et les seuils
-            servent à ce recalcul&nbsp;; rien n’est demandé à un serveur.
+            servent à ce recalcul. Rien n’est demandé à un serveur.
           </p>
           <p>
             <span className="font-semibold text-ink-secondary">
               D’où viennent ces seuils
             </span>{" "}
-            — du même référentiel que la supervision du serveur
+            : du même référentiel que la supervision du serveur
             (<code className="rounded bg-raised px-1 py-0.5">fraicheur.conf</code>,
             une ligne par source, calibrée sur l’historique de publication
             réellement observé et sur les décalages documentés par les
@@ -452,7 +452,7 @@ export default async function PageDonnees() {
               «&nbsp;En attente d’une édition&nbsp;» décrit la source, pas le
               site
             </span>{" "}
-            — au jour du calcul, aucune édition plus récente n’a été ingérée. Le
+            : au jour du calcul, aucune édition plus récente n’a été ingérée. Le
             site ne vérifie pas l’amont : ce n’est ni le constat qu’aucune
             édition n’y a paru, ni une panne du dashboard, ni un
             pronostic. Quand le pipeline vise un millésime fixé, le badge le
@@ -480,13 +480,13 @@ export default async function PageDonnees() {
             <strong className="text-ink">commande publique</strong>, les{" "}
             <strong className="text-ink">finances locales</strong> et les{" "}
             <strong className="text-ink">prestations de protection sociale</strong>{" "}
-            (DREES, tous régimes, flux annuel — millésime dans la tuile). Hors
+            (DREES, tous régimes, flux annuel, millésime dans la tuile). Hors
             champ, et dit tel quel&nbsp;: la loi de financement de la sécurité
             sociale en tant que texte voté (pas de millésime structuré 2026),
             la dépense propre des opérateurs de l’État (seuls leurs crédits
             budgétaires apparaissent) et les entreprises publiques. Tout
             compteur du budget général porte la mention «&nbsp;budget général
-            de l’État&nbsp;» — jamais «&nbsp;la dépense publique&nbsp;».
+            de l’État&nbsp;», jamais «&nbsp;la dépense publique&nbsp;».
           </p>
         </div>
 
@@ -495,8 +495,8 @@ export default async function PageDonnees() {
         </h3>
         <p className="mb-3 max-w-3xl text-xs text-ink-muted">
           Aucune source publique française ne diffuse la dépense de l’État en
-          continu. Pour chaque poste, voici ce que la donnée contient — chaque
-          limite étant établie source à l’appui, et ce que
+          continu. Pour chaque poste, voici ce que la donnée contient (chaque
+          limite étant établie source à l’appui) et ce que
           le dashboard publie à partir de là.
         </p>
         <ul className="flex flex-col gap-3">
@@ -527,7 +527,7 @@ export default async function PageDonnees() {
       {/* 3. Licences et crédits */}
       <Card
         titre="Licences et crédits"
-        sousTitre="Licences telles qu'enregistrées en base (meta_sources.licence) — la réutilisation impose la mention de la source"
+        sousTitre="Licences telles qu'enregistrées en base (meta_sources.licence). La réutilisation impose la mention de la source"
       >
         {licences && (
           <DataTable
@@ -550,7 +550,7 @@ export default async function PageDonnees() {
         )}
         <div className="mt-4 flex flex-col gap-1.5 text-[13px] leading-relaxed text-ink-secondary">
           <p>
-            <strong className="text-ink">Crédits obligatoires</strong> — marchés
+            <strong className="text-ink">Crédits obligatoires.</strong> Marchés
             publics&nbsp;: consolidation communautaire{" "}
             <a
               href="https://github.com/ColinMaudry/decp-processing"
@@ -560,8 +560,8 @@ export default async function PageDonnees() {
             >
               decp-processing
             </a>{" "}
-            (Colin Maudry) ; projets d’achats publics&nbsp;: APProch (DAE/AIFE) ;
-            scores de participation et de loyauté des
+            (Colin Maudry). Projets d’achats publics&nbsp;: APProch (DAE/AIFE).
+            Scores de participation et de loyauté des
             députés&nbsp;:{" "}
             <a
               href="https://datan.fr"
@@ -572,24 +572,24 @@ export default async function PageDonnees() {
               Datan
             </a>{" "}
             (méthode publiée par Datan, affichée à côté du taux calculé par
-            France Transparence) ; Journal officiel, BOAMP, annuaire de
+            France Transparence). Journal officiel, BOAMP, annuaire de
             l’administration et référentiel de l’organisation de l’État&nbsp;:
-            DILA ; déclarations d’intérêts et répertoire des représentants
-            d’intérêts&nbsp;: HATVP ; comptes des partis et comptes de
-            campagne&nbsp;: CNCCFP ; répertoire national des élus&nbsp;:
-            ministère de l’Intérieur ; données parlementaires&nbsp;: Assemblée
-            nationale et Sénat ; finances locales&nbsp;: OFGL ; budget de
+            DILA. Déclarations d’intérêts et répertoire des représentants
+            d’intérêts&nbsp;: HATVP. Comptes des partis et comptes de
+            campagne&nbsp;: CNCCFP. Répertoire national des élus&nbsp;:
+            ministère de l’Intérieur. Données parlementaires&nbsp;: Assemblée
+            nationale et Sénat. Finances locales&nbsp;: OFGL. Budget de
             l’État et compte général de l’État&nbsp;: DGFiP
-            (data.economie.gouv.fr) ; populations de référence 2023 et stock
-            Sirene&nbsp;: INSEE ; prestations de protection sociale&nbsp;:
-            DREES ; encours et déficit des APU au sens de Maastricht,
+            (data.economie.gouv.fr). Populations de référence 2023 et stock
+            Sirene&nbsp;: INSEE. Prestations de protection sociale&nbsp;:
+            DREES. Encours et déficit des APU au sens de Maastricht,
             agrégats ESA (recettes et dépenses) et dépenses par fonction
-            (CFAP)&nbsp;: Eurostat (décision 2011/833/UE) ; comptes des
+            (CFAP)&nbsp;: Eurostat (décision 2011/833/UE). Comptes des
             APU (dépenses et recettes par sous-secteur, prélèvements
-            obligatoires)&nbsp;: INSEE (Licence Ouverte 2.0) ; sanctions
+            obligatoires)&nbsp;: INSEE (Licence Ouverte 2.0). Sanctions
             financières&nbsp;: Autorité de la concurrence (Licence Ouverte
-            2.0) ; avis et conseils&nbsp;: CADA ; registre de
-            transparence de l’Union européenne (décision 2011/833/UE) ; fond de
+            2.0). Avis et conseils&nbsp;: CADA. Registre de
+            transparence de l’Union européenne (décision 2011/833/UE). Fond de
             carte&nbsp;: france-geojson (contours IGN/Etalab).
           </p>
           <p className="text-xs text-ink-muted">
@@ -606,7 +606,7 @@ export default async function PageDonnees() {
       {/* 4. Exports JSON datés */}
       <Card
         titre="Exports JSON"
-        sousTitre={`Fichiers statiques construits avec cette version du site (le ${formatDateFr(new Date(construitLe).toISOString())}) — des instantanés datés téléchargeables, pas une API paramétrable`}
+        sousTitre={`Fichiers statiques construits avec cette version du site (le ${formatDateFr(new Date(construitLe).toISOString())}) : des instantanés datés téléchargeables, pas une API paramétrable`}
       >
         <p className="mb-4 max-w-3xl text-[13px] leading-relaxed text-ink-secondary">
           Chaque fichier est un <strong className="text-ink">instantané
@@ -618,7 +618,7 @@ export default async function PageDonnees() {
           <code className="rounded bg-raised px-1 py-0.5 text-xs">/api/*.json</code>{" "}
           portent un bloc <code className="rounded bg-raised px-1 py-0.5 text-xs">meta</code>{" "}
           (source(s) amont, date des données, licence) et un bloc{" "}
-          <code className="rounded bg-raised px-1 py-0.5 text-xs">donnees</code> — un
+          <code className="rounded bg-raised px-1 py-0.5 text-xs">donnees</code>, soit un
           dump complet, sans paramètre de filtrage&nbsp;: le tri et le filtrage
           se font chez le réutilisateur. La recherche du site interroge son
           index côté navigateur.
@@ -737,7 +737,7 @@ export default async function PageDonnees() {
             <code className="rounded bg-raised px-1 py-0.5 text-xs">Makefile</code>),
             téléchargent les sources ouvertes et construisent l’unique base{" "}
             <code className="rounded bg-raised px-1 py-0.5 text-xs">data/france.db</code>{" "}
-            (SQLite) — l’application ne fait aucun appel externe au runtime,
+            (SQLite). L’application ne fait aucun appel externe au runtime,
             elle ne lit que cette base.
           </p>
           <ZoneDefilante
