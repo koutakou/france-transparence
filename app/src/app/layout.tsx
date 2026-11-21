@@ -3,6 +3,7 @@ import Link from "next/link";
 import { LogoBouclier } from "@/components/LogoBouclier";
 import { MainNav } from "@/components/MainNav";
 import { SearchBox } from "@/components/ui/SearchBox";
+import { FLUX } from "@/lib/flux";
 import { formatInstantFr, htmlBandeauSiteFige, instantDeConstruction } from "@/lib/lecture";
 import { IMAGE_PARTAGE, openGraphPage, URL_LICENCE } from "@/lib/seo";
 import { REPO_URL, SITE_URL } from "@/lib/site";
@@ -90,6 +91,17 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {process.env.NODE_ENV === "production" && (
           <meta httpEquiv="Content-Security-Policy" content={CSP} />
         )}
+        {/* Découverte des flux Atom (/flux/*.xml, lib/flux.ts), hissée vers
+            le <head> comme la <meta> ci-dessus. */}
+        {FLUX.map((f) => (
+          <link
+            key={f.chemin}
+            rel="alternate"
+            type="application/atom+xml"
+            title={f.titre}
+            href={`${SITE_URL}${f.chemin}`}
+          />
+        ))}
         <header className="sticky top-0 z-30 border-b border-card-border bg-card">
           <div className="header-chrome mx-auto w-full max-w-7xl px-5 pt-3 pb-2">
             <Link href="/" className="header-logo flex items-center gap-2 xl:gap-3">
