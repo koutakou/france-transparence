@@ -11,7 +11,14 @@ import { urlSite } from "@/lib/basePath";
 import { majParamsUrl } from "@/lib/urlEtat";
 import { useUrlInitiale } from "@/lib/useUrlInitiale";
 import type { DeputeLigne, SenateurLigne } from "@/lib/queries/elus";
-import { TRIS_PARLEMENTAIRES, lireTriParlementaires, trierParlementaires } from "@/lib/tri";
+import {
+  PARAMS_URL_PARLEMENTAIRES,
+  TRIS_PARLEMENTAIRES,
+  lireTriParlementaires,
+  reinitialisationParlementaires,
+  triApplicable,
+  trierParlementaires,
+} from "@/lib/tri";
 
 /**
  * Tableau des députés OU des sénateurs — filtres et « tout afficher »
@@ -92,18 +99,18 @@ function LienFiche({ id, texte }: { id: string; texte: string }) {
 const CONFIG = {
   deputes: {
     fragment: "/data/elus/deputes.json",
-    paramGroupe: "gd",
-    paramDepartement: "dd",
-    paramTri: "td",
+    paramGroupe: PARAMS_URL_PARLEMENTAIRES.deputes.groupe,
+    paramDepartement: PARAMS_URL_PARLEMENTAIRES.deputes.departement,
+    paramTri: PARAMS_URL_PARLEMENTAIRES.deputes.tri,
     singulier: "député·e",
     pluriel: "député·es",
     vide: "Aucun député pour ces filtres",
   },
   senateurs: {
     fragment: "/data/elus/senateurs.json",
-    paramGroupe: "gs",
-    paramDepartement: "ds",
-    paramTri: "ts",
+    paramGroupe: PARAMS_URL_PARLEMENTAIRES.senateurs.groupe,
+    paramDepartement: PARAMS_URL_PARLEMENTAIRES.senateurs.departement,
+    paramTri: PARAMS_URL_PARLEMENTAIRES.senateurs.tri,
     singulier: "sénateur·rice",
     pluriel: "sénateur·rices",
     vide: "Aucun sénateur pour ces filtres",
@@ -278,22 +285,29 @@ export function TableParlementaires({
     majParamsUrl({ [cfg.paramTri]: lu === "nom" ? null : lu });
   };
   const reinitialiser = () => {
-    setSurcharge({ groupe: "", departement: "" });
-    majParamsUrl({ [cfg.paramGroupe]: null, [cfg.paramDepartement]: null });
+    const r = reinitialisationParlementaires(variante);
+    setSurcharge(r.surcharge);
+    majParamsUrl(r.url);
   };
 
   const source = besoinComplets && complets !== null ? complets : initiaux;
+  // Liste complète absente (chargement, fragment en échec) : pas de tri par
+  // groupe sur les seules premières lignes, l'ordre par nom est gardé.
+  const listeComplete = complets !== null || initiaux.length >= total;
+  const triApplique = triApplicable(tri, listeComplete);
+  const triGroupeIndisponible = indisponible && !listeComplete;
   const lignes = trierParlementaires(
     source.filter(
       (l) =>
         (groupe === "" || champGroupe(variante, l) === groupe) &&
         (departement === "" || champDepartement(variante, l) === departement),
     ),
-    tri,
+    triApplique,
     (l) => champGroupe(variante, l),
   );
   const tronque = !besoinComplets && initiaux.length < total;
   const filtreActif = groupe !== "" || departement !== "";
+  const reinitialisable = filtreActif || tri !== "nom";
   // Fragment en échec : le filtre ne porte que sur les premières lignes
   // embarquées. Le dire, et ne jamais conclure « aucun député ».
   const filtrePartiel = filtreActif && indisponible && initiaux.length < total;
@@ -335,9 +349,17 @@ export function TableParlementaires({
         </label>
         <label className={STYLE_LABEL_FILTRE}>
           Trier par
-          <select value={tri} onChange={(e) => surTri(e.target.value)} className={STYLE_SELECT}>
+          <select
+            value={triGroupeIndisponible ? triApplique : tri}
+            onChange={(e) => surTri(e.target.value)}
+            className={STYLE_SELECT}
+          >
             {TRIS_PARLEMENTAIRES.map((t) => (
-              <option key={t.valeur} value={t.valeur}>
+              <option
+                key={t.valeur}
+                value={t.valeur}
+                disabled={t.valeur === "groupe" && triGroupeIndisponible}
+              >
                 {t.libelle}
               </option>
             ))}
@@ -348,7 +370,7 @@ export function TableParlementaires({
             Tout afficher ({formatNombre(total)})
           </button>
         )}
-        {filtreActif && (
+        {reinitialisable && (
           <button
             type="button"
             onClick={reinitialiser}
@@ -372,6 +394,9 @@ export function TableParlementaires({
             {lignes.length > 1 ? "affiché·es" : "affiché·e"}
             {filtrePartiel
               ? ` · filtre appliqué aux ${formatNombre(initiaux.length)} premières lignes seulement, la liste complète n’a pas pu être chargée`
+              : ""}
+            {tri === "groupe" && triGroupeIndisponible
+              ? " · tri par groupe désactivé, la liste complète n’a pas pu être chargée : ordre alphabétique"
               : ""}
             {groupe ? ` · groupe ${groupe}` : ""}
             {departement ? ` · ${departement}` : ""}
