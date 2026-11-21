@@ -1531,6 +1531,22 @@ def test_upsert_elus_pose_le_mandat_rne_sur_la_fiche_senat(conn, pa_en_premier):
     assert sources["SEN-00001A"][0] == "SENAT-P9" and "RNE" in sources["SEN-00001A"]
 
 
+def test_hatvp_flag_ne_departage_pas_deux_fiches_sans_date(conn):
+    """Relecture de la PR 170 (m1) : la table ne départage une PA et sa SEN
+    que si leur date de naissance est la même ET non vide. Deux fiches sans
+    date ne sont pas la paire décrite : aucun lien, comme sans la table."""
+    _fiche_nee(conn, "PA796034", "Giletti", "Frank", None,
+               [{"source": "AN-P9", "type": "depute", "date_fin": "2026-09-30"}])
+    _fiche_nee(conn, "SEN-20874F", "Giletti", "Frank", "",
+               [{"source": "SENAT-P9", "type": "senateur"}])
+    hatvp = [_dossier_hatvp("GILETTI", "Frank", "senateur", "83", "Sénateur")]
+    assert p7.croiser_hatvp_flag(
+        conn, hatvp, passees={"PA796034": "SEN-20874F"}) == (0, 0)
+    assert conn.execute("SELECT count(*) FROM elus WHERE hatvp_flag <> 0"
+                        " OR hatvp_url IS NOT NULL").fetchone()[0] == 0
+
+
+
 def test_hatvp_flag_refuse_un_homonyme_d_un_autre_departement(conn):
     """Constat du 15/10/2026 (cas relevé sur la base servie) : LEROY Gilles,
     maire de Courtrizy-et-Fussigny (02), recevait la fiche HATVP d'un
