@@ -16,7 +16,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 import { SIGNES_BANNIS, signesPresents, textesDuBalisage, textesDuSource } from "./outils/typographie.mjs";
-import { COLONNES_SOURCES, clesDeValeur, controlerTypographie, voisinagesSources } from "../scripts/typographie.mjs";
+import { COLONNES_SOURCES, clesDeValeur, controlerTypographie, valeursDeColonne, voisinagesSources } from "../scripts/typographie.mjs";
 
 const APP = fileURLToPath(new URL("../", import.meta.url));
 
@@ -137,7 +137,17 @@ test("chaque colonne de COLONNES_SOURCES existe dans le schéma documenté", () 
   });
   assert.deepEqual(disparues, [], "colonne listée absente de docs/SCHEMA-DB.md : la retirer ou la renommer");
   assert.equal(new Set(COLONNES_SOURCES).size, COLONNES_SOURCES.length, "doublon dans la liste");
-  for (const tc of ["meta_sources.nom", "meta_sources.notes", "alertes.titre", "alertes.detail", "ue_registre_organisations.cout_libelle"]) {
+  for (const tc of [
+    "meta_sources.nom",
+    "meta_sources.notes",
+    "alertes.titre",
+    "alertes.detail",
+    "ue_registre_organisations.cout_libelle",
+    // Coupé avec un « … » ajouté, ou assemblés par string_agg : notre texte.
+    "lobby_activites.objet",
+    "lobby_activites.actions",
+    "lobby_activites.decisions",
+  ]) {
     assert.ok(!COLONNES_SOURCES.includes(tc), `${tc} est écrit par nos pipelines, il reste bloquant`);
   }
 });
@@ -152,6 +162,22 @@ test("une valeur courte d'une source sert de clé entière, mais pas un morceau 
     const r = controlerTypographie(tmp, cles);
     assert.equal(r.sources.length, 1, "la valeur courte entière est reprise de la source");
     assert.deepEqual(r.app.map((o) => o.extrait), ["Code XENM–RIZ"], "collée à un mot, elle reste bloquante");
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("une valeur courte dont le signe est au bord n'est pas une clé, un long contexte reste accepté", () => {
+  assert.equal(clesDeValeur("SA ;").size, 0, "signe en fin de valeur courte");
+  assert.equal(clesDeValeur("– A").size, 0, "signe en tête de valeur courte");
+  const cles = clesDeValeur("SA ;");
+  for (const c of clesDeValeur("Décret relatif au budget ;")) cles.add(c);
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ft-typo-bord-"));
+  try {
+    fs.writeFileSync(path.join(tmp, "a.html"), "<p>ACME SA ; BETA</p><p>Décret relatif au budget ; suite</p>");
+    const r = controlerTypographie(tmp, cles);
+    assert.deepEqual(r.app.map((o) => o.extrait), ["ACME SA ; BETA"], "« SA ; » ne couvre pas un texte de l'app");
+    assert.equal(r.sources.length, 1, "le signe noyé dans un long contexte de la source reste accepté");
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
@@ -199,4 +225,15 @@ test("le contrôle de l'export n'accepte que les colonnes sources, pas les texte
   const defaut = voisinagesSources(cheminBase);
   assert.deepEqual([...defaut.cles], ["au budget ; dispositi"], "jorf_textes.titre est dans COLONNES_SOURCES, pas meta_sources");
   assert.equal(voisinagesSources(path.join(tmp, "absente.db")).cles.size, 0, "base absente : rien n'est accepté");
+});
+
+test("une liste JSON de titulaires donne ses clés nom par nom, pas sur le JSON brut", () => {
+  const json = '[{"siret":"12345678900011","nom":"DUPONT ; FILS ET CIE"},{"siret":"98765432100022","nom":"BETA"}]';
+  assert.deepEqual(valeursDeColonne("decp_marches.titulaires_json", json), ["12345678900011", "DUPONT ; FILS ET CIE", "98765432100022", "BETA"]);
+  assert.deepEqual(valeursDeColonne("annonces_recentes.titulaires", '["ACME – SA"]'), ["ACME – SA"]);
+  assert.deepEqual(valeursDeColonne("jorf_textes.titre", json), [json], "une colonne texte reste entière");
+  assert.deepEqual(valeursDeColonne("decp_marches.titulaires_json", "pas du JSON ;"), ["pas du JSON ;"], "JSON illisible pris brut");
+  const cles = new Set();
+  for (const v of valeursDeColonne("decp_marches.titulaires_json", json)) clesDeValeur(v, cles);
+  assert.deepEqual([...cles], ["DUPONT ; FILS ET C"], "aucune clé ne porte la syntaxe JSON");
 });

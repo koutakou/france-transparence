@@ -27,8 +27,13 @@ import { createRequire } from "node:module";
  * dossiers législatifs, scrutins, marchés publics, budget de l'État, Sirene,
  * CNCCFP, CADA, ADLC). Les textes écrits par nos pipelines (meta_sources,
  * alertes, notes, sources de calcul, libellés calculés comme les fourchettes
- * ou les étiquettes de millésime) n'y sont pas et restent bloquants. Chaque
- * entrée doit exister dans docs/SCHEMA-DB.md (tests/typographie.test.mjs).
+ * ou les étiquettes de millésime) n'y sont pas et restent bloquants, comme
+ * une valeur que nous coupons ou assemblons (lobby_activites.objet, coupé
+ * avec un « … » ajouté, lobby_activites.actions et .decisions, jointes par
+ * string_agg). Chaque entrée doit exister dans docs/SCHEMA-DB.md
+ * (tests/typographie.test.mjs). Les signes que rétablit la réparation des
+ * octets cp1252 de la source (U+0085, U+0096, U+0097 rendus en « … », « – »
+ * et « — ») sont un décodage de la source, pas un ajout de notre part.
  */
 export const COLONNES_SOURCES = [
   // Marchés publics : DECP consolidées, BOAMP, programmations d'achats.
@@ -60,9 +65,6 @@ export const COLONNES_SOURCES = [
   "lobby_entites.denomination",
   "lobby_entites.nom_usage",
   "lobby_agg_top_entites.denomination",
-  "lobby_activites.objet",
-  "lobby_activites.actions",
-  "lobby_activites.decisions",
   "hatvp_decl_interets.organe_libelle",
   "hatvp_decl_lignes.libelle",
   "hatvp_decl_lignes.description",
@@ -188,18 +190,44 @@ const ALPHANUM = /[\p{L}\p{N}]/u;
 
 /**
  * Clés de voisinage d'une valeur de source : une par signe, bornée à la
- * valeur. Une valeur plus courte que la fenêtre sert de clé entière. Une clé
- * sans lettre ni chiffre (le signe seul) n'est pas gardée.
+ * valeur. Une valeur plus courte que la fenêtre sert de clé entière, mais
+ * seulement si le signe est à l'intérieur, avec une lettre ou un chiffre de
+ * chaque côté (« ENM–RI » oui, « SA ; » ou « – A » non : un tel bout se
+ * retrouverait dans n'importe quel texte). Une clé sans lettre ni chiffre (le
+ * signe seul) n'est pas gardée.
  */
 export function clesDeValeur(valeur, cles = new Set()) {
   for (const m of valeur.matchAll(SIGNES_GLOBAL)) {
     const i = m.index;
     const g = Math.min(VOISINAGE, i);
     const d = Math.min(VOISINAGE, valeur.length - 1 - i);
-    const cle = valeur.slice(i - g, i + d + 1);
-    if (ALPHANUM.test(cle)) cles.add(cle);
+    const gauche = valeur.slice(i - g, i);
+    const droite = valeur.slice(i + 1, i + d + 1);
+    if (g + d < CONTEXTE_MINIMAL && !(ALPHANUM.test(gauche) && ALPHANUM.test(droite))) continue;
+    if (ALPHANUM.test(gauche) || ALPHANUM.test(droite)) cles.add(valeur.slice(i - g, i + d + 1));
   }
   return cles;
+}
+
+/** Colonnes sources qui portent une liste JSON de titulaires, pas un texte. */
+const COLONNES_JSON = new Set([
+  "decp_marches.titulaires_json",
+  "decp_derniers_marches.titulaires_json",
+  "annonces_recentes.titulaires",
+]);
+
+/**
+ * Valeurs publiables d'une cellule : la chaîne elle-même, ou, pour une
+ * colonne JSON, chacune de ses chaînes (un nom de titulaire est affiché seul,
+ * jamais avec la syntaxe JSON qui l'entoure). Un JSON illisible est pris brut.
+ */
+export function valeursDeColonne(colonne, valeur) {
+  if (!COLONNES_JSON.has(colonne)) return [valeur];
+  try {
+    return textesDuJson(JSON.parse(valeur));
+  } catch {
+    return [valeur];
+  }
 }
 
 /**
@@ -224,7 +252,9 @@ export function voisinagesSources(cheminBase, colonnes = COLONNES_SOURCES) {
       }
       const c = q(col);
       const sql = `SELECT ${c} AS v FROM ${q(table)} WHERE typeof(${c}) = 'text' AND (instr(${c}, char(8212)) OR instr(${c}, char(8211)) OR instr(${c}, ';') OR instr(${c}, char(8230)))`;
-      for (const { v } of db.prepare(sql).iterate()) clesDeValeur(v, cles);
+      for (const { v } of db.prepare(sql).iterate()) {
+        for (const valeur of valeursDeColonne(tc, v)) clesDeValeur(valeur, cles);
+      }
     }
   } finally {
     db.close();
