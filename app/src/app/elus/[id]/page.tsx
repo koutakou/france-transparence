@@ -346,7 +346,8 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
       cle: "position",
       entete: "Position",
       rendu: (l) => {
-        if (!l.position) return <span className="text-ink-muted"><Vide /></span>;
+        // Même libellé que le décompte : l'absence de position est un fait, pas un manque.
+        if (!l.position) return <span className="text-ink-muted">Sans position enregistrée</span>;
         const libelle = POSITIONS[l.position] ?? l.position;
         return (
           <span>

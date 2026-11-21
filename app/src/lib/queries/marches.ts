@@ -530,6 +530,34 @@ const DECALAGES_FENETRE = ["+0 day", "-1 day", "+1 day"] as const;
  * On ne réconcilie que des ENTIERS — comparer des sommes de flottants
  * calculées par deux moteurs (DuckDB puis SQLite) n'aurait aucun sens.
  */
+/**
+ * Requête de `chargerDecompositionSuspects`. Une classe vide vaut 0 €, pas
+ * « n.d. » : un marché n'est suspect que par son montant (classification de
+ * la source ou dépassement du plafond), donc COALESCE ne masque aucun manque.
+ */
+export const SQL_DECOMPOSITION_SUSPECTS = `SELECT COUNT(*)                                        AS nb_fenetre,
+            SUM(CASE WHEN montant_suspect = 1 THEN 1 ELSE 0 END) AS nb_suspects,
+            SUM(CASE WHEN montant_suspect = 1
+                      AND montant_anomalie = 'aberrant' THEN 1 ELSE 0 END)
+                                                            AS nb_aberrants,
+            COALESCE(SUM(CASE WHEN montant_suspect = 1
+                      AND montant_anomalie = 'aberrant'
+                     THEN min(montant_retenu, :plafond) END), 0) AS montant_aberrants,
+            SUM(CASE WHEN montant_suspect = 1
+                      AND montant_anomalie = 'suspect' THEN 1 ELSE 0 END)
+                                                            AS nb_suspects_source,
+            COALESCE(SUM(CASE WHEN montant_suspect = 1
+                      AND montant_anomalie = 'suspect'
+                     THEN min(montant_retenu, :plafond) END), 0) AS montant_suspects_source,
+            SUM(CASE WHEN montant_suspect = 1
+                      AND montant_anomalie IS NULL THEN 1 ELSE 0 END)
+                                                            AS nb_hors_plafond,
+            COALESCE(SUM(CASE WHEN montant_suspect = 1
+                      AND montant_anomalie IS NULL
+                     THEN min(montant_retenu, :plafond) END), 0) AS montant_hors_plafond
+       FROM decp_marches
+      WHERE date_notification > date(:jour, :decalage, '-12 months')`;
+
 function chargerDecompositionSuspects(
   db: Db,
   qualite: QualiteMontants | null,
@@ -538,30 +566,7 @@ function chargerDecompositionSuspects(
   const jour = s1?.date_ingestion?.slice(0, 10);
   if (!qualite || !jour) return null;
 
-  const requete = db.prepare(
-    `SELECT COUNT(*)                                        AS nb_fenetre,
-            SUM(CASE WHEN montant_suspect = 1 THEN 1 ELSE 0 END) AS nb_suspects,
-            SUM(CASE WHEN montant_suspect = 1
-                      AND montant_anomalie = 'aberrant' THEN 1 ELSE 0 END)
-                                                            AS nb_aberrants,
-            SUM(CASE WHEN montant_suspect = 1
-                      AND montant_anomalie = 'aberrant'
-                     THEN min(montant_retenu, :plafond) END) AS montant_aberrants,
-            SUM(CASE WHEN montant_suspect = 1
-                      AND montant_anomalie = 'suspect' THEN 1 ELSE 0 END)
-                                                            AS nb_suspects_source,
-            SUM(CASE WHEN montant_suspect = 1
-                      AND montant_anomalie = 'suspect'
-                     THEN min(montant_retenu, :plafond) END) AS montant_suspects_source,
-            SUM(CASE WHEN montant_suspect = 1
-                      AND montant_anomalie IS NULL THEN 1 ELSE 0 END)
-                                                            AS nb_hors_plafond,
-            SUM(CASE WHEN montant_suspect = 1
-                      AND montant_anomalie IS NULL
-                     THEN min(montant_retenu, :plafond) END) AS montant_hors_plafond
-       FROM decp_marches
-      WHERE date_notification > date(:jour, :decalage, '-12 months')`,
-  );
+  const requete = db.prepare(SQL_DECOMPOSITION_SUSPECTS);
 
   for (const decalage of DECALAGES_FENETRE) {
     const l = requete.get({ plafond: qualite.plafond, jour, decalage }) as {

@@ -33,6 +33,13 @@ test("l'export garde sirensTitulaires avec son sens d'origine", () => {
   assert.equal(croisement.ensemble.sirensTitulaires, 5);
 });
 
+test("sans marché écrêté ni suspect, les montants valent 0 €, pas « n.d. »", () => {
+  assert.equal(croisement.agregats.ecretesHorsAc, 0);
+  assert.equal(croisement.agregats.montantEcretesHorsAc, 0);
+  assert.equal(croisement.agregats.suspectsHorsAc, 0);
+  assert.equal(croisement.agregats.montantSuspectsHorsAc, 0);
+});
+
 test("le numérateur est inclus dans le dénominateur", () => {
   assert.ok(croisement.agregats.sirensHorsAc <= croisement.ensemble.sirensTitulairesHorsAc);
 });

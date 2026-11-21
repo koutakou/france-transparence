@@ -17,6 +17,12 @@ export const ESPACE_FINE = "\u202F";
  */
 export const VIDE = "n.d.";
 
+/**
+ * Valeur sans objet (elle n'existe pas par nature, ce n'est pas un manque).
+ * En JSX, `<Vide sansObjet />`.
+ */
+export const SANS_OBJET = "s.o.";
+
 /** Normalise les espaces produits par Intl (U+0020 / U+00A0) en U+202F. */
 function normaliseEspaces(s: string): string {
   return s.replace(/[\u0020\u00A0]/g, ESPACE_FINE);
