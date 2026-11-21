@@ -38,7 +38,8 @@ DATE_FR = re.compile(r"\d{2}/\d{2}/\d{4}")
 # R4 : négations et affirmations sur l'amont qui vieillissent. Elles restent
 # permises si une date de vérification les suit de près.
 QUI_VIEILLISSENT = re.compile(
-    r"jamais publiée|jamais suivie|toujours en vigueur|aucun équivalent",
+    r"jamais publiée|jamais suivie|toujours en vigueur|aucun équivalent"
+    r"|non publiée|uniquement en PDF",
     re.IGNORECASE,
 )
 FENETRE_DATE = 80
@@ -107,8 +108,8 @@ def _hors_service(arbre: ast.AST) -> set[int]:
     return ids
 
 
-def textes_servis(source: str) -> list[tuple[int, str]]:
-    """Chaînes en prose d'un module, avec leur ligne."""
+def _chaines(source: str) -> list[tuple[int, str]]:
+    """Chaînes d'un module hors docstrings, journal, exceptions et SQL."""
     arbre = ast.parse(source)
     exclus = _docstrings(arbre) | _hors_service(arbre)
     vus: set[int] = set()
@@ -119,10 +120,28 @@ def textes_servis(source: str) -> list[tuple[int, str]]:
         if isinstance(n, ast.JoinedStr):
             vus.update(id(v) for v in n.values)
         t = _texte(n)
-        if t is None or t.count(" ") < 3 or SQL.search(t):
+        if t is None or SQL.search(t):
             continue
         out.append((n.lineno, t))
     return out
+
+
+def textes_servis(source: str) -> list[tuple[int, str]]:
+    """Chaînes en prose d'un module (au moins trois espaces), avec leur ligne."""
+    return [(l, t) for l, t in _chaines(source) if t.count(" ") >= 3]
+
+
+def libelles_courts(source: str) -> list[tuple[int, str]]:
+    """Chaînes de moins de trois espaces : libellés de colonne, de tableau ou
+    de titre (« Montant suspect »). Elles échappaient au contrôle des mots
+    interdits, qui s'y applique seul : une clé ou un identifiant n'a ni date
+    ni négation à porter."""
+    return [(l, t) for l, t in _chaines(source) if t.count(" ") < 3]
+
+
+def mots_interdits_dans(texte: str) -> list[str]:
+    return [f"« {m.group(0)} » ({pourquoi})"
+            for motif, pourquoi in INTERDITS if (m := motif.search(texte))]
 
 
 def tables_du_schema() -> set[str]:
@@ -133,8 +152,7 @@ def tables_du_schema() -> set[str]:
 
 
 def fautes_dans(texte: str, tables: set[str]) -> list[str]:
-    fautes = [f"« {m.group(0)} » ({pourquoi})"
-              for motif, pourquoi in INTERDITS if (m := motif.search(texte))]
+    fautes = mots_interdits_dans(texte)
     for m in QUI_VIEILLISSENT.finditer(texte):
         if not DATE_FR.search(texte[m.end():m.end() + FENETRE_DATE]):
             fautes.append(f"« {m.group(0)} » sans date de vérification")
@@ -155,6 +173,24 @@ def test_aucun_texte_servi_ne_porte_de_reference_interne_ni_de_negation_non_date
     assert relevees == []
 
 
+def test_aucun_libelle_court_ne_porte_de_mot_interdit():
+    relevees = []
+    for m in MODULES:
+        for ligne, texte in libelles_courts(m.read_text(encoding="utf-8")):
+            for faute in mots_interdits_dans(texte):
+                relevees.append(f"{m.name}:{ligne} : {faute}")
+    assert relevees == []
+
+
+def test_le_controle_voit_les_libelles_courts():
+    source = 'COLONNES = {"montant": "Montant suspect", "cle": "montant_suspect"}\n'
+    courts = dict((t, l) for l, t in libelles_courts(source))
+    assert "Montant suspect" in courts and textes_servis(source) == []
+    assert mots_interdits_dans("Montant suspect")
+    assert mots_interdits_dans("Plus dépensiers")
+    assert mots_interdits_dans("montant_suspect") == []
+
+
 def test_le_controle_voit_chaque_defaut_de_l_audit():
     tables = {"partis_comptes"}
     for texte in [
@@ -166,6 +202,8 @@ def test_le_controle_voit_chaque_defaut_de_l_audit():
         "Valeur au 01/01/2024, toujours en vigueur en 2026 ; identique.",
         "Les dix collectivités les plus dépensières par habitant.",
         "Marchés au montant suspect, à vérifier.",
+        "La liste est publiée uniquement en PDF au JO.",
+        "Le barème est non publiée en données à ce jour, voir le décret.",
     ]:
         assert fautes_dans(texte, tables), texte
 
