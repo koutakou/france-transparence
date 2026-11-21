@@ -2,7 +2,13 @@
 
 État au 20/08/2026, relu le 15/10/2026 (sections 1 et 2 mises à jour ce jour ; section datée du 15/10/2026 ajoutée après l'audit du même jour), puis le 11/11/2026 (récapitulatif « À faire en premier » et table des échéances datées en tête, sections datées du 11/11/2026 ajoutées par les correctifs du jour). Les deux actions les plus attendues (domaine, e-mail de contact) sont **faites** : le site vit sur https://francetransparence.fr, servi par nginx depuis un serveur dédié, et les pages légales portent une adresse de contact dédiée. Ce fichier ne garde que ce qui reste ouvert.
 
+Relu le 21/11/2026 : règle d'exploitation ci-dessous, et section du 20 et 21/11/2026.
+
+> **Règle d'exploitation, à lire avant toute fusion qui déplace un fichier.** Les scripts `ft-*` du serveur (`/usr/local/bin/`) ne sont pas versionnés, et certains lisent des fichiers du dépôt par leur chemin. Par exemple, le contrôle 8 de `ft-localiser` lit `app/src/lib/fraicheur.ts`. **Tout déplacement ou renommage d'un fichier lu par un script `ft-*` casse le déploiement** : le contrôle échoue, rien n'est publié, et le site reste figé. C'est ce qui s'est passé du 12 au 20/11/2026 (JOURNAL.md, décision 55). Avant de fusionner un tel changement, relever sur le serveur les chemins lus (`grep -n 'app/src\|pipelines/\|deploy/' /usr/local/bin/ft-*`) et mettre le script à jour le même jour.
+
 ## À faire en premier (11/11/2026)
+
+État au 21/11/2026 : les points 1, 2, 4, 5 et 9 sont faits (section du 20 et 21/11/2026). Restent les points 3, 6, 7 et 8.
 
 Ordre conseillé. Chaque point renvoie à la section qui en donne le détail et les commandes ; il ne les répète pas. Les correctifs fusionnés le 11/11 (JOURNAL.md, décisions 47-54) n'arriveront en ligne qu'au premier cycle `ft-deploy` qui aboutira.
 
@@ -46,7 +52,48 @@ Relevées le 11/11/2026 (`openssl s_client`, `whois`, calendriers amont). Une é
 | non connue d'ici | Abonnement au serveur dédié (Scaleway) | rien | relever la date dans le compte client et poser un rappel |
 | 60 jours après le dernier commit sur `main` | Désactivation des workflows planifiés par GitHub | job `veiller`, issue `cron-echeance` à partir du 45e jour | un commit sur `main`, ou `gh workflow enable` (section 2 de « Ce qui reste ouvert ») |
 
+## 20 et 21/11/2026 : réparation du serveur, maintenance, et ce qui reste
+
+Faits relevés sur le serveur le 20 et le 21/11/2026. L'incident lui-même est décrit dans JOURNAL.md, décision 55. Chaque fichier modifié a sa sauvegarde dans `/root/` ou à côté de lui, jamais dans un dossier que nginx charge.
+
+### Fait
+
+1. **Contrôle 8 de `ft-localiser`, chemin des seuils.** Ce contrôle compare `/etc/france-transparence/fraicheur.conf`, référentiel de `ft-fraicheur`, au tableau `SEUILS_SOURCES` de l'arbre qui va être construit. Le commit 73df172 (décision 54) a déplacé ce tableau de `app/src/lib/queries/donnees.ts` vers `app/src/lib/fraicheur.ts`. Du 12 au 20/11, le contrôle cherchait l'ancien fichier, échouait, et arrêtait chaque cycle avant le build. Le 20/11, le chemin a été corrigé dans `/usr/local/bin/ft-localiser` (variable `FICHIER_SEUILS_APP`). Sauvegarde : `ft-localiser.20261120-avant-seuils`.
+2. **Contrôle 8, expression corrigée le 21/11.** Elle rejetait les lignes de `SEUILS_SOURCES` qui portent un champ de plus (`editionFigee: true`). Onze sources (S16, S20, S21, S23, S25, S29, S31, S37, S46, S50, S51) échappaient donc à la comparaison et produisaient un faux avertissement. L'expression accepte désormais des champs en plus : 44 seuils identiques sur 44. Sauvegarde : `ft-localiser.20261121-avant-regex`.
+3. **Seuils de fraîcheur** : les cinq seuils recalibrés le 11/11 sont reportés dans `/etc/france-transparence/fraicheur.conf` depuis le 20/11 (section « Seuils de fraîcheur » ci-dessous). Sauvegarde en `.20261120-avant-seuils`.
+4. **Sauvegarde nocturne de la base**, en échec silencieux du 10 au 20/11. La base est en mode WAL, et `ProtectSystem=strict` de l'unité `ft-sauvegarde` empêchait de créer le fichier `-shm` à côté d'elle. Corrigé par le complément `/etc/systemd/system/ft-sauvegarde.service.d/30-base-wal.conf`. Sauvegarde du 20/11 à 22:34 vérifiée, sauvegardes locale et distante du 21/11 en succès.
+5. **Venv du serveur : Python 3.14.10**, et non 3.10 comme le dépôt le supposait par prudence (section « Venv du serveur », ci-dessous). Rien n'a été changé dans la venv. Ce que cela permet est à décider (« Reste à faire », point 2).
+6. **Base de `ft-deploy` : elle persiste d'un cycle à l'autre.** Tranché le 21/11 (section « `ft-deploy` ingère-t-il… », ci-dessous) : les secours `jorf`, `dole` et ODSEN sont effectifs sur le serveur.
+7. **Redirections 301 d'élus** : posées le 20/11 (`/root/poser-301-d22.sh`), 23/23 au contrôle du cycle du 21/11.
+8. **`security.txt`** : le fichier posé à la main est retiré. Celui qui est servi est celui du build, qui commence par `Contact: mailto:`.
+9. **Gardes de la CI dans `ft-deploy`** (section du 15/10/2026, Serveur, point 3). `npm test` est bloquant, juste après `npm ci`. Le budget de poids avertit seulement, après le build : ligne au journal du cycle et `ft-alerte poids-pages alerte`. Les fiches sont comptées sans `annuaire` dans `ft-deploy` et `ft-etat`. Au cycle du 21/11 : 233 tests sur 233, page la plus lourde à 469 Ko pour un plafond de 500 Ko, 1 027 fiches. Sauvegardes : `/root/ft-deploy.20261120-gardes-ci` et `/root/ft-etat.20261120-annuaire`.
+10. **nginx** (même section, points 4 et 9). `Cache-Control: no-cache` sur `/data/marches/ao.json`, `/data/marches/ao-toutes/*.json` et `/data/accueil/ao-cloture/*.json`. Page 404 du site à la place du 403 brut sur `/api/` et `/data/`. `http://francetransparence.fr/elus` redirigé en un seul saut. `interest-cohort` retiré de `Permissions-Policy`. Sauvegardes : `/root/*avant-points4-9-20261120`.
+11. **Brotli** (même section, point 6) : non fait. Aucun module brotli n'est empaqueté pour la version de nginx installée, et la décision exclut la compilation comme l'ajout d'un dépôt.
+12. **Conservation des journaux** (même section, point 8) : conforme à `/donnees-personnelles`. `access.log` couvre 52 jours, `audience.log` remonte au 20/08, le repli sur `access.log` est implémenté, et `/var/log/nginx` est hors de la sauvegarde distante. Les journées du 05/09 et du 06/10 sont partielles parce qu'elles ont été ingérées en cours de journée, pas faute de journaux.
+13. **Accès SSH de l'administration.** La règle `LIMIT` d'ufw sur le port 22 bloquait les connexions rapprochées. Une règle qui autorise le port 22 depuis l'adresse du poste d'administration est placée en tête, avant la règle `LIMIT`. La même adresse figure dans `ignoreip` de la seule prison `sshd` de fail2ban (`jail.local`). Toute autre adresse reste soumise à la limite et au bannissement. **Si l'adresse du poste change, ces deux lignes sont à mettre à jour**, sans quoi la limite et le bannissement s'appliquent de nouveau à l'administration.
+
+### Reste à faire
+
+1. **`.github/workflows/publication.yml`, ligne 290** : compter les fiches sans `annuaire`, comme `ft-deploy` et `ft-etat`.
+   ```sh
+   nb_fiches=$(find app/out/elus -mindepth 1 -maxdepth 1 -type d ! -name annuaire | wc -l)
+   ```
+   Le jeton `gh` n'a pas le scope `workflow` : `gh auth refresh -s workflow`, ou une clé de déploiement du dépôt.
+2. **Contrainte Python 3.10.** La venv du serveur étant en 3.14, décider s'il faut garder le job `tests-python-3-10` et son check, l'`ignore` de `duckdb>=2.0.0` dans `.github/dependabot.yml` et l'en-tête de `requirements.txt`. Recréer la venv sous un autre interpréteur reste un geste explicite (section « Venv du serveur »).
+3. **Audience.** Rattraper les deux journées partielles :
+   ```sh
+   sudo /usr/bin/flock /run/ft-audience-serie.lock /usr/local/bin/ft-audience-serie --jour 2026-09-05
+   sudo /usr/bin/flock /run/ft-audience-serie.lock /usr/local/bin/ft-audience-serie --jour 2026-10-06
+   ```
+   Attendu : `complet=1` pour les deux jours. Supprimer ensuite les deux copies de la série gardées avant la pose du 20/11 (`/var/lib/france-transparence/audience/serie.20261120-avant-audit.sqlite` et `serie.20261120-robustesse.sqlite`), qui contiennent encore des clés à adresse IPv4, et le dossier de travail `/root/ftaud/`.
+4. **Droit sudo temporaire** accordé pour l'intervention du 20/11 (fichier sous `/etc/sudoers.d/`) : à retirer une fois les travaux finis.
+5. **Libellés de `ft-localiser`** : les lignes `ORPHELIN` et `OK` du contrôle 8 nomment encore `donnees.ts` alors qu'il lit `fraicheur.ts`. Sans effet sur le verdict, à corriger au prochain passage dans le script.
+6. **Cycle du 22/11** : vérifier dans `deploiement.log` que `npm ci` installe better-sqlite3 13.2 (Dependabot #152).
+7. **Bloc `www`**, facultatif : `https://www.francetransparence.fr/elus` fait encore deux sauts (vers l'apex, puis vers la barre finale). Le correctif du bloc `:80` s'y applique.
+
 ## 11/11/2026 — Venv du serveur : dépendances figées
+
+**Relevé le 20/11/2026 : la venv du serveur tourne sous Python 3.14.10.** Le point 1 est fait, et la condition du point 2 (3.11 ou plus) est remplie. La suite de la section reste vraie pour une venv recréée.
 
 `requirements.txt` passe de bornes basses (`duckdb>=1.3`) à des versions exactes, transitives comprises. Au premier `ft-deploy` qui suit la fusion, `git pull` rend ce fichier plus récent que `.venv/bin/pip`. Au premier `make ingest-…`, la règle `$(VENV)/bin/pip` du `Makefile` lance alors `pip install --upgrade pip`, puis `pip install -r requirements.txt`, **avec l'interpréteur de la venv existante** (`.venv/bin/python`). Elle ne rappelle `$(PYTHON)` (`python3.14` par défaut) que si la venv n'a pas d'interpréteur exécutable. Une venv existante n'a donc besoin ni de `python3.14` ni d'un `PYTHON=…` passé par `ft-deploy`, et elle ne change pas d'interpréteur. **PyPI doit rester joignable à ce moment-là.** Un échec arrête le cycle avant la bascule : le site de la veille reste servi. `make test` vérifie ensuite que la venv porte exactement les versions figées (`pipelines/tests/test_dependances.py`, qui passe sous Python 3.10 à 3.14 et ne regarde ni pip ni setuptools). Changer d'interpréteur reste un geste explicite : supprimer `.venv`, puis `make venv PYTHON=…`.
 
@@ -63,7 +110,7 @@ Relevées le 11/11/2026 (`openssl s_client`, `whois`, calendriers amont). Une é
 
 ## 11/11/2026 — Journal officiel : ce que donnera le premier cycle du serveur, et ce qu'il faut y lire
 
-Le 08/11/2026 la DILA a renouvelé son dépôt JORFSIMPLE et en a retiré toutes les livraisons antérieures : le 11/11 il ne proposait plus que deux éditions quotidiennes (10/11 et 11/11). `ft-deploy` ingère chaque nuit dans une base **neuve** ([RUNBOOK](deploiement/RUNBOOK.md)) : la fenêtre du JO n'a donc jamais tenu que par ce que le dépôt listait encore, et il n'existe pas de « base de la veille » à reprendre.
+Le 08/11/2026 la DILA a renouvelé son dépôt JORFSIMPLE et en a retiré toutes les livraisons antérieures : le 11/11 il ne proposait plus que deux éditions quotidiennes (10/11 et 11/11). Cette section supposait que `ft-deploy` ingère chaque nuit dans une base neuve. **Rectifié le 21/11/2026 : la base du serveur persiste d'un cycle à l'autre** (section « `ft-deploy` ingère-t-il… », ci-dessous). `jorf_textes_archive` y porte des lignes archivées depuis le 26/08, et la réintégration décrite en fin de section joue donc sur le serveur.
 
 Le correctif du 11/11 fait trois choses : un index sans livraison nocturne ne tue plus le cycle ; chaque nocturne téléchargée est copiée, avec son empreinte SHA-256, dans un coffre hors de `data/raw` ; une livraison que l'index ne liste plus est relue depuis une copie locale vérifiée (coffre, ou `data/raw/jorf` si le fichier y est encore). Poids mesuré : 4,7 Mo pour 30 nocturnes, rétention de 60 jours, soit de l'ordre de 10 Mo.
 
@@ -92,7 +139,7 @@ Le correctif du 11/11 fait trois choses : un index sans livraison nocturne ne tu
    Si le repli dans l'arbre est celui qui sert, l'inscrire dans la sauvegarde locale n'est pas utile (10 Mo reconstructibles tant que le dépôt DILA les propose), mais il ne doit pas être effacé entre deux cycles.
 4. **Jours suivants** : `ft-fraicheur` et la phrase d'en-tête de `/documents` disent le nombre de JO et leurs bornes. Une ligne « aucun JO entre le … et le … » signale des jours que ni le dépôt ni les copies ne couvrent.
 
-La réintégration depuis `jorf_textes_archive`, écrite le même jour, ne joue que sur une base qui persiste d'un cycle à l'autre : elle est sans effet sur le serveur tel qu'il ingère aujourd'hui.
+La réintégration depuis `jorf_textes_archive`, écrite le même jour, ne joue que sur une base qui persiste d'un cycle à l'autre. C'est le cas du serveur (relevé du 21/11/2026).
 
 ## 11/11/2026 — Alertes : ce que le dépôt ne peut pas faire à votre place
 
@@ -104,6 +151,8 @@ Du 22/10 au 11/11/2026, la validation quotidienne a échoué vingt et un jours d
 4. **Faire sortir l'alerte du serveur.** `ft-alerte` écrit dans le journal systemd et pousse vers un webhook « si l'un est configuré » ; le gel du 08/11 n'a atteint personne. La vigie le verra désormais, mais une fois par jour et seulement si GitHub fonctionne. À poser sur le serveur : un envoi réel (courriel vers la boîte de contact) à chaque échec de `ft-deploy`, répété chaque jour tant que `current` n'a pas basculé, avec le nombre de jours dans l'objet. Et, pour le gel en cours : `ft-etat`, puis `/var/log/france-transparence/deploiement.log`.
 
 ## 11/11/2026 — `ft-deploy` ingère-t-il dans une base neuve ou dans la base du dernier cycle ? Trois secours en dépendent
+
+**Tranché le 21/11/2026 : la base persiste, c'est le cas du point 3.** Dans `/usr/local/bin/ft-deploy`, la base est `$DEPOT/data/france.db`, et la mise à jour du dépôt fait `git clean -fd` sans `-x`, pour que les fichiers ignorés (`data/france.db`, `node_modules`, `.venv`) survivent. Rien n'efface la base avant `make ingest`. Lu en lecture seule dans la base servie : `jorf_textes_archive` porte 6 256 lignes archivées du 26/08 au 21/11, et `votes_recents_archive` 158 197 lignes du 02/10 au 20/11. Les secours `jorf`, `dole` et ODSEN sont donc effectifs sur le serveur. Le RUNBOOK § 1 est corrigé. Restent à corriger les docstrings et les tests qui disent le contraire (`ingest_jorf.py`, `ingest_parlement.py`, `test_jorf.py`, `test_parlement.py`).
 
 Les secours « publication précédente » de `jorf`, `dole` et `ingest-parlement` (dump `export_sens` vide, borne de 3 jours) lisent la base **du cycle en cours** (`db.publication_precedente`, `cycle_precedent`). Ils ne jouent que si cette base porte déjà un cycle réussi. Or le dépôt se contredit sur ce point, et seul `/usr/local/bin/ft-deploy` le tranche :
 
@@ -145,6 +194,8 @@ La copie versionnée des seuils (`SEUILS_SOURCES`, désormais dans `app/src/lib/
 | `S47` | 650 / 750 | 910 / 970 | jc |
 | `S48` | 650 / 750 | 560 / 650 | jc |
 | `S49` | 650 / 750 | 820 / 900 | jc |
+
+**FAIT le 20/11/2026.** Depuis le 21/11, le contrôle 8 de `ft-localiser` compare les 44 seuils des deux fichiers à chaque cycle (section du 20 et 21/11/2026, points 1 et 2).
 
 Contrôle : `ft-fraicheur --json` doit afficher ces valeurs. S31 est en outre dit « millésime figé » sur `/donnees` ; ce n'est pas un seuil, `fraicheur.conf` ne le porte pas.
 

@@ -17,15 +17,16 @@ Un run CI rouge n'est **jamais** une panne du site, et la validation ne voit **j
 ## 1. Architecture d'exploitation
 
 ```
-44 sources open data officielles (data.gouv.fr, DILA, AN, Sénat, HATVP, DGFiP, OFGL, CNCCFP, Eurostat, DREES, INSEE, Direction du Budget…) — catalogue vivant : `/donnees`
+44 sources : publications officielles (data.gouv.fr, DILA, AN, Sénat, HATVP, DGFiP, OFGL, CNCCFP, Eurostat, DREES, INSEE, Direction du Budget…), plus S1, S7 et S31, étiquetées sur `/donnees`, qui est le catalogue vivant
         │  re-téléchargées à chaque cycle. Quatre dumps que l'amont peut retirer
         │  (scrutins AN, Dosleg, CADA, Datan) et les livraisons nocturnes du JO
         │  (que la DILA retire de son dépôt) ont en plus une copie datée hors
         │  du cache, sur la machine, non servie — pas Sirene, pas de page /archives.
         ▼
-SERVEUR DÉDIÉ (Scaleway Dedibox, Ubuntu 22.04) — ft-deploy.timer, tous les jours 05:17 Paris
-        git pull → ft-localiser (55 contrôles d'identité de déploiement, ne modifie rien)
-        → make ingest (base SQLite neuve) → make test (pytest) → build export (FT_EXPORT=1)
+SERVEUR DÉDIÉ (Scaleway Dedibox, Ubuntu 22.04), ft-deploy.timer, tous les jours 05:17 Paris (+ 10 min aléatoires au plus)
+        git pull → ft-localiser (contrôles d'identité de déploiement, ne modifie rien)
+        → make ingest (dans data/france.db, qui persiste d'un cycle à l'autre) → make test (pytest)
+        → npm ci → npm test (bloquant) → build export (FT_EXPORT=1) → budget de poids (avertit)
         → contrôles de santé → pré-compression zopfli → BASCULE ATOMIQUE du lien « current »
         ▼
 nginx sert /srv/france-transparence/current/ — https://francetransparence.fr
@@ -36,6 +37,7 @@ Propriétés à connaître :
 
 - **Tout ou rien.** Le lien `current` ne bascule qu'après les contrôles de santé et la pré-compression. Une étape en échec = **rien n'est publié**, la version de la veille continue d'être servie sans interruption, et `ft-alerte` notifie. La bascule est un `ln -sfnT` puis un `mv -Tf` — un `rename(2)` : aucun visiteur ne voit d'état intermédiaire.
 - **Contrôles de santé du site généré** : `index.html` présent et titré, `404.html` présent, `api/meta.json` parsable et porteur de `meta.genere_le`, **≥ 900 fiches d'élus**, export **< 950 Mo**, et **aucune URL `koutakou.github.io` résiduelle**.
+- **La base persiste d'un cycle à l'autre** (relevé du 21/11/2026) : `ft-deploy` ingère dans `data/france.db` de l'arbre `/srv/france-transparence/app`, et sa mise à jour du dépôt (`git clean -fd`, sans `-x`) garde les fichiers ignorés. Les secours « publication précédente » (`jorf`, `dole`, ODSEN) et les contrôles inter-cycles de P15 jouent donc sur le serveur, jamais en CI, qui part toujours d'une base neuve. Détail et conséquences : [../ACTIONS-HUMAINES.md](../ACTIONS-HUMAINES.md), section « `ft-deploy` ingère-t-il… ».
 - **Retour arrière sans rebuild** : les **5** dernières releases sont conservées sous `/srv/france-transparence/releases/`, `ft-rollback` rebascule le lien en quelques secondes.
 - **La fraîcheur affichée reste vraie par construction** : elle est calculée depuis `meta_sources` de la base réellement déployée. Un cycle raté ne dégrade pas l'honnêteté du site, il la laisse constater un jour de retard.
 - **Coût** : abonnement au serveur dédié + nom de domaine. Ce n'est plus gratuit ; c'est le prix des en-têtes HTTP maîtrisés et du domaine propre (voir DECISION.md).
@@ -103,16 +105,20 @@ ft-alerte --test     # vérifie que le canal de notification fonctionne vraiment
 
 ### Minuteries en place
 
+Relevé le 21/11/2026 (`systemctl list-timers 'ft-*'`). Heures de Paris, chacune suivie de son décalage aléatoire maximal (`RandomizedDelaySec`).
+
 | Heure | Unité | Rôle |
 |---|---|---|
-| toutes les 5 min | `ft-sonde.timer` | disponibilité (10 contrôles) |
-| 03:30 | `ft-sauvegarde.timer` | sauvegarde locale |
-| 04:12 | `ft-audience.timer` | rapport d'audience quotidien |
-| 04:15 | `ft-sauvegarde-distante.timer` | copie hors-site chiffrée |
-| **05:17** | **`ft-deploy.timer`** | **reconstruction et publication** |
-| 06:30 | `ft-fraicheur.timer` | fraîcheur des sources amont |
+| toutes les 5 min (30 s) | `ft-sonde.timer` | disponibilité (10 contrôles) |
+| toutes les 5 min, à la 40e seconde | `ft-audience-continu.timer` | rafraîchit la série d'audience du jour et la page `/_audience/` |
+| 03:30 (15 min) | `ft-sauvegarde.timer` | sauvegarde locale |
+| 04:12 (10 min) | `ft-audience.timer` | rapport d'audience quotidien |
+| 04:15 (15 min) | `ft-sauvegarde-distante.timer` | copie hors-site chiffrée |
+| 04:27 (5 min) | `ft-audience-serie.timer` | ingère la journée d'hier dans la série d'audience (`ft-audience-serie --hier`) |
+| **05:17 (10 min)** | **`ft-deploy.timer`** | **reconstruction et publication** |
+| 06:30 (10 min) | `ft-fraicheur.timer` | fraîcheur des sources amont |
 
-Toutes en `Persistent=true` : un déclenchement manqué (serveur éteint) est rattrapé au démarrage.
+Toutes en `Persistent=true`, sauf `ft-audience-continu` : un déclenchement manqué (serveur éteint) est rattrapé au démarrage. `ft-audience-continu` ne rattrape rien, voulu, car sa page est une vue de l'instant. `ft-audience-serie` et `ft-audience-continu` déclenchent une alerte en cas d'échec (`OnFailure=ft-alerte-echec@…`). Une journée ingérée à la main en cours de journée reste partielle (`complet=0`) : la rejouer le lendemain par `ft-audience-serie --jour AAAA-MM-JJ`, sous le verrou `/run/ft-audience-serie.lock`.
 
 ## 4. Diagnostic d'un échec de publication
 
@@ -123,6 +129,10 @@ Quatre familles de panne :
 1. **Contrôle d'identité de déploiement** (`ft-localiser`, sortie 4) — l'arbre qui allait être construit n'annonce pas la bonne adresse, le bon hébergeur ou le bon responsable de traitement.
    Conséquence : aucune. Le build n'a pas eu lieu, le site de la veille est servi.
    Conduite : lire les contrôles KO — chacun dit quoi faire. **La correction se fait en amont** (dépôt), ou par variables d'environnement de build (`NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_HEBERGEUR_*`). Le script ne corrige rien, et c'est voulu : ce qui est publié doit être ce qui est versionné.
+   **Contrôle 8, seuils de fraîcheur.** Il compare `/etc/france-transparence/fraicheur.conf` (référentiel de `ft-fraicheur`) au tableau `SEUILS_SOURCES` de `app/src/lib/fraicheur.ts`, lu par son chemin. Deux causes possibles d'échec :
+   - **le fichier a été déplacé ou renommé dans le dépôt** : mettre à jour la variable `FICHIER_SEUILS_APP` de `/usr/local/bin/ft-localiser`. C'est ce qui a figé le site du 12 au 20/11/2026 (JOURNAL.md, décision 55). La règle vaut pour tout fichier lu par un script `ft-*` (en tête de [../ACTIONS-HUMAINES.md](../ACTIONS-HUMAINES.md)).
+   - **un seuil a changé d'un seul côté** : reporter la valeur dans les deux fichiers, le motif de chaque seuil étant écrit sur sa ligne dans `fraicheur.ts`.
+   Depuis le 21/11/2026, le contrôle lit aussi les lignes qui portent des champs en plus (`editionFigee: true`) : 44 seuils comparés sur 44.
 2. **Source amont cassée** (ingestion ou tests) — un producteur de données a changé une URL, un format, ou est indisponible.
    Conséquence : **aucune** — le site reste sur la veille, et la page [/donnees](https://francetransparence.fr/donnees/) continue d'afficher la vraie fraîcheur de chaque source.
    Conduite : identifier le pipeline fautif ; reproduire avec `make ingest-<source>` ; si l'amont est juste indisponible, ne rien faire (le cycle réessaie demain) ; si le format a changé, corriger `pipelines/ingest_<source>.py` et ses tests, ouvrir une proposition de fusion (la CI la vérifiera), fusionner. La CI quotidienne voit ces pannes **le jour même, après** le serveur (cron de 04:45 UTC, départs réels en fin de matinée) : son intérêt est de les signaler par une issue avant le cycle du lendemain, pas de les devancer.
