@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AlertItem, type Gravite } from "@/components/ui/AlertItem";
 import { formatNombre } from "@/lib/format";
 import { urlSite } from "@/lib/basePath";
+import { suiteMasqueeSansScript } from "@/lib/sans-script";
 import { majParamsUrl } from "@/lib/urlEtat";
 import { estFicheOfficielleEntite } from "@/lib/urlOfficielle";
 import { useUrlInitiale } from "@/lib/useUrlInitiale";
@@ -294,18 +295,20 @@ export function AlertesListe({ types, parGravite, total, initiales }: AlertesLis
         </p>
         {/* Sans JavaScript, filtres et pagination restent inertes : la page
             le dit et renvoie à l'export complet, au lieu d'un « page 1 sur
-            31 » sans suite. */}
-        <noscript>
-          <p className="text-xs text-ink-secondary">
-            Sans JavaScript, seules les {formatNombre(initiales.length)} premières alertes
-            sont affichées et les filtres ne répondent pas. La liste complète est
-            téléchargeable en JSON (/api/alertes.json) depuis la page{" "}
-            <a href={urlSite("/donnees/")} className="underline underline-offset-2">
-              Données
-            </a>
-            .
-          </p>
-        </noscript>
+            31 » sans suite. Rien à dire quand tout tient dans la page. */}
+        {suiteMasqueeSansScript(initiales.length, total) && (
+          <noscript>
+            <p className="text-xs text-ink-secondary">
+              Sans JavaScript, seules les {formatNombre(initiales.length)} premières alertes
+              sont affichées et les filtres ne répondent pas. La liste complète est
+              téléchargeable en JSON (/api/alertes.json) depuis la page{" "}
+              <a href={urlSite("/donnees/")} className="underline underline-offset-2">
+                Données
+              </a>
+              .
+            </p>
+          </noscript>
+        )}
         {indisponible && besoinFragment && (
           <p className="text-xs text-ink-muted">
             Liste complète indisponible (fragment /data/alertes.json non chargé) — les{" "}

@@ -7,6 +7,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { NoticeLecture } from "@/components/ui/NoticeLecture";
 import { StatStrip } from "@/components/ui/StatStrip";
+import { VueTableau } from "@/components/ui/VueTableau";
 import { ESPACE_FINE, formatNombre } from "@/lib/format";
 import {
   getMissionsDestination2025Liste,
@@ -176,11 +177,7 @@ export default async function PageDestination() {
             }))}
             formatValeur={(v) => enMd(v, 1)}
           />
-          <details className="mt-3">
-            <summary className="w-fit cursor-pointer select-none text-xs text-ink-muted transition-colors hover:text-ink-secondary">
-              Vue tableau
-            </summary>
-            <div className="mt-2">
+          <VueTableau>
             <DataTable
               colonnes={[
                 { cle: "numero", entete: "Titre", largeur: "4rem" },
@@ -198,8 +195,7 @@ export default async function PageDestination() {
               }))}
               cleLigne={(l) => l.numero}
             />
-            </div>
-          </details>
+          </VueTableau>
           <p className="mt-3 text-xs text-ink-muted">
             Le titre décrit la nature de la dépense (nomenclature LOLF,
             art. 5)&nbsp;; chaque titre se subdivise en catégories dans la
