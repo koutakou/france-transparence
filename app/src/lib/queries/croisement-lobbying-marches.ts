@@ -315,12 +315,15 @@ export function getCroisementLobbyingMarches(): CroisementLobbyingMarches | null
          COUNT(DISTINCT CASE WHEN ac = 0 AND montant_retenu > ${PLAFOND_ECRETAGE}.0
                              THEN uid END)                                          AS ecretesHorsAc,
          -- Sans aucun marché écrêté ou signalé, la vraie somme est 0 €, pas
-         -- « n.d. » : ces deux conditions supposent un montant (le drapeau
-         -- porte sur le montant), donc COALESCE ne masque aucun manque.
-         COALESCE(SUM(CASE WHEN ac = 0 AND montant_retenu > ${PLAFOND_ECRETAGE}.0
-                  THEN part END), 0)                                                AS montantEcretesHorsAc,
+         -- « n.d. ». Une classe non vide garde sa vraie somme, NULL si aucune
+         -- de ses parts n'est connue : COALESCE(SUM(...), 0) l'aurait masquée.
+         CASE WHEN COUNT(CASE WHEN ac = 0 AND montant_retenu > ${PLAFOND_ECRETAGE}.0
+                              THEN 1 END) = 0 THEN 0
+              ELSE SUM(CASE WHEN ac = 0 AND montant_retenu > ${PLAFOND_ECRETAGE}.0
+                            THEN part END) END                                     AS montantEcretesHorsAc,
          COUNT(DISTINCT CASE WHEN ac = 0 AND montant_suspect = 1 THEN uid END)      AS suspectsHorsAc,
-         COALESCE(SUM(CASE WHEN ac = 0 AND montant_suspect = 1 THEN part END), 0)   AS montantSuspectsHorsAc,
+         CASE WHEN COUNT(CASE WHEN ac = 0 AND montant_suspect = 1 THEN 1 END) = 0 THEN 0
+              ELSE SUM(CASE WHEN ac = 0 AND montant_suspect = 1 THEN part END) END  AS montantSuspectsHorsAc,
          COUNT(DISTINCT CASE WHEN ac = 0 AND montant_suspect = 0 THEN uid END)      AS marchesHorsAcHorsSuspects,
          COUNT(DISTINCT CASE WHEN ac = 0 AND montant_suspect = 0 THEN siren END)    AS sirensHorsAcHorsSuspects,
          SUM(CASE WHEN ac = 0 AND montant_suspect = 0 THEN part END)                AS montantHorsAcHorsSuspects,
