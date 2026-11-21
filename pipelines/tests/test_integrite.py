@@ -1756,6 +1756,37 @@ def test_a1_nd_l_identifiant_ne_change_pas_quand_l_url_parait():
         == ["A1-ND-gate-sylvie23162-di"]
 
 
+@pytest.mark.parametrize("chemin", [
+    "/pages_nominatives/capitanio-olivier[",
+    "/pages_nominatives/martin-(gironde)-alexandra-26044",
+    "/pages_nominatives/martin-(alpes-maritimes)-alexandra",
+    "/pages_nominatives/echaniz-iñaki-24343",
+    "/pages_nominatives/faubert-christian[1]",
+])
+def test_url_dossier_mal_forme_retombe_sur_la_liste(conn, chemin):
+    """Audit du 21/11/2026 : chemins réels de liste.csv que le site de la HATVP
+    ne sert pas (404 ou accueil). Ni la fiche d'élu ni l'alerte n'y renvoient,
+    elles renvoient à la liste, comme pour un chemin vide."""
+    assert p7.url_fiche_hatvp(chemin) is None
+    (alerte,) = p7.construire_alertes(
+        [_non_deposee(nom="CAPITANIO", prenom="Olivier", url_dossier=chemin)],
+        [], AUJOURD_HUI, "2026-08-14", "2026-08-11")
+    assert p7.URL_HATVP_LISTE in alerte and not any(chemin in str(v) for v in alerte)
+    _fiche(conn, "rne-leroy", "LEROY", "Gilles",
+           [{"source": "RNE", "type": "maire", "departement": "49"}])
+    d = dict(_dossier_hatvp("LEROY", "Gilles", "departement", "49",
+                            "Vice-président du conseil départemental de Maine-et-Loire"),
+             url_dossier=chemin)
+    assert p7.croiser_hatvp_flag(conn, [d]) == (1, 0)
+    assert conn.execute("SELECT hatvp_url FROM elus").fetchone()[0] == p7.URL_HATVP_LISTE
+
+
+def test_url_dossier_bien_forme_donne_la_fiche():
+    assert p7.url_fiche_hatvp("/pages_nominatives/gate-sylvie-23162") \
+        == "https://www.hatvp.fr/pages_nominatives/gate-sylvie-23162"
+    assert p7.url_fiche_hatvp("") is None and p7.url_fiche_hatvp(None) is None
+
+
 def test_dedoublonner_hatvp_ecarte_les_lignes_strictement_identiques():
     a = _dossier(nom="DUPONT", prenom="Jean", type_document="DI", date_depot="2025-01-02")
     b = dict(a)                                   # doublon strict

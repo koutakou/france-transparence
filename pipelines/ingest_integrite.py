@@ -117,6 +117,20 @@ log = obtenir_logger("ingest_integrite")
 
 URL_HATVP_LISTE = "https://www.hatvp.fr/livraison/opendata/liste.csv"
 URL_HATVP_SITE = "https://www.hatvp.fr"
+# Chemin de fiche nominative bien formé. La HATVP publie parfois dans
+# `url_dossier` un chemin inutilisable (« capitanio-olivier[ »,
+# « martin-(gironde)-alexandra-26044 », « echaniz-iñaki-24343 ») : son site
+# répond 404 ou renvoie à l'accueil. Un tel chemin est traité comme absent.
+MOTIF_URL_DOSSIER = re.compile(r"/pages_nominatives/[a-z0-9-]+")
+
+
+def url_fiche_hatvp(url_dossier: str | None) -> str | None:
+    """URL absolue de la fiche HATVP, ou None si le chemin publié est vide ou
+    mal formé. Le chemin brut reste conservé tel quel dans `url_dossier`."""
+    if url_dossier and MOTIF_URL_DOSSIER.fullmatch(url_dossier):
+        return URL_HATVP_SITE + url_dossier
+    return None
+
 URL_RNE_API = "https://www.data.gouv.fr/api/1/datasets/repertoire-national-des-elus-1/"
 URL_RNE_PAGE = "https://www.data.gouv.fr/datasets/repertoire-national-des-elus-1/"
 
@@ -961,7 +975,7 @@ def construire_alertes(nominatives: list[dict], en_cours: list[dict],
             f"Statut publié tel quel par la HATVP dans liste.csv du {date_hatvp}.",
             REGLE_A1_NON_DEPOSEE,
             BASE_LEGALE_A1,
-            (URL_HATVP_SITE + d["url_dossier"]) if d["url_dossier"] else URL_HATVP_LISTE,
+            url_fiche_hatvp(d["url_dossier"]) or URL_HATVP_LISTE,
             date_calcul,
             date_hatvp,
         ))
@@ -1676,8 +1690,8 @@ def croiser_hatvp_flag(conn, dossiers: list[dict],
     for d in dossiers:
         cle = (normaliser_texte(d["nom"]), normaliser_texte(d["prenom"]))
         hatvp_par_nom[cle].setdefault(d["classement"],
-                                      (URL_HATVP_SITE + d["url_dossier"])
-                                      if d["url_dossier"] else URL_HATVP_LISTE)
+                                      url_fiche_hatvp(d["url_dossier"])
+                                      or URL_HATVP_LISTE)
         dossiers_par_classement[d["classement"]].append(d)
     elus_par_nom: dict[tuple, list[tuple]] = defaultdict(list)
     for r in conn.execute("SELECT id, nom, prenom, date_naissance, mandats FROM elus"):
@@ -1851,7 +1865,7 @@ def ecrire(conn, dossiers: list[dict], rne: dict, chemins: dict,
           d["qualite"], d["type_document"], d["departement"],
           d["date_publication"] or None, d["date_depot"] or None,
           d["statut_publication"], d["nom_fichier"] or None, d["url_dossier"] or None,
-          (URL_HATVP_SITE + d["url_dossier"]) if d["url_dossier"] else None,
+          url_fiche_hatvp(d["url_dossier"]),
           d["open_data"] or None, d["id_origine"] or None, d["url_photo"] or None)
          for d in dossiers])
     conn.executemany("INSERT INTO hatvp_agregats (categorie, cle, nb) VALUES (?, ?, ?)",
