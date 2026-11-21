@@ -1662,6 +1662,48 @@ def _dossier(**surcharges):
     return base
 
 
+def _non_deposee(**surcharges):
+    return _dossier(statut_publication="Déclaration non déposée", type_document="di",
+                    qualite="Maire de Saint-Martin", type_mandat="commune",
+                    departement="974", **surcharges)
+
+
+def _ecrire_nd(nominatives):
+    conn = sqlite3.connect(":memory:")
+    conn.executescript(p7.SCHEMA_P7.split("DROP TABLE")[0])
+    lignes = p7.construire_alertes(nominatives, [], AUJOURD_HUI, "2026-08-14", "2026-08-11")
+    p7.ecrire_alertes(conn, lignes, AUJOURD_HUI)
+    return [r[0] for r in conn.execute("SELECT id FROM alertes ORDER BY id")]
+
+
+def test_a1_nd_deux_homonymes_sans_url_ont_deux_identifiants():
+    """Deux homonymes sans URL de dossier, même type de document : avant,
+    `A1-ND-{nom}-di` deux fois, la clé primaire refusait la seconde et le
+    pipeline HATVP tombait. `classement` les distingue."""
+    a = _non_deposee(nom="HOARAU", prenom="Jean", classement="HOARAU Jean101")
+    b = _non_deposee(nom="HOARAU", prenom="Jean", classement="HOARAU Jean202")
+    assert _ecrire_nd([a, b]) == ["A1-ND-hoarau-jean101-di", "A1-ND-hoarau-jean202-di"]
+
+
+def test_a1_nd_sans_classement_les_homonymes_ne_se_heurtent_pas():
+    """Repli : ni `classement` ni URL. Chacun reçoit l'empreinte de sa ligne,
+    la même quel que soit l'ordre de lecture."""
+    a = _non_deposee(nom="HOARAU", prenom="Jean", date_publication="2026-05-02")
+    b = _non_deposee(nom="HOARAU", prenom="Jean", date_publication="2026-06-03")
+    ids = _ecrire_nd([a, b])
+    assert len(ids) == 2 and all(i.startswith("A1-ND-hoarau-jean-di-") for i in ids)
+    assert _ecrire_nd([b, a]) == ids
+
+
+def test_a1_nd_l_identifiant_ne_change_pas_quand_l_url_parait():
+    """L'URL du dossier publiée après coup ne change plus l'identifiant, donc
+    plus la date de détection de l'alerte."""
+    sans = _non_deposee(nom="GÂTÉ", prenom="Sylvie", classement="GÂTÉ Sylvie23162")
+    avec = dict(sans, url_dossier="/pages_nominatives/gate-sylvie-23162")
+    assert p7.identifiants_non_deposees([sans]) == p7.identifiants_non_deposees([avec]) \
+        == ["A1-ND-gate-sylvie23162-di"]
+
+
 def test_dedoublonner_hatvp_ecarte_les_lignes_strictement_identiques():
     a = _dossier(nom="DUPONT", prenom="Jean", type_document="DI", date_depot="2025-01-02")
     b = dict(a)                                   # doublon strict
