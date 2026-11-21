@@ -26,6 +26,12 @@ import path from "node:path";
 import type { FeatureCollection, Geometry } from "geojson";
 import { getDb, type MetaSource } from "@/lib/db";
 import {
+  PRELEVEMENTS_SUR_RECETTES,
+  SQL_MISSIONS_SEULES,
+  SQL_PRELEVEMENTS_SEULS,
+  nomPrelevement,
+} from "@/lib/budget-vert";
+import {
   comparaisonRompue,
   getRupturesBudget,
   type ComparaisonRompue,
@@ -92,6 +98,9 @@ export type PartTitre = { ligne: string; montant: number };
 
 export type MissionPlf = { mission: string; cp: number };
 
+/** Prélèvement sur recettes du budget vert, nom complet (pas une mission). */
+export type PrelevementPlf = { nom: string; cp: number };
+
 export type DepartementCarte = {
   code: string;
   nom: string | null;
@@ -126,12 +135,8 @@ export type CompteursSuivi = {
   elusAvecFiche: number;
 };
 
-/**
- * Libellés de `budget_vert.mission` qui ne sont pas des missions mais des
- * prélèvements sur recettes (base de production du 20/11/2026) : écartés du
- * « Top 5 missions ».
- */
-export const PRELEVEMENTS_SUR_RECETTES = ["PSRCT", "PSRUE"] as const;
+/** Prélèvements sur recettes de `budget_vert` : voir lib/budget-vert.ts. */
+export { PRELEVEMENTS_SUR_RECETTES };
 
 export type MinistereCp = {
   ministere: string;
@@ -255,7 +260,10 @@ export type DonneesAccueil = {
   missionsPlf2026: MissionPlf[];
   /** Étiquette honnête portée par budget_vert (PLF ≠ LFI). */
   etiquettePlf2026: string | null;
-  totalCpPlf2026: number | null;
+  /** Total CP des missions seules (prélèvements sur recettes à part). */
+  totalMissionsPlf2026: number | null;
+  /** Prélèvements sur recettes, affichés à part avec leur nom complet. */
+  prelevementsPlf2026: PrelevementPlf[];
   departementsCarte: DepartementCarte[];
   prefectures: PrefectureCarte[];
   kpis: KpisAccueil;
@@ -347,16 +355,15 @@ export function getDonneesAccueil(): DonneesAccueil | null {
     : [];
 
   /* --- Top 5 missions PLF 2026 (crédits budgétaires, CP) --- */
-  const SQL_HORS_PRELEVEMENTS = `mission NOT IN (${PRELEVEMENTS_SUR_RECETTES.map((m) => `'${m}'`).join(", ")})`;
   // Les prélèvements sur recettes (« PSRCT » au profit des collectivités,
   // « PSRUE » au profit de l'Union européenne) ne sont pas des missions :
-  // le bloc « Top 5 missions » affichait « PSRCT 49,5 Md€ », sigle nu.
+  // écartés du classement et du total des missions, servis à part.
   const missionsPlf2026 = db
     .prepare(
       `SELECT mission, SUM(plf_2026_cp) AS cp
          FROM budget_vert
         WHERE type_depense = 'Crédits budgétaires' AND plf_2026_cp IS NOT NULL
-          AND ${SQL_HORS_PRELEVEMENTS}
+          AND ${SQL_MISSIONS_SEULES}
         GROUP BY mission
         ORDER BY cp DESC
         LIMIT 5`,
@@ -370,16 +377,32 @@ export function getDonneesAccueil(): DonneesAccueil | null {
         | undefined
     )?.e ?? null;
 
-  const totalCpPlf2026 =
+  // Total des MISSIONS : la carte affichait « total toutes missions :
+  // 479,5 Md€ », prélèvements sur recettes compris (401,2 + 49,5 + 28,8).
+  const totalMissionsPlf2026 =
     (
       db
         .prepare(
           `SELECT SUM(plf_2026_cp) AS total
              FROM budget_vert
-            WHERE type_depense = 'Crédits budgétaires'`,
+            WHERE type_depense = 'Crédits budgétaires'
+              AND ${SQL_MISSIONS_SEULES}`,
         )
         .get() as { total: number | null } | undefined
     )?.total ?? null;
+
+  const prelevementsPlf2026 = (
+    db
+      .prepare(
+        `SELECT mission, SUM(plf_2026_cp) AS cp
+           FROM budget_vert
+          WHERE type_depense = 'Crédits budgétaires' AND plf_2026_cp IS NOT NULL
+            AND ${SQL_PRELEVEMENTS_SEULS}
+          GROUP BY mission
+          ORDER BY cp DESC`,
+      )
+      .all() as MissionPlf[]
+  ).map((p) => ({ nom: nomPrelevement(p.mission), cp: p.cp }));
 
   /* --- Carte : montants DECP 12 mois par département (écrêtés) --- */
   const departementsCarte = db
@@ -574,7 +597,8 @@ export function getDonneesAccueil(): DonneesAccueil | null {
     partsTitres,
     missionsPlf2026,
     etiquettePlf2026,
-    totalCpPlf2026,
+    totalMissionsPlf2026,
+    prelevementsPlf2026,
     departementsCarte,
     prefectures,
     kpis,

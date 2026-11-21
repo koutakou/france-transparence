@@ -28,6 +28,11 @@
  */
 import { getDb, type MetaSource } from "@/lib/db";
 import {
+  SQL_MISSIONS_SEULES,
+  SQL_PRELEVEMENTS_SEULS,
+  nomPrelevement,
+} from "@/lib/budget-vert";
+import {
   comparaisonRompue,
   getRupturesBudget,
   omettreRuptures,
@@ -241,10 +246,18 @@ export interface MissionPlf2026 {
 export interface MissionsPlf2026 {
   /** Étiquette publiée par le pipeline (PLF déposé ≠ LFI promulguée). */
   etiquette: string;
-  /** Total CP des crédits budgétaires du PLF 2026 (€) — testé : 479,5 Md€. */
-  totalPlf2026Cp: number;
-  /** Top missions par CP PLF 2026 décroissant. */
+  /**
+   * Total CP des crédits budgétaires des MISSIONS du budget vert (€),
+   * prélèvements sur recettes exclus : 401,2 Md€ au 21/11/2026 (479,5 avec).
+   */
+  totalMissionsPlf2026Cp: number;
+  /** Top missions par CP PLF 2026 décroissant, prélèvements sur recettes exclus. */
   missions: MissionPlf2026[];
+  /**
+   * Prélèvements sur recettes (PSRCT, PSRUE), servis à part sous leur nom
+   * complet : ce ne sont pas des missions.
+   */
+  prelevements: MissionPlf2026[];
 }
 
 /**
@@ -252,7 +265,8 @@ export interface MissionsPlf2026 {
  * `type_depense = 'Crédits budgétaires'` uniquement — hors dépenses fiscales
  * et taxes affectées), avec la comparaison exécution 2024 / LFI 2025 /
  * PLF 2026. Testé : Pensions 68,16 Md€, Enseignement scolaire 64,48,
- * Défense 57,15 (exéc 2024 : 47,84) ; total CP 479,5 Md€.
+ * Défense 57,15 (exéc 2024 : 47,84) ; total CP des missions 401,2 Md€
+ * (479,5 avec les prélèvements sur recettes, servis à part).
  */
 export function getMissionsPlf2026(limite = 10): MissionsPlf2026 | null {
   const db = getDb();
@@ -261,36 +275,45 @@ export function getMissionsPlf2026(limite = 10): MissionsPlf2026 | null {
     .prepare(
       `SELECT SUM(plf_2026_cp) AS total, MAX(etiquette_2026) AS etiquette
          FROM budget_vert
-        WHERE type_depense = 'Crédits budgétaires'`,
+        WHERE type_depense = 'Crédits budgétaires'
+          AND ${SQL_MISSIONS_SEULES}`,
     )
     .get() as { total: number | null; etiquette: string | null } | undefined;
   if (!total || total.total === null) return null;
-  const missions = db
-    .prepare(
-      `SELECT mission,
-              SUM(execution_2024_cp) AS exec_2024,
-              SUM(lfi_2025_cp)       AS lfi_2025,
-              SUM(plf_2026_cp)       AS plf_2026
-         FROM budget_vert
-        WHERE type_depense = 'Crédits budgétaires'
-        GROUP BY mission
-        ORDER BY SUM(plf_2026_cp) DESC
-        LIMIT ?`,
-    )
-    .all(limite) as {
-    mission: string;
-    exec_2024: number | null;
-    lfi_2025: number | null;
-    plf_2026: number | null;
-  }[];
-  return {
-    etiquette: total.etiquette ?? "PLF 2026",
-    totalPlf2026Cp: total.total,
-    missions: missions.map((m) => ({
+  const parLigne = (condition: string, borne: number | null) =>
+    (
+      db
+        .prepare(
+          `SELECT mission,
+                  SUM(execution_2024_cp) AS exec_2024,
+                  SUM(lfi_2025_cp)       AS lfi_2025,
+                  SUM(plf_2026_cp)       AS plf_2026
+             FROM budget_vert
+            WHERE type_depense = 'Crédits budgétaires'
+              AND ${condition}
+            GROUP BY mission
+            ORDER BY SUM(plf_2026_cp) DESC
+            LIMIT ?`,
+        )
+        .all(borne ?? -1) as {
+        mission: string;
+        exec_2024: number | null;
+        lfi_2025: number | null;
+        plf_2026: number | null;
+      }[]
+    ).map((m) => ({
       mission: m.mission,
       exec2024Cp: m.exec_2024,
       lfi2025Cp: m.lfi_2025,
       plf2026Cp: m.plf_2026,
+    }));
+  return {
+    etiquette: total.etiquette ?? "PLF 2026",
+    totalMissionsPlf2026Cp: total.total,
+    missions: parLigne(SQL_MISSIONS_SEULES, limite),
+    prelevements: parLigne(SQL_PRELEVEMENTS_SEULS, null).map((m) => ({
+      ...m,
+      mission: nomPrelevement(m.mission),
     })),
   };
 }

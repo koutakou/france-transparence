@@ -28,6 +28,7 @@ import {
 import { jsonLdIdentiteSite, metadonneesPage } from "@/lib/seo";
 import { libelleBadgeSource } from "@/lib/libelles-sources";
 import { bornePerimetreRompu } from "@/lib/queries/budget-ruptures";
+import { PERIMETRE_BUDGET_VERT } from "@/lib/budget-vert";
 
 // Rendu statique : la donnée ne change qu'à l'ingestion, le site est
 // reconstruit après chaque ingestion (docs/deploiement/DECISION.md).
@@ -177,7 +178,8 @@ export default async function Accueil() {
     partsTitres,
     missionsPlf2026,
     etiquettePlf2026,
-    totalCpPlf2026,
+    totalMissionsPlf2026,
+    prelevementsPlf2026,
     departementsCarte,
     prefectures,
     kpis,
@@ -247,7 +249,7 @@ export default async function Accueil() {
   }));
   const colonnesMinisteres: Colonne<(typeof lignesMinisteres)[number]>[] = [
     { cle: "ministere", entete: "Ministère" },
-    { cle: "cpMd", entete: "CP (Md€)", type: "montant", decimales: 2 },
+    { cle: "cpMd", entete: "CP tous budgets (Md€)", type: "montant", decimales: 2 },
     { cle: "partPct", entete: "Part", type: "pourcent", decimales: 1 },
   ];
 
@@ -437,7 +439,7 @@ export default async function Accueil() {
 
         <Card
           titre="Top 5 missions (PLF 2026)"
-          sousTitre={`${etiquettePlf2026 ?? "Crédits de paiement du PLF 2026"} · hors prélèvements sur recettes (collectivités, Union européenne), qui ne sont pas des missions`}
+          sousTitre={`${etiquettePlf2026 ?? "Crédits de paiement du PLF 2026"} · Classement sur le ${PERIMETRE_BUDGET_VERT} · hors prélèvements sur recettes (collectivités, Union européenne), qui ne sont pas des missions`}
           droite={<BadgeSource source={sources.S20} mention="PLF" />}
         >
           <BarList
@@ -455,10 +457,24 @@ export default async function Accueil() {
               cleLigne={(m) => m.mission}
             />
           </VueTableau>
-          {totalCpPlf2026 !== null && (
+          {totalMissionsPlf2026 !== null && (
             <p className="mt-3 text-xs text-ink-muted">
-              Crédits de paiement (crédits budgétaires), total toutes
-              missions&nbsp;: {mdE(totalCpPlf2026, 1)}.
+              Crédits de paiement (crédits budgétaires) des missions de ce
+              périmètre&nbsp;: {mdE(totalMissionsPlf2026, 1)}.
+              {prelevementsPlf2026.length > 0 && (
+                <>
+                  {" "}
+                  À part, car ce ne sont pas des missions&nbsp;:{" "}
+                  {prelevementsPlf2026.map((p, i) => (
+                    <span key={p.nom}>
+                      {i > 0 && ", "}
+                      {p.nom.charAt(0).toLowerCase() + p.nom.slice(1)}&nbsp;:{" "}
+                      {mdE(p.cp, 1)}
+                    </span>
+                  ))}
+                  .
+                </>
+              )}
             </p>
           )}
           <LienModule href="/depenses" libelle="Voir les dépenses" />
@@ -622,7 +638,7 @@ export default async function Accueil() {
 
       <Card
         titre="Budget par ministère (PLF 2025, édition ancienne)"
-        sousTitre="Crédits de paiement BRUTS du projet de loi de finances pour 2025, dernière édition par ministère ingérée. Elle est plus ancienne que le PLF 2026 du bloc des missions, et ses montants ne se comparent ni à lui ni aux dépenses nettes du budget général."
+        sousTitre="Crédits de paiement BRUTS tous budgets (budget général, budgets annexes et comptes spéciaux) du projet de loi de finances pour 2025, dernière édition par ministère ingérée. Elle est plus ancienne que le PLF 2026 du bloc des missions, et ses montants ne se comparent ni à lui ni aux dépenses nettes du budget général."
         droite={<BadgeSource source={sources.S21} mention="PLF" />}
       >
         <DataTable
@@ -633,7 +649,9 @@ export default async function Accueil() {
         />
         <p className="mt-2 text-[11px] text-ink-muted">
           Top 8 sur {totalCp2025 !== null ? mdE(totalCp2025, 1) : <Vide />} de CP
-          au total. Pas de colonne d&apos;évolution&nbsp;: la donnée est un
+          au total, tous budgets. «&nbsp;Tous budgets&nbsp;» inclut budgets
+          annexes et comptes spéciaux (pensions, avances, etc.), d&apos;où un
+          total supérieur au seul budget général. Pas de colonne d&apos;évolution&nbsp;: la donnée est un
           instantané PLF, sans exercice N−1 comparable.
         </p>
         <LienModule href="/depenses" libelle="Voir les dépenses" />

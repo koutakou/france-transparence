@@ -156,6 +156,30 @@ export const SCHEMA = {
     definition_constatee TEXT,
     PRIMARY KEY (ligne_id, date_fin_mois)
 )`,
+  budget_vert: `CREATE TABLE budget_vert (
+    type_depense       TEXT NOT NULL,
+    mission            TEXT NOT NULL,
+    numero_programme   INTEGER,
+    programme          TEXT,
+    code_action        TEXT,
+    action             TEXT,
+    affectataire       TEXT,
+    impot              TEXT,
+    code_depense       TEXT,
+    libelle            TEXT,
+    cotation_globale   TEXT,
+    categorie_generale TEXT,
+    attenuation_climat REAL,
+    adaptation_climat  REAL,
+    eau                REAL,
+    dechets            REAL,
+    pollutions         REAL,
+    biodiversite       REAL,
+    execution_2024_cp  REAL,
+    lfi_2025_cp        REAL,
+    plf_2026_cp        REAL,
+    etiquette_2026     TEXT NOT NULL
+)`,
 };
 
 /** Crée les tables `noms` dans `db` (better-sqlite3). */

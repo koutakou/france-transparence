@@ -60,6 +60,7 @@ import {
   perimetreSubventions,
 } from "@/lib/queries/depenses";
 import { bornePerimetreRompu } from "@/lib/queries/budget-ruptures";
+import { PERIMETRE_BUDGET_VERT } from "@/lib/budget-vert";
 import { jsonLdPage, metadonneesPage } from "@/lib/seo";
 
 // Rendu statique : la donnée ne change qu'à l'ingestion, le site est
@@ -383,7 +384,9 @@ export default async function PageDepenses() {
             Les montants du bandeau et des graphiques d’exécution sont des
             cumuls depuis le 1er janvier, pas un rythme quotidien. Les mois
             de l’année en cours sont provisoires jusqu’à la clôture. Les
-            crédits par mission sont le PLF 2026, pas la LFI. La destination
+            crédits par mission sont le PLF 2026, pas la LFI, sur le
+            périmètre des dépenses de l’État (PDE) retenu par le budget
+            vert, pas l’ensemble des crédits du PLF. La destination
             2025 est le PLF 2025 (projet, CP bruts, pas les dépenses nettes).
             Un delta n’est ni «&nbsp;bon&nbsp;» ni «&nbsp;mauvais&nbsp;» : il
             est affiché neutre.
@@ -421,7 +424,7 @@ export default async function PageDepenses() {
       {missions && (
         <Card
           titre="Crédits par mission"
-          sousTitre={`${missions.etiquette} · Crédits budgétaires seuls (hors dépenses fiscales), en crédits de paiement`}
+          sousTitre={`${missions.etiquette} · Crédits budgétaires seuls (hors dépenses fiscales), en crédits de paiement, sur le ${PERIMETRE_BUDGET_VERT}`}
           droite={
             sources.S20 && (
               <FreshnessBadge
@@ -438,13 +441,13 @@ export default async function PageDepenses() {
           <div className="mb-4">
             <KpiTile
               nu
-              label="Crédits de paiement du PLF 2026"
-              valeur={<MontantMd valeur={missions.totalPlf2026Cp} decimales={1} />}
-              perimetre="PLF 2026, projet, pas la LFI. Crédits budgétaires seuls, hors dépenses fiscales"
+              label="Crédits de paiement des missions, PLF 2026 (périmètre du budget vert)"
+              valeur={<MontantMd valeur={missions.totalMissionsPlf2026Cp} decimales={1} />}
+              perimetre={`PLF 2026, projet, pas la LFI. Crédits budgétaires seuls, hors dépenses fiscales et hors prélèvements sur recettes, sur le ${PERIMETRE_BUDGET_VERT}`}
             />
           </div>
           <p className="mb-4 text-sm text-ink-secondary">
-            Top 10 des missions, en crédits de paiement&nbsp;:
+            Top 10 des missions de ce périmètre, en crédits de paiement&nbsp;:
           </p>
           <BarList
             items={missions.missions.flatMap((m) =>
@@ -470,6 +473,28 @@ export default async function PageDepenses() {
             }))}
             cleLigne={(l) => l.mission}
           />
+          {missions.prelevements.length > 0 && (
+            <>
+              <h3 className="mb-2 mt-5 text-xs font-medium uppercase tracking-[0.08em] text-ink-muted">
+                Prélèvements sur recettes, à part (ce ne sont pas des missions)
+              </h3>
+              <DataTable
+                colonnes={[
+                  { cle: "mission", entete: "Prélèvement" },
+                  { cle: "exec2024", entete: "Exécution 2024 (Md€)", type: "montant", decimales: 2 },
+                  { cle: "lfi2025", entete: "LFI 2025 (Md€)", type: "montant", decimales: 2 },
+                  { cle: "plf2026", entete: "PLF 2026 (Md€)", type: "montant", decimales: 2 },
+                ]}
+                lignes={missions.prelevements.map((m) => ({
+                  mission: m.mission,
+                  exec2024: m.exec2024Cp === null ? null : m.exec2024Cp / 1e9,
+                  lfi2025: m.lfi2025Cp === null ? null : m.lfi2025Cp / 1e9,
+                  plf2026: m.plf2026Cp === null ? null : m.plf2026Cp / 1e9,
+                }))}
+                cleLigne={(l) => l.mission}
+              />
+            </>
+          )}
         </Card>
       )}
 
