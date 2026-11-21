@@ -106,6 +106,7 @@ export default async function PageAlertes() {
                 source={source.nom}
                 frequence={source.frequence}
                 url={source.url}
+                sourceId={source.source_id}
               />
             );
           })}
