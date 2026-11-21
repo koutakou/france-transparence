@@ -109,9 +109,10 @@ test("R5 : l'accueil dit que le PLF 2025 est une édition ancienne, à côté du
 });
 
 test("R6 : les prélèvements sur recettes sortent du « Top 5 missions »", () => {
+  // Liste et condition partagées avec /depenses (lib/budget-vert.ts).
+  assert.match(lire("lib/budget-vert.ts"), /PRELEVEMENTS_SUR_RECETTES = \["PSRCT", "PSRUE"\]/);
   const s = lire("lib/queries/accueil.ts");
-  assert.match(s, /PRELEVEMENTS_SUR_RECETTES = \["PSRCT", "PSRUE"\]/);
-  assert.match(s, /AND \$\{SQL_HORS_PRELEVEMENTS\}/);
+  assert.match(s, /AND \$\{SQL_MISSIONS_SEULES\}/);
   assert.match(aplati("app/page.tsx"), /hors prélèvements sur recettes/);
 });
 
