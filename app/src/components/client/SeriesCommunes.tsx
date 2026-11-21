@@ -156,7 +156,7 @@ function BlocSerieCommune({
         <button
           type="button"
           onClick={surRetour}
-          className="text-xs text-ink-muted underline decoration-dotted underline-offset-2 transition-colors hover:text-ink-secondary"
+          className="min-h-6 text-xs text-ink-muted underline decoration-dotted underline-offset-2 transition-colors hover:text-ink-secondary"
         >
           ← Toutes les communes
         </button>
@@ -269,7 +269,7 @@ export function SeriesCommunes({ lignes, hauteurMax, periodeSeries = null }: Ser
               type="button"
               onClick={() => choisir(l.code)}
               aria-current={code === l.code ? "true" : undefined}
-              className={`text-left underline decoration-dotted underline-offset-2 transition-colors hover:text-accent ${
+              className={`min-h-6 text-left underline decoration-dotted underline-offset-2 transition-colors hover:text-accent ${
                 code === l.code ? "font-medium text-accent" : ""
               }`}
             >
