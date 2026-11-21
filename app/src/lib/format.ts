@@ -11,6 +11,12 @@
 /** Espace fine insécable — séparateur de milliers et d'unité. */
 export const ESPACE_FINE = "\u202F";
 
+/**
+ * Valeur manquante affichée dans une chaîne. En JSX, préférer le composant
+ * `Vide` (components/ui/Vide.tsx), qui l'enveloppe d'une abréviation.
+ */
+export const VIDE = "n.d.";
+
 /** Normalise les espaces produits par Intl (U+0020 / U+00A0) en U+202F. */
 function normaliseEspaces(s: string): string {
   return s.replace(/[\u0020\u00A0]/g, ESPACE_FINE);
@@ -42,7 +48,7 @@ export function estNulAffiche(v: number, decimales: number): boolean {
 
 /** `1284` → `1 284` (espace fine insécable, virgule décimale). */
 export function formatNombre(v: number, decimales = 0): string {
-  if (!Number.isFinite(v)) return "—";
+  if (!Number.isFinite(v)) return VIDE;
   return normaliseEspaces(nf(decimales).format(v));
 }
 
@@ -55,7 +61,7 @@ export type CompactionEuros = "auto" | "aucune" | "k" | "M" | "Md";
  * (utile pour homogénéiser une rangée de KPI).
  */
 export function formatEuros(v: number, compaction: CompactionEuros = "auto"): string {
-  if (!Number.isFinite(v)) return "—";
+  if (!Number.isFinite(v)) return VIDE;
   const ECHELLES = [
     { cible: "aucune", diviseur: 1, unite: "€" },
     { cible: "k", diviseur: 1e3, unite: "k€" },
@@ -87,7 +93,7 @@ export function formatEuros(v: number, compaction: CompactionEuros = "auto"): st
  * (obligatoire pour un delta — DATAVIZ §3.5 : flèche + signe toujours).
  */
 export function formatPct(v: number, decimales = 1, signe = false): string {
-  if (!Number.isFinite(v)) return "—";
+  if (!Number.isFinite(v)) return VIDE;
   return normaliseEspaces(nf(decimales, 0, signe).format(v)) + ESPACE_FINE + "%";
 }
 
