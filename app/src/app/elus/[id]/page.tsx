@@ -604,7 +604,8 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
                 hauteurMax="24rem"
               />
               <p className="mt-2 text-[11px] leading-relaxed text-ink-muted">
-                « n.d. » : aucune position enregistrée au scrutin public (donnée AN telle quelle).
+                Sans position enregistrée : aucune position au scrutin public, donnée de l’Assemblée
+                telle quelle.
                 « Non-votant » est un statut officiel distinct (présidence de séance, etc.).
               </p>
             </div>
@@ -711,7 +712,8 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
                 hauteurMax="24rem"
               />
               <p className="mt-2 text-[11px] leading-relaxed text-ink-muted">
-                « n.d. » : aucune position enregistrée au scrutin public (donnée Sénat telle quelle).
+                Sans position enregistrée : aucune position au scrutin public, donnée du Sénat telle
+                quelle.
                 « Non-votant » est un statut officiel distinct (présidence de séance, etc.). Une
                 délégation de vote n’est pas une présence physique.
               </p>
