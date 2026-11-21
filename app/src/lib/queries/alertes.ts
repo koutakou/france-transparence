@@ -55,11 +55,11 @@ export function getSourcesAlertes(): Partial<Record<SourceAlerteId, MetaSource>>
 
 /** Stock calculé à l’ingestion — pas un flux du jour. */
 export const PERIMETRE_ALERTES_TOTAL =
-  "stock calculé à l’ingestion (HATVP, lobbying, financement) — pas un flux du jour";
+  "stock calculé à l’ingestion (HATVP, lobbying, financement), pas un flux du jour";
 
 /** Classification de ce site, constats officiels repris. */
 export const PERIMETRE_GRAVITE_HAUTE =
-  "classification de ce site, constats officiels repris — pas une infraction constatée ici";
+  "classification de ce site, constats officiels repris : pas une infraction constatée ici";
 
 /** Déclarations de lobbying incomplètes (personnes morales). */
 export const PERIMETRE_GRAVITE_MOYENNE =

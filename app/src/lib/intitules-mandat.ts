@@ -7,6 +7,8 @@
  * conseil régional » à l'écran quand son balisage, lui, est accordé.
  */
 
+import { VIDE } from "@/lib/format";
+
 /** Libellés d'interface, épicènes (point médian) quand le sexe manque. */
 export const TYPES_MANDAT: Record<string, string> = {
   depute: "Député·e",
@@ -82,6 +84,6 @@ const MANDATS_HATVP: Record<string, string> = {
 };
 
 export function libelleMandatHatvp(code: string | null | undefined): string {
-  if (!code) return "—";
+  if (!code) return VIDE;
   return MANDATS_HATVP[code] ?? code;
 }

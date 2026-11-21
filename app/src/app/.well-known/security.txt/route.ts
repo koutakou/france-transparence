@@ -29,7 +29,7 @@ export function GET() {
   // Seconde près : un horodatage ISO 8601 sans millisecondes (forme de la RFC).
   const expires = expire.toISOString().replace(/\.\d{3}Z$/, "Z");
   const lignes = [
-    `# Signalement de vulnérabilité — ${new URL(SITE_URL).host}`,
+    `# Signalement de vulnérabilité : ${new URL(SITE_URL).host}`,
     "# En privé uniquement : n'ouvrez pas d'issue publique pour une vulnérabilité.",
     `Contact: mailto:${CONTACT_EMAIL}`,
     `Contact: ${REPO_URL}/security/advisories/new`,

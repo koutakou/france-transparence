@@ -32,7 +32,7 @@ export function LienOfficiel({
       className={className ? `${CLASSE} ${className}` : CLASSE}
     >
       {children}
-      <span className="sr-only">{` — ${source} (nouvelle fenêtre)`}</span>
+      <span className="sr-only">{`, ${source} (nouvelle fenêtre)`}</span>
       <span aria-hidden="true"> ↗</span>
     </a>
   );
@@ -59,7 +59,7 @@ export function PuceOfficielle({
       className="ml-1.5 inline-flex items-center whitespace-nowrap text-[11px] text-ink-muted underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
     >
       {libelle}
-      <span className="sr-only">{` — fiche ${libelle} de ${nom} (nouvelle fenêtre)`}</span>
+      <span className="sr-only">{`, fiche ${libelle} de ${nom} (nouvelle fenêtre)`}</span>
       <span aria-hidden="true"> ↗</span>
     </a>
   );

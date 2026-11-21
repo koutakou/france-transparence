@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { TableTronquee } from "@/components/client/TableTronquee";
-import { formatNombre, formatPct } from "@/lib/format";
+import { formatNombre, formatPct, VIDE } from "@/lib/format";
 import { urlSite } from "@/lib/basePath";
 import { codesAbsents, expliquerAbsences } from "@/lib/absences-electorales";
 // IMPORTATION DE TYPES SEULEMENT (`import type`, effacée à la compilation) :
@@ -178,12 +178,12 @@ function Tuiles({
         },
         {
           label: "Participation",
-          valeur: participation === null ? "—" : formatPct(participation),
+          valeur: participation === null ? VIDE : formatPct(participation),
           perimetre: perimetreParticipation,
         },
         {
           label: "Bulletins blancs et nuls",
-          valeur: blancsNuls === null ? "—" : formatPct(blancsNuls),
+          valeur: blancsNuls === null ? VIDE : formatPct(blancsNuls),
           perimetre: perimetreBlancsNuls,
         },
       ]}
@@ -210,7 +210,7 @@ export function ParticipationElectorale({
       <Card titre="Participation électorale">
         <p className="text-sm text-ink-muted">
           La source S26 (résultats électoraux agrégés du ministère de l&apos;Intérieur)
-          n&apos;est pas encore ingérée dans la base locale — lancer{" "}
+          n&apos;est pas encore ingérée dans la base locale. Lancer{" "}
           <code className="rounded bg-raised px-1.5 py-0.5">make ingest</code>. Aucune donnée
           fictive n&apos;est affichée.
         </p>
@@ -277,7 +277,7 @@ export function ParticipationElectorale({
       titre="Participation électorale"
       sousTitre={
         (scrutin.date
-          ? `${scrutin.libelle} — scrutin du ${new Intl.DateTimeFormat("fr-FR", {
+          ? `${scrutin.libelle}, scrutin du ${new Intl.DateTimeFormat("fr-FR", {
               day: "2-digit",
               month: "long",
               year: "numeric",
@@ -321,7 +321,7 @@ export function ParticipationElectorale({
             role="status"
             className="inline-block rounded-lg border border-card-border bg-card px-2.5 py-1 text-ink-muted"
           >
-            Chargement du scrutin…
+            Chargement du scrutin en cours
           </p>
         )}
         {echec && (
@@ -329,7 +329,7 @@ export function ParticipationElectorale({
             role="status"
             className="inline-block rounded-lg border border-card-border bg-card px-2.5 py-1 text-ink-muted"
           >
-            Les données de ce scrutin n&apos;ont pas pu être chargées — le scrutin affiché
+            Les données de ce scrutin n&apos;ont pas pu être chargées. Le scrutin affiché
             reste « {initial.libelle} ».
           </p>
         )}
@@ -350,14 +350,14 @@ export function ParticipationElectorale({
         Les taux ci-dessus portent sur l&apos;<strong className="font-medium text-ink">ensemble
         des départements et collectivités</strong> ({formatNombre(scrutin.departements.length)} à ce
         scrutin), pas sur un total « France » du ministère. Les Français établis hors de France
-        n&apos;y figurent pas : aux municipales ils ne votent pas ; aux autres scrutins ils votent
+        n&apos;y figurent pas : aux municipales ils ne votent pas, aux autres scrutins ils votent
         dans les consulats, hors de tout département.{" "}
         <strong className="font-medium text-ink">
           Les {formatNombre(resumes.length)} scrutins proposés ne se comparent pas entre eux
         </strong>{" "}
         : une participation municipale et une participation présidentielle ne mesurent ni le même
         corps électoral, ni le même enjeu, ni le même mode de scrutin. Comparer des départements
-        entre eux au sein d&apos;un même scrutin a un sens ; comparer deux scrutins n&apos;en a pas.
+        entre eux au sein d&apos;un même scrutin a un sens, comparer deux scrutins n&apos;en a pas.
       </p>
 
       {haut && bas && (
@@ -387,7 +387,7 @@ export function ParticipationElectorale({
           </h3>
           <p className="mb-2 text-[11px] text-ink-muted">
             Préfectures, communes de plus de 50&nbsp;000&nbsp;habitants, et les
-            200 communes les plus peuplées — pas les 35&nbsp;000 communes de
+            200 communes les plus peuplées, pas les 35&nbsp;000 communes de
             France ({formatNombre(nbSuivies)} suivies).
           </p>
           <TableTronquee

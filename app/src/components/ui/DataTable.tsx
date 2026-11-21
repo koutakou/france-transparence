@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { ZoneDefilante } from "@/components/client/ZoneDefilante";
 import { formatDateFr, formatEuros, formatNombre, formatPct } from "@/lib/format";
+import { Vide } from "@/components/ui/Vide";
 
 /**
  * Tableau dense — specs DATAVIZ §7 :
@@ -79,7 +80,7 @@ function estNumerique(type: ColonneType | undefined): boolean {
 function formate<T extends object>(colonne: Colonne<T>, ligne: T, index: number): ReactNode {
   if (colonne.rendu) return colonne.rendu(ligne, index);
   const brut = (ligne as Record<string, unknown>)[colonne.cle];
-  if (brut === null || brut === undefined) return "—";
+  if (brut === null || brut === undefined) return <Vide />;
   switch (colonne.type) {
     case "nombre":
     case "montant":
@@ -118,7 +119,7 @@ export function DataTable<T extends object>({
       .slice(0, 3)
       .map((c) => c.entete)
       .filter(Boolean)
-      .join(", ")}${colonnes.length > 3 ? "…" : ""}`;
+      .join(", ")}${colonnes.length > 3 ? ", etc." : ""}`;
   return (
     <ZoneDefilante
       libelle={nomZone}

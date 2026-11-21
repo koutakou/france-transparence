@@ -116,7 +116,7 @@ function chargerFragment(eluId: string): Promise<InteretsElu | null> {
  * pire que l'échec lui-même.
  */
 const MESSAGE_ECHEC =
-  "Le détail complet n\u2019a pas pu être chargé \u2014 les documents d\u2019origine restent consultables sur la fiche HATVP.";
+  "Le détail complet n\u2019a pas pu être chargé. Les documents d\u2019origine restent consultables sur la fiche HATVP.";
 
 /** État du chargement du fragment, partagé par toute la fiche. */
 type Chargeur = {
@@ -238,7 +238,7 @@ function Rubrique({ rubrique, chargeur }: { rubrique: RubriqueDeclaree; chargeur
         // source, sur lequel on ne dit rien plutôt que d'inventer.
         rubrique.neant === 1 ? (
           <p className="mt-1 text-sm text-ink-muted">
-            Néant déclaré — la personne a indiqué n’avoir rien à déclarer dans cette rubrique.
+            Néant déclaré : la personne a indiqué n’avoir rien à déclarer dans cette rubrique.
           </p>
         ) : (
           <p className="mt-1 text-sm text-ink-muted">
@@ -258,7 +258,7 @@ function Rubrique({ rubrique, chargeur }: { rubrique: RubriqueDeclaree; chargeur
                 Affichage des {LIGNES_PAR_ECRAN} premières lignes sur {nbTotal}.
               </span>
               {aCharger && chargeur.chargement ? (
-                <span role="status">Chargement…</span>
+                <span role="status">Chargement en cours</span>
               ) : (
                 <button
                   type="button"
@@ -337,7 +337,7 @@ function Declaration({
           // JAMAIS un vide qui ressemblerait à « rien à déclarer ».
           <p className="mt-3 text-sm text-ink-muted" aria-live="polite">
             {chargeur.chargement ? (
-              <span role="status">Chargement…</span>
+              <span role="status">Chargement en cours</span>
             ) : (
               <span className="text-ink-secondary">{MESSAGE_ECHEC}</span>
             )}

@@ -261,7 +261,7 @@ export function metadonneesFicheProfil(page: {
  * sous contrainte de longueur doit le décompter, sinon elle mesure la moitié
  * du texte que verront Facebook et X.
  */
-export const SUFFIXE_TITRE = ` — ${NOM_SITE}`;
+export const SUFFIXE_TITRE = ` · ${NOM_SITE}`;
 
 /**
  * Longueur maximale VISÉE d'un titre de partage, suffixe compris.
@@ -285,17 +285,17 @@ export const LONGUEUR_TITRE_PARTAGE = 70;
  * n'ayant aucune limite de mot où reculer, il est coupé au caractère — c'est
  * le seul cas où l'on n'a pas le choix.
  *
- * L'ellipse est le caractère « … » (U+2026) et non trois points : un
- * caractère au lieu de trois, dans un budget qui se compte au caractère.
+ * La coupe est marquée par trois points droits (pas le caractère U+2026,
+ * banni des textes publiés), comptés dans le budget.
  */
 export function tronqueMots(texte: string, max: number): string {
   const propre = texte.trim();
   if (propre.length <= max) return propre;
-  // `max - 1` : l'ellipse occupe la dernière place.
-  const brut = propre.slice(0, max - 1);
+  // `max - 3` : les trois points occupent les dernières places.
+  const brut = propre.slice(0, max - 3);
   const derniereEspace = brut.lastIndexOf(" ");
   const garde = derniereEspace > 0 ? brut.slice(0, derniereEspace) : brut;
-  return `${garde.replace(/[\s,;:.\-–—'’]+$/u, "")}…`;
+  return `${garde.replace(/[\s,;:.\-–—'’]+$/u, "")}...`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -504,7 +504,7 @@ export function jsonLdCatalogueDonnees(
     {
       "@type": "DataCatalog",
       "@id": idCatalogue,
-      name: `Exports de données — ${NOM_SITE}`,
+      name: `Exports de données · ${NOM_SITE}`,
       description:
         "Instantanés JSON quotidiens des données publiques agrégées par France Transparence : budget de l'État, marchés publics, élus, alertes d'intégrité, catalogue des sources.",
       url: urlAbsolue("/donnees/"),

@@ -71,7 +71,7 @@ export function LineChart({
 }: LineChartProps) {
   if (labels.length === 0 || series.length === 0) return null;
   if (process.env.NODE_ENV !== "production" && series.length > 3) {
-    console.warn(`LineChart : ${series.length} séries reçues — 3 max (DATAVIZ §2), les suivantes sont ignorées.`);
+    console.warn(`LineChart : ${series.length} séries reçues, 3 au plus (DATAVIZ §2). Les suivantes sont ignorées.`);
   }
   const tracees = series.slice(0, 3).map((s, i) => ({
     ...s,

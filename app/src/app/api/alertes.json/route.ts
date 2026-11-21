@@ -22,7 +22,7 @@ export async function GET() {
   const stats = getAlertesStats();
   if (alertes === null || stats === null) {
     throw new Error(
-      "Base absente au build — lancer make ingest (ou poser FRANCE_DB_PATH) avant next build.",
+      "Base absente au build : lancer make ingest (ou poser FRANCE_DB_PATH) avant next build.",
     );
   }
   const sources = getMetaSourcesParIds(SOURCES_ALERTES) ?? [];

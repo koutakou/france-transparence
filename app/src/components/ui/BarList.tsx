@@ -92,7 +92,7 @@ export function BarList({
                   className="underline decoration-dotted underline-offset-2 transition-colors hover:text-accent"
                 >
                   {item.libelle}
-                  <span className="sr-only">{` — ${item.hrefSource ?? "fiche officielle"} (nouvelle fenêtre)`}</span>
+                  <span className="sr-only">{`, ${item.hrefSource ?? "fiche officielle"} (nouvelle fenêtre)`}</span>
                   <span aria-hidden="true"> ↗</span>
                 </a>
               ) : (

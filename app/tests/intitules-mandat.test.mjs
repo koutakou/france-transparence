@@ -43,7 +43,7 @@ test("les codes de mandat HATVP sont lisibles, un code inconnu reste tel quel", 
   assert.equal(libelleMandatHatvp("epci"), "Intercommunalité (EPCI)");
   assert.equal(libelleMandatHatvp("president"), "Présidence de la République");
   assert.equal(libelleMandatHatvp("code_inexistant"), "code_inexistant");
-  assert.equal(libelleMandatHatvp(null), "—");
+  assert.equal(libelleMandatHatvp(null), "n.d.");
 });
 
 test("la fiche d'élu affiche les intitulés accordés et le libellé du code HATVP", () => {

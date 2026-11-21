@@ -4,6 +4,7 @@ import { useState } from "react";
 import { DataTable, type Colonne, type ColonneType } from "@/components/ui/DataTable";
 import { Money } from "@/components/ui/Money";
 import { formatNombre } from "@/lib/format";
+import { Vide } from "@/components/ui/Vide";
 
 /**
  * Tableau volumineux au premier chargement honnête : seules les N premières
@@ -58,7 +59,7 @@ function versColonne(spec: ColonneSpec): Colonne<Record<string, unknown>> {
       rendu: (l) => {
         const v = l[spec.cle];
         if (typeof v !== "number") {
-          return spec.titreSiNull ? <span title={spec.titreSiNull}>—</span> : "—";
+          return spec.titreSiNull ? <span title={spec.titreSiNull}><Vide /></span> : <Vide />;
         }
         return <Money valeur={v} />;
       },

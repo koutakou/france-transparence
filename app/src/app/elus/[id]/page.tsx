@@ -17,7 +17,8 @@ import { DataTable, type Colonne } from "@/components/ui/DataTable";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
 import { LienOfficiel } from "@/components/ui/LienOfficiel";
 import { StatStrip } from "@/components/ui/StatStrip";
-import { formatDateFr, formatNombre, formatPct } from "@/lib/format";
+import { formatDateFr, formatNombre, formatPct, VIDE } from "@/lib/format";
+import { Vide } from "@/components/ui/Vide";
 import {
   METHODE_CENSURE,
   RESERVE_PARTICIPATION_AN,
@@ -101,7 +102,7 @@ export async function generateMetadata({
   // produiraient une civilité fausse sur une personne réelle.
   return metadonneesFicheProfil({
     chemin,
-    titre: `${nomComplet} — Élus`,
+    titre: `${nomComplet} · Élus`,
     description,
     prenom: elu.prenom,
     nom: elu.nom,
@@ -162,7 +163,7 @@ function libelleSource(source: string | undefined): string {
   if (source === "AN-P9") return "AN";
   if (source === "SENAT-P9") return "Sénat";
   if (source === "RNE") return "RNE";
-  return source ?? "—";
+  return source ?? VIDE;
 }
 
 function lieuMandat(m: MandatJson): string | null {
@@ -226,7 +227,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
         </h1>
         <div className="max-w-2xl rounded-xl border border-card-border bg-card p-5 text-sm text-ink-muted">
           <p>
-            La base locale n’est pas encore construite — lancer{" "}
+            La base locale n’est pas encore construite. Lancer{" "}
             <code className="rounded bg-raised px-1.5 py-0.5">make ingest</code> pour ingérer les
             sources.
           </p>
@@ -269,7 +270,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
   let mandatPrincipal: string | null = null;
   if (depute) {
     const morceaux: string[] = [];
-    if (depute.groupe_nom) morceaux.push(`${depute.groupe_nom} (${depute.groupe_sigle ?? "—"})`);
+    if (depute.groupe_nom) morceaux.push(`${depute.groupe_nom} (${depute.groupe_sigle ?? VIDE})`);
     if (depute.departement) {
       morceaux.push(
         depute.num_circo
@@ -278,7 +279,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
       );
     }
     mandatPrincipal = `${elu.sexe === "F" ? "Députée" : elu.sexe === "M" ? "Député" : "Député·e"}${
-      morceaux.length > 0 ? ` — ${morceaux.join(" · ")}` : ""
+      morceaux.length > 0 ? `, ${morceaux.join(" · ")}` : ""
     }`;
   } else if (senateur) {
     const morceaux: string[] = [];
@@ -292,13 +293,13 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
     if (senateur.circonscription) morceaux.push(senateur.circonscription);
     mandatPrincipal = `${
       elu.sexe === "F" ? "Sénatrice" : elu.sexe === "M" ? "Sénateur" : "Sénateur·rice"
-    }${morceaux.length > 0 ? ` — ${morceaux.join(" · ")}` : ""}`;
+    }${morceaux.length > 0 ? `, ${morceaux.join(" · ")}` : ""}`;
   } else {
     const premier = mandats[0];
     if (premier) {
       const titre = intituleMandat(premier.type, premier.fonction, elu.sexe);
       const lieu = lieuMandat(premier);
-      mandatPrincipal = [titre, lieu].filter(Boolean).join(" — ") || null;
+      mandatPrincipal = [titre, lieu].filter(Boolean).join(", ") || null;
     }
   }
 
@@ -339,13 +340,13 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
       // ET le payload RSC (~13 Ko/fiche) — le texte intégral reste dans le
       // nœud texte, seul l'affichage est tronqué (ellipse CSS).
       rendu: (l) =>
-        l.titre ? <span className="block max-w-[34rem] truncate">{l.titre}</span> : "—",
+        l.titre ? <span className="block max-w-[34rem] truncate">{l.titre}</span> : <Vide />,
     },
     {
       cle: "position",
       entete: "Position",
       rendu: (l) => {
-        if (!l.position) return <span className="text-ink-muted">—</span>;
+        if (!l.position) return <span className="text-ink-muted"><Vide /></span>;
         const libelle = POSITIONS[l.position] ?? l.position;
         return (
           <span>
@@ -358,7 +359,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
     {
       cle: "sort",
       entete: "Résultat",
-      rendu: (l) => (l.sort ? l.sort.charAt(0).toUpperCase() + l.sort.slice(1) : "—"),
+      rendu: (l) => (l.sort ? l.sort.charAt(0).toUpperCase() + l.sort.slice(1) : <Vide />),
     },
   ];
 
@@ -367,7 +368,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
       cle: "type_document",
       entete: "Document",
       rendu: (l) => {
-        if (!l.type_document) return "—";
+        if (!l.type_document) return <Vide />;
         const libelle = TYPES_DOCUMENT[l.type_document];
         const texte = libelle ? `${libelle} (${l.type_document})` : l.type_document.toUpperCase();
         if (!l.url_fiche) return texte;
@@ -395,7 +396,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
     const organisation =
       organisme && !organisme.lieu
         ? organisme.nom
-        : [organisme?.nom ?? "Institution publique", lieu].filter(Boolean).join(" — ");
+        : [organisme?.nom ?? "Institution publique", lieu].filter(Boolean).join(", ");
     const roleName = intituleMandat(type, m.fonction, elu.sexe) ?? type;
     // Le même mandat est souvent décrit par DEUX sources (AN/Sénat et RNE) :
     // une seule entrée par (rôle, organisation), la plus ancienne date de
@@ -444,7 +445,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
       (g): g is string => typeof g === "string" && g.length > 0,
     ),
     sameAs: liens.map((l) => l.href),
-    description: [nomComplet, mandatPrincipal].filter(Boolean).join(" — "),
+    description: [nomComplet, mandatPrincipal].filter(Boolean).join(" : "),
   });
 
   return (
@@ -514,11 +515,11 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
           <StatStrip
             stats={[
               {
-                label: "Participation 12 mois — calcul France Transparence",
+                label: "Participation 12 mois (calcul France Transparence)",
                 valeur:
                   depute.taux_participation_12m !== null
                     ? formatPct(depute.taux_participation_12m, 2)
-                    : "—",
+                    : VIDE,
                 perimetre: PERIMETRE_PARTICIPATION_FT,
               },
               {
@@ -526,31 +527,31 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
                 valeur:
                   depute.nb_votes_12m !== null && depute.nb_scrutins_12m !== null
                     ? `${formatNombre(depute.nb_votes_12m)} / ${formatNombre(depute.nb_scrutins_12m)}`
-                    : "—",
+                    : VIDE,
                 perimetre: PERIMETRE_VOTES_12M,
               },
               {
-                label: "Participation (score Datan, 0–1)",
+                label: "Participation (score Datan, 0 à 1)",
                 valeur:
                   depute.datan_score_participation !== null
                     ? formatNombre(depute.datan_score_participation, 2)
-                    : "—",
+                    : VIDE,
                 perimetre: PERIMETRE_SCORE_DATAN,
               },
               {
-                label: "Loyauté au groupe (score Datan, 0–1)",
+                label: "Loyauté au groupe (score Datan, 0 à 1)",
                 valeur:
                   depute.datan_score_loyaute !== null
                     ? formatNombre(depute.datan_score_loyaute, 2)
-                    : "—",
+                    : VIDE,
                 perimetre: PERIMETRE_SCORE_DATAN,
               },
               {
-                label: "Proximité majorité (score Datan, 0–1)",
+                label: "Proximité majorité (score Datan, 0 à 1)",
                 valeur:
                   depute.datan_score_majorite !== null
                     ? formatNombre(depute.datan_score_majorite, 2)
-                    : "—",
+                    : VIDE,
                 perimetre: PERIMETRE_SCORE_DATAN,
               },
             ]}
@@ -563,14 +564,14 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
               <p>
                 Méthode du taux : {depute.participation_source}
                 {depute.participation_maj
-                  ? ` — mis à jour le ${formatDateFr(depute.participation_maj)}.`
+                  ? `, mis à jour le ${formatDateFr(depute.participation_maj)}.`
                   : "."}
               </p>
             )}
             {depute.datan_source && (
               <p>
                 Méthode des scores : {depute.datan_source}
-                {depute.datan_date ? ` — données du ${formatDateFr(depute.datan_date)}.` : "."}
+                {depute.datan_date ? `, données du ${formatDateFr(depute.datan_date)}.` : "."}
               </p>
             )}
           </div>
@@ -602,8 +603,8 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
                 hauteurMax="24rem"
               />
               <p className="mt-2 text-[11px] leading-relaxed text-ink-muted">
-                « — » : aucune position enregistrée au scrutin public (donnée AN telle quelle) ;
-                « non-votant » est un statut officiel distinct (présidence de séance, etc.).
+                « n.d. » : aucune position enregistrée au scrutin public (donnée AN telle quelle).
+                « Non-votant » est un statut officiel distinct (présidence de séance, etc.).
               </p>
             </div>
           )}
@@ -619,22 +620,22 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
             <div>
               <dt className="text-xs text-ink-muted">Groupe</dt>
               <dd className="mt-0.5 text-ink">
-                {senateur.groupe ?? "—"}
+                {senateur.groupe ?? <Vide />}
                 {senateur.groupe_appartenance ? ` (${senateur.groupe_appartenance})` : ""}
               </dd>
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Circonscription</dt>
-              <dd className="mt-0.5 text-ink">{senateur.circonscription ?? "—"}</dd>
+              <dd className="mt-0.5 text-ink">{senateur.circonscription ?? <Vide />}</dd>
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Commission</dt>
-              <dd className="mt-0.5 text-ink">{senateur.commission ?? "—"}</dd>
+              <dd className="mt-0.5 text-ink">{senateur.commission ?? <Vide />}</dd>
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Mandat en cours depuis</dt>
               <dd className="mt-0.5 text-ink">
-                {senateur.date_debut_mandat ? formatDateFr(senateur.date_debut_mandat) : "—"}
+                {senateur.date_debut_mandat ? formatDateFr(senateur.date_debut_mandat) : <Vide />}
               </dd>
             </div>
           </dl>
@@ -644,17 +645,17 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
       {senateur && (
         <Card
           titre="Participation aux scrutins publics du Sénat"
-          sousTitre="Taux calculé ici sur les votes exprimés — ce n’est pas une présence en séance, pas un score Datan."
+          sousTitre="Taux calculé ici sur les votes exprimés. Ce n’est pas une présence en séance, ni un score Datan."
           droite={<Badge source={sources["S6-DOSLEG"]} />}
         >
           <StatStrip
             stats={[
               {
-                label: "Participation 12 mois — calcul France Transparence",
+                label: "Participation 12 mois (calcul France Transparence)",
                 valeur:
                   senateur.taux_participation_12m !== null
                     ? formatPct(senateur.taux_participation_12m, 2)
-                    : "—",
+                    : VIDE,
                 perimetre: PERIMETRE_PARTICIPATION_FT_SENAT,
               },
               {
@@ -662,7 +663,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
                 valeur:
                   senateur.nb_votes_12m !== null && senateur.nb_scrutins_12m !== null
                     ? `${formatNombre(senateur.nb_votes_12m)} / ${formatNombre(senateur.nb_scrutins_12m)}`
-                    : "—",
+                    : VIDE,
                 perimetre: PERIMETRE_VOTES_12M,
               },
             ]}
@@ -675,7 +676,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
               <p>
                 Méthode du taux : {senateur.participation_source}
                 {senateur.participation_maj
-                  ? ` — mis à jour le ${formatDateFr(senateur.participation_maj)}.`
+                  ? `, mis à jour le ${formatDateFr(senateur.participation_maj)}.`
                   : "."}
               </p>
             )}
@@ -709,8 +710,8 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
                 hauteurMax="24rem"
               />
               <p className="mt-2 text-[11px] leading-relaxed text-ink-muted">
-                « — » : aucune position enregistrée au scrutin public (donnée Sénat telle quelle) ;
-                « non-votant » est un statut officiel distinct (présidence de séance, etc.). Une
+                « n.d. » : aucune position enregistrée au scrutin public (donnée Sénat telle quelle).
+                « Non-votant » est un statut officiel distinct (présidence de séance, etc.). Une
                 délégation de vote n’est pas une présence physique.
               </p>
             </div>
@@ -720,7 +721,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
 
       <Card
         titre="Mandats"
-        sousTitre="Tels que publiés par l’AN, le Sénat et le répertoire national des élus — un même mandat peut apparaître dans deux sources."
+        sousTitre="Tels que publiés par l’AN, le Sénat et le répertoire national des élus. Un même mandat peut apparaître dans deux sources."
         droite={<Badge source={sources["S17"]} />}
       >
         {mandats.length === 0 ? (
@@ -751,7 +752,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
                   {(debut || m.date_fin) && (
                     <span className="text-xs text-ink-muted">
                       {debut ? `depuis le ${formatDateFr(debut)}` : ""}
-                      {debut && m.date_fin ? " — " : ""}
+                      {debut && m.date_fin ? ", " : ""}
                       {m.date_fin ? `fin le ${formatDateFr(m.date_fin)}` : ""}
                     </span>
                   )}
@@ -767,7 +768,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
 
       <Card
         titre="Déclarations HATVP"
-        sousTitre={`Déclarations publiées par la HATVP, appariées par URL de fiche nominative — statut affiché tel que publié. ${mentionPatrimoine(Boolean(depute || senateur))}`}
+        sousTitre={`Déclarations publiées par la HATVP, appariées par URL de fiche nominative, statut affiché tel que publié. ${mentionPatrimoine(Boolean(depute || senateur))}`}
         droite={<Badge source={sources["S14"]} />}
       >
         {declarations.length > 0 ? (
@@ -781,7 +782,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
           <p className="text-sm text-ink-muted">
             Aucune déclaration HATVP appariée à cette fiche dans la base.{" "}
             <strong className="text-ink-secondary">Dans ce bloc</strong>, l’appariement se fait
-            uniquement par URL de fiche nominative HATVP, jamais par homonymie ; le bloc
+            uniquement par URL de fiche nominative HATVP, jamais par homonymie. Le bloc
             « Intérêts déclarés » ci-dessous procède autrement, et l’absence d’appariement ici ne
             signifie pas l’absence de déclaration.
           </p>
@@ -802,8 +803,8 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
             <p className="mb-4 text-[11px] leading-relaxed text-ink-muted">
               Ce qui suit est une <strong className="text-ink-secondary">déclaration</strong> :
               son contenu a été renseigné par la personne elle-même et publié tel quel par la
-              HATVP. France Transparence ne l’a pas vérifié et n’en garantit pas l’exactitude ;
-              rien n’y est recalculé, additionné ni classé — les libellés de la source ne sont
+              HATVP. France Transparence ne l’a pas vérifié et n’en garantit pas l’exactitude.
+              Rien n’y est recalculé, additionné ni classé : les libellés de la source ne sont
               pas normalisés et ne le supporteraient pas. Chaque montant est celui d’une année
               précise, tel qu’il a été saisi.
               {urlHatvp ? (
@@ -841,7 +842,7 @@ export default async function PageFicheElu({ params }: { params: Promise<{ id: s
               Cela ne veut pas dire que cette personne n’a rien déclaré.
             </strong>{" "}
             <strong className="text-ink-secondary">Dans ce bloc</strong>, l’appariement se fait sur
-            le nom, le prénom et la date de naissance — pas par URL comme au bloc précédent : une déclaration
+            le nom, le prénom et la date de naissance (pas par URL comme au bloc précédent) : une déclaration
             déposée mais non publiée, une publication faite en préfecture, ou une identité
             orthographiée autrement dans le fichier amont suffisent à l’empêcher. Le
             bloc « Déclarations HATVP » ci-dessus indique, le cas échéant, le statut publié par
