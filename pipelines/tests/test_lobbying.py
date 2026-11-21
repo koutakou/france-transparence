@@ -639,3 +639,14 @@ def test_aucun_controle_c1_reparable_dans_les_colonnes_servies(base):
     # 19 activités) en rend 38 au 30/08/2026 ; le seuil est calé DESSOUS, pour
     # qu'il signale une fixture vidée sans rougir au premier enrichissement.
     assert total >= 30, f"population trop maigre pour conclure : {total}"
+
+
+def test_coupure_objet_sans_signe_typographique():
+    """Un objet d'activité de plus de 500 caractères est coupé à 500, marqué
+    par « [...] » en points ordinaires : le site ne publie aucun « … » qu'il
+    aurait écrit lui-même (règle typographique du 21/11/2026)."""
+    from pathlib import Path
+    source = (Path(__file__).resolve().parents[1] / "ingest_lobbying.py").read_text(encoding="utf-8")
+    assert "'…'" not in source
+    assert "substr(t.objet_activite, 1, 494) || ' [...]'" in source
+    assert 494 + len(" [...]") == 500

@@ -615,7 +615,7 @@ def construire(dossier_csv: Path, aujourdhui: date) -> dict:
                t.date_debut, t.date_fin, t.date_publication_activite,
                t.identifiant_fiche,
                CASE WHEN length(t.objet_activite) > 500
-                    THEN substr(t.objet_activite, 1, 497) || '…'
+                    THEN substr(t.objet_activite, 1, 494) || ' [...]'
                     ELSE t.objet_activite END,
                doms.d, decs.d, insts.i, insts.mn, acts.a
         FROM t_act t
